@@ -389,12 +389,10 @@ function initMap() {
     maxZoom: 19
   });
 
-  // Layer 3 — SHOM isobathes fines côtières (zoom rapproché)
-  S.isoShom = L.tileLayer.wms('https://services.data.shom.fr/INSPIRE/wms/r', {
-    layers: 'ISOBATH_ALL_SCALES_WLD_WM',
-    format: 'image/png', transparent: true,
-    version: '1.3.0',
-    attribution: 'Isobathes © SHOM',
+  // Layer 3 — OpenSeaMap isobathes fines côtières (zoom rapproché)
+  // Source gratuite, données nautiques communautaires, couvre toute la France
+  S.isoShom = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', {
+    attribution: 'Isobathes © OpenSeaMap',
     opacity: 0.95,
     maxZoom: 19
   });
