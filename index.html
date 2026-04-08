@@ -54,68 +54,37 @@
     /* Wind canvas géré par Leaflet directement */
     .leaflet-wind-canvas { pointer-events:none; }
 
-    /* ── TIMELINE BARRE VENT ── */
-    #windBar {
+    /* ── TABLEAU MÉTÉO WINDGURU-STYLE ── */
+    #forecastPanel {
       position:absolute; bottom:0; left:0; right:0; z-index:1000;
-      background:rgba(10,14,26,0.95); border-top:1px solid var(--border);
-      padding:10px 18px 12px;
+      background:rgba(8,12,24,0.97); border-top:1px solid var(--border);
       backdrop-filter:blur(12px);
-      display:none;
-      pointer-events:all;
+      display:none; max-height:220px;
     }
-    .wind-bar-header {
-      display:flex; align-items:center; justify-content:space-between;
-      margin-bottom:8px;
-    }
-    .wind-bar-info {
-      display:flex; align-items:center; gap:16px;
-    }
-    .wind-speed-display {
-      font-family:'Space Mono',monospace; font-size:20px; font-weight:700;
-      color:var(--accent);
-    }
-    .wind-speed-unit { font-size:10px; color:var(--text-muted); }
-    .wind-dir-display {
-      font-family:'Space Mono',monospace; font-size:12px; color:var(--text);
-    }
-    .wind-time-display {
-      font-family:'Space Mono',monospace; font-size:11px; color:var(--text-muted);
-    }
-    .wind-close {
-      background:none; border:none; color:var(--text-muted);
-      cursor:pointer; font-size:16px; padding:0;
-    }
-    .wind-close:hover { color:var(--text); }
-
-    /* Slider timeline */
-    .wind-timeline-wrap { position:relative; }
-    #windSlider {
-      width:100%; height:4px; border-radius:2px;
-      -webkit-appearance:none; appearance:none; outline:none; cursor:pointer;
-      background:var(--border);
-    }
-    #windSlider::-webkit-slider-thumb {
-      -webkit-appearance:none; width:16px; height:16px;
-      border-radius:50%; background:var(--accent);
-      cursor:pointer; box-shadow:0 0 8px rgba(0,212,255,0.5);
-      border:2px solid white;
-    }
-    .wind-ticks {
-      display:flex; justify-content:space-between;
-      margin-top:5px; font-family:'Space Mono',monospace;
-      font-size:8px; color:var(--text-muted);
-    }
-    .wind-tick-now {
-      color:var(--accent); font-weight:700;
-    }
-
-    /* Légende vent */
-    .wind-legend {
+    .forecast-header {
       display:flex; align-items:center; gap:12px;
-      margin-top:6px; font-family:'Space Mono',monospace; font-size:9px; color:var(--text-muted);
+      padding:8px 16px; border-bottom:1px solid var(--border);
     }
-    .wind-legend-item { display:flex; align-items:center; gap:4px; }
-    .wind-legend-arrow { color:white; font-size:12px; }
+    .forecast-location { font-family:'Syne',sans-serif; font-size:13px; font-weight:700; color:var(--text); }
+    .forecast-coords { font-family:'Space Mono',monospace; font-size:9px; color:var(--text-muted); }
+    .forecast-close { margin-left:auto; background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px; }
+    .forecast-close:hover { color:var(--text); }
+    .forecast-scroll { overflow-x:auto; overflow-y:hidden; }
+
+    /* Table */
+    .wg-table { border-collapse:collapse; font-family:'Space Mono',monospace; font-size:10px; white-space:nowrap; }
+    .wg-table td, .wg-table th { padding:3px 7px; border-right:1px solid rgba(255,255,255,0.04); text-align:center; height:24px; }
+    .wg-table .row-label { color:var(--text-muted); font-size:9px; text-align:left; padding-left:10px; min-width:90px; position:sticky; left:0; background:rgba(8,12,24,0.97); z-index:2; border-right:1px solid var(--border); }
+    .wg-table .day-header { background:rgba(255,255,255,0.05); color:var(--text-muted); font-size:8px; border-bottom:1px solid var(--border); }
+    .wg-table .hour-row { color:var(--text-muted); font-size:8px; background:rgba(0,0,0,0.2); }
+    .wg-now { border-left:2px solid var(--accent) !important; }
+    /* Couleurs vent */
+    .wc-0{background:rgba(100,180,255,0.15)} .wc-1{background:rgba(0,230,118,0.25)} .wc-2{background:rgba(0,230,118,0.4)}
+    .wc-3{background:rgba(118,255,3,0.4)} .wc-4{background:rgba(255,214,0,0.4)} .wc-5{background:rgba(255,109,0,0.4)}
+    .wc-6{background:rgba(255,23,68,0.5)} .wc-7{background:rgba(180,0,200,0.5)}
+    /* Couleurs vagues */
+    .ww-0{background:rgba(100,180,255,0.1)} .ww-1{background:rgba(0,230,118,0.2)} .ww-2{background:rgba(255,214,0,0.3)}
+    .ww-3{background:rgba(255,109,0,0.4)} .ww-4{background:rgba(255,23,68,0.5)}
 
     #legend { position:absolute; bottom:22px; left:16px; z-index:900; background:rgba(10,14,26,0.92); border:1px solid var(--border); border-radius:10px; padding:11px 15px; backdrop-filter:blur(10px); min-width:160px; }
     .legend-title { font-family:'Space Mono',monospace; font-size:8px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:7px; }
@@ -204,28 +173,17 @@
 })();
 </script>
 
-<!-- BARRE VENT TIMELINE -->
-<div id="windBar">
-  <div class="wind-bar-header">
-    <div class="wind-bar-info">
-      <div>
-        <span class="wind-speed-display" id="windSpeedVal">—</span>
-        <span class="wind-speed-unit">km/h</span>
-      </div>
-      <div class="wind-dir-display" id="windDirVal">—</div>
-      <div class="wind-time-display" id="windTimeVal">—</div>
+<!-- TABLEAU MÉTÉO WINDGURU-STYLE -->
+<div id="forecastPanel">
+  <div class="forecast-header">
+    <div class="forecast-location" id="forecastLocation">— Cliquer sur la carte —</div>
+    <div class="forecast-coords" id="forecastCoords"></div>
+    <button class="forecast-close" onclick="closeForecast()">✕</button>
+  </div>
+  <div id="forecastTable" class="forecast-scroll">
+    <div style="padding:20px;text-align:center;color:var(--text-muted);font-family:'Space Mono',monospace;font-size:11px;">
+      Cliquer sur la carte pour afficher les prévisions AROME
     </div>
-    <button class="wind-close" onclick="toggleWind()">✕</button>
-  </div>
-  <div class="wind-timeline-wrap">
-    <input type="range" id="windSlider" min="0" max="95" value="24" oninput="onWindSlider(this.value)">
-    <div class="wind-ticks" id="windTicks"></div>
-  </div>
-  <div class="wind-legend">
-    <div class="wind-legend-item"><span class="wind-legend-arrow">→</span><span>5 km/h</span></div>
-    <div class="wind-legend-item"><span class="wind-legend-arrow" style="font-size:16px">→</span><span>15 km/h</span></div>
-    <div class="wind-legend-item"><span class="wind-legend-arrow" style="font-size:20px">→</span><span>30+ km/h</span></div>
-    <div style="margin-left:auto;color:var(--text-muted);font-size:8px;">Source : AROME / Open-Meteo</div>
   </div>
 </div>
 
@@ -246,7 +204,7 @@
     <button class="ctrl-btn active" id="btnHeatmap" onclick="toggleLayer('heatmap')"><span class="ctrl-dot"></span>Heatmap</button>
     <button class="ctrl-btn active" id="btnIso" onclick="toggleLayer('iso')"><span class="ctrl-dot"></span>Isobathes</button>
     <button class="ctrl-btn" id="btnSed" onclick="toggleLayer('sed')"><span class="ctrl-dot"></span>Sédiments</button>
-    <button class="ctrl-btn" id="btnWind" onclick="toggleWind()"><span class="ctrl-dot"></span>Vent</button>
+    <button class="ctrl-btn" id="btnWind" onclick="toggleForecastPanel()"><span class="ctrl-dot"></span>Météo spot</button>
   </div>
 </div>
 
@@ -598,18 +556,18 @@ function initMap() {
       L.DomEvent.stopPropagation(e);
       openPopup(L.latLng(spot.lat, spot.lon), spot.name);
       showTides(spot);
+      if (S_forecastOpen) loadForecast(spot.lat, spot.lon, spot.name);
     });
     S.spotMarkers[spot.id] = m;
   });
 
-  S.map.on('click', e => { openPopup(e.latlng); hideTides(); });
+  S.map.on('click', e => {
+    openPopup(e.latlng);
+    hideTides();
+    if (S_forecastOpen) loadForecast(e.latlng.lat, e.latlng.lng);
+  });
   S.map.on('moveend zoomend', () => {
     drawHeatmap();
-    if (S.showWind) {
-      S.windData = null;
-      clearWindMarkers();
-      loadWindData().then(() => drawWindMarkers());
-    }
   });
 }
 
@@ -941,220 +899,192 @@ function updateMarkerColors() {
 }
 
 // ============================================================
-// VENT — AROME via Open-Meteo (SVG markers géoréférencés)
+// MÉTÉO SPOT — Tableau Windguru-style (AROME / Open-Meteo)
 // ============================================================
-let windMarkerLayer = null;
 
-async function toggleWind() {
-  S.showWind = !S.showWind;
-  document.getElementById('btnWind').classList.toggle('active', S.showWind);
-  const bar = document.getElementById('windBar');
-  if (S.showWind) {
-    bar.style.display = 'block';
-    if (!S.windData) await loadWindData();
-    buildWindTicks();
-    onWindSlider(S.windHourIdx);
-    drawWindMarkers();
+let S_forecastOpen = false;
+let S_forecastLat = null, S_forecastLon = null;
+
+function toggleForecastPanel() {
+  S_forecastOpen = !S_forecastOpen;
+  document.getElementById('btnWind').classList.toggle('active', S_forecastOpen);
+  const panel = document.getElementById('forecastPanel');
+  if (S_forecastOpen) {
+    panel.style.display = 'block';
   } else {
-    bar.style.display = 'none';
-    clearWindMarkers();
-  }
-  S.map.invalidateSize();
-}
-
-function drawWindMarkers() {
-  clearWindMarkers();
-  if (!S.windData || !S.showWind) return;
-  windMarkerLayer = L.layerGroup().addTo(S.map);
-  const idx   = S.windHourIdx;
-  const speed = S.windData.speed[idx] || 0;
-  const dir   = S.windData.direction[idx] || 0;
-  const color = windSpeedColor(speed);
-  const zoom  = S.map.getZoom();
-  const bounds = S.map.getBounds();
-  const step = zoom >= 13 ? 0.025 : zoom >= 11 ? 0.06 : zoom >= 9 ? 0.14 : 0.32;
-  const size = Math.max(18, Math.min(12 + speed * 0.6, 34));
-  for (let lat = bounds.getSouth()+step/2; lat < bounds.getNorth(); lat += step) {
-    for (let lon = bounds.getWest()+step/2; lon < bounds.getEast(); lon += step) {
-      const icon = L.divIcon({
-        className:'',
-        html: makeWindArrowSVG(dir, speed, color, size),
-        iconSize:[size,size], iconAnchor:[size/2,size/2]
-      });
-      L.marker([lat,lon], {icon, interactive:false}).addTo(windMarkerLayer);
-    }
+    panel.style.display = 'none';
   }
 }
 
-function makeWindArrowSVG(dir, speed, color, size) {
-  const angle = (dir + 180) % 360;
-  const alpha = Math.min(0.45 + speed/55, 0.92);
-  const sw = speed > 25 ? 2.5 : 1.8;
-  return `<svg width="${size}" height="${size}" viewBox="-10 -10 20 20" xmlns="http://www.w3.org/2000/svg" style="transform:rotate(${angle}deg);opacity:${alpha}"><line x1="0" y1="7" x2="0" y2="-6" stroke="${color}" stroke-width="${sw}" stroke-linecap="round"/><polygon points="0,-10 -4,-3 4,-3" fill="${color}"/></svg>`;
+function closeForecast() {
+  S_forecastOpen = false;
+  document.getElementById('btnWind').classList.remove('active');
+  document.getElementById('forecastPanel').style.display = 'none';
 }
 
-function clearWindMarkers() {
-  if (windMarkerLayer) { S.map.removeLayer(windMarkerLayer); windMarkerLayer = null; }
-}
+async function loadForecast(lat, lon, locationName) {
+  S_forecastLat = lat; S_forecastLon = lon;
 
-// Cache du champ de vent : { gridKey → {times, points:[{lat,lon,speed,direction}]} }
-const windFieldCache = {};
+  // Ouvrir le panel si pas déjà ouvert
+  S_forecastOpen = true;
+  document.getElementById('btnWind').classList.add('active');
+  const panel = document.getElementById('forecastPanel');
+  panel.style.display = 'block';
 
-async function loadWindData() {
-  const bounds = S.map.getBounds();
-  const zoom = S.map.getZoom();
+  document.getElementById('forecastLocation').textContent = locationName || `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+  document.getElementById('forecastCoords').textContent = `${lat.toFixed(4)}°N ${lon.toFixed(4)}°E · AROME`;
+  document.getElementById('forecastTable').innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-muted);font-family:Space Mono,monospace;font-size:10px;">Chargement AROME...</div>';
+
   const now = new Date();
-  const s = new Date(now); s.setDate(s.getDate()-1);
-  const e = new Date(now); e.setDate(e.getDate()+3);
+  const start = new Date(now); start.setHours(0,0,0,0);
+  const end = new Date(now); end.setDate(end.getDate()+4); end.setHours(23,0,0,0);
   const fmt = d => d.toISOString().split('T')[0];
 
-  // Grille 5x5 sur la zone visible
-  const nPts = zoom >= 10 ? 5 : 4;
-  const latStep = (bounds.getNorth() - bounds.getSouth()) / nPts;
-  const lonStep = (bounds.getEast()  - bounds.getWest())  / nPts;
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+    `&hourly=windspeed_10m,winddirection_10m,windgusts_10m,wave_height,wave_period,wave_direction,temperature_2m,precipitation` +
+    `&wind_speed_unit=kmh&timezone=Europe/Paris` +
+    `&start_date=${fmt(start)}&end_date=${fmt(end)}` +
+    `&models=best_match`;
 
-  const gridPoints = [];
-  for (let i = 0; i < nPts; i++) {
-    for (let j = 0; j < nPts; j++) {
-      gridPoints.push({
-        lat: Math.round((bounds.getSouth() + (i+0.5)*latStep)*1000)/1000,
-        lon: Math.round((bounds.getWest()  + (j+0.5)*lonStep)*1000)/1000
-      });
-    }
-  }
-
-  // best_match = AROME sur France, GFS ailleurs — automatique
-  const fetchPoint = async (pt) => {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${pt.lat}&longitude=${pt.lon}` +
-      `&hourly=windspeed_10m,winddirection_10m&wind_speed_unit=kmh&timezone=UTC` +
-      `&start_date=${fmt(s)}&end_date=${fmt(e)}`;
-    try {
-      const r = await fetch(url);
-      const d = await r.json();
-      if (!d.hourly) return null;
-      return { lat:pt.lat, lon:pt.lon, speed:d.hourly.windspeed_10m, direction:d.hourly.winddirection_10m, times:d.hourly.time };
-    } catch { return null; }
-  };
-
-  // Fetch en parallèle
-  const results = await Promise.all(gridPoints.map(fetchPoint));
-  const valid = results.filter(r => r !== null);
-  if (valid.length === 0) return;
-
-  S.windData = { times: valid[0].times, field: valid };
-  const ni = valid[0].times.findIndex(t => t.startsWith(now.toISOString().slice(0,13).replace('T','T')));
-  S.windHourIdx = ni >= 0 ? ni : 24;
-  document.getElementById('windSlider').max = valid[0].times.length - 1;
-  document.getElementById('windSlider').value = S.windHourIdx;
-}
-
-// Interpolation bilinéaire du vent à une position donnée
-function interpolateWind(lat, lon, field, idx) {
-  if (!field || field.length === 0) return {speed:0, dir:0};
-  if (field.length === 1) return {speed: field[0].speed[idx]||0, dir: field[0].direction[idx]||0};
-
-  // Trouver les 4 points les plus proches
-  const sorted = field.map(p => ({
-    ...p,
-    dist: Math.sqrt(Math.pow(p.lat-lat,2) + Math.pow(p.lon-lon,2))
-  })).sort((a,b) => a.dist-b.dist);
-
-  const nearest = sorted.slice(0, Math.min(4, sorted.length));
-
-  // Interpolation pondérée par distance inverse
-  let wSum = 0, speedSum = 0, dirXSum = 0, dirYSum = 0;
-  for (const p of nearest) {
-    const w = p.dist < 0.001 ? 1000 : 1/p.dist;
-    const speed = p.speed[idx]||0;
-    const dirRad = ((p.direction[idx]||0)*Math.PI/180);
-    wSum += w;
-    speedSum += w * speed;
-    dirXSum += w * Math.cos(dirRad);
-    dirYSum += w * Math.sin(dirRad);
-  }
-
-  return {
-    speed: speedSum/wSum,
-    dir: (Math.atan2(dirYSum/wSum, dirXSum/wSum)*180/Math.PI + 360) % 360
-  };
-}
-
-async function drawWindMarkers() {
-  clearWindMarkers();
-  if (!S.windData || !S.showWind) return;
-
-  windMarkerLayer = L.layerGroup().addTo(S.map);
-
-  const idx   = S.windHourIdx;
-  const zoom  = S.map.getZoom();
-  const bounds = S.map.getBounds();
-
-  // Espacement des marqueurs selon zoom
-  const step = zoom >= 13 ? 0.025 : zoom >= 11 ? 0.06 : zoom >= 9 ? 0.14 : 0.32;
-  const size = 22;
-
-  for (let lat = bounds.getSouth()+step/2; lat < bounds.getNorth(); lat += step) {
-    for (let lon = bounds.getWest()+step/2; lon < bounds.getEast(); lon += step) {
-      // Interpoler le vent à cette position exacte
-      const {speed, dir} = interpolateWind(lat, lon, S.windData.field, idx);
-      const color = windSpeedColor(speed);
-
-      const icon = L.divIcon({
-        className:'',
-        html: makeWindArrowSVG(dir, speed, color, size),
-        iconSize:[size,size], iconAnchor:[size/2,size/2]
-      });
-      L.marker([lat,lon], {icon, interactive:false}).addTo(windMarkerLayer);
-    }
+  try {
+    const r = await fetch(url);
+    const d = await r.json();
+    if (!d.hourly) throw new Error('Pas de données');
+    renderForecastTable(d.hourly, now);
+  } catch(e) {
+    document.getElementById('forecastTable').innerHTML = `<div style="padding:16px;color:#ff1744;font-family:Space Mono,monospace;font-size:10px;">Erreur : ${e.message}</div>`;
   }
 }
 
-function buildWindTicks() {
-  if (!S.windData) return;
-  const ticks = document.getElementById('windTicks');
-  ticks.innerHTML = '';
-  ticks.style.cssText = 'position:relative;height:16px;';
-  S.windData.times.forEach((t,i) => {
-    if (!t.includes('T00:00') && !t.includes('T12:00')) return;
-    const pct = (i/(S.windData.times.length-1))*100;
-    const date = new Date(t);
-    const label = t.includes('T00:00')
-      ? date.toLocaleDateString('fr',{weekday:'short',day:'numeric'})
-      : date.toLocaleTimeString('fr',{hour:'2-digit',minute:'2-digit'});
-    const span = document.createElement('span');
-    span.style.cssText = `position:absolute;left:${pct}%;transform:translateX(-50%);white-space:nowrap;`;
-    span.textContent = label;
-    if (i===S.windHourIdx) span.style.color='var(--accent)';
-    ticks.appendChild(span);
+function renderForecastTable(h, now) {
+  const times = h.time;
+  const nowHour = now.toISOString().slice(0,13);
+
+  // Filtrer : seulement les heures 03, 06, 09, 12, 15, 18, 21 (toutes les 3h)
+  const cols = [];
+  times.forEach((t, i) => {
+    const hour = parseInt(t.slice(11,13));
+    if (hour % 3 === 0) cols.push({i, t, isNow: t.slice(0,13) === nowHour});
   });
+
+  // Grouper par jour
+  const days = {};
+  cols.forEach(c => {
+    const day = c.t.slice(0,10);
+    if (!days[day]) days[day] = [];
+    days[day].push(c);
+  });
+
+  const windColor = (v) => {
+    if(!v) return 'wc-0';
+    if(v<5) return 'wc-0'; if(v<10) return 'wc-1'; if(v<15) return 'wc-2';
+    if(v<20) return 'wc-3'; if(v<30) return 'wc-4'; if(v<40) return 'wc-5';
+    if(v<50) return 'wc-6'; return 'wc-7';
+  };
+  const waveColor = (v) => {
+    if(!v) return 'ww-0';
+    if(v<0.5) return 'ww-0'; if(v<1) return 'ww-1'; if(v<2) return 'ww-2';
+    if(v<3) return 'ww-3'; return 'ww-4';
+  };
+  const dirArrow = (deg) => {
+    if(deg===null||deg===undefined) return '—';
+    const arrows = ['↓','↙','←','↖','↑','↗','→','↘'];
+    return arrows[Math.round(((deg+180)%360)/45)%8];
+  };
+
+  let html = '<table class="wg-table"><thead>';
+
+  // Ligne jours
+  html += '<tr><td class="row-label day-header"></td>';
+  Object.entries(days).forEach(([day, dcols]) => {
+    const date = new Date(day);
+    const label = date.toLocaleDateString('fr',{weekday:'short',day:'numeric',month:'short'});
+    html += `<td colspan="${dcols.length}" class="day-header" style="border-left:1px solid rgba(255,255,255,0.1)">${label}</td>`;
+  });
+  html += '</tr>';
+
+  // Ligne heures
+  html += '<tr><td class="row-label hour-row">Heure</td>';
+  cols.forEach(c => {
+    const h2 = c.t.slice(11,16);
+    html += `<td class="hour-row${c.isNow?' wg-now':''}">${h2}</td>`;
+  });
+  html += '</tr></thead><tbody>';
+
+  // Vent
+  html += '<tr><td class="row-label">Vent (km/h)</td>';
+  cols.forEach(c => {
+    const v = Math.round(h.windspeed_10m[c.i]||0);
+    html += `<td class="${windColor(v)}${c.isNow?' wg-now':''}" style="font-weight:700">${v}</td>`;
+  });
+  html += '</tr>';
+
+  // Rafales
+  html += '<tr><td class="row-label">Rafales (km/h)</td>';
+  cols.forEach(c => {
+    const v = Math.round(h.windgusts_10m[c.i]||0);
+    html += `<td class="${windColor(v)}${c.isNow?' wg-now':''}">${v}</td>`;
+  });
+  html += '</tr>';
+
+  // Direction vent
+  html += '<tr><td class="row-label">Direction (→)</td>';
+  cols.forEach(c => {
+    const v = h.winddirection_10m[c.i];
+    html += `<td class="${c.isNow?'wg-now':''}" style="font-size:14px">${dirArrow(v)}</td>`;
+  });
+  html += '</tr>';
+
+  // Vagues (si disponibles)
+  const hasWaves = h.wave_height && h.wave_height.some(v => v > 0);
+  if (hasWaves) {
+    html += '<tr><td class="row-label">Vagues (m)</td>';
+    cols.forEach(c => {
+      const v = h.wave_height[c.i];
+      const vr = v ? v.toFixed(1) : '—';
+      html += `<td class="${waveColor(v)}${c.isNow?' wg-now':''}">${vr}</td>`;
+    });
+    html += '</tr>';
+
+    html += '<tr><td class="row-label">Vagues dir. (→)</td>';
+    cols.forEach(c => {
+      const v = h.wave_direction[c.i];
+      html += `<td class="${c.isNow?'wg-now':''}" style="font-size:14px">${dirArrow(v)}</td>`;
+    });
+    html += '</tr>';
+  }
+
+  // Température
+  html += '<tr><td class="row-label">Temp. (°C)</td>';
+  cols.forEach(c => {
+    const v = Math.round(h.temperature_2m[c.i]||0);
+    html += `<td class="${c.isNow?'wg-now':''}">${v}</td>`;
+  });
+  html += '</tr>';
+
+  // Précipitations
+  html += '<tr><td class="row-label">Pluie (mm/h)</td>';
+  cols.forEach(c => {
+    const v = h.precipitation[c.i];
+    const vr = v && v > 0 ? v.toFixed(1) : '';
+    const bg = v > 2 ? 'background:rgba(0,100,255,0.4)' : v > 0.5 ? 'background:rgba(0,100,255,0.2)' : '';
+    html += `<td class="${c.isNow?'wg-now':''}" style="${bg}">${vr}</td>`;
+  });
+  html += '</tr>';
+
+  html += '</tbody></table>';
+  html += '<div style="padding:4px 10px;font-family:Space Mono,monospace;font-size:8px;color:var(--text-muted)">Source : Open-Meteo · best_match (AROME sur France) · ▏ = heure actuelle</div>';
+
+  document.getElementById('forecastTable').innerHTML = html;
+
+  // Scroller vers l'heure actuelle
+  setTimeout(() => {
+    const nowCell = document.querySelector('.wg-now');
+    if (nowCell) nowCell.scrollIntoView({inline:'center', block:'nearest'});
+  }, 100);
 }
 
-function onWindSlider(val) {
-  S.windHourIdx = parseInt(val);
-  if (!S.windData) return;
-  const idx = S.windHourIdx;
-  const speed = S.windData.speed[idx]||0, dir = S.windData.direction[idx]||0;
-  document.getElementById('windSpeedVal').textContent = Math.round(speed);
-  document.getElementById('windDirVal').textContent = dirToCardinal(dir)+' '+Math.round(dir)+'°';
-  document.getElementById('windTimeVal').textContent = new Date(S.windData.times[idx]).toLocaleString('fr',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
-  document.getElementById('windSpeedVal').style.color = windSpeedColor(speed);
-  if (S.showWind) drawWindMarkers();
-}(s) {
-  if(!s)return'#ffffff'; if(s<10)return'#00e676'; if(s<20)return'#76ff03';
-  if(s<30)return'#ffd600'; if(s<45)return'#ff6d00'; return'#ff1744';
-}
 
-function dirToCardinal(deg) {
-  if(!deg&&deg!==0)return'—';
-  return['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'][Math.round(deg/22.5)%16];
-}
-
-function windSpeedColor(s) {
-  if(!s)return'#ffffff'; if(s<10)return'#00e676'; if(s<20)return'#76ff03';
-  if(s<30)return'#ffd600'; if(s<45)return'#ff6d00'; return'#ff1744';
-}
-
-// ============================================================
 function updateVis(idx) {
   idx=parseInt(idx); S.form.visIdx=idx;
   const v=VIS[idx];
