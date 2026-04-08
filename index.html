@@ -603,13 +603,12 @@ function initMap() {
   });
 
   S.map.on('click', e => { openPopup(e.latlng); hideTides(); });
-  S.map.on('moveend zoomend', async () => {
+  S.map.on('moveend zoomend', () => {
     drawHeatmap();
     if (S.showWind) {
-      S.windData = null; // forcer le rechargement
+      S.windData = null;
       clearWindMarkers();
-      await loadWindData();
-      drawWindMarkers();
+      loadWindData().then(() => drawWindMarkers());
     }
   });
 }
