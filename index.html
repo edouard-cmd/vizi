@@ -51,8 +51,6 @@
     .leaflet-control-attribution a { color:var(--text-muted) !important; }
 
     #heatmapCanvas { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:400; }
-    /* Wind canvas géré par Leaflet directement */
-    .leaflet-wind-canvas { pointer-events:none; }
 
     /* ── TABLEAU MÉTÉO WINDGURU-STYLE ── */
     #forecastPanel {
@@ -71,18 +69,15 @@
     .forecast-close:hover { color:var(--text); }
     .forecast-scroll { overflow-x:auto; overflow-y:hidden; }
 
-    /* Table */
     .wg-table { border-collapse:collapse; font-family:'Space Mono',monospace; font-size:10px; white-space:nowrap; }
     .wg-table td, .wg-table th { padding:3px 7px; border-right:1px solid rgba(255,255,255,0.04); text-align:center; height:24px; }
     .wg-table .row-label { color:var(--text-muted); font-size:9px; text-align:left; padding-left:10px; min-width:90px; position:sticky; left:0; background:rgba(8,12,24,0.97); z-index:2; border-right:1px solid var(--border); }
     .wg-table .day-header { background:rgba(255,255,255,0.05); color:var(--text-muted); font-size:8px; border-bottom:1px solid var(--border); }
     .wg-table .hour-row { color:var(--text-muted); font-size:8px; background:rgba(0,0,0,0.2); }
     .wg-now { border-left:2px solid var(--accent) !important; }
-    /* Couleurs vent */
     .wc-0{background:rgba(100,180,255,0.15)} .wc-1{background:rgba(0,230,118,0.25)} .wc-2{background:rgba(0,230,118,0.4)}
     .wc-3{background:rgba(118,255,3,0.4)} .wc-4{background:rgba(255,214,0,0.4)} .wc-5{background:rgba(255,109,0,0.4)}
     .wc-6{background:rgba(255,23,68,0.5)} .wc-7{background:rgba(180,0,200,0.5)}
-    /* Couleurs vagues */
     .ww-0{background:rgba(100,180,255,0.1)} .ww-1{background:rgba(0,230,118,0.2)} .ww-2{background:rgba(255,214,0,0.3)}
     .ww-3{background:rgba(255,109,0,0.4)} .ww-4{background:rgba(255,23,68,0.5)}
 
@@ -158,20 +153,6 @@
 
 <div id="map"></div>
 <canvas id="heatmapCanvas"></canvas>
-<script>
-// Force resize immédiat avant tout le reste
-(function() {
-  function fixCanvas() {
-    var hc = document.getElementById('heatmapCanvas');
-    if (hc) { hc.width = window.innerWidth; hc.height = window.innerHeight; }
-  }
-  fixCanvas();
-  window.addEventListener('resize', fixCanvas);
-  window.addEventListener('load', fixCanvas);
-  setTimeout(fixCanvas, 500);
-  window._fixCanvas = fixCanvas;
-})();
-</script>
 
 <!-- TABLEAU MÉTÉO WINDGURU-STYLE -->
 <div id="forecastPanel">
@@ -212,17 +193,16 @@
   <div class="legend-title">Turbidité estimée</div>
   <div class="legend-bar"></div>
   <div class="legend-labels"><span>Clair</span><span>Turbide</span></div>
-  <div class="legend-sep">
-    <div class="legend-title" style="margin-top:8px;">Ports · cliquer pour marées</div>
-    <div class="legend-iso-row"><div style="width:8px;height:8px;border-radius:50%;background:#00d4ff;margin-right:2px"></div><span>Manche</span></div>
-    <div class="legend-iso-row"><div style="width:8px;height:8px;border-radius:50%;background:#00e676;margin-right:2px"></div><span>Bretagne</span></div>
-    <div class="legend-iso-row"><div style="width:8px;height:8px;border-radius:50%;background:#ffd600;margin-right:2px"></div><span>Atlantique</span></div>
-    <div class="legend-iso-row"><div style="width:8px;height:8px;border-radius:50%;background:#ff6d00;margin-right:2px"></div><span>Méditerranée</span></div>
-  </div>
-    <div class="legend-title" style="margin-top:8px;" id="isoLegend">Isobathes adaptatives</div>
-    <div class="legend-iso-row"><div class="legend-iso-line" style="background:#4fc3f7"></div><span>Fines SHOM (zoom ≥12)</span></div>
-    <div class="legend-iso-row"><div class="legend-iso-line" style="background:#0277bd"></div><span>Larges EMODnet</span></div>
-  </div>
+  <div class="legend-sep"></div>
+  <div class="legend-title">Ports · cliquer pour marées</div>
+  <div class="legend-iso-row"><div style="width:8px;height:8px;border-radius:50%;background:#00d4ff;margin-right:2px"></div><span>Manche</span></div>
+  <div class="legend-iso-row"><div style="width:8px;height:8px;border-radius:50%;background:#00e676;margin-right:2px"></div><span>Bretagne</span></div>
+  <div class="legend-iso-row"><div style="width:8px;height:8px;border-radius:50%;background:#ffd600;margin-right:2px"></div><span>Atlantique</span></div>
+  <div class="legend-iso-row"><div style="width:8px;height:8px;border-radius:50%;background:#ff6d00;margin-right:2px"></div><span>Méditerranée</span></div>
+  <div class="legend-sep"></div>
+  <div class="legend-title" id="isoLegend">Isobathes adaptatives</div>
+  <div class="legend-iso-row"><div class="legend-iso-line" style="background:#4fc3f7"></div><span>OpenSeaMap (zoom ≥10)</span></div>
+  <div class="legend-iso-row"><div class="legend-iso-line" style="background:#0277bd"></div><span>EMODnet contours</span></div>
 </div>
 
 <div id="tideWidget">
@@ -285,10 +265,7 @@
 // ============================================================
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbxyjkavoaEJ6AdhK1MKzph68IH3ZKL8QadDGuU_GyzruxqUsXRv6nP9dJqenTCf6u7Z/exec';
 
-// Ports à marée France métropolitaine (source : SHOM RAM)
-// Affichés sur la carte — WorldTides appelé au clic uniquement
 const SPOTS = [
-  // Manche Est
   { id:'dunkerque',      name:'Dunkerque',           lat:51.0500, lon:2.3667,  region:'Manche' },
   { id:'calais',         name:'Calais',              lat:50.9667, lon:1.8500,  region:'Manche' },
   { id:'boulogne',       name:'Boulogne-sur-Mer',    lat:50.7333, lon:1.6000,  region:'Manche' },
@@ -304,13 +281,11 @@ const SPOTS = [
   { id:'granville',      name:'Granville',           lat:48.8333, lon:-1.5833, region:'Manche' },
   { id:'saint_malo',     name:'Saint-Malo',          lat:48.6500, lon:-2.0167, region:'Manche' },
   { id:'cancale',        name:'Cancale',             lat:48.6750, lon:-1.8533, region:'Manche' },
-  // Bretagne Nord
   { id:'saint_brieuc',   name:'Saint-Brieuc',        lat:48.5500, lon:-2.7333, region:'Bretagne' },
   { id:'paimpol',        name:'Paimpol',             lat:48.7833, lon:-3.0500, region:'Bretagne' },
   { id:'morlaix',        name:'Morlaix',             lat:48.5833, lon:-3.8333, region:'Bretagne' },
   { id:'brest',          name:'Brest',               lat:48.3833, lon:-4.4833, region:'Bretagne' },
   { id:'camaret',        name:'Camaret-sur-Mer',     lat:48.2833, lon:-4.5833, region:'Bretagne' },
-  // Bretagne Sud
   { id:'douarnenez',     name:'Douarnenez',          lat:48.0833, lon:-4.3333, region:'Bretagne' },
   { id:'audierne',       name:'Audierne',            lat:48.0167, lon:-4.5333, region:'Bretagne' },
   { id:'concarneau',     name:'Concarneau',          lat:47.8667, lon:-3.9167, region:'Bretagne' },
@@ -318,7 +293,6 @@ const SPOTS = [
   { id:'belle_ile',      name:'Belle-Île-en-Mer',    lat:47.3167, lon:-3.1667, region:'Bretagne' },
   { id:'vannes',         name:'Vannes',              lat:47.6667, lon:-2.7500, region:'Bretagne' },
   { id:'saint_nazaire',  name:'Saint-Nazaire',       lat:47.2667, lon:-2.2000, region:'Atlantique' },
-  // Atlantique
   { id:'noirmoutier',    name:'Noirmoutier',         lat:47.0000, lon:-2.2500, region:'Atlantique' },
   { id:'les_sables',     name:"Les Sables-d'Olonne", lat:46.4833, lon:-1.7833, region:'Atlantique' },
   { id:'la_rochelle',    name:'La Rochelle',         lat:46.1500, lon:-1.1500, region:'Atlantique' },
@@ -328,7 +302,6 @@ const SPOTS = [
   { id:'arcachon',       name:'Arcachon',            lat:44.6500, lon:-1.1667, region:'Atlantique' },
   { id:'capbreton',      name:'Capbreton',           lat:43.6500, lon:-1.4333, region:'Atlantique' },
   { id:'bayonne',        name:'Bayonne',             lat:43.4833, lon:-1.4667, region:'Atlantique' },
-  // Méditerranée
   { id:'port_vendres',   name:'Port-Vendres',        lat:42.5167, lon:3.1000,  region:'Méditerranée' },
   { id:'sete',           name:'Sète',                lat:43.4000, lon:3.6833,  region:'Méditerranée' },
   { id:'marseille',      name:'Marseille',           lat:43.2967, lon:5.3811,  region:'Méditerranée' },
@@ -338,7 +311,6 @@ const SPOTS = [
   { id:'bastia',         name:'Bastia',              lat:42.7000, lon:9.4500,  region:'Méditerranée' },
 ];
 
-// Cache local des marées (évite les appels répétés)
 let tidesCache = { data: null, loadedAt: null };
 
 const VIS = [
@@ -353,69 +325,71 @@ const VIS = [
   {v:10,  l:'+10m', c:'#00b0ff'}
 ];
 
-const SED_AMP = {
-  'mud':5.0,'sandy mud':4.5,'muddy sand':3.5,'fine sand':3.0,
-  'sand':2.5,'coarse sand':2.0,'gravel':1.3,'rock':1.0,'default':2.0
-};
-
+// ============================================================
+// STATE
+// ============================================================
 let S = {
   map:null, day:0,
   heatmap:[], opacity:0.55,
   showHeatmap:true, showIso:true, showSed:false,
-  isoLayer:null, sedLayer:null,
+  isoDeep:null, isoShom:null, sedLayer:null,
   spotMarkers:{}, clickMarker:null, clickLatLng:null,
   form:{ bottom:true, current:false, visIdx:8 },
   canvas:null, ctx:null,
-  windCanvas:null, windCtx:null,
   predictions:{}, submitting:false,
   clickDepth:null, clickSediment:null,
-  // Vent
-  showWind:false,
-  windData:null,      // { times:[], u:[], v:[], lat, lon }
-  windHourIdx:24,     // index heure courante (0=J-1, 24=maintenant, 95=J+3)
-  windAnimFrame:null
 };
 
+let S_forecastOpen = false;
+
 // ============================================================
-// API — fetch vers GAS (remplace google.script.run)
+// API
 // ============================================================
-async function gasGet(action, params={}) {
+function gasGet(action, params) {
+  params = params || {};
   const url = new URL(GAS_URL);
   url.searchParams.set('action', action);
-  Object.entries(params).forEach(([k,v]) => url.searchParams.set(k,v));
-  try {
-    const r = await fetch(url.toString());
-    return await r.json();
-  } catch(e) {
-    console.warn('GAS GET error:', e);
-    return null;
-  }
+  Object.keys(params).forEach(function(k){ url.searchParams.set(k, params[k]); });
+  return fetch(url.toString())
+    .then(function(r){ return r.json(); })
+    .catch(function(e){ console.warn('GAS GET error:', e); return null; });
 }
 
-async function gasPost(action, data) {
-  try {
-    const r = await fetch(GAS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action, data })
-    });
-    return await r.json();
-  } catch(e) {
-    console.warn('GAS POST error:', e);
-    return null;
-  }
+function gasPost(action, data) {
+  return fetch(GAS_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: action, data: data })
+  })
+  .then(function(r){ return r.json(); })
+  .catch(function(e){ console.warn('GAS POST error:', e); return null; });
 }
 
 // ============================================================
 // INIT
 // ============================================================
-document.addEventListener('DOMContentLoaded', () => {
-  initMap();
+document.addEventListener('DOMContentLoaded', function() {
   initCanvas();
+  initMap();
   renderDateNav();
   loadPredictions();
   loadHeatmap(0);
 });
+
+// ============================================================
+// CANVAS
+// ============================================================
+function initCanvas() {
+  S.canvas = document.getElementById('heatmapCanvas');
+  S.ctx = S.canvas.getContext('2d');
+  resizeCanvas();
+  window.addEventListener('resize', function(){ resizeCanvas(); drawHeatmap(); });
+}
+
+function resizeCanvas() {
+  S.canvas.width = window.innerWidth;
+  S.canvas.height = window.innerHeight;
+}
 
 // ============================================================
 // MAP
@@ -433,22 +407,7 @@ function initMap() {
     attribution:'', maxZoom:19, opacity:0.45
   }).addTo(S.map);
 
-  // ── Bathymétrie adaptive au zoom (style Time Zero) ──
-  // Zoom 5-8 : EMODnet grandes isobathes (50m, 100m, 200m)
-  // Zoom 9-11 : EMODnet couleurs bathymétriques + contours moyens
-  // Zoom 12+ : SHOM isobathes fines côtières (1m, 2m, 5m, 10m)
-
-  // Layer 1 — EMODnet couleurs (toujours visible, fond de bathymétrie)
-  S.bathyColor = L.tileLayer.wms('https://ows.emodnet-bathymetry.eu/wms', {
-    layers: 'emodnet:mean_atlas_land',
-    format: 'image/png', transparent: true,
-    version: '1.3.0',
-    attribution: 'Bathymétrie © EMODnet',
-    opacity: 0.35,
-    maxZoom: 19
-  });
-
-  // Layer 2 — EMODnet contours grandes profondeurs (zoom large)
+  // EMODnet contours grandes profondeurs
   S.isoDeep = L.tileLayer.wms('https://ows.emodnet-bathymetry.eu/wms', {
     layers: 'emodnet:contours',
     format: 'image/png', transparent: true,
@@ -458,24 +417,26 @@ function initMap() {
     maxZoom: 19
   });
 
-  // Layer 3 — OpenSeaMap signalisation maritime (bouées, épaves, zones)
+  // OpenSeaMap signalisation maritime
   S.isoShom = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', {
     attribution: 'Signalisation © OpenSeaMap',
     opacity: 0.95, maxZoom: 19
   });
 
-  // Ajouter les layers par défaut
+  // Sédiments EMODnet
+  S.sedLayer = L.tileLayer.wms('https://geo-service.maris.nl/emodnet_geology/wms', {
+    layers: 'seabed_substrate_250k', format: 'image/png', transparent: true,
+    version: '1.3.0', attribution: 'Sédiments © EMODnet Geology', opacity: 0.55
+  });
+
+  // Ajout initial
   S.isoDeep.addTo(S.map);
   S.isoShom.addTo(S.map);
 
-  // Référence pour le toggle
-  S.isoLayer = S.isoDeep;
-
-  // ── Gestion adaptive selon le zoom ──
+  // Gestion adaptive zoom
   S.map.on('zoomend', function() {
     const zoom = S.map.getZoom();
     if (!S.showIso) return;
-
     if (zoom <= 9) {
       if (!S.map.hasLayer(S.isoDeep)) S.isoDeep.addTo(S.map);
       if (S.map.hasLayer(S.isoShom)) S.map.removeLayer(S.isoShom);
@@ -493,66 +454,22 @@ function initMap() {
     }
   });
 
-  // Layer 4 — Sédiments EMODnet
-  S.sedLayer = L.tileLayer.wms('https://geo-service.maris.nl/emodnet_geology/wms', {
-    layers: 'seabed_substrate_250k', format: 'image/png', transparent: true,
-    version: '1.3.0', attribution: 'Sédiments © EMODnet Geology', opacity: 0.55
-  });
-
-  // Ajouter les layers par défaut
-  S.isoDeep.addTo(S.map);
-  S.isoShom.addTo(S.map);
-  S.isoIGN.addTo(S.map);
-
-  // Référence pour le toggle
-  S.isoLayer = S.isoDeep;
-
-  // ── Gestion adaptive selon le zoom ──
-  S.map.on('zoomend', function() {
-    const zoom = S.map.getZoom();
-    if (!S.showIso) return;
-
-    if (zoom <= 9) {
-      // Vue large : grandes isobathes EMODnet uniquement
-      if (!S.map.hasLayer(S.isoDeep)) S.isoDeep.addTo(S.map);
-      if (S.map.hasLayer(S.isoShom)) S.map.removeLayer(S.isoShom);
-      S.isoDeep.setOpacity(0.9);
-      S.isoIGN.setOpacity(0);
-    } else if (zoom <= 11) {
-      // Vue intermédiaire : EMODnet + OpenSeaMap
-      if (!S.map.hasLayer(S.isoDeep)) S.isoDeep.addTo(S.map);
-      if (!S.map.hasLayer(S.isoShom)) S.isoShom.addTo(S.map);
-      S.isoDeep.setOpacity(0.7);
-      S.isoShom.setOpacity(0.9);
-      S.isoIGN.setOpacity(0);
-    } else {
-      // Vue côtière zoom ≥12 : carte marine IGN + OpenSeaMap
-      if (!S.map.hasLayer(S.isoDeep)) S.isoDeep.addTo(S.map);
-      if (!S.map.hasLayer(S.isoShom)) S.isoShom.addTo(S.map);
-      if (!S.map.hasLayer(S.isoIGN)) S.isoIGN.addTo(S.map);
-      S.isoDeep.setOpacity(0.2);
-      S.isoShom.setOpacity(1.0);
-      // Carte IGN marine en transparence par-dessus le satellite
-      S.isoIGN.setOpacity(zoom >= 13 ? 0.4 : 0.2);
-    }
-  });
-
-  // Ports — couleur par région
+  // Ports
   const regionColors = {
     'Manche':'#00d4ff', 'Bretagne':'#00e676',
     'Atlantique':'#ffd600', 'Méditerranée':'#ff6d00'
   };
 
-  SPOTS.forEach(spot => {
+  SPOTS.forEach(function(spot) {
     const color = regionColors[spot.region] || '#5a7297';
     const m = L.circleMarker([spot.lat, spot.lon], {
       radius:7, fillColor:color, color:'rgba(0,0,0,0.4)',
       weight:1.5, fillOpacity:0.85
     }).addTo(S.map);
-    m.bindTooltip(`<b>${spot.name}</b><br><span style="color:${color};font-size:9px">${spot.region}</span>`, {
+    m.bindTooltip('<b>'+spot.name+'</b><br><span style="color:'+color+';font-size:9px">'+spot.region+'</span>', {
       permanent:false, direction:'top', className:'vizi-tooltip', offset:[0,-8]
     });
-    m.on('click', e => {
+    m.on('click', function(e) {
       L.DomEvent.stopPropagation(e);
       openPopup(L.latLng(spot.lat, spot.lon), spot.name);
       showTides(spot);
@@ -561,35 +478,20 @@ function initMap() {
     S.spotMarkers[spot.id] = m;
   });
 
-  S.map.on('click', e => {
+  S.map.on('click', function(e) {
     openPopup(e.latlng);
     hideTides();
-    if (S_forecastOpen) loadForecast(e.latlng.lat, e.latlng.lng);
+    if (S_forecastOpen) loadForecast(e.latlng.lat, e.latlng.lng, null);
   });
-  S.map.on('moveend zoomend', () => {
+
+  S.map.on('moveend zoomend', function() {
     drawHeatmap();
   });
 }
 
 // ============================================================
-// CANVAS HEATMAP
+// HEATMAP
 // ============================================================
-function initCanvas() {
-  S.canvas = document.getElementById('heatmapCanvas');
-  S.ctx = S.canvas.getContext('2d');
-  S.windCanvas = document.getElementById('windCanvas');
-  S.windCtx = S.windCanvas.getContext('2d');
-  resizeCanvas();
-  window.addEventListener('resize', () => { resizeCanvas(); drawHeatmap(); if(S.showWind) window._viziDrawWind(); });
-}
-
-function resizeCanvas() {
-  const w = window.innerWidth;
-  const h = window.innerHeight;
-  S.canvas.width = S.windCanvas.width = w;
-  S.canvas.height = S.windCanvas.height = h;
-}
-
 function drawHeatmap() {
   S.ctx.clearRect(0, 0, S.canvas.width, S.canvas.height);
   if (!S.showHeatmap || !S.map || S.heatmap.length === 0) return;
@@ -597,14 +499,14 @@ function drawHeatmap() {
   const zoom = S.map.getZoom();
   const radius = Math.max(8, Math.min(zoom * 4.5, 70));
 
-  S.heatmap.forEach(pt => {
+  S.heatmap.forEach(function(pt) {
     const px = S.map.latLngToContainerPoint([pt.lat, pt.lon]);
     if (px.x < -radius || px.x > W+radius || px.y < -radius || px.y > H+radius) return;
     const grad = S.ctx.createRadialGradient(px.x,px.y,0,px.x,px.y,radius);
     const rgb = scoreRgb(pt.score);
-    grad.addColorStop(0,   `rgba(${rgb},${S.opacity})`);
-    grad.addColorStop(0.55,`rgba(${rgb},${S.opacity*0.3})`);
-    grad.addColorStop(1,   `rgba(${rgb},0)`);
+    grad.addColorStop(0,   'rgba('+rgb+','+S.opacity+')');
+    grad.addColorStop(0.55,'rgba('+rgb+','+(S.opacity*0.3)+')');
+    grad.addColorStop(1,   'rgba('+rgb+',0)');
     S.ctx.fillStyle = grad;
     S.ctx.beginPath();
     S.ctx.arc(px.x, px.y, radius, 0, Math.PI*2);
@@ -613,24 +515,26 @@ function drawHeatmap() {
 }
 
 // ============================================================
-// DATA — fetch GAS
+// DATA
 // ============================================================
-async function loadHeatmap(day) {
-  const data = await gasGet('heatmap', { day_offset: day });
-  S.heatmap = (data && data.heatmap && data.heatmap.length > 0)
-    ? data.heatmap : mockHeatmap(day);
-  drawHeatmap();
+function loadHeatmap(day) {
+  gasGet('heatmap', { day_offset: day }).then(function(data) {
+    S.heatmap = (data && data.heatmap && data.heatmap.length > 0)
+      ? data.heatmap : mockHeatmap(day);
+    drawHeatmap();
+  });
 }
 
-async function loadPredictions() {
-  const data = await gasGet('predictions');
-  if (!data || !data.predictions) return;
-  S.predictions = {};
-  data.predictions.forEach(p => {
-    if (!S.predictions[p.spot_id]) S.predictions[p.spot_id] = {};
-    S.predictions[p.spot_id][p.date] = p;
+function loadPredictions() {
+  gasGet('predictions').then(function(data) {
+    if (!data || !data.predictions) return;
+    S.predictions = {};
+    data.predictions.forEach(function(p) {
+      if (!S.predictions[p.spot_id]) S.predictions[p.spot_id] = {};
+      S.predictions[p.spot_id][p.date] = p;
+    });
+    updateMarkerColors();
   });
-  updateMarkerColors();
 }
 
 function mockHeatmap(day) {
@@ -642,7 +546,7 @@ function mockHeatmap(day) {
       const amp=depth<=1?5:depth<=2?4:depth<=5?3:depth<=10?2:depth<=15?1.5:1;
       const noise=Math.sin(lat*200+lon*130)*7+Math.cos(lat*80+lon*200)*4;
       const score=Math.min(Math.max((base+noise)*amp/3.5,0),100);
-      pts.push({lat,lon,score:Math.round(score),depth:Math.min(depth,30)});
+      pts.push({lat:lat,lon:lon,score:Math.round(score),depth:Math.min(depth,30)});
     }
   }
   return pts;
@@ -657,16 +561,14 @@ function openPopup(latlng, spotName) {
   document.getElementById('obsDate').value = now.toISOString().split('T')[0];
   document.getElementById('obsTime').value = now.toTimeString().slice(0,5);
   document.getElementById('popupCoords').textContent =
-    `${latlng.lat.toFixed(5)}°N · ${Math.abs(latlng.lng).toFixed(5)}°O${spotName?' — '+spotName:''}`;
+    latlng.lat.toFixed(5)+'°N · '+Math.abs(latlng.lng).toFixed(5)+'°O'+(spotName?' — '+spotName:'');
 
-  const near = S.heatmap.length ? S.heatmap.reduce((a,b) =>
-    Math.hypot(a.lat-latlng.lat,a.lon-latlng.lng) < Math.hypot(b.lat-latlng.lat,b.lon-latlng.lng) ? a : b
-  ) : null;
+  const near = S.heatmap.length ? S.heatmap.reduce(function(a,b) {
+    return Math.hypot(a.lat-latlng.lat,a.lon-latlng.lng) < Math.hypot(b.lat-latlng.lat,b.lon-latlng.lng) ? a : b;
+  }) : null;
   S.clickDepth = near ? near.depth : null;
-  document.getElementById('popupDepth').textContent = near ? `⚓ ~${near.depth}m` : '';
+  document.getElementById('popupDepth').textContent = near ? '⚓ ~'+near.depth+'m' : '';
   document.getElementById('popupSediment').textContent = '';
-
-  // Sédiment EMODnet
   fetchSediment(latlng.lat, latlng.lng);
 
   document.getElementById('visSlider').value = 8;
@@ -702,25 +604,26 @@ function closePopup() {
 }
 
 function fetchSediment(lat, lon) {
-  const url = `https://geo-service.maris.nl/emodnet_geology/wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS=seabed_substrate_250k&QUERY_LAYERS=seabed_substrate_250k&INFO_FORMAT=application/json&I=50&J=50&WIDTH=101&HEIGHT=101&CRS=EPSG:4326&BBOX=${lon-0.01},${lat-0.01},${lon+0.01},${lat+0.01}`;
+  const url = 'https://geo-service.maris.nl/emodnet_geology/wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS=seabed_substrate_250k&QUERY_LAYERS=seabed_substrate_250k&INFO_FORMAT=application/json&I=50&J=50&WIDTH=101&HEIGHT=101&CRS=EPSG:4326&BBOX='+(lon-0.01)+','+(lat-0.01)+','+(lon+0.01)+','+(lat+0.01);
   fetch(url)
-    .then(r => r.json())
-    .then(data => {
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
       if (data.features && data.features.length > 0) {
         const props = data.features[0].properties;
         const raw = props.substrate || props.Folk_5cl || props.VALUE || null;
         S.clickSediment = raw;
-        if (raw) document.getElementById('popupSediment').textContent = `🪨 ${formatSed(raw)}`;
+        if (raw) document.getElementById('popupSediment').textContent = '🪨 '+formatSed(raw);
       }
     })
-    .catch(() => {});
+    .catch(function(){});
 }
 
 function formatSed(r) {
-  return {'Mud':'Vase','Sandy mud':'Vase sableuse','Fine sand':'Sable fin','Sand':'Sable','Coarse sand':'Sable grossier','Gravel':'Gravier','Rock':'Roche'}[r] || r;
+  const map = {'Mud':'Vase','Sandy mud':'Vase sableuse','Fine sand':'Sable fin','Sand':'Sable','Coarse sand':'Sable grossier','Gravel':'Gravier','Rock':'Roche'};
+  return map[r] || r;
 }
 
-async function submitObs() {
+function submitObs() {
   if (!S.clickLatLng || S.submitting) return;
   S.submitting = true;
   const btn = document.getElementById('obsSubmit');
@@ -737,85 +640,72 @@ async function submitObs() {
     depth_m:S.clickDepth, sediment:S.clickSediment
   };
 
-  const result = await gasPost('submit_observation', data);
-  S.submitting = false;
-  if (result && result.success) {
-    btn.style.display = 'none';
-    document.getElementById('obsSuccess').style.display = 'block';
-    setTimeout(closePopup, 1800);
-  } else {
-    btn.disabled = false; btn.textContent = 'Enregistrer →';
-    alert('Erreur envoi. Vérifie ta connexion.');
-  }
+  gasPost('submit_observation', data).then(function(result) {
+    S.submitting = false;
+    if (result && result.success) {
+      btn.style.display = 'none';
+      document.getElementById('obsSuccess').style.display = 'block';
+      setTimeout(closePopup, 1800);
+    } else {
+      btn.disabled = false; btn.textContent = 'Enregistrer →';
+      alert('Erreur envoi. Vérifie ta connexion.');
+    }
+  });
 }
 
 // ============================================================
-// MARÉES — données WorldTides via GAS (cache)
+// MARÉES
 // ============================================================
-async function loadTidesCache() {
-  if (tidesCache.data && tidesCache.loadedAt && (Date.now() - tidesCache.loadedAt) < 3600000) return; // 1h
-  const data = await gasGet('tides');
-  if (data && data.tides) {
-    tidesCache.data = data.tides;
-    tidesCache.loadedAt = Date.now();
+function loadTidesCache() {
+  if (tidesCache.data && tidesCache.loadedAt && (Date.now() - tidesCache.loadedAt) < 3600000) {
+    return Promise.resolve();
   }
+  return gasGet('tides').then(function(data) {
+    if (data && data.tides) {
+      tidesCache.data = data.tides;
+      tidesCache.loadedAt = Date.now();
+    }
+  });
 }
 
-async function showTides(spot) {
+function showTides(spot) {
   document.getElementById('tideWidget').style.display = 'block';
   document.getElementById('tideSpotName').textContent = spot.name;
   document.getElementById('tideContent').innerHTML = '<div style="font-family:Space Mono,monospace;font-size:10px;color:var(--text-muted);padding:8px 0;">Chargement...</div>';
 
-  await loadTidesCache();
+  loadTidesCache().then(function() {
+    const today = new Date().toISOString().split('T')[0];
+    const portTides = tidesCache.data
+      ? tidesCache.data.filter(function(t){ return t.port_id === spot.id && t.date === today; })
+      : [];
 
-  const today = new Date().toISOString().split('T')[0];
-  const portTides = tidesCache.data
-    ? tidesCache.data.filter(t => t.port_id === spot.id && t.date === today)
-    : [];
+    if (portTides.length === 0) { renderTidesFallback(spot); return; }
 
-  if (portTides.length === 0) {
-    // Fallback calcul approximatif
-    renderTidesFallback(spot);
-    return;
-  }
+    const highs = portTides.filter(function(t){ return t.type === 'high'; }).sort(function(a,b){ return a.time.localeCompare(b.time); });
+    const lows  = portTides.filter(function(t){ return t.type === 'low'; }).sort(function(a,b){ return a.time.localeCompare(b.time); });
 
-  const highs = portTides.filter(t => t.type === 'high').sort((a,b) => a.time.localeCompare(b.time));
-  const lows  = portTides.filter(t => t.type === 'low').sort((a,b) => a.time.localeCompare(b.time));
+    const coeff = highs.length > 0 ? highs[0].coefficient : '—';
+    const coeffNum = parseInt(coeff) || 70;
+    const coeffLabel = coeffNum > 95 ? '⚡ Vives eaux' : coeffNum > 70 ? '〜 Moyennes eaux' : '🔵 Mortes eaux';
 
-  const coeff = highs.length > 0 ? highs[0].coefficient : '—';
-  const coeffNum = parseInt(coeff) || 70;
-  const coeffLabel = coeffNum > 95 ? '⚡ Vives eaux' : coeffNum > 70 ? '〜 Moyennes eaux' : '🔵 Mortes eaux';
+    let tidesHtml = '';
+    portTides.sort(function(a,b){ return a.time.localeCompare(b.time); }).forEach(function(t) {
+      const icon = t.type === 'high' ? '▲' : '▽';
+      const color = t.type === 'high' ? 'var(--accent)' : 'var(--text-muted)';
+      tidesHtml += '<div class="tide-row"><span class="label">'+icon+' '+(t.type==='high'?'PM':'BM')+'</span><span class="val" style="color:'+color+'">'+t.time+' · '+t.height_m+'m</span></div>';
+    });
 
-  let tidesHtml = '';
-  const allTides = portTides.sort((a,b) => a.time.localeCompare(b.time));
-  allTides.forEach(t => {
-    const icon = t.type === 'high' ? '▲' : '▽';
-    const color = t.type === 'high' ? 'var(--accent)' : 'var(--text-muted)';
-    tidesHtml += `<div class="tide-row">
-      <span class="label">${icon} ${t.type === 'high' ? 'PM' : 'BM'}</span>
-      <span class="val" style="color:${color}">${t.time} · ${t.height_m}m</span>
-    </div>`;
+    if (highs.length > 0 && lows.length > 0) {
+      const marnage = (parseFloat(highs[0].height_m) - parseFloat(lows[0].height_m)).toFixed(1);
+      tidesHtml += '<div class="tide-row" style="margin-top:4px;border-top:1px solid var(--border);padding-top:4px;"><span class="label">Marnage</span><span class="val" style="color:var(--accent)">'+marnage+'m</span></div>';
+    }
+
+    document.getElementById('tideContent').innerHTML =
+      '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:4px;"><div class="tide-coeff">'+coeff+'</div><div class="tide-coeff-label">coefficient</div></div>'+
+      '<div style="font-family:Space Mono,monospace;font-size:9px;color:var(--text-muted);margin-bottom:8px;">'+coeffLabel+'</div>'+
+      '<div class="tide-times">'+tidesHtml+'</div>'+
+      '<div style="font-family:Space Mono,monospace;font-size:8px;color:var(--text-muted);margin-top:6px;border-top:1px solid var(--border);padding-top:6px;">Source : WorldTides / SHOM</div>';
   });
-
-  // Marnage
-  if (highs.length > 0 && lows.length > 0) {
-    const marnage = (parseFloat(highs[0].height_m) - parseFloat(lows[0].height_m)).toFixed(1);
-    tidesHtml += `<div class="tide-row" style="margin-top:4px;border-top:1px solid var(--border);padding-top:4px;">
-      <span class="label">Marnage</span>
-      <span class="val" style="color:var(--accent)">${marnage}m</span>
-    </div>`;
-  }
-
-  document.getElementById('tideContent').innerHTML = `
-    <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:4px;">
-      <div class="tide-coeff">${coeff}</div>
-      <div class="tide-coeff-label">coefficient</div>
-    </div>
-    <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-muted);margin-bottom:8px;">${coeffLabel}</div>
-    <div class="tide-times">${tidesHtml}</div>
-    <div style="font-family:'Space Mono',monospace;font-size:8px;color:var(--text-muted);margin-top:6px;border-top:1px solid var(--border);padding-top:6px;">
-      Source : WorldTides / SHOM
-    </div>`;
 }
 
 function renderTidesFallback(spot) {
@@ -827,19 +717,16 @@ function renderTidesFallback(spot) {
   const isHigh = Math.sin((phaseMin/cycleMin)*Math.PI*2) > 0;
   const nextMins = Math.round(((isHigh?1:0.5) - phaseMin/cycleMin) * cycleMin);
   const nextTime = new Date(now.getTime() + Math.max(0,nextMins)*60000);
-  const fmt = d => d.toTimeString().slice(0,5);
+  const fmt = function(d){ return d.toTimeString().slice(0,5); };
   const hPM = Math.round((coeff/120)*680);
   const hBM = Math.round((1-coeff/120)*80+20);
-  document.getElementById('tideContent').innerHTML = `
-    <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:4px;">
-      <div class="tide-coeff">${coeff}</div><div class="tide-coeff-label">coeff. estimé</div>
-    </div>
-    <div class="tide-times">
-      <div class="tide-row"><span class="label">▲ PM</span><span class="val">${isHigh?fmt(nextTime):'—'} · ${hPM}cm</span></div>
-      <div class="tide-row"><span class="label">▽ BM</span><span class="val">${!isHigh?fmt(nextTime):'—'} · ${hBM}cm</span></div>
-      <div class="tide-row" style="margin-top:4px;"><span class="label">Marnage</span><span class="val" style="color:var(--accent)">${hPM-hBM}cm</span></div>
-    </div>
-    <div style="font-family:'Space Mono',monospace;font-size:8px;color:var(--text-muted);margin-top:6px;">⚠ Données estimées</div>`;
+  document.getElementById('tideContent').innerHTML =
+    '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:4px;"><div class="tide-coeff">'+coeff+'</div><div class="tide-coeff-label">coeff. estimé</div></div>'+
+    '<div class="tide-times">'+
+    '<div class="tide-row"><span class="label">▲ PM</span><span class="val">'+(isHigh?fmt(nextTime):'—')+' · '+hPM+'cm</span></div>'+
+    '<div class="tide-row"><span class="label">▽ BM</span><span class="val">'+(!isHigh?fmt(nextTime):'—')+' · '+hBM+'cm</span></div>'+
+    '<div class="tide-row" style="margin-top:4px;"><span class="label">Marnage</span><span class="val" style="color:var(--accent)">'+(hPM-hBM)+'cm</span></div>'+
+    '</div><div style="font-family:Space Mono,monospace;font-size:8px;color:var(--text-muted);margin-top:6px;">⚠ Données estimées</div>';
 }
 
 function hideTides() { document.getElementById('tideWidget').style.display = 'none'; }
@@ -876,13 +763,13 @@ function toggleLayer(type) {
 // ============================================================
 function renderDateNav() {
   const nav = document.getElementById('dateNav');
-  ['Auj.','Dem.','J+2','J+3'].forEach((l,i) => {
+  ['Auj.','Dem.','J+2','J+3'].forEach(function(l,i) {
     const b = document.createElement('button');
     b.className = 'day-btn'+(i===0?' active':'');
     b.textContent = l;
-    b.onclick = () => {
+    b.onclick = function() {
       S.day = i;
-      document.querySelectorAll('.day-btn').forEach((btn,idx) => btn.classList.toggle('active',idx===i));
+      document.querySelectorAll('.day-btn').forEach(function(btn,idx){ btn.classList.toggle('active',idx===i); });
       loadHeatmap(i); loadPredictions();
     };
     nav.appendChild(b);
@@ -892,28 +779,19 @@ function renderDateNav() {
 function updateMarkerColors() {
   const d = new Date(); d.setDate(d.getDate()+S.day);
   const date = d.toISOString().split('T')[0];
-  SPOTS.forEach(s => {
-    const pred = S.predictions[s.id]?.[date];
+  SPOTS.forEach(function(s) {
+    const pred = S.predictions[s.id] && S.predictions[s.id][date];
     if (pred && S.spotMarkers[s.id]) S.spotMarkers[s.id].setStyle({fillColor:scoreColor(pred.turbidity_score)});
   });
 }
 
 // ============================================================
-// MÉTÉO SPOT — Tableau Windguru-style (AROME / Open-Meteo)
+// MÉTÉO SPOT — Windguru-style
 // ============================================================
-
-let S_forecastOpen = false;
-let S_forecastLat = null, S_forecastLon = null;
-
 function toggleForecastPanel() {
   S_forecastOpen = !S_forecastOpen;
   document.getElementById('btnWind').classList.toggle('active', S_forecastOpen);
-  const panel = document.getElementById('forecastPanel');
-  if (S_forecastOpen) {
-    panel.style.display = 'block';
-  } else {
-    panel.style.display = 'none';
-  }
+  document.getElementById('forecastPanel').style.display = S_forecastOpen ? 'block' : 'none';
 }
 
 function closeForecast() {
@@ -922,179 +800,166 @@ function closeForecast() {
   document.getElementById('forecastPanel').style.display = 'none';
 }
 
-async function loadForecast(lat, lon, locationName) {
-  S_forecastLat = lat; S_forecastLon = lon;
-
-  // Ouvrir le panel si pas déjà ouvert
+function loadForecast(lat, lon, locationName) {
   S_forecastOpen = true;
   document.getElementById('btnWind').classList.add('active');
-  const panel = document.getElementById('forecastPanel');
-  panel.style.display = 'block';
-
-  document.getElementById('forecastLocation').textContent = locationName || `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
-  document.getElementById('forecastCoords').textContent = `${lat.toFixed(4)}°N ${lon.toFixed(4)}°E · AROME`;
+  document.getElementById('forecastPanel').style.display = 'block';
+  document.getElementById('forecastLocation').textContent = locationName || (lat.toFixed(4)+', '+lon.toFixed(4));
+  document.getElementById('forecastCoords').textContent = lat.toFixed(4)+'°N '+lon.toFixed(4)+'°E · AROME';
   document.getElementById('forecastTable').innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-muted);font-family:Space Mono,monospace;font-size:10px;">Chargement AROME...</div>';
 
   const now = new Date();
   const start = new Date(now); start.setHours(0,0,0,0);
   const end = new Date(now); end.setDate(end.getDate()+4); end.setHours(23,0,0,0);
-  const fmt = d => d.toISOString().split('T')[0];
+  const fmt = function(d){ return d.toISOString().split('T')[0]; };
 
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
-    `&hourly=windspeed_10m,winddirection_10m,windgusts_10m,wave_height,wave_period,wave_direction,temperature_2m,precipitation` +
-    `&wind_speed_unit=kmh&timezone=Europe/Paris` +
-    `&start_date=${fmt(start)}&end_date=${fmt(end)}` +
-    `&models=best_match`;
+  const url = 'https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+
+    '&hourly=windspeed_10m,winddirection_10m,windgusts_10m,wave_height,wave_period,wave_direction,temperature_2m,precipitation'+
+    '&wind_speed_unit=kmh&timezone=Europe/Paris'+
+    '&start_date='+fmt(start)+'&end_date='+fmt(end)+
+    '&models=best_match';
 
-  try {
-    const r = await fetch(url);
-    const d = await r.json();
-    if (!d.hourly) throw new Error('Pas de données');
-    renderForecastTable(d.hourly, now);
-  } catch(e) {
-    document.getElementById('forecastTable').innerHTML = `<div style="padding:16px;color:#ff1744;font-family:Space Mono,monospace;font-size:10px;">Erreur : ${e.message}</div>`;
-  }
+  fetch(url)
+    .then(function(r){ return r.json(); })
+    .then(function(d) {
+      if (!d.hourly) throw new Error('Pas de données');
+      renderForecastTable(d.hourly, now);
+    })
+    .catch(function(e) {
+      document.getElementById('forecastTable').innerHTML = '<div style="padding:16px;color:#ff1744;font-family:Space Mono,monospace;font-size:10px;">Erreur : '+e.message+'</div>';
+    });
 }
 
 function renderForecastTable(h, now) {
   const times = h.time;
   const nowHour = now.toISOString().slice(0,13);
 
-  // Filtrer : seulement les heures 03, 06, 09, 12, 15, 18, 21 (toutes les 3h)
   const cols = [];
-  times.forEach((t, i) => {
+  times.forEach(function(t, i) {
     const hour = parseInt(t.slice(11,13));
-    if (hour % 3 === 0) cols.push({i, t, isNow: t.slice(0,13) === nowHour});
+    if (hour % 3 === 0) cols.push({i:i, t:t, isNow: t.slice(0,13) === nowHour});
   });
 
-  // Grouper par jour
   const days = {};
-  cols.forEach(c => {
+  cols.forEach(function(c) {
     const day = c.t.slice(0,10);
     if (!days[day]) days[day] = [];
     days[day].push(c);
   });
 
-  const windColor = (v) => {
+  function windColor(v) {
     if(!v) return 'wc-0';
     if(v<5) return 'wc-0'; if(v<10) return 'wc-1'; if(v<15) return 'wc-2';
     if(v<20) return 'wc-3'; if(v<30) return 'wc-4'; if(v<40) return 'wc-5';
     if(v<50) return 'wc-6'; return 'wc-7';
-  };
-  const waveColor = (v) => {
+  }
+  function waveColor(v) {
     if(!v) return 'ww-0';
     if(v<0.5) return 'ww-0'; if(v<1) return 'ww-1'; if(v<2) return 'ww-2';
     if(v<3) return 'ww-3'; return 'ww-4';
-  };
-  const dirArrow = (deg) => {
+  }
+  function dirArrow(deg) {
     if(deg===null||deg===undefined) return '—';
     const arrows = ['↓','↙','←','↖','↑','↗','→','↘'];
     return arrows[Math.round(((deg+180)%360)/45)%8];
-  };
+  }
 
   let html = '<table class="wg-table"><thead>';
-
-  // Ligne jours
   html += '<tr><td class="row-label day-header"></td>';
-  Object.entries(days).forEach(([day, dcols]) => {
+  Object.keys(days).forEach(function(day) {
+    const dcols = days[day];
     const date = new Date(day);
     const label = date.toLocaleDateString('fr',{weekday:'short',day:'numeric',month:'short'});
-    html += `<td colspan="${dcols.length}" class="day-header" style="border-left:1px solid rgba(255,255,255,0.1)">${label}</td>`;
+    html += '<td colspan="'+dcols.length+'" class="day-header" style="border-left:1px solid rgba(255,255,255,0.1)">'+label+'</td>';
   });
   html += '</tr>';
 
-  // Ligne heures
   html += '<tr><td class="row-label hour-row">Heure</td>';
-  cols.forEach(c => {
-    const h2 = c.t.slice(11,16);
-    html += `<td class="hour-row${c.isNow?' wg-now':''}">${h2}</td>`;
+  cols.forEach(function(c) {
+    html += '<td class="hour-row'+(c.isNow?' wg-now':'')+'">'+c.t.slice(11,16)+'</td>';
   });
   html += '</tr></thead><tbody>';
 
   // Vent
   html += '<tr><td class="row-label">Vent (km/h)</td>';
-  cols.forEach(c => {
+  cols.forEach(function(c) {
     const v = Math.round(h.windspeed_10m[c.i]||0);
-    html += `<td class="${windColor(v)}${c.isNow?' wg-now':''}" style="font-weight:700">${v}</td>`;
+    html += '<td class="'+windColor(v)+(c.isNow?' wg-now':'')+'" style="font-weight:700">'+v+'</td>';
   });
   html += '</tr>';
 
   // Rafales
   html += '<tr><td class="row-label">Rafales (km/h)</td>';
-  cols.forEach(c => {
+  cols.forEach(function(c) {
     const v = Math.round(h.windgusts_10m[c.i]||0);
-    html += `<td class="${windColor(v)}${c.isNow?' wg-now':''}">${v}</td>`;
+    html += '<td class="'+windColor(v)+(c.isNow?' wg-now':'')+'">'+v+'</td>';
   });
   html += '</tr>';
 
-  // Direction vent
-  html += '<tr><td class="row-label">Direction (→)</td>';
-  cols.forEach(c => {
-    const v = h.winddirection_10m[c.i];
-    html += `<td class="${c.isNow?'wg-now':''}" style="font-size:14px">${dirArrow(v)}</td>`;
+  // Direction
+  html += '<tr><td class="row-label">Direction</td>';
+  cols.forEach(function(c) {
+    html += '<td class="'+(c.isNow?'wg-now':'')+'" style="font-size:14px">'+dirArrow(h.winddirection_10m[c.i])+'</td>';
   });
   html += '</tr>';
 
-  // Vagues (si disponibles)
-  const hasWaves = h.wave_height && h.wave_height.some(v => v > 0);
+  // Vagues
+  const hasWaves = h.wave_height && h.wave_height.some(function(v){ return v > 0; });
   if (hasWaves) {
     html += '<tr><td class="row-label">Vagues (m)</td>';
-    cols.forEach(c => {
+    cols.forEach(function(c) {
       const v = h.wave_height[c.i];
-      const vr = v ? v.toFixed(1) : '—';
-      html += `<td class="${waveColor(v)}${c.isNow?' wg-now':''}">${vr}</td>`;
+      html += '<td class="'+waveColor(v)+(c.isNow?' wg-now':'')+'">'+( v ? v.toFixed(1) : '—')+'</td>';
     });
     html += '</tr>';
 
-    html += '<tr><td class="row-label">Vagues dir. (→)</td>';
-    cols.forEach(c => {
-      const v = h.wave_direction[c.i];
-      html += `<td class="${c.isNow?'wg-now':''}" style="font-size:14px">${dirArrow(v)}</td>`;
+    html += '<tr><td class="row-label">Vagues dir.</td>';
+    cols.forEach(function(c) {
+      html += '<td class="'+(c.isNow?'wg-now':'')+'" style="font-size:14px">'+dirArrow(h.wave_direction[c.i])+'</td>';
     });
     html += '</tr>';
   }
 
   // Température
   html += '<tr><td class="row-label">Temp. (°C)</td>';
-  cols.forEach(c => {
-    const v = Math.round(h.temperature_2m[c.i]||0);
-    html += `<td class="${c.isNow?'wg-now':''}">${v}</td>`;
+  cols.forEach(function(c) {
+    html += '<td class="'+(c.isNow?'wg-now':'')+'">'+Math.round(h.temperature_2m[c.i]||0)+'</td>';
   });
   html += '</tr>';
 
   // Précipitations
   html += '<tr><td class="row-label">Pluie (mm/h)</td>';
-  cols.forEach(c => {
+  cols.forEach(function(c) {
     const v = h.precipitation[c.i];
-    const vr = v && v > 0 ? v.toFixed(1) : '';
     const bg = v > 2 ? 'background:rgba(0,100,255,0.4)' : v > 0.5 ? 'background:rgba(0,100,255,0.2)' : '';
-    html += `<td class="${c.isNow?'wg-now':''}" style="${bg}">${vr}</td>`;
+    html += '<td class="'+(c.isNow?'wg-now':'')+'" style="'+bg+'">'+( v && v > 0 ? v.toFixed(1) : '')+'</td>';
   });
   html += '</tr>';
 
   html += '</tbody></table>';
-  html += '<div style="padding:4px 10px;font-family:Space Mono,monospace;font-size:8px;color:var(--text-muted)">Source : Open-Meteo · best_match (AROME sur France) · ▏ = heure actuelle</div>';
+  html += '<div style="padding:4px 10px;font-family:Space Mono,monospace;font-size:8px;color:var(--text-muted)">Source : Open-Meteo · best_match (AROME sur France) · ▏= heure actuelle</div>';
 
   document.getElementById('forecastTable').innerHTML = html;
 
-  // Scroller vers l'heure actuelle
-  setTimeout(() => {
+  setTimeout(function() {
     const nowCell = document.querySelector('.wg-now');
     if (nowCell) nowCell.scrollIntoView({inline:'center', block:'nearest'});
   }, 100);
 }
 
-
+// ============================================================
+// HELPERS
+// ============================================================
 function updateVis(idx) {
-  idx=parseInt(idx); S.form.visIdx=idx;
-  const v=VIS[idx];
-  document.getElementById('visVal').textContent=v.l;
-  document.getElementById('visVal').style.color=v.c;
+  idx = parseInt(idx); S.form.visIdx = idx;
+  const v = VIS[idx];
+  document.getElementById('visVal').textContent = v.l;
+  document.getElementById('visVal').style.color = v.c;
 }
 function setTog(f,val) {
-  S.form[f]=val;
-  document.getElementById(`tog-${f}-yes`).classList.toggle('on',val);
-  document.getElementById(`tog-${f}-no`).classList.toggle('on',!val);
+  S.form[f] = val;
+  document.getElementById('tog-'+f+'-yes').classList.toggle('on', val);
+  document.getElementById('tog-'+f+'-no').classList.toggle('on', !val);
 }
 function scoreRgb(s) {
   if(s<20)return'0,230,118'; if(s<40)return'118,255,3';
@@ -1106,11 +971,7 @@ function scoreColor(s) {
   if(s<60)return'#ffd600'; if(s<80)return'#ff6d00';
   return'#ff1744';
 }
-function setOpacity(v) { S.opacity=v/100; drawHeatmap(); }
-
-// Nettoyage — exposer toggleWind globalement
-window.toggleWind = toggleWind;
-window.onWindSlider = onWindSlider;
+function setOpacity(v) { S.opacity = v/100; drawHeatmap(); }
 </script>
 </body>
 </html>
