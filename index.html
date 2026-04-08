@@ -612,7 +612,7 @@ function initMap() {
   S.map.on('click', e => { openPopup(e.latlng); hideTides(); });
   S.map.on('moveend zoomend', () => {
     drawHeatmap();
-    if (S.showWind) drawWind();
+    if (S.showWind) window._viziDrawWind();
   });
 }
 
@@ -625,7 +625,7 @@ function initCanvas() {
   S.windCanvas = document.getElementById('windCanvas');
   S.windCtx = S.windCanvas.getContext('2d');
   resizeCanvas();
-  window.addEventListener('resize', () => { resizeCanvas(); drawHeatmap(); if(S.showWind) drawWind(); });
+  window.addEventListener('resize', () => { resizeCanvas(); drawHeatmap(); if(S.showWind) window._viziDrawWind(); });
 }
 
 function resizeCanvas() {
@@ -958,7 +958,7 @@ async function toggleWind() {
     if (!S.windData) await loadWindData();
     buildWindTicks();
     onWindSlider(S.windHourIdx);
-    drawWind();
+    window._viziDrawWind();
     // Redimensionner la carte pour laisser place à la barre
     document.getElementById('map').style.bottom = '90px';
     S.canvas.style.bottom = '90px';
@@ -1086,10 +1086,10 @@ function onWindSlider(val) {
   const color = windSpeedColor(speed);
   document.getElementById('windSpeedVal').style.color = color;
 
-  drawWind();
+  window._viziDrawWind();
 }
 
-function drawWind() {
+function window._viziDrawWind() {
   const canvas = document.getElementById('windCanvas');
   if (!canvas || !S.map || !S.windData) return;
 
@@ -1216,6 +1216,35 @@ function scoreColor(s) {
   return'#ff1744';
 }
 function setOpacity(v) { S.opacity=v/100; drawHeatmap(); }
+
+// Exposer les fonctions sur window pour contourner le scope
+window._viziDrawWind = function() {
+  const canvas = document.getElementById('windCanvas');
+  if (!canvas || !S.map || !S.windData) return;
+  if (canvas.width < 400) { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+  const idx   = S.windHourIdx;
+  const speed = S.windData.speed[idx] || 0;
+  const dir   = S.windData.direction[idx] || 0;
+  const angleRad = ((dir + 180) % 360) * Math.PI / 180;
+  const uNorm = Math.sin(angleRad);
+  const vNorm = -Math.cos(angleRad);
+  const zoom = S.map.getZoom();
+  const spacing = Math.max(60, 140 - zoom * 6);
+  for (let px = spacing/2; px < W; px += spacing) {
+    for (let py = spacing/2; py < H; py += spacing) {
+      const latlng = S.map.containerPointToLatLng([px, py]);
+      const coastal = Math.max(0, 1 - Math.abs(latlng.lat - 49.33) * 20);
+      const localSpeed = speed * (0.85 + coastal * 0.3 + (Math.sin(px*0.05+py*0.03)*0.1));
+      drawWindArrow(ctx, px, py, uNorm, vNorm, localSpeed);
+    }
+  }
+};
+
+window._viziToggleWind = toggleWind;
+window._viziOnSlider = onWindSlider;
 </script>
 </body>
 </html>
