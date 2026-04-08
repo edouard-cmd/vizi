@@ -145,6 +145,35 @@
     .tide-row .label { color:var(--text-muted); }
     .tide-row .val { color:var(--text); }
 
+    /* ── MARKER PULSANT ── */
+    .vizi-pulse-marker { position:relative; width:40px; height:40px; }
+    .vizi-pulse-dot {
+      position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+      width:8px; height:8px; border-radius:50%;
+      background:#00d4ff; box-shadow:0 0 6px #00d4ff;
+    }
+    .vizi-pulse-ring {
+      position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+      width:8px; height:8px; border-radius:50%;
+      border:1.5px solid #00d4ff;
+      animation:viziPulse 2s ease-out infinite;
+    }
+    .vizi-pulse-ring2 { animation-delay:1s; }
+    @keyframes viziPulse {
+      0%   { width:8px; height:8px; opacity:0.9; }
+      100% { width:40px; height:40px; opacity:0; }
+    }
+
+    /* ── POPUP HEADER OBS ── */
+    .obs-badge {
+      display:inline-flex; align-items:center; gap:5px;
+      background:rgba(0,212,255,0.1); border:1px solid rgba(0,212,255,0.3);
+      border-radius:20px; padding:3px 10px;
+      font-family:'Space Mono',monospace; font-size:9px; color:var(--accent);
+      margin-bottom:10px;
+    }
+    .obs-badge-dot { width:5px; height:5px; border-radius:50%; background:var(--accent); animation:viziPulse 2s ease-out infinite; }
+
     .vizi-tooltip { background:rgba(10,14,26,0.92) !important; border:1px solid var(--border) !important; color:var(--text) !important; font-family:'Space Mono',monospace !important; font-size:10px !important; border-radius:6px !important; padding:4px 10px !important; box-shadow:none !important; }
     .vizi-tooltip::before { display:none !important; }
   </style>
@@ -210,14 +239,37 @@
   <div id="tideContent"></div>
 </div>
 
+<!-- BOUTON FLOTTANT OBSERVATION -->
+<button id="obsFloatBtn" onclick="openObsPanel()" style="
+  position:absolute; bottom:28px; left:50%; transform:translateX(-50%);
+  z-index:950; display:flex; align-items:center; gap:8px;
+  padding:10px 20px;
+  background:linear-gradient(135deg,rgba(0,212,255,0.15),rgba(0,102,255,0.15));
+  border:1px solid var(--accent); border-radius:30px;
+  color:var(--accent); font-family:'Space Mono',monospace; font-size:11px;
+  cursor:pointer; backdrop-filter:blur(12px);
+  box-shadow:0 4px 20px rgba(0,212,255,0.2);
+  transition:all 0.2s; white-space:nowrap;
+">
+  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="7" cy="7" r="6" stroke="#00d4ff" stroke-width="1.5"/>
+    <line x1="7" y1="4" x2="7" y2="10" stroke="#00d4ff" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="4" y1="7" x2="10" y2="7" stroke="#00d4ff" stroke-width="1.5" stroke-linecap="round"/>
+  </svg>
+  Envoyer une observation
+</button>
+
 <div id="obsPopup">
   <div class="popup-header">
-    <div>
+    <div style="width:100%">
+      <div class="obs-badge"><span class="obs-badge-dot"></span>Ton observation terrain</div>
       <div class="popup-coords" id="popupCoords">—</div>
-      <div class="popup-depth" id="popupDepth"></div>
-      <div class="popup-sediment" id="popupSediment"></div>
+      <div style="display:flex;gap:10px;align-items:center;margin-top:2px;">
+        <div class="popup-depth" id="popupDepth"></div>
+        <div class="popup-sediment" id="popupSediment"></div>
+      </div>
     </div>
-    <button class="popup-close" onclick="closePopup()">✕</button>
+    <button class="popup-close" onclick="closePopup()" style="margin-left:8px;flex-shrink:0;align-self:flex-start;">✕</button>
   </div>
   <div class="popup-row">
     <div class="popup-field">
@@ -254,7 +306,7 @@
     </div>
   </div>
   <textarea class="popup-textarea" id="obsComment" placeholder="Espèces vues, visibilité latérale, type de fond..."></textarea>
-  <button class="popup-submit" id="obsSubmit" onclick="submitObs()">Enregistrer →</button>
+  <button class="popup-submit" id="obsSubmit" onclick="submitObs()">📍 Partager mon observation</button>
   <div class="popup-success" id="obsSuccess">✅ Observation enregistrée !</div>
 </div>
 
@@ -471,17 +523,15 @@ function initMap() {
     });
     m.on('click', function(e) {
       L.DomEvent.stopPropagation(e);
-      openPopup(L.latLng(spot.lat, spot.lon), spot.name);
       showTides(spot);
-      if (S_forecastOpen) loadForecast(spot.lat, spot.lon, spot.name);
+      loadForecast(spot.lat, spot.lon, spot.name);
     });
     S.spotMarkers[spot.id] = m;
   });
 
   S.map.on('click', function(e) {
-    openPopup(e.latlng);
     hideTides();
-    if (S_forecastOpen) loadForecast(e.latlng.lat, e.latlng.lng, null);
+    loadForecast(e.latlng.lat, e.latlng.lng, null);
   });
 
   S.map.on('moveend zoomend', function() {
@@ -578,12 +628,16 @@ function openPopup(latlng, spotName) {
   document.getElementById('obsSuccess').style.display = 'none';
   document.getElementById('obsSubmit').style.display = 'block';
   document.getElementById('obsSubmit').disabled = false;
-  document.getElementById('obsSubmit').textContent = 'Enregistrer →';
+  document.getElementById('obsSubmit').textContent = '📍 Partager mon observation';
 
   if (S.clickMarker) S.map.removeLayer(S.clickMarker);
-  S.clickMarker = L.circleMarker([latlng.lat,latlng.lng], {
-    radius:6, fillColor:'#00d4ff', color:'white', weight:2, fillOpacity:1
-  }).addTo(S.map);
+  const pulseIcon = L.divIcon({
+    className: '',
+    html: '<div class="vizi-pulse-marker"><div class="vizi-pulse-ring"></div><div class="vizi-pulse-ring vizi-pulse-ring2"></div><div class="vizi-pulse-dot"></div></div>',
+    iconSize: [40, 40],
+    iconAnchor: [20, 20]
+  });
+  S.clickMarker = L.marker([latlng.lat, latlng.lng], { icon: pulseIcon, interactive: false }).addTo(S.map);
 
   positionPopup(latlng);
   document.getElementById('obsPopup').style.display = 'block';
@@ -972,6 +1026,15 @@ function scoreColor(s) {
   return'#ff1744';
 }
 function setOpacity(v) { S.opacity = v/100; drawHeatmap(); }
+
+// ============================================================
+// BOUTON OBSERVATION FLOTTANT
+// ============================================================
+function openObsPanel() {
+  // Utilise le dernier point cliqué, sinon le centre de la carte
+  const latlng = S.clickLatLng || S.map.getCenter();
+  openPopup(latlng, null);
+}
 </script>
 </body>
 </html>
