@@ -606,7 +606,8 @@ function initMap() {
   S.map.on('moveend zoomend', async () => {
     drawHeatmap();
     if (S.showWind) {
-      // Recharger les données si on a bougé significativement
+      S.windData = null; // forcer le rechargement
+      clearWindMarkers();
       await loadWindData();
       drawWindMarkers();
     }
