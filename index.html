@@ -389,13 +389,24 @@ function initMap() {
     maxZoom: 19
   });
 
-  // Layer 3 — OpenSeaMap isobathes fines côtières (zoom rapproché)
-  // Source gratuite, données nautiques communautaires, couvre toute la France
+  // Layer 3 — OpenSeaMap signalisation maritime (bouées, épaves, zones)
   S.isoShom = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', {
-    attribution: 'Isobathes © OpenSeaMap',
-    opacity: 0.95,
-    maxZoom: 19
+    attribution: 'Signalisation © OpenSeaMap',
+    opacity: 0.95, maxZoom: 19
   });
+
+  // Layer 4 — Carte marine IGN (isobathes fines côtières, zoom ≥12)
+  // Clé publique IGN 'essentiels' - gratuite sans inscription
+  S.isoIGN = L.tileLayer(
+    'https://wxs.ign.fr/essentiels/geoportail/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0' +
+    '&LAYER=GEOGRAPHICALGRIDSYSTEMS.MAPS&STYLE=normal&TILEMATRIXSET=PM' +
+    '&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=image/jpeg',
+    {
+      attribution: 'Cartes marines © IGN/SHOM',
+      opacity: 0.0, // Démarre invisible, s'active au zoom
+      maxZoom: 18, minZoom: 11
+    }
+  );
 
   // Layer 4 — Sédiments EMODnet
   S.sedLayer = L.tileLayer.wms('https://geo-service.maris.nl/emodnet_geology/wms', {
@@ -406,6 +417,7 @@ function initMap() {
   // Ajouter les layers par défaut
   S.isoDeep.addTo(S.map);
   S.isoShom.addTo(S.map);
+  S.isoIGN.addTo(S.map);
 
   // Référence pour le toggle
   S.isoLayer = S.isoDeep;
@@ -416,22 +428,27 @@ function initMap() {
     if (!S.showIso) return;
 
     if (zoom <= 9) {
-      // Vue large : grandes isobathes EMODnet, pas de SHOM (trop chargé)
+      // Vue large : grandes isobathes EMODnet uniquement
       if (!S.map.hasLayer(S.isoDeep)) S.isoDeep.addTo(S.map);
       if (S.map.hasLayer(S.isoShom)) S.map.removeLayer(S.isoShom);
       S.isoDeep.setOpacity(0.9);
-    } else if (zoom <= 12) {
-      // Vue intermédiaire : les deux
+      S.isoIGN.setOpacity(0);
+    } else if (zoom <= 11) {
+      // Vue intermédiaire : EMODnet + OpenSeaMap
       if (!S.map.hasLayer(S.isoDeep)) S.isoDeep.addTo(S.map);
       if (!S.map.hasLayer(S.isoShom)) S.isoShom.addTo(S.map);
-      S.isoDeep.setOpacity(0.6);
+      S.isoDeep.setOpacity(0.7);
       S.isoShom.setOpacity(0.9);
+      S.isoIGN.setOpacity(0);
     } else {
-      // Vue côtière : SHOM dominant, EMODnet en retrait
+      // Vue côtière zoom ≥12 : carte marine IGN + OpenSeaMap
       if (!S.map.hasLayer(S.isoDeep)) S.isoDeep.addTo(S.map);
       if (!S.map.hasLayer(S.isoShom)) S.isoShom.addTo(S.map);
-      S.isoDeep.setOpacity(0.3);
+      if (!S.map.hasLayer(S.isoIGN)) S.isoIGN.addTo(S.map);
+      S.isoDeep.setOpacity(0.2);
       S.isoShom.setOpacity(1.0);
+      // Carte IGN marine en transparence par-dessus le satellite
+      S.isoIGN.setOpacity(zoom >= 13 ? 0.4 : 0.2);
     }
   });
 
@@ -746,9 +763,12 @@ function toggleLayer(type) {
     if (S.showIso) {
       S.isoDeep.addTo(S.map);
       S.isoShom.addTo(S.map);
+      // Déclencher le handler de zoom pour remettre les bonnes opacités
+      S.map.fire('zoomend');
     } else {
       if (S.map.hasLayer(S.isoDeep)) S.map.removeLayer(S.isoDeep);
       if (S.map.hasLayer(S.isoShom)) S.map.removeLayer(S.isoShom);
+      if (S.map.hasLayer(S.isoIGN)) S.map.removeLayer(S.isoIGN);
     }
   } else if (type==='sed') {
     S.showSed = !S.showSed;
