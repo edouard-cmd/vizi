@@ -603,9 +603,13 @@ function initMap() {
   });
 
   S.map.on('click', e => { openPopup(e.latlng); hideTides(); });
-  S.map.on('moveend zoomend', () => {
+  S.map.on('moveend zoomend', async () => {
     drawHeatmap();
-    if (S.showWind) drawWindMarkers();
+    if (S.showWind) {
+      // Recharger les données si on a bougé significativement
+      await loadWindData();
+      drawWindMarkers();
+    }
   });
 }
 
@@ -998,25 +1002,126 @@ function clearWindMarkers() {
   if (windMarkerLayer) { S.map.removeLayer(windMarkerLayer); windMarkerLayer = null; }
 }
 
+// Cache du champ de vent : { gridKey → {times, points:[{lat,lon,speed,direction}]} }
+const windFieldCache = {};
+
 async function loadWindData() {
+  // Grille de points sur la zone visible — AROME résolution ~0.025° (~2.5km)
   const bounds = S.map.getBounds();
-  const lat = (bounds.getNorth()+bounds.getSouth())/2;
-  const lon = (bounds.getEast()+bounds.getWest())/2;
+  const zoom = S.map.getZoom();
+  // Espacement de la grille selon zoom — moins de points au large pour éviter trop d'appels API
+  const step = zoom >= 11 ? 0.15 : zoom >= 8 ? 0.4 : 1.0;
+
+  const lats = [], lons = [];
+  for (let lat = bounds.getSouth()+step/2; lat < bounds.getNorth(); lat += step) lats.push(Math.round(lat*1000)/1000);
+  for (let lon = bounds.getWest()+step/2;  lon < bounds.getEast();  lon += step) lons.push(Math.round(lon*1000)/1000);
+
+  // Limiter à 16 points max pour éviter trop d'appels (4x4)
+  const maxPts = 16;
+  const latSamples = lats.filter((_,i) => i % Math.ceil(lats.length/4) === 0).slice(0,4);
+  const lonSamples = lons.filter((_,i) => i % Math.ceil(lons.length/4) === 0).slice(0,4);
+
   const now = new Date();
   const s = new Date(now); s.setDate(s.getDate()-1);
   const e = new Date(now); e.setDate(e.getDate()+3);
   const fmt = d => d.toISOString().split('T')[0];
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=windspeed_10m,winddirection_10m&wind_speed_unit=kmh&timezone=Europe/Paris&start_date=${fmt(s)}&end_date=${fmt(e)}&models=arome_france`;
-  try {
-    const r = await fetch(url);
-    const d = await r.json();
-    if (!d.hourly) return;
-    S.windData = {times:d.hourly.time, speed:d.hourly.windspeed_10m, direction:d.hourly.winddirection_10m};
-    const ni = d.hourly.time.findIndex(t => t.startsWith(now.toISOString().slice(0,13)));
-    S.windHourIdx = ni>=0 ? ni : 24;
-    document.getElementById('windSlider').max = d.hourly.time.length-1;
-    document.getElementById('windSlider').value = S.windHourIdx;
-  } catch(e) { console.warn('Wind:', e); }
+
+  // Construire la requête multi-points Open-Meteo (paramètre latitude/longitude multiples)
+  const latStr = latSamples.join(',');
+  const lonStr = lonSamples.map(lo => lonSamples).join(','); // on passe les coins
+
+  // Open-Meteo supporte plusieurs lat/lon dans une seule requête
+  const gridPoints = [];
+  for (const lat of latSamples) {
+    for (const lon of lonSamples) {
+      gridPoints.push({lat, lon});
+    }
+  }
+
+  // Fetch en parallèle (max 16 requêtes simultanées)
+  const fetchPoint = async (pt) => {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${pt.lat}&longitude=${pt.lon}&hourly=windspeed_10m,winddirection_10m&wind_speed_unit=kmh&timezone=Europe/Paris&start_date=${fmt(s)}&end_date=${fmt(e)}&models=arome_france`;
+    try {
+      const r = await fetch(url);
+      const d = await r.json();
+      if (!d.hourly) return null;
+      return { lat:pt.lat, lon:pt.lon, speed:d.hourly.windspeed_10m, direction:d.hourly.winddirection_10m, times:d.hourly.time };
+    } catch(err) { return null; }
+  };
+
+  const results = await Promise.all(gridPoints.map(fetchPoint));
+  const valid = results.filter(r => r !== null);
+  if (valid.length === 0) return;
+
+  // Stocker le champ de vent indexé par position
+  const times = valid[0].times;
+  S.windData = { times, field: valid };
+
+  const ni = times.findIndex(t => t.startsWith(now.toISOString().slice(0,13)));
+  S.windHourIdx = ni >= 0 ? ni : 24;
+  document.getElementById('windSlider').max = times.length - 1;
+  document.getElementById('windSlider').value = S.windHourIdx;
+}
+
+// Interpolation bilinéaire du vent à une position donnée
+function interpolateWind(lat, lon, field, idx) {
+  if (!field || field.length === 0) return {speed:0, dir:0};
+  if (field.length === 1) return {speed: field[0].speed[idx]||0, dir: field[0].direction[idx]||0};
+
+  // Trouver les 4 points les plus proches
+  const sorted = field.map(p => ({
+    ...p,
+    dist: Math.sqrt(Math.pow(p.lat-lat,2) + Math.pow(p.lon-lon,2))
+  })).sort((a,b) => a.dist-b.dist);
+
+  const nearest = sorted.slice(0, Math.min(4, sorted.length));
+
+  // Interpolation pondérée par distance inverse
+  let wSum = 0, speedSum = 0, dirXSum = 0, dirYSum = 0;
+  for (const p of nearest) {
+    const w = p.dist < 0.001 ? 1000 : 1/p.dist;
+    const speed = p.speed[idx]||0;
+    const dirRad = ((p.direction[idx]||0)*Math.PI/180);
+    wSum += w;
+    speedSum += w * speed;
+    dirXSum += w * Math.cos(dirRad);
+    dirYSum += w * Math.sin(dirRad);
+  }
+
+  return {
+    speed: speedSum/wSum,
+    dir: (Math.atan2(dirYSum/wSum, dirXSum/wSum)*180/Math.PI + 360) % 360
+  };
+}
+
+async function drawWindMarkers() {
+  clearWindMarkers();
+  if (!S.windData || !S.showWind) return;
+
+  windMarkerLayer = L.layerGroup().addTo(S.map);
+
+  const idx   = S.windHourIdx;
+  const zoom  = S.map.getZoom();
+  const bounds = S.map.getBounds();
+
+  // Espacement des marqueurs selon zoom
+  const step = zoom >= 13 ? 0.025 : zoom >= 11 ? 0.06 : zoom >= 9 ? 0.14 : 0.32;
+  const size = 22;
+
+  for (let lat = bounds.getSouth()+step/2; lat < bounds.getNorth(); lat += step) {
+    for (let lon = bounds.getWest()+step/2; lon < bounds.getEast(); lon += step) {
+      // Interpoler le vent à cette position exacte
+      const {speed, dir} = interpolateWind(lat, lon, S.windData.field, idx);
+      const color = windSpeedColor(speed);
+
+      const icon = L.divIcon({
+        className:'',
+        html: makeWindArrowSVG(dir, speed, color, size),
+        iconSize:[size,size], iconAnchor:[size/2,size/2]
+      });
+      L.marker([lat,lon], {icon, interactive:false}).addTo(windMarkerLayer);
+    }
+  }
 }
 
 function buildWindTicks() {
@@ -1049,9 +1154,7 @@ function onWindSlider(val) {
   document.getElementById('windTimeVal').textContent = new Date(S.windData.times[idx]).toLocaleString('fr',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
   document.getElementById('windSpeedVal').style.color = windSpeedColor(speed);
   if (S.showWind) drawWindMarkers();
-}
-
-function windSpeedColor(s) {
+}(s) {
   if(!s)return'#ffffff'; if(s<10)return'#00e676'; if(s<20)return'#76ff03';
   if(s<30)return'#ffd600'; if(s<45)return'#ff6d00'; return'#ff1744';
 }
@@ -1059,6 +1162,11 @@ function windSpeedColor(s) {
 function dirToCardinal(deg) {
   if(!deg&&deg!==0)return'—';
   return['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'][Math.round(deg/22.5)%16];
+}
+
+function windSpeedColor(s) {
+  if(!s)return'#ffffff'; if(s<10)return'#00e676'; if(s<20)return'#76ff03';
+  if(s<30)return'#ffd600'; if(s<45)return'#ff6d00'; return'#ff1744';
 }
 
 // ============================================================
