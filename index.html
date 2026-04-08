@@ -1090,9 +1090,17 @@ function onWindSlider(val) {
 }
 
 function drawWind() {
-  if (!S.windCanvas || !S.map || !S.windData) return;
-  const ctx = S.windCtx;
-  const W = S.windCanvas.width, H = S.windCanvas.height;
+  const canvas = document.getElementById('windCanvas');
+  if (!canvas || !S.map || !S.windData) return;
+
+  // Forcer le bon dimensionnement
+  if (canvas.width < 400) {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
   ctx.clearRect(0, 0, W, H);
 
   const idx   = S.windHourIdx;
