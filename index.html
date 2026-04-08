@@ -1152,6 +1152,7 @@ function openSpotPopup(latlng, name) {
   var near = S.heatmap.length ? S.heatmap.reduce(function(a,b){
     return Math.hypot(a.lat-latlng.lat,a.lon-latlng.lng) < Math.hypot(b.lat-latlng.lat,b.lon-latlng.lng) ? a : b;
   }) : null;
+  S._spotDepth = near ? near.depth : 10; // stocké pour renderSpotPopup
   document.getElementById('spotMeta').textContent = near ? '⚓ ~' + near.depth + 'm · AROME best_match' : 'AROME best_match';
 
   // Date/heure actuelles
@@ -1216,40 +1217,68 @@ function renderSpotPopup() {
   var timeVal = document.getElementById('spotTime').value;
   var targetStr = dateVal + 'T' + timeVal;
 
-  // Trouver l'index le plus proche dans les données horaires
+  // Index horaire le plus proche
   var idx = 0, best = Infinity;
   h.time.forEach(function(t, i) {
     var d = Math.abs(new Date(t) - new Date(targetStr));
     if (d < best) { best = d; idx = i; }
   });
 
-  var wind = Math.round(h.windspeed_10m[idx] || 0);
-  var gusts = Math.round(h.windgusts_10m[idx] || 0);
-  var dir = h.winddirection_10m[idx];
-  var wave = h.wave_height ? (h.wave_height[idx] || 0) : 0;
-  var rain = h.precipitation ? (h.precipitation[idx] || 0) : 0;
+  var wind  = Math.round(h.windspeed_10m[idx]  || 0);
+  var gusts = Math.round(h.windgusts_10m[idx]  || 0);
+  var dir   = h.winddirection_10m[idx];
+  var wave  = h.wave_height    ? (h.wave_height[idx]    || 0) : 0;
+  var rain  = h.precipitation  ? (h.precipitation[idx]  || 0) : 0;
 
-  // Calcul score visibilité (0-100, 100 = excellente)
-  // Modèle simple : vent + vagues + pluie dégradent la visi
-  var windPenalty = Math.min(wind / 50, 1) * 40;   // max 40pts de pénalité
-  var wavePenalty = Math.min(wave / 2.5, 1) * 35;  // max 35pts
-  var rainPenalty = Math.min(rain / 5, 1) * 15;    // max 15pts
-  var score = Math.max(0, Math.min(100, 100 - windPenalty - wavePenalty - rainPenalty));
+  // ── MODÈLE TURBIDITÉ ──────────────────────────────────────
+  // Profondeur du spot (depuis le heatmap le plus proche)
+  var depth = S._spotDepth || 10; // mètres
 
-  // Label visibilité
-  var visLabel, visColor;
-  if (score >= 80) { visLabel = 'Excellente'; visColor = '#00e676'; }
-  else if (score >= 60) { visLabel = 'Bonne'; visColor = '#76ff03'; }
-  else if (score >= 40) { visLabel = 'Moyenne'; visColor = '#ffd600'; }
-  else if (score >= 20) { visLabel = 'Faible'; visColor = '#ff6d00'; }
-  else { visLabel = 'Mauvaise'; visColor = '#ff1744'; }
+  // 1. Facteur bathymétrique : plus c'est peu profond, plus c'est turbide
+  //    < 5m → ×3.5 | 5-10m → ×2.5 | 10-20m → ×1.5 | > 20m → ×1.0
+  var bathyFactor = depth <= 3  ? 3.5
+                  : depth <= 5  ? 3.0
+                  : depth <= 10 ? 2.2
+                  : depth <= 20 ? 1.4
+                  : 1.0;
 
-  // Curseur (position 0-100% sur la barre)
+  // 2. Pénalité vent : seuil bas côtier, le vent remobilise les sédiments
+  //    Dès 10 km/h en zone peu profonde c'est significatif
+  var windBase = Math.max(0, wind - 8);           // actif dès 8 km/h
+  var windPenalty = Math.min(windBase / 30, 1) * 45;
+
+  // 3. Pénalité rafales (chocs sur le fond)
+  var gustBase = Math.max(0, gusts - 12);
+  var gustPenalty = Math.min(gustBase / 35, 1) * 20;
+
+  // 4. Pénalité vagues (déferlement + remise en suspension)
+  var wavePenalty = Math.min(wave / 1.5, 1) * 30;
+
+  // 5. Pénalité pluie (ruissellement côtier)
+  var rainPenalty = Math.min(rain / 3, 1) * 10;
+
+  // Score brut avant bathy
+  var rawPenalty = windPenalty + gustPenalty + wavePenalty + rainPenalty;
+
+  // Application du facteur bathymétrique sur les pénalités
+  var totalPenalty = Math.min(rawPenalty * bathyFactor, 100);
+
+  var score = Math.max(0, Math.min(100, 100 - totalPenalty));
+
+  // Label
+  var visLabel;
+  if (score >= 80)      visLabel = 'Excellente';
+  else if (score >= 60) visLabel = 'Bonne';
+  else if (score >= 40) visLabel = 'Moyenne';
+  else if (score >= 20) visLabel = 'Faible';
+  else                  visLabel = 'Mauvaise';
+
+  // Curseur + label
   document.getElementById('spotVisCursor').style.left = score + '%';
   document.getElementById('spotVisLabel').textContent = visLabel;
-  document.getElementById('spotVisLabel').style.color = score > 50 ? 'rgba(0,0,0,0.8)' : 'white';
+  document.getElementById('spotVisLabel').style.color = score > 55 ? 'rgba(0,0,0,0.85)' : 'white';
 
-  // Vent
+  // Vent coloré
   var windColor = wind < 10 ? '#00e676' : wind < 20 ? '#ffd600' : wind < 35 ? '#ff6d00' : '#ff1744';
   var gustColor = gusts < 15 ? '#00e676' : gusts < 25 ? '#ffd600' : gusts < 45 ? '#ff6d00' : '#ff1744';
   document.getElementById('spotWindSpeed').textContent = wind;
@@ -1258,10 +1287,10 @@ function renderSpotPopup() {
   document.getElementById('spotWindGusts').style.color = gustColor;
 
   // Direction
-  var arrows = ['↓','↙','←','↖','↑','↗','→','↘'];
-  var arrow = dir !== null && dir !== undefined ? arrows[Math.round(((dir+180)%360)/45)%8] : '—';
+  var arrows   = ['↓','↙','←','↖','↑','↗','→','↘'];
   var dirNames = ['S','SO','O','NO','N','NE','E','SE'];
-  var dirName = dir !== null && dir !== undefined ? dirNames[Math.round(((dir+180)%360)/45)%8] : '—';
+  var arrow   = (dir !== null && dir !== undefined) ? arrows[Math.round(((dir+180)%360)/45)%8]   : '—';
+  var dirName = (dir !== null && dir !== undefined) ? dirNames[Math.round(((dir+180)%360)/45)%8] : '—';
   document.getElementById('spotWindDir').textContent = arrow;
   document.getElementById('spotWindDeg').textContent = dirName + (dir !== null ? ' ' + Math.round(dir) + '°' : '');
 }
