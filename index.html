@@ -1006,60 +1006,50 @@ function clearWindMarkers() {
 const windFieldCache = {};
 
 async function loadWindData() {
-  // Grille de points sur la zone visible — AROME résolution ~0.025° (~2.5km)
   const bounds = S.map.getBounds();
   const zoom = S.map.getZoom();
-  // Espacement de la grille selon zoom — moins de points au large pour éviter trop d'appels API
-  const step = zoom >= 11 ? 0.15 : zoom >= 8 ? 0.4 : 1.0;
-
-  const lats = [], lons = [];
-  for (let lat = bounds.getSouth()+step/2; lat < bounds.getNorth(); lat += step) lats.push(Math.round(lat*1000)/1000);
-  for (let lon = bounds.getWest()+step/2;  lon < bounds.getEast();  lon += step) lons.push(Math.round(lon*1000)/1000);
-
-  // Limiter à 16 points max pour éviter trop d'appels (4x4)
-  const maxPts = 16;
-  const latSamples = lats.filter((_,i) => i % Math.ceil(lats.length/4) === 0).slice(0,4);
-  const lonSamples = lons.filter((_,i) => i % Math.ceil(lons.length/4) === 0).slice(0,4);
-
   const now = new Date();
   const s = new Date(now); s.setDate(s.getDate()-1);
   const e = new Date(now); e.setDate(e.getDate()+3);
   const fmt = d => d.toISOString().split('T')[0];
 
-  // Construire la requête multi-points Open-Meteo (paramètre latitude/longitude multiples)
-  const latStr = latSamples.join(',');
-  const lonStr = lonSamples.map(lo => lonSamples).join(','); // on passe les coins
+  // Grille 5x5 sur la zone visible
+  const nPts = zoom >= 10 ? 5 : 4;
+  const latStep = (bounds.getNorth() - bounds.getSouth()) / nPts;
+  const lonStep = (bounds.getEast()  - bounds.getWest())  / nPts;
 
-  // Open-Meteo supporte plusieurs lat/lon dans une seule requête
   const gridPoints = [];
-  for (const lat of latSamples) {
-    for (const lon of lonSamples) {
-      gridPoints.push({lat, lon});
+  for (let i = 0; i < nPts; i++) {
+    for (let j = 0; j < nPts; j++) {
+      gridPoints.push({
+        lat: Math.round((bounds.getSouth() + (i+0.5)*latStep)*1000)/1000,
+        lon: Math.round((bounds.getWest()  + (j+0.5)*lonStep)*1000)/1000
+      });
     }
   }
 
-  // Fetch en parallèle (max 16 requêtes simultanées)
+  // best_match = AROME sur France, GFS ailleurs — automatique
   const fetchPoint = async (pt) => {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${pt.lat}&longitude=${pt.lon}&hourly=windspeed_10m,winddirection_10m&wind_speed_unit=kmh&timezone=Europe/Paris&start_date=${fmt(s)}&end_date=${fmt(e)}&models=arome_france`;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${pt.lat}&longitude=${pt.lon}` +
+      `&hourly=windspeed_10m,winddirection_10m&wind_speed_unit=kmh&timezone=UTC` +
+      `&start_date=${fmt(s)}&end_date=${fmt(e)}`;
     try {
       const r = await fetch(url);
       const d = await r.json();
       if (!d.hourly) return null;
       return { lat:pt.lat, lon:pt.lon, speed:d.hourly.windspeed_10m, direction:d.hourly.winddirection_10m, times:d.hourly.time };
-    } catch(err) { return null; }
+    } catch { return null; }
   };
 
+  // Fetch en parallèle
   const results = await Promise.all(gridPoints.map(fetchPoint));
   const valid = results.filter(r => r !== null);
   if (valid.length === 0) return;
 
-  // Stocker le champ de vent indexé par position
-  const times = valid[0].times;
-  S.windData = { times, field: valid };
-
-  const ni = times.findIndex(t => t.startsWith(now.toISOString().slice(0,13)));
+  S.windData = { times: valid[0].times, field: valid };
+  const ni = valid[0].times.findIndex(t => t.startsWith(now.toISOString().slice(0,13).replace('T','T')));
   S.windHourIdx = ni >= 0 ? ni : 24;
-  document.getElementById('windSlider').max = times.length - 1;
+  document.getElementById('windSlider').max = valid[0].times.length - 1;
   document.getElementById('windSlider').value = S.windHourIdx;
 }
 
