@@ -189,6 +189,27 @@
 <div id="map"></div>
 <canvas id="heatmapCanvas"></canvas>
 <canvas id="windCanvas"></canvas>
+<script>
+// Force resize immédiat avant tout le reste
+(function() {
+  function fixCanvas() {
+    var hc = document.getElementById('heatmapCanvas');
+    var wc = document.getElementById('windCanvas');
+    if (hc && wc) {
+      hc.width = wc.width = window.innerWidth;
+      hc.height = wc.height = window.innerHeight;
+    }
+  }
+  fixCanvas();
+  window.addEventListener('resize', fixCanvas);
+  // Aussi après chargement complet
+  window.addEventListener('load', fixCanvas);
+  // Et après 500ms au cas où
+  setTimeout(fixCanvas, 500);
+  setTimeout(fixCanvas, 1500);
+  window._fixCanvas = fixCanvas;
+})();
+</script>
 
 <!-- BARRE VENT TIMELINE -->
 <div id="windBar">
@@ -933,7 +954,7 @@ async function toggleWind() {
 
   if (S.showWind) {
     bar.style.display = 'block';
-    resizeCanvas(); // forcer le bon dimensionnement
+    if (window._fixCanvas) window._fixCanvas();
     if (!S.windData) await loadWindData();
     buildWindTicks();
     onWindSlider(S.windHourIdx);
