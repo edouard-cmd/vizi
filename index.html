@@ -42,7 +42,7 @@
     .opacity-wrap { display:flex; align-items:center; gap:5px; font-family:'Space Mono',monospace; font-size:10px; color:var(--text-muted); background:rgba(10,14,26,0.85); border:1px solid rgba(255,255,255,0.15); border-radius:6px; padding:5px 10px; backdrop-filter:blur(8px); }
     .opacity-wrap input { width:60px; accent-color:var(--accent); }
 
-    #map { width:100%; height:100%; }
+    #map { width:100%; height:100%; position:absolute; top:0; left:0; right:0; bottom:0; }
     .leaflet-container { background:#040a14; cursor:crosshair !important; }
     .leaflet-control-zoom { border:none !important; }
     .leaflet-control-zoom a { background:rgba(10,14,26,0.92) !important; color:var(--accent) !important; border:1px solid var(--border) !important; margin-bottom:2px !important; border-radius:6px !important; }
@@ -954,17 +954,12 @@ async function toggleWind() {
     if (!S.windData) await loadWindData();
     buildWindTicks();
     onWindSlider(S.windHourIdx);
-    document.getElementById('map').style.bottom = '90px';
-    document.getElementById('heatmapCanvas').style.bottom = '90px';
-    S.map.invalidateSize();
     drawWindMarkers();
   } else {
     bar.style.display = 'none';
     clearWindMarkers();
-    document.getElementById('map').style.bottom = '0';
-    document.getElementById('heatmapCanvas').style.bottom = '0';
-    S.map.invalidateSize();
   }
+  S.map.invalidateSize();
 }
 
 function drawWindMarkers() {
