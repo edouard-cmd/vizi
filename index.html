@@ -605,6 +605,7 @@ function initMap() {
   S.map.on('click', e => { openPopup(e.latlng); hideTides(); });
   S.map.on('moveend zoomend', () => {
     drawHeatmap();
+    if (S.showWind) drawWindMarkers();
   });
 }
 
@@ -936,304 +937,129 @@ function updateMarkerColors() {
 }
 
 // ============================================================
-// VENT — AROME via Open-Meteo
+// VENT — AROME via Open-Meteo (SVG markers géoréférencés)
 // ============================================================
-// ── Leaflet Wind Layer (se synchronise avec la carte) ──
-let WindLayerInstance = null;
-
-function getWindLayerClass() {
-  return L.Layer.extend({
-    onAdd: function(map) {
-      this._map = map;
-      this._canvas = document.createElement('canvas');
-      this._canvas.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;z-index:410;';
-      map.getPanes().overlayPane.appendChild(this._canvas);
-      map.on('movestart', this._clear, this);
-      map.on('moveend zoomend resize', this._redraw, this);
-      this._redraw();
-    },
-    onRemove: function(map) {
-      this._canvas.remove();
-      map.off('movestart', this._clear, this);
-      map.off('moveend zoomend resize', this._redraw, this);
-    },
-    _clear: function() {
-      const c = this._canvas; if (c) c.getContext('2d').clearRect(0,0,c.width,c.height);
-    },
-    _redraw: function() {
-      if (!this._map || !this._canvas) return;
-      const size = this._map.getSize();
-      this._canvas.width = size.x;
-      this._canvas.height = size.y;
-      L.DomUtil.setPosition(this._canvas, this._map.containerPointToLayerPoint([0,0]));
-      this.draw();
-    },
-    draw: function() {
-      if (!S.showWind || !S.windData || !this._canvas) return;
-      const canvas = this._canvas;
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const idx = S.windHourIdx;
-      const speed = S.windData.speed[idx] || 0;
-      const dir   = S.windData.direction[idx] || 0;
-      const ar = ((dir+180)%360)*Math.PI/180;
-      const u = Math.sin(ar), v = -Math.cos(ar);
-      const zoom = this._map.getZoom();
-      const sp = Math.max(55, 130 - zoom*5);
-      for (let px=sp/2; px<canvas.width; px+=sp) {
-        for (let py=sp/2; py<canvas.height; py+=sp) {
-          const ls = speed*(0.9 + Math.sin(px*0.04+py*0.03)*0.08);
-          drawWindArrow(ctx, px, py, u, v, ls);
-        }
-      }
-    }
-  });
-}
+let windMarkerLayer = null;
 
 async function toggleWind() {
   S.showWind = !S.showWind;
-  const btn = document.getElementById('btnWind');
+  document.getElementById('btnWind').classList.toggle('active', S.showWind);
   const bar = document.getElementById('windBar');
-  btn.classList.toggle('active', S.showWind);
-
   if (S.showWind) {
     bar.style.display = 'block';
     if (!S.windData) await loadWindData();
     buildWindTicks();
     onWindSlider(S.windHourIdx);
-    // Créer le layer Leaflet vent
-    if (!WindLayerInstance) WindLayerInstance = new (getWindLayerClass())();
-    WindLayerInstance.addTo(S.map);
-    WindLayerInstance.draw();
     document.getElementById('map').style.bottom = '90px';
     document.getElementById('heatmapCanvas').style.bottom = '90px';
+    S.map.invalidateSize();
+    drawWindMarkers();
   } else {
     bar.style.display = 'none';
-    if (WindLayerInstance && S.map.hasLayer(WindLayerInstance)) S.map.removeLayer(WindLayerInstance);
+    clearWindMarkers();
     document.getElementById('map').style.bottom = '0';
     document.getElementById('heatmapCanvas').style.bottom = '0';
+    S.map.invalidateSize();
   }
-  S.map.invalidateSize();
+}
+
+function drawWindMarkers() {
+  clearWindMarkers();
+  if (!S.windData || !S.showWind) return;
+  windMarkerLayer = L.layerGroup().addTo(S.map);
+  const idx   = S.windHourIdx;
+  const speed = S.windData.speed[idx] || 0;
+  const dir   = S.windData.direction[idx] || 0;
+  const color = windSpeedColor(speed);
+  const zoom  = S.map.getZoom();
+  const bounds = S.map.getBounds();
+  const step = zoom >= 13 ? 0.025 : zoom >= 11 ? 0.06 : zoom >= 9 ? 0.14 : 0.32;
+  const size = Math.max(18, Math.min(12 + speed * 0.6, 34));
+  for (let lat = bounds.getSouth()+step/2; lat < bounds.getNorth(); lat += step) {
+    for (let lon = bounds.getWest()+step/2; lon < bounds.getEast(); lon += step) {
+      const icon = L.divIcon({
+        className:'',
+        html: makeWindArrowSVG(dir, speed, color, size),
+        iconSize:[size,size], iconAnchor:[size/2,size/2]
+      });
+      L.marker([lat,lon], {icon, interactive:false}).addTo(windMarkerLayer);
+    }
+  }
+}
+
+function makeWindArrowSVG(dir, speed, color, size) {
+  const angle = (dir + 180) % 360;
+  const alpha = Math.min(0.45 + speed/55, 0.92);
+  const sw = speed > 25 ? 2.5 : 1.8;
+  return `<svg width="${size}" height="${size}" viewBox="-10 -10 20 20" xmlns="http://www.w3.org/2000/svg" style="transform:rotate(${angle}deg);opacity:${alpha}"><line x1="0" y1="7" x2="0" y2="-6" stroke="${color}" stroke-width="${sw}" stroke-linecap="round"/><polygon points="0,-10 -4,-3 4,-3" fill="${color}"/></svg>`;
+}
+
+function clearWindMarkers() {
+  if (windMarkerLayer) { S.map.removeLayer(windMarkerLayer); windMarkerLayer = null; }
 }
 
 async function loadWindData() {
-  // Grille de points sur la zone visible
-  // On utilise le centre de la carte + grille 8x6 points
   const bounds = S.map.getBounds();
-  const centerLat = (bounds.getNorth() + bounds.getSouth()) / 2;
-  const centerLon = (bounds.getEast() + bounds.getWest()) / 2;
-
-  // Open-Meteo AROME : vent U/V à 10m, pas 1h, J-1 à J+3
+  const lat = (bounds.getNorth()+bounds.getSouth())/2;
+  const lon = (bounds.getEast()+bounds.getWest())/2;
   const now = new Date();
-  const startDate = new Date(now); startDate.setDate(startDate.getDate() - 1);
-  const endDate   = new Date(now); endDate.setDate(endDate.getDate() + 3);
+  const s = new Date(now); s.setDate(s.getDate()-1);
+  const e = new Date(now); e.setDate(e.getDate()+3);
   const fmt = d => d.toISOString().split('T')[0];
-
-  // Grille de 6x4 points sur la zone visible
-  const latStep = (bounds.getNorth() - bounds.getSouth()) / 5;
-  const lonStep = (bounds.getEast()  - bounds.getWest())  / 5;
-  const gridPoints = [];
-
-  for (let i = 0; i < 6; i++) {
-    for (let j = 0; j < 6; j++) {
-      gridPoints.push({
-        lat: bounds.getSouth() + i * latStep,
-        lon: bounds.getWest()  + j * lonStep
-      });
-    }
-  }
-
-  // Fetch AROME pour le point central (on étend à la grille ensuite)
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${centerLat}&longitude=${centerLon}` +
-    `&hourly=windspeed_10m,winddirection_10m,windgusts_10m` +
-    `&wind_speed_unit=kmh&timezone=Europe/Paris` +
-    `&start_date=${fmt(startDate)}&end_date=${fmt(endDate)}` +
-    `&models=arome_france`;
-
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=windspeed_10m,winddirection_10m&wind_speed_unit=kmh&timezone=Europe/Paris&start_date=${fmt(s)}&end_date=${fmt(e)}&models=arome_france`;
   try {
     const r = await fetch(url);
     const d = await r.json();
-
-    if (!d.hourly) throw new Error('Pas de données AROME');
-
-    S.windData = {
-      times:     d.hourly.time,
-      speed:     d.hourly.windspeed_10m,
-      direction: d.hourly.winddirection_10m,
-      gusts:     d.hourly.windgusts_10m,
-      gridPoints,
-      centerLat, centerLon
-    };
-
-    // Trouver l'index de l'heure actuelle
-    const nowStr = now.toISOString().slice(0, 13);
-    const nowIdx = d.hourly.time.findIndex(t => t.startsWith(nowStr));
-    S.windHourIdx = nowIdx >= 0 ? nowIdx : 24;
-    document.getElementById('windSlider').max = d.hourly.time.length - 1;
+    if (!d.hourly) return;
+    S.windData = {times:d.hourly.time, speed:d.hourly.windspeed_10m, direction:d.hourly.winddirection_10m};
+    const ni = d.hourly.time.findIndex(t => t.startsWith(now.toISOString().slice(0,13)));
+    S.windHourIdx = ni>=0 ? ni : 24;
+    document.getElementById('windSlider').max = d.hourly.time.length-1;
     document.getElementById('windSlider').value = S.windHourIdx;
-
-  } catch(e) {
-    console.warn('Wind load error:', e);
-    S.windData = null;
-  }
+  } catch(e) { console.warn('Wind:', e); }
 }
 
 function buildWindTicks() {
   if (!S.windData) return;
   const ticks = document.getElementById('windTicks');
-  const times = S.windData.times;
-  const total = times.length;
   ticks.innerHTML = '';
-
-  // Afficher un tick par jour (minuit)
-  const shown = [];
-  times.forEach((t, i) => {
-    if (t.includes('T00:00') || t.includes('T12:00')) {
-      shown.push({ i, t });
-    }
-  });
-
-  shown.forEach(({ i, t }) => {
-    const pct = (i / (total - 1)) * 100;
+  ticks.style.cssText = 'position:relative;height:16px;';
+  S.windData.times.forEach((t,i) => {
+    if (!t.includes('T00:00') && !t.includes('T12:00')) return;
+    const pct = (i/(S.windData.times.length-1))*100;
     const date = new Date(t);
     const label = t.includes('T00:00')
-      ? date.toLocaleDateString('fr', { weekday:'short', day:'numeric' })
-      : date.toLocaleTimeString('fr', { hour:'2-digit', minute:'2-digit' });
+      ? date.toLocaleDateString('fr',{weekday:'short',day:'numeric'})
+      : date.toLocaleTimeString('fr',{hour:'2-digit',minute:'2-digit'});
     const span = document.createElement('span');
     span.style.cssText = `position:absolute;left:${pct}%;transform:translateX(-50%);white-space:nowrap;`;
     span.textContent = label;
-    if (i === S.windHourIdx) span.className = 'wind-tick-now';
+    if (i===S.windHourIdx) span.style.color='var(--accent)';
     ticks.appendChild(span);
   });
-  ticks.style.position = 'relative';
-  ticks.style.height = '16px';
 }
 
 function onWindSlider(val) {
   S.windHourIdx = parseInt(val);
   if (!S.windData) return;
-
   const idx = S.windHourIdx;
-  const speed = S.windData.speed[idx];
-  const dir   = S.windData.direction[idx];
-  const time  = S.windData.times[idx];
-
-  document.getElementById('windSpeedVal').textContent = Math.round(speed || 0);
-  document.getElementById('windDirVal').textContent   = dirToCardinal(dir) + ' ' + Math.round(dir || 0) + '°';
-  document.getElementById('windTimeVal').textContent  = new Date(time).toLocaleString('fr', {
-    weekday:'short', day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'
-  });
-
-  // Couleur selon vitesse
-  const color = windSpeedColor(speed);
-  document.getElementById('windSpeedVal').style.color = color;
-
-  if (WindLayerInstance && S.showWind) WindLayerInstance.draw();
+  const speed = S.windData.speed[idx]||0, dir = S.windData.direction[idx]||0;
+  document.getElementById('windSpeedVal').textContent = Math.round(speed);
+  document.getElementById('windDirVal').textContent = dirToCardinal(dir)+' '+Math.round(dir)+'°';
+  document.getElementById('windTimeVal').textContent = new Date(S.windData.times[idx]).toLocaleString('fr',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+  document.getElementById('windSpeedVal').style.color = windSpeedColor(speed);
+  if (S.showWind) drawWindMarkers();
 }
 
-function _drawWindInternal() {
-  const canvas = document.getElementById('windCanvas');
-  if (!canvas || !S.map || !S.windData) return;
-
-  // Forcer le bon dimensionnement
-  if (canvas.width < 400) {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-  }
-
-  const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
-  ctx.clearRect(0, 0, W, H);
-
-  const idx   = S.windHourIdx;
-  const speed = S.windData.speed[idx]     || 0;
-  const dir   = S.windData.direction[idx] || 0;
-
-  // Convertir direction météo (d'où vient le vent) → direction dessin (vers où va la flèche)
-  const angleRad = ((dir + 180) % 360) * Math.PI / 180;
-  const uNorm = Math.sin(angleRad);
-  const vNorm = -Math.cos(angleRad); // Y inversé en canvas
-
-  // Grille de flèches sur toute la carte visible
-  const bounds = S.map.getBounds();
-  const zoom   = S.map.getZoom();
-  const spacing = Math.max(60, 140 - zoom * 6); // Espacement adaptatif au zoom
-
-  for (let px = spacing/2; px < W; px += spacing) {
-    for (let py = spacing/2; py < H; py += spacing) {
-      // Variation spatiale légère (simulation relief/côte)
-      const latlng = S.map.containerPointToLatLng([px, py]);
-      const coastal = Math.max(0, 1 - Math.abs(latlng.lat - 49.33) * 20);
-      const localSpeed = speed * (0.85 + coastal * 0.3 + (Math.sin(px*0.05 + py*0.03) * 0.1));
-
-      drawWindArrow(ctx, px, py, uNorm, vNorm, localSpeed);
-    }
-  }
-}
-
-function drawWindArrow(ctx, x, y, u, v, speed) {
-  if (speed < 0.5) return;
-
-  const color = windSpeedColor(speed);
-  const len   = Math.min(6 + speed * 1.2, 45); // Longueur proportionnelle
-  const alpha = Math.min(0.3 + speed / 60, 0.85);
-
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(Math.atan2(v, u));
-
-  ctx.globalAlpha = alpha;
-  ctx.strokeStyle = color;
-  ctx.fillStyle   = color;
-  ctx.lineWidth   = speed > 30 ? 2 : 1.5;
-  ctx.lineCap     = 'round';
-
-  // Tige
-  ctx.beginPath();
-  ctx.moveTo(-len/2, 0);
-  ctx.lineTo(len/2, 0);
-  ctx.stroke();
-
-  // Pointe de flèche
-  const hw = Math.min(3 + speed * 0.08, 6);
-  ctx.beginPath();
-  ctx.moveTo(len/2, 0);
-  ctx.lineTo(len/2 - hw, -hw * 0.6);
-  ctx.lineTo(len/2 - hw,  hw * 0.6);
-  ctx.closePath();
-  ctx.fill();
-
-  // Barbules pour vents forts (comme cartes marines)
-  if (speed >= 20) {
-    const barbs = Math.floor(speed / 10);
-    for (let b = 0; b < Math.min(barbs, 4); b++) {
-      ctx.beginPath();
-      ctx.moveTo(-len/2 + b * 8, 0);
-      ctx.lineTo(-len/2 + b * 8 - 4, -7);
-      ctx.stroke();
-    }
-  }
-
-  ctx.restore();
-}
-
-function windSpeedColor(speed) {
-  if (!speed) return 'rgba(255,255,255,0.4)';
-  if (speed < 10) return '#00e676';
-  if (speed < 20) return '#76ff03';
-  if (speed < 30) return '#ffd600';
-  if (speed < 45) return '#ff6d00';
-  return '#ff1744';
+function windSpeedColor(s) {
+  if(!s)return'#ffffff'; if(s<10)return'#00e676'; if(s<20)return'#76ff03';
+  if(s<30)return'#ffd600'; if(s<45)return'#ff6d00'; return'#ff1744';
 }
 
 function dirToCardinal(deg) {
-  if (!deg && deg !== 0) return '—';
-  const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
-  return dirs[Math.round(deg / 22.5) % 16];
+  if(!deg&&deg!==0)return'—';
+  return['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'][Math.round(deg/22.5)%16];
 }
-
-// Redessiner vent quand la carte bouge
-// (ajouté dans initMap via S.map.on)
 
 // ============================================================
 function updateVis(idx) {
@@ -1259,34 +1085,9 @@ function scoreColor(s) {
 }
 function setOpacity(v) { S.opacity=v/100; drawHeatmap(); }
 
-// Exposer les fonctions sur window pour contourner le scope
-window._viziDrawWind = function() {
-  const canvas = document.getElementById('windCanvas');
-  if (!canvas || !S.map || !S.windData) return;
-  if (canvas.width < 400) { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-  const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
-  ctx.clearRect(0, 0, W, H);
-  const idx   = S.windHourIdx;
-  const speed = S.windData.speed[idx] || 0;
-  const dir   = S.windData.direction[idx] || 0;
-  const angleRad = ((dir + 180) % 360) * Math.PI / 180;
-  const uNorm = Math.sin(angleRad);
-  const vNorm = -Math.cos(angleRad);
-  const zoom = S.map.getZoom();
-  const spacing = Math.max(60, 140 - zoom * 6);
-  for (let px = spacing/2; px < W; px += spacing) {
-    for (let py = spacing/2; py < H; py += spacing) {
-      const latlng = S.map.containerPointToLatLng([px, py]);
-      const coastal = Math.max(0, 1 - Math.abs(latlng.lat - 49.33) * 20);
-      const localSpeed = speed * (0.85 + coastal * 0.3 + (Math.sin(px*0.05+py*0.03)*0.1));
-      drawWindArrow(ctx, px, py, uNorm, vNorm, localSpeed);
-    }
-  }
-};
-
-window._viziToggleWind = toggleWind;
-window._viziOnSlider = onWindSlider;
+// Nettoyage — exposer toggleWind globalement
+window.toggleWind = toggleWind;
+window.onWindSlider = onWindSlider;
 </script>
 </body>
 </html>
