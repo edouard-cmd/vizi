@@ -610,6 +610,13 @@ function initMap() {
   });
 
   S.map.on('click', e => { openPopup(e.latlng); hideTides(); });
+  S.map.on('move', () => {
+    // Vider le canvas vent pendant le pan pour éviter l'effet "collé"
+    if (S.showWind) {
+      const wc = document.getElementById('windCanvas');
+      if (wc) wc.getContext('2d').clearRect(0,0,wc.width,wc.height);
+    }
+  });
   S.map.on('moveend zoomend', () => {
     drawHeatmap();
     if (S.showWind) window._viziDrawWind();
@@ -1089,7 +1096,7 @@ function onWindSlider(val) {
   window._viziDrawWind();
 }
 
-function window._viziDrawWind() {
+function _drawWindInternal() {
   const canvas = document.getElementById('windCanvas');
   if (!canvas || !S.map || !S.windData) return;
 
