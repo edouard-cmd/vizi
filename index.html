@@ -1013,8 +1013,10 @@ function renderForecastTable(h, now) {
   }
   function dirArrow(deg) {
     if(deg===null||deg===undefined) return '—';
-    const arrows = ['↓','↙','←','↖','↑','↗','→','↘'];
-    return arrows[Math.round(((deg+180)%360)/45)%8];
+    // deg = d'où vient le vent (convention météo)
+    // On affiche une flèche qui pointe vers l'origine du vent
+    const arrows = ['↑','↗','→','↘','↓','↙','←','↖'];
+    return arrows[Math.round(deg/45)%8];
   }
 
   let html = '<table class="wg-table"><thead>';
@@ -1322,8 +1324,9 @@ function renderSpotPopup() {
     memoryNote = ' ·  agitation passée';
   }
 
-  // Curseur + label
-  document.getElementById('spotVisCursor').style.left = score + '%';
+  // Curseur — calcul précis en tenant compte de la largeur du curseur (3px)
+  var pct = Math.max(0, Math.min(100, score));
+  document.getElementById('spotVisCursor').style.left = 'calc(' + pct + '% - 1.5px)';
   document.getElementById('spotVisLabel').textContent = visLabel;
   document.getElementById('spotVisLabel').style.color = score > 55 ? 'rgba(0,0,0,0.85)' : 'white';
 
@@ -1342,8 +1345,8 @@ function renderSpotPopup() {
   // Direction — flèche pointe d'où vient le vent
   // NO 317° = vent qui VIENT du NO → flèche pointe vers le bas-droite (vers où il va)
   // On affiche le nom d'où il vient, flèche vers où il souffle
-  var arrowsTo = ['↓','↙','←','↖','↑','↗','→','↘']; // vers où souffle le vent
-  var fromNames = ['N','NE','E','SE','S','SO','O','NO']; // d'où il vient
+  var arrowsTo = ['↑','↗','→','↘','↓','↙','←','↖'];
+  var fromNames = ['N','NE','E','SE','S','SO','O','NO'];
   var aidx = Math.round(dir/45)%8;
   var arrow   = (dir !== null && dir !== undefined) ? arrowsTo[aidx] : '—';
   var dirName = (dir !== null && dir !== undefined) ? fromNames[aidx] : '—';
