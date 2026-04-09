@@ -1013,8 +1013,8 @@ function renderForecastTable(h, now) {
   }
   function dirArrow(deg) {
     if(deg===null||deg===undefined) return '—';
-    const arrows = ['↓','↙','←','↖','↑','↗','→','↘'];
-    return arrows[Math.round(((deg+180)%360)/45)%8];
+    const arrows = ['↑','↗','→','↘','↓','↙','←','↖'];
+    return arrows[Math.round(deg/45)%8];
   }
 
   let html = '<table class="wg-table"><thead>';
@@ -1339,11 +1339,12 @@ function renderSpotPopup() {
   document.getElementById('spotWindGusts').textContent = gusts;
   document.getElementById('spotWindGusts').style.color = gustColor;
 
-  // Direction
-  var arrows   = ['↓','↙','←','↖','↑','↗','→','↘'];
-  var dirNames = ['S','SO','O','NO','N','NE','E','SE'];
-  var arrow   = (dir !== null && dir !== undefined) ? arrows[Math.round(((dir+180)%360)/45)%8]   : '—';
-  var dirName = (dir !== null && dir !== undefined) ? dirNames[Math.round(((dir+180)%360)/45)%8] : '—';
+  // Direction — convention météo : d'où vient le vent
+  // NO 304° = flèche ↖ (le vent arrive du NO)
+  var arrows   = ['↑','↗','→','↘','↓','↙','←','↖'];
+  var dirNames = ['N','NE','E','SE','S','SO','O','NO'];
+  var arrow   = (dir !== null && dir !== undefined) ? arrows[Math.round(dir/45)%8] : '—';
+  var dirName = (dir !== null && dir !== undefined) ? dirNames[Math.round(dir/45)%8] : '—';
   document.getElementById('spotWindDir').textContent = arrow;
   document.getElementById('spotWindDeg').textContent = dirName + (dir !== null ? ' ' + Math.round(dir) + '°' : '');
 }
