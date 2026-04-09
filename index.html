@@ -345,6 +345,7 @@
       <div class="spot-vis-overlay" id="spotVisLabel">—</div>
     </div>
     <div class="spot-vis-ticks"><span>Nulle</span><span>Faible</span><span>Moyenne</span><span>Bonne</span><span>Excellente</span></div>
+    <div id="spotMemoryNote" style="font-family:'Space Mono',monospace;font-size:8px;color:#ffd600;margin-top:4px;min-height:12px;text-align:center;"></div>
   </div>
   <div class="spot-wind-block">
     <div class="spot-wind-cell">
@@ -1148,12 +1149,24 @@ function openSpotPopup(latlng, name) {
   document.getElementById('spotCoords').textContent =
     latlng.lat.toFixed(4) + '°N · ' + Math.abs(latlng.lng).toFixed(4) + '°O' + (name ? ' — ' + name : '');
 
-  // Profondeur approx depuis heatmap
+  // Profondeur : depuis heatmap si dispo, sinon estimation par distance à la côte
   var near = S.heatmap.length ? S.heatmap.reduce(function(a,b){
     return Math.hypot(a.lat-latlng.lat,a.lon-latlng.lng) < Math.hypot(b.lat-latlng.lat,b.lon-latlng.lng) ? a : b;
   }) : null;
-  S._spotDepth = near ? near.depth : 10; // stocké pour renderSpotPopup
-  document.getElementById('spotMeta').textContent = near ? '⚓ ~' + near.depth + 'm · AROME best_match' : 'AROME best_match';
+  var distToNear = near ? Math.hypot(near.lat-latlng.lat, near.lon-latlng.lng) * 111 : 999; // km approx
+  var depth;
+  if (near && distToNear < 0.05) {
+    depth = near.depth; // point heatmap très proche — on lui fait confiance
+  } else {
+    // Estimation par latitude : plus on est au nord (vers la côte calvados) = plus peu profond
+    // Proxy simple : distance approximative à la ligne de côte connue (~49.34°N)
+    var distCoastDeg = Math.abs(latlng.lat - 49.34);
+    var distCoastKm = distCoastDeg * 111;
+    // Règle empirique Calvados : ~1m de fond par 100m de distance à la côte (plateau très plat)
+    depth = Math.max(1, Math.min(50, distCoastKm * 10));
+  }
+  S._spotDepth = depth;
+  document.getElementById('spotMeta').textContent = '⚓ ~' + Math.round(depth) + 'm · AROME best_match';
 
   // Date/heure actuelles
   var now = new Date();
@@ -1231,38 +1244,68 @@ function renderSpotPopup() {
   var rain  = h.precipitation  ? (h.precipitation[idx]  || 0) : 0;
 
   // ── MODÈLE TURBIDITÉ ──────────────────────────────────────
-  // Profondeur du spot (depuis le heatmap le plus proche)
-  var depth = S._spotDepth || 10; // mètres
+  var depth = S._spotDepth || 5;
 
-  // 1. Facteur bathymétrique : plus c'est peu profond, plus c'est turbide
-  //    < 5m → ×3.5 | 5-10m → ×2.5 | 10-20m → ×1.5 | > 20m → ×1.0
-  var bathyFactor = depth <= 3  ? 3.5
+  // Facteur bathymétrique
+  var bathyFactor = depth <= 2  ? 4.0
                   : depth <= 5  ? 3.0
-                  : depth <= 10 ? 2.2
-                  : depth <= 20 ? 1.4
+                  : depth <= 10 ? 2.0
+                  : depth <= 20 ? 1.3
                   : 1.0;
 
-  // 2. Pénalité vent : seuil bas côtier, le vent remobilise les sédiments
-  //    Dès 10 km/h en zone peu profonde c'est significatif
-  var windBase = Math.max(0, wind - 8);           // actif dès 8 km/h
-  var windPenalty = Math.min(windBase / 30, 1) * 45;
+  // Temps de décantation selon profondeur (en heures)
+  // Zone peu profonde = sédiments remis en suspension longtemps
+  var decayHours = depth <= 3  ? 72
+                 : depth <= 8  ? 48
+                 : depth <= 15 ? 24
+                 : 12;
 
-  // 3. Pénalité rafales (chocs sur le fond)
-  var gustBase = Math.max(0, gusts - 12);
-  var gustPenalty = Math.min(gustBase / 35, 1) * 20;
+  // ── FACTEUR DIRECTIONNEL ──────────────────────────────────
+  function getDirFactor(d) {
+    if (d === null || d === undefined) return 1.0;
+    // Vent de terre Calvados : S/SO/SE (135°→225°)
+    if (d >= 135 && d <= 225) return 0.15;
+    // Vent latéral
+    if ((d > 45 && d < 135) || (d > 225 && d < 315)) return 0.7;
+    // Vent de mer : N/NO/NE (315°→45°)
+    return 1.4;
+  }
 
-  // 4. Pénalité vagues (déferlement + remise en suspension)
-  var wavePenalty = Math.min(wave / 1.5, 1) * 30;
+  var dirFactor = getDirFactor(dir);
 
-  // 5. Pénalité pluie (ruissellement côtier)
+  // ── MÉMOIRE TURBIDITÉ RÉSIDUELLE (72h) ───────────────────
+  // On remonte dans les données horaires sur decayHours heures
+  // et on calcule le "coup de mer" maximal reçu, avec décroissance exponentielle
+  var residualPenalty = 0;
+  var startIdx = Math.max(0, idx - decayHours);
+
+  for (var i = startIdx; i < idx; i++) {
+    var pastWind  = h.windspeed_10m[i]  || 0;
+    var pastGusts = h.windgusts_10m[i]  || 0;
+    var pastDir   = h.winddirection_10m[i];
+    var pastDirF  = getDirFactor(pastDir);
+
+    // Contribution onshore de cette heure passée
+    var pastImpact = (Math.max(pastWind - 5, 0) / 20 * 55 +
+                      Math.max(pastGusts - 10, 0) / 25 * 30) * pastDirF;
+
+    // Décroissance exponentielle : plus c'est vieux, moins ça compte
+    // τ = decayHours/3 → à decayHours heures de distance, facteur ~5%
+    var hoursAgo = idx - i;
+    var decay = Math.exp(-hoursAgo / (decayHours / 3));
+    residualPenalty = Math.max(residualPenalty, pastImpact * decay);
+  }
+
+  // Pénalité courante (vent/rafales de maintenant)
+  var windPenalty = Math.min(Math.max(wind - 5, 0) / 20, 1) * 55 * dirFactor;
+  var gustPenalty = Math.min(Math.max(gusts - 10, 0) / 25, 1) * 30 * dirFactor;
+  var wavePenalty = Math.min(wave / 1.2, 1) * 35;
   var rainPenalty = Math.min(rain / 3, 1) * 10;
 
-  // Score brut avant bathy
-  var rawPenalty = windPenalty + gustPenalty + wavePenalty + rainPenalty;
-
-  // Application du facteur bathymétrique sur les pénalités
-  var totalPenalty = Math.min(rawPenalty * bathyFactor, 100);
-
+  // Pénalité finale = max(courante, résiduelle) + vagues + pluie
+  var instantPenalty = windPenalty + gustPenalty;
+  var combinedPenalty = Math.max(instantPenalty, residualPenalty) + wavePenalty + rainPenalty;
+  var totalPenalty = Math.min(combinedPenalty * bathyFactor, 100);
   var score = Math.max(0, Math.min(100, 100 - totalPenalty));
 
   // Label
@@ -1273,10 +1316,20 @@ function renderSpotPopup() {
   else if (score >= 20) visLabel = 'Faible';
   else                  visLabel = 'Mauvaise';
 
+  // Indicateur mémoire (si la résiduelle domine, on le signale)
+  var memoryNote = '';
+  if (residualPenalty > instantPenalty && residualPenalty > 10) {
+    memoryNote = ' ·  agitation passée';
+  }
+
   // Curseur + label
   document.getElementById('spotVisCursor').style.left = score + '%';
   document.getElementById('spotVisLabel').textContent = visLabel;
   document.getElementById('spotVisLabel').style.color = score > 55 ? 'rgba(0,0,0,0.85)' : 'white';
+
+  // Note mémoire sous la barre
+  var noteEl = document.getElementById('spotMemoryNote');
+  if (noteEl) noteEl.textContent = memoryNote;
 
   // Vent coloré
   var windColor = wind < 10 ? '#00e676' : wind < 20 ? '#ffd600' : wind < 35 ? '#ff6d00' : '#ff1744';
