@@ -970,7 +970,7 @@ function loadForecast(lat, lon, locationName) {
     '&hourly=windspeed_10m,winddirection_10m,windgusts_10m,wave_height,wave_period,wave_direction,temperature_2m,precipitation'+
     '&wind_speed_unit=kmh&timezone=Europe/Paris'+
     '&start_date='+fmt(start)+'&end_date='+fmt(end)+
-    '&models=best_match';
+    '&models=meteofrance_arome_france';
 
   fetch(url)
     .then(function(r){ return r.json(); })
@@ -1090,7 +1090,7 @@ function renderForecastTable(h, now) {
   html += '</tr>';
 
   html += '</tbody></table>';
-  html += '<div style="padding:4px 10px;font-family:Space Mono,monospace;font-size:8px;color:var(--text-muted)">Source : Open-Meteo · best_match (AROME sur France) · ▏= heure actuelle</div>';
+  html += '<div style="padding:4px 10px;font-family:Space Mono,monospace;font-size:8px;color:var(--text-muted)">Source : Météo-France AROME 2.5km · ▏= heure actuelle</div>';
 
   document.getElementById('forecastTable').innerHTML = html;
 
@@ -1166,7 +1166,7 @@ function openSpotPopup(latlng, name) {
     depth = Math.max(1, Math.min(50, distCoastKm * 10));
   }
   S._spotDepth = depth;
-  document.getElementById('spotMeta').textContent = '⚓ ~' + Math.round(depth) + 'm · AROME best_match';
+  document.getElementById('spotMeta').textContent = '⚓ ~' + Math.round(depth) + 'm · AROME 2.5km';
 
   // Date/heure actuelles
   var now = new Date();
@@ -1208,7 +1208,7 @@ function fetchSpotWeather(lat, lon) {
   var url = 'https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+
     '&hourly=windspeed_10m,windgusts_10m,winddirection_10m,wave_height,precipitation'+
     '&wind_speed_unit=kmh&timezone=Europe/Paris'+
-    '&start_date='+fmt(start)+'&end_date='+fmt(end)+'&models=best_match';
+    '&start_date='+fmt(start)+'&end_date='+fmt(end)+'&models=meteofrance_arome_france';
 
   fetch(url)
     .then(function(r){ return r.json(); })
