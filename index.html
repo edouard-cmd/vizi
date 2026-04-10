@@ -70,7 +70,7 @@
     /* LOGO */
     .logo { display:flex; align-items:center; gap:10px; text-decoration:none; }
     .logo-mark {
-      width:48px; height:48px;
+      width:54px; height:54px;
       display:flex; align-items:center; justify-content:center;
       flex-shrink:0;
     }
@@ -78,7 +78,7 @@
     .logo-text-wrap { display:flex; flex-direction:column; gap:2px; }
     .logo-name {
       font-family:'Inter', sans-serif;
-      font-size:26px; font-weight:800;
+      font-size:30px; font-weight:800;
       letter-spacing:0.16em;
       color:#FFFFFF;
       text-transform:uppercase;
@@ -86,10 +86,11 @@
     }
     .logo-tagline {
       font-family:'JetBrains Mono', 'Courier New', monospace;
-      font-size:11px; font-weight:500;
+      font-size:12px; font-weight:500;
       color:#A8E63D;
       letter-spacing:0.03em;
       line-height:1;
+      margin-top:2px;
     }
 
     /* DATE NAV */
@@ -721,13 +722,6 @@
       <div class="forecast-location" id="forecastLocation">— Cliquer sur la carte —</div>
       <div class="forecast-coords" id="forecastCoords"></div>
     </div>
-    <button id="windUnitToggle" onclick="toggleWindUnit()" style="
-      flex-shrink:0;
-      background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.18);
-      border-radius:6px; padding:5px 12px;
-      font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:600;
-      color:rgba(255,255,255,0.75); cursor:pointer; transition:all 0.15s;
-    ">km/h</button>
     <button class="forecast-close" onclick="closeForecast()">✕</button>
   </div>
   <div id="forecastTable" class="forecast-scroll">
@@ -741,7 +735,7 @@
 <div id="header">
   <div class="logo">
     <div class="logo-mark">
-      <svg width="48" height="48" viewBox="0 0 46 46" fill="none">
+      <svg width="54" height="54" viewBox="0 0 46 46" fill="none">
         <circle cx="23" cy="23" r="21" fill="#0F1923"/>
         <circle cx="23" cy="23" r="21" stroke="#A8E63D" stroke-width="1.8"/>
         <path d="M23 35 Q14 27 11 17 Q10 11 14 9 Q18 9 20 17 Q22 27 23 31" stroke="#A8E63D" stroke-width="2.8" stroke-linecap="round" fill="none"/>
@@ -768,6 +762,14 @@
     <button class="ctrl-btn active" id="btnIso" onclick="toggleLayer('iso')"><span class="ctrl-dot"></span>Isobathes</button>
     <button class="ctrl-btn" id="btnSed" onclick="toggleLayer('sed')"><span class="ctrl-dot"></span>Sédiments</button>
     <button class="ctrl-btn" id="btnWind" onclick="toggleForecastPanel()"><span class="ctrl-dot"></span>Météo spot</button>
+    <button id="windUnitToggle" onclick="toggleWindUnit()" style="
+      flex-shrink:0;
+      background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.18);
+      border-radius:8px; padding:7px 14px;
+      font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:700;
+      color:rgba(255,255,255,0.75); cursor:pointer; transition:all 0.15s;
+      letter-spacing:0.04em;
+    ">km/h</button>
   </div>
 </div>
 
