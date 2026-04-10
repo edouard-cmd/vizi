@@ -657,14 +657,14 @@
       position:absolute; top:50%; left:50%;
       transform:translate(-50%,-50%);
       width:10px; height:10px; border-radius:50%;
-      background:var(--accent);
-      box-shadow:0 0 8px rgba(11,168,136,0.6);
+      background:#A8E63D;
+      box-shadow:0 0 8px rgba(168,230,61,0.6);
     }
     .vizi-pulse-ring {
       position:absolute; top:50%; left:50%;
       transform:translate(-50%,-50%);
       width:10px; height:10px; border-radius:50%;
-      border:2px solid var(--accent);
+      border:2px solid #A8E63D;
       animation:viziPulse 2s ease-out infinite;
     }
     .vizi-pulse-ring2 { animation-delay:1s; }
@@ -1521,10 +1521,30 @@ function renderForecastTable(h, now) {
     if(v<3) return 'ww-3'; return 'ww-4';
   }
   function dirArrow(deg) {
-    if(deg===null||deg===undefined) return '—';
-    // winddirection = d'où vient le vent → flèche vers où il va (+180°)
-    const arrows = ['↑','↗','→','↘','↓','↙','←','↖'];
-    return arrows[(Math.round(deg/45) + 4) % 8];
+    if(deg===null||deg===undefined) return '<span style="color:#CBD5E0">—</span>';
+    var c = '#1A2535';
+    var s = 'width:14px;height:14px;display:inline-block;vertical-align:middle;';
+    // index = direction vers où va le vent (origine + 180°)
+    var idx = (Math.round(deg/45) + 4) % 8;
+    var svgs = [
+      // 0 N ↑
+      '<svg style="'+s+'" viewBox="0 0 16 16" fill="none"><line x1="8" y1="13" x2="8" y2="4" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round"/><path d="M5 7 L8 4 L11 7" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      // 1 NE ↗
+      '<svg style="'+s+'" viewBox="0 0 16 16" fill="none"><line x1="5" y1="12" x2="11" y2="5" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round"/><path d="M7 5 L11 5 L11 9" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      // 2 E →
+      '<svg style="'+s+'" viewBox="0 0 16 16" fill="none"><line x1="3" y1="8" x2="12" y2="8" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round"/><path d="M9 5 L12 8 L9 11" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      // 3 SE ↘
+      '<svg style="'+s+'" viewBox="0 0 16 16" fill="none"><line x1="5" y1="5" x2="11" y2="11" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round"/><path d="M7 11 L11 11 L11 7" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      // 4 S ↓
+      '<svg style="'+s+'" viewBox="0 0 16 16" fill="none"><line x1="8" y1="3" x2="8" y2="12" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round"/><path d="M5 9 L8 12 L11 9" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      // 5 SO ↙
+      '<svg style="'+s+'" viewBox="0 0 16 16" fill="none"><line x1="11" y1="5" x2="5" y2="11" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round"/><path d="M5 7 L5 11 L9 11" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      // 6 O ←
+      '<svg style="'+s+'" viewBox="0 0 16 16" fill="none"><line x1="13" y1="8" x2="4" y2="8" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round"/><path d="M7 5 L4 8 L7 11" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      // 7 NO ↖
+      '<svg style="'+s+'" viewBox="0 0 16 16" fill="none"><line x1="11" y1="11" x2="5" y2="5" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round"/><path d="M5 9 L5 5 L9 5" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+    ];
+    return svgs[idx];
   }
 
   let html = '<table class="wg-table"><thead>';
@@ -1938,12 +1958,24 @@ function renderSpotPopup() {
     if (i < 2) el.textContent = unitDisp;
   });
 
-  var arrowsTo = ['↑','↗','→','↘','↓','↙','←','↖'];
   var fromNames = ['N','NE','E','SE','S','SO','O','NO'];
   var aidx = Math.round(dir/45)%8;
-  var arrow   = (dir !== null && dir !== undefined) ? arrowsTo[(aidx + 4) % 8] : '—';
   var dirName = (dir !== null && dir !== undefined) ? fromNames[aidx] : '—';
-  document.getElementById('spotWindDir').textContent = arrow;
+
+  // Chevron SVG drawer (plus grand, navy)
+  var dc = '#1A2535';
+  var drawerArrows = [
+    '<svg width="22" height="22" viewBox="0 0 16 16" fill="none"><line x1="8" y1="13" x2="8" y2="4" stroke="'+dc+'" stroke-width="2" stroke-linecap="round"/><path d="M5 7 L8 4 L11 7" stroke="'+dc+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    '<svg width="22" height="22" viewBox="0 0 16 16" fill="none"><line x1="5" y1="12" x2="11" y2="5" stroke="'+dc+'" stroke-width="2" stroke-linecap="round"/><path d="M7 5 L11 5 L11 9" stroke="'+dc+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    '<svg width="22" height="22" viewBox="0 0 16 16" fill="none"><line x1="3" y1="8" x2="12" y2="8" stroke="'+dc+'" stroke-width="2" stroke-linecap="round"/><path d="M9 5 L12 8 L9 11" stroke="'+dc+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    '<svg width="22" height="22" viewBox="0 0 16 16" fill="none"><line x1="5" y1="5" x2="11" y2="11" stroke="'+dc+'" stroke-width="2" stroke-linecap="round"/><path d="M7 11 L11 11 L11 7" stroke="'+dc+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    '<svg width="22" height="22" viewBox="0 0 16 16" fill="none"><line x1="8" y1="3" x2="8" y2="12" stroke="'+dc+'" stroke-width="2" stroke-linecap="round"/><path d="M5 9 L8 12 L11 9" stroke="'+dc+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    '<svg width="22" height="22" viewBox="0 0 16 16" fill="none"><line x1="11" y1="5" x2="5" y2="11" stroke="'+dc+'" stroke-width="2" stroke-linecap="round"/><path d="M5 7 L5 11 L9 11" stroke="'+dc+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    '<svg width="22" height="22" viewBox="0 0 16 16" fill="none"><line x1="13" y1="8" x2="4" y2="8" stroke="'+dc+'" stroke-width="2" stroke-linecap="round"/><path d="M7 5 L4 8 L7 11" stroke="'+dc+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    '<svg width="22" height="22" viewBox="0 0 16 16" fill="none"><line x1="11" y1="11" x2="5" y2="5" stroke="'+dc+'" stroke-width="2" stroke-linecap="round"/><path d="M5 9 L5 5 L9 5" stroke="'+dc+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+  ];
+  var arrow = (dir !== null && dir !== undefined) ? drawerArrows[(aidx + 4) % 8] : '—';
+  document.getElementById('spotWindDir').innerHTML = arrow;
   document.getElementById('spotWindDeg').textContent = dirName + (dir !== null ? ' ' + Math.round(dir) + '°' : '');
 
   var factors = [];
