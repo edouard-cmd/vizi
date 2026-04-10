@@ -634,6 +634,208 @@
       .leaflet-container { cursor:default !important; }
     }
 
+
+    /* ══ BOUTON PARTAGER MON OBSERVATION (desktop) ══ */
+    #shareObsBtn {
+      position:absolute; bottom:30px; left:50%;
+      transform:translateX(-50%);
+      z-index:950;
+      display:flex; align-items:center; gap:8px;
+      padding:11px 24px;
+      background:#1A2535;
+      border:1.5px solid #A8E63D;
+      border-radius:30px;
+      color:#A8E63D;
+      font-family:'Space Grotesk', sans-serif;
+      font-size:13px; font-weight:700;
+      cursor:pointer;
+      box-shadow:0 4px 20px rgba(0,0,0,0.25);
+      transition:all 0.2s; white-space:nowrap;
+      letter-spacing:0.03em;
+    }
+    #shareObsBtn:hover {
+      background:#A8E63D; color:#1A2535;
+      box-shadow:0 6px 28px rgba(168,230,61,0.3);
+    }
+
+    /* ══ BOUTON PARTAGER MOBILE ══ */
+    #mobileShareBtn {
+      display:none;
+      position:fixed;
+      bottom:88px; left:50%;
+      transform:translateX(-50%);
+      z-index:960;
+      padding:13px 28px;
+      background:rgba(26,37,53,0.92);
+      border:1.5px solid rgba(168,230,61,0.5);
+      border-radius:40px;
+      color:rgba(168,230,61,0.85);
+      font-family:'Space Grotesk', sans-serif;
+      font-size:14px; font-weight:600;
+      cursor:pointer;
+      box-shadow:0 4px 20px rgba(0,0,0,0.2);
+      white-space:nowrap;
+      transition:all 0.2s;
+      -webkit-tap-highlight-color:transparent;
+    }
+    #mobileShareBtn:active {
+      background:#A8E63D; color:#1A2535;
+      transform:translateX(-50%) scale(0.97);
+    }
+
+    @media (max-width: 768px) {
+      #mobileShareBtn { display:block; }
+      #shareObsBtn { display:none; }
+      #mobileAnalyzeBtn { bottom:28px; }
+    }
+
+    /* ══ BOTTOM SHEET OBSERVATION ══ */
+    #obsSheet {
+      position:fixed; bottom:0; left:0; right:0; z-index:1200;
+      background:var(--surface);
+      border-radius:20px 20px 0 0;
+      border-top:1px solid var(--border);
+      box-shadow:0 -8px 40px rgba(0,0,0,0.18);
+      transform:translateY(100%);
+      transition:transform 0.3s cubic-bezier(.4,0,.2,1);
+      max-height:92vh;
+      overflow-y:auto;
+      padding-bottom:env(safe-area-inset-bottom, 16px);
+    }
+    #obsSheet.open { transform:translateY(0); }
+
+    .obs-sheet-handle {
+      width:36px; height:4px;
+      background:var(--border2);
+      border-radius:2px;
+      margin:12px auto 0;
+    }
+    .obs-sheet-head {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:16px 20px 12px;
+      border-bottom:1px solid var(--border);
+    }
+    .obs-sheet-title {
+      font-family:'Space Grotesk', sans-serif;
+      font-size:17px; font-weight:700; color:var(--text);
+    }
+    .obs-sheet-coords {
+      font-family:'DM Mono', monospace;
+      font-size:11px; color:var(--accent); margin-top:2px;
+    }
+    .obs-sheet-close {
+      width:30px; height:30px;
+      background:var(--border); border:none; border-radius:50%;
+      color:var(--text-2); cursor:pointer; font-size:14px;
+      display:flex; align-items:center; justify-content:center;
+      flex-shrink:0;
+    }
+    .obs-sheet-body { padding:18px 20px 24px; display:flex; flex-direction:column; gap:18px; }
+
+    .obs-field-label {
+      font-family:'DM Mono', monospace;
+      font-size:10px; font-weight:600; color:var(--text-3);
+      text-transform:uppercase; letter-spacing:0.1em;
+      margin-bottom:8px; display:block;
+    }
+    .obs-datetime-row { display:flex; gap:10px; }
+    .obs-datetime-row input {
+      flex:1; padding:10px 12px;
+      background:var(--surface2);
+      border:1px solid var(--border);
+      border-radius:10px; color:var(--text);
+      font-family:'DM Mono', monospace; font-size:13px;
+      outline:none;
+    }
+    .obs-datetime-row input:focus { border-color:var(--accent); }
+
+    /* Slider visibilité */
+    .obs-vis-row { display:flex; flex-direction:column; gap:8px; }
+    .obs-vis-top { display:flex; justify-content:space-between; align-items:center; }
+    .obs-vis-val {
+      font-family:'DM Mono', monospace;
+      font-size:20px; font-weight:700;
+    }
+    input[type=range].obs-vis-slider {
+      width:100%; height:6px; border-radius:3px;
+      outline:none; cursor:pointer;
+      background:linear-gradient(to right, #DC2626, #CA8A04, #16A34A, #0BA888);
+      -webkit-appearance:none; appearance:none;
+    }
+    input[type=range].obs-vis-slider::-webkit-slider-thumb {
+      -webkit-appearance:none;
+      width:26px; height:26px; border-radius:50%;
+      background:white; cursor:pointer;
+      box-shadow:0 2px 10px rgba(0,0,0,0.2);
+      border:2px solid var(--accent);
+    }
+    .obs-vis-ticks {
+      display:flex; justify-content:space-between;
+      font-family:'DM Mono', monospace; font-size:10px; color:var(--text-3);
+    }
+
+    /* Fond visible toggle */
+    .obs-toggle-row { display:flex; gap:10px; }
+    .obs-tog {
+      flex:1; padding:12px 8px;
+      border:1.5px solid var(--border);
+      border-radius:10px;
+      background:var(--surface); color:var(--text-2);
+      cursor:pointer;
+      font-family:'Space Grotesk', sans-serif;
+      font-size:14px; font-weight:600;
+      transition:all 0.15s; text-align:center;
+    }
+    .obs-tog.on { border-color:var(--accent); color:var(--accent); background:var(--accent-bg); }
+
+    /* Espèces */
+    .obs-species-input {
+      width:100%; padding:12px 14px;
+      background:var(--surface2);
+      border:1px solid var(--border);
+      border-radius:10px; color:var(--text);
+      font-family:'Space Grotesk', sans-serif; font-size:14px;
+      outline:none; transition:border-color 0.15s;
+    }
+    .obs-species-input:focus { border-color:var(--accent); }
+    .obs-species-input::placeholder { color:var(--text-3); }
+
+    /* Bouton envoyer */
+    .obs-submit-btn {
+      width:100%; padding:16px;
+      background:var(--accent);
+      border:none; border-radius:14px;
+      color:white;
+      font-family:'Space Grotesk', sans-serif;
+      font-size:16px; font-weight:700;
+      cursor:pointer; transition:opacity 0.15s;
+      letter-spacing:0.02em;
+    }
+    .obs-submit-btn:hover { opacity:0.88; }
+    .obs-submit-btn:disabled { opacity:0.4; cursor:not-allowed; }
+
+    /* Message succès */
+    .obs-success-msg {
+      display:none;
+      text-align:center; padding:20px;
+      font-family:'Space Grotesk', sans-serif;
+      font-size:18px; font-weight:700;
+      color:var(--accent);
+      line-height:1.5;
+    }
+    .obs-success-sub {
+      font-size:13px; color:var(--text-3);
+      font-family:'DM Mono', monospace;
+      margin-top:6px; font-weight:400;
+    }
+
+    /* Overlay sombre derrière le sheet */
+    #obsSheetOverlay {
+      display:none;
+      position:fixed; inset:0; z-index:1199;
+      background:rgba(0,0,0,0.4);
+    }
+
   </style>
 </head>
 <body>
@@ -715,10 +917,10 @@
   </div>
 
   <div class="controls">
-    <button class="ctrl-btn" id="btnHeatmap" onclick="toggleLayer('heatmap')"><span class="ctrl-dot"></span>Heatmap</button>
-    <button class="ctrl-btn active" id="btnIso" onclick="toggleLayer('iso')"><span class="ctrl-dot"></span>Isobathes</button>
-    <button class="ctrl-btn" id="btnSed" onclick="toggleLayer('sed')"><span class="ctrl-dot"></span>Sédiments</button>
-    <button class="ctrl-btn" id="btnWind" onclick="toggleForecastPanel()"><span class="ctrl-dot"></span>Météo spot</button>
+    <button class="ctrl-btn" id="btnHeatmap" onclick="toggleLayer('heatmap')"><span class="ctrl-dot"></span>Turbidité</button>
+    <button class="ctrl-btn active" id="btnIso" onclick="toggleLayer('iso')"><span class="ctrl-dot"></span>Repères</button>
+    <button class="ctrl-btn" id="btnSed" onclick="toggleLayer('sed')"><span class="ctrl-dot"></span>Nature du fond</button>
+    <button class="ctrl-btn" id="btnWind" onclick="toggleForecastPanel()"><span class="ctrl-dot"></span>Météo</button>
     <button id="windUnitToggle" onclick="toggleWindUnit()" style="
       flex-shrink:0;
       background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.18);
@@ -732,15 +934,92 @@
 
 
 
-<!-- BOUTON OBSERVATION -->
-<button id="obsFloatBtn" onclick="openObsPanel()">
-  <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-    <circle cx="6.5" cy="6.5" r="5.5" stroke="#0BA888" stroke-width="1.4"/>
-    <line x1="6.5" y1="3.5" x2="6.5" y2="9.5" stroke="#0BA888" stroke-width="1.4" stroke-linecap="round"/>
-    <line x1="3.5" y1="6.5" x2="9.5" y2="6.5" stroke="#0BA888" stroke-width="1.4" stroke-linecap="round"/>
+<!-- BOUTON PARTAGER MON OBSERVATION (desktop) -->
+<button id="shareObsBtn" onclick="openObsSheet()">
+  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+    <circle cx="7" cy="7" r="6" stroke="#A8E63D" stroke-width="1.5"/>
+    <line x1="7" y1="4" x2="7" y2="10" stroke="#A8E63D" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="4" y1="7" x2="10" y2="7" stroke="#A8E63D" stroke-width="1.5" stroke-linecap="round"/>
   </svg>
-  Envoyer une observation
+  Partager mon observation
 </button>
+
+<!-- BOUTON PARTAGER MOBILE -->
+<button id="mobileShareBtn" onclick="openObsSheet()">
+  📍 Partager mon observation
+</button>
+
+<!-- OVERLAY -->
+<div id="obsSheetOverlay" onclick="closeObsSheet()"></div>
+
+<!-- BOTTOM SHEET OBSERVATION -->
+<div id="obsSheet">
+  <div class="obs-sheet-handle"></div>
+  <div class="obs-sheet-head">
+    <div>
+      <div class="obs-sheet-title">Mon observation</div>
+      <div class="obs-sheet-coords" id="obsSheetCoords">—</div>
+    </div>
+    <button class="obs-sheet-close" onclick="closeObsSheet()">✕</button>
+  </div>
+  <div style="padding:10px 20px;background:#F0FDF4;border-bottom:1px solid #BBF7D0;">
+    <div style="font-family:'DM Mono',monospace;font-size:11px;color:#166534;line-height:1.6;">
+      🎯 Tes observations terrain améliorent directement le modèle de prédiction de visibilité — plus on a de données réelles, plus les estimations sont précises pour tous.
+    </div>
+  </div>
+  <div class="obs-sheet-body">
+
+    <!-- Date / Heure -->
+    <div>
+      <span class="obs-field-label">Date · Heure</span>
+      <div class="obs-datetime-row">
+        <input type="date" id="obsSheetDate">
+        <input type="time" id="obsSheetTime" step="600">
+      </div>
+    </div>
+
+    <!-- Visibilité -->
+    <div class="obs-vis-row">
+      <div class="obs-vis-top">
+        <span class="obs-field-label" style="margin-bottom:0">Visibilité</span>
+        <span class="obs-vis-val" id="obsSheetVisVal" style="color:#0BA888">+10m</span>
+      </div>
+      <input type="range" class="obs-vis-slider" id="obsSheetVisSlider"
+        min="0" max="8" step="1" value="8"
+        oninput="updateObsSheetVis(this.value)">
+      <div class="obs-vis-ticks">
+        <span>0m</span><span>0.5</span><span>1m</span><span>2m</span>
+        <span>3m</span><span>4m</span><span>5m</span><span>8m</span><span>+10m</span>
+      </div>
+    </div>
+
+    <!-- Fond visible -->
+    <div>
+      <span class="obs-field-label">Fond visible ?</span>
+      <div class="obs-toggle-row">
+        <button class="obs-tog on" id="obsSheetFondOui" onclick="setObsFond(true)">👍 Oui</button>
+        <button class="obs-tog" id="obsSheetFondNon" onclick="setObsFond(false)">👎 Non</button>
+      </div>
+    </div>
+
+    <!-- Espèces observées -->
+    <div>
+      <span class="obs-field-label">Espèces observées <span style="font-weight:400;text-transform:none;letter-spacing:0">(optionnel)</span></span>
+      <input type="text" class="obs-species-input" id="obsSheetSpecies"
+        placeholder="bar, daurade, seiche, homard…">
+    </div>
+
+    <!-- Submit -->
+    <button class="obs-submit-btn" id="obsSheetSubmit" onclick="submitObsSheet()">
+      Partager 🤙
+    </button>
+    <div class="obs-success-msg" id="obsSheetSuccess">
+      <div id="obsSheetSuccessMsg">✅ Merci !</div>
+      <div class="obs-success-sub" id="obsSheetSuccessSub"></div>
+    </div>
+
+  </div>
+</div>
 
 <!-- DRAWER LATÉRAL -->
 <div id="spotDrawer">
@@ -1087,12 +1366,12 @@ function initMap() {
     attribution:'Signalisation © OpenSeaMap', opacity:0.95, maxZoom:19
   });
 
-  // Sédiments SHOM
+  // Nature du fond SHOM
   S.sedLayer = L.tileLayer.wms('https://services.data.shom.fr/INSPIRE/wms/v', {
     layers:'NDF_BDD_WLD_WGS84G_WMS',
     format:'image/png', transparent:true,
     version:'1.3.0',
-    attribution:'Sédiments © SHOM — Natures de fond',
+    attribution:'Nature du fond © SHOM — Natures de fond',
     opacity:0.75, maxZoom:19
   });
 
@@ -1182,7 +1461,7 @@ function drawHeatmap() {
 function loadHeatmap(day) {
   gasGet('heatmap', {day_offset:day}).then(function(data) {
     S.heatmap = (data && data.heatmap && data.heatmap.length > 0)
-      ? data.heatmap : mockHeatmap(day);
+      ? data.heatmap : mockTurbidité(day);
     drawHeatmap();
   });
 }
@@ -1197,7 +1476,7 @@ function loadPredictions() {
     updateMarkerColors();
   });
 }
-function mockHeatmap(day) {
+function mockTurbidité(day) {
   const pts=[], base=10+day*6;
   for(let lat=49.265;lat<49.342;lat+=0.003) {
     for(let lon=-0.68;lon<-0.25;lon+=0.005) {
@@ -1324,7 +1603,7 @@ function loadTidesCache() {
 function toggleLayer(type) {
   if (type==='heatmap') {
     S.showHeatmap = !S.showHeatmap;
-    document.getElementById('btnHeatmap').classList.toggle('active', S.showHeatmap);
+    document.getElementById('btnTurbidité').classList.toggle('active', S.showHeatmap);
     drawHeatmap();
   } else if (type==='iso') {
     S.showIso = !S.showIso;
@@ -2043,6 +2322,129 @@ function openObsPanel() {
   var latlng = S.clickLatLng || S.map.getCenter();
   openPopup(latlng, null);
 }
+// ============================================================
+// BOTTOM SHEET OBSERVATION
+// ============================================================
+var OBS_VIS = [
+  {v:0,   l:'0m',   c:'#DC2626'},
+  {v:0.5, l:'0.5m', c:'#EA580C'},
+  {v:1,   l:'1m',   c:'#E89038'},
+  {v:2,   l:'2m',   c:'#CA8A04'},
+  {v:3,   l:'3m',   c:'#A0D840'},
+  {v:4,   l:'4m',   c:'#16A34A'},
+  {v:5,   l:'5m',   c:'#0BA888'},
+  {v:8,   l:'8m',   c:'#00B8E8'},
+  {v:10,  l:'+10m', c:'#0090E8'}
+];
+
+var OBS_FOND = true;
+var OBS_SUBMITTING = false;
+
+var OBS_SUCCESS_MSGS = [
+  { msg:'🤫 Reçu. Ton spot reste ton spot.', sub:'On note la turbidité, pas l'adresse.' },
+  { msg:'🔒 Transmis anonymement.', sub:'Les bars sont en sécurité, promis.' },
+  { msg:'🤝 Merci. On partage la visi, pas le spot.', sub:'Observation enregistrée avec succès.' },
+  { msg:'🐟 Noté ! Ton coin secret est bien gardé.', sub:'La communauté VIZI te remercie.' },
+  { msg:'👌 Parfait. Ton spot reste secret.', sub:'On a juste retenu la visibilité et les espèces.' },
+  { msg:'🦑 Même la seiche ne parlera pas.', sub:'Observation bien reçue.' },
+  { msg:'📍 Coordonnées reçues, bouche cousue.', sub:'Merci pour la communauté.' },
+  { msg:'🎯 Top ! Le secret de ton spot est safe.', sub:'Tu viens d'aider les chasseurs du coin.' },
+];
+
+function openObsSheet() {
+  var now = new Date();
+  var latlng = isMobile() ? S.map.getCenter() : (S.clickLatLng || S.map.getCenter());
+
+  document.getElementById('obsSheetDate').value = now.toISOString().split('T')[0];
+  document.getElementById('obsSheetTime').value = now.getHours().toString().padStart(2,'0') + ':' + Math.floor(now.getMinutes()/10)*10 + '0';
+  document.getElementById('obsSheetCoords').textContent = latlng.lat.toFixed(4) + '°N · ' + Math.abs(latlng.lng).toFixed(4) + '°O';
+  document.getElementById('obsSheetVisSlider').value = 8;
+  updateObsSheetVis(8);
+  setObsFond(true);
+  document.getElementById('obsSheetSpecies').value = '';
+  document.getElementById('obsSheetSubmit').style.display = 'block';
+  document.getElementById('obsSheetSubmit').disabled = false;
+  document.getElementById('obsSheetSubmit').textContent = 'Partager 🤙';
+  document.getElementById('obsSheetSuccess').style.display = 'none';
+
+  document.getElementById('obsSheet').classList.add('open');
+  document.getElementById('obsSheetOverlay').style.display = 'block';
+}
+
+function closeObsSheet() {
+  document.getElementById('obsSheet').classList.remove('open');
+  document.getElementById('obsSheetOverlay').style.display = 'none';
+  OBS_SUBMITTING = false;
+}
+
+function updateObsSheetVis(idx) {
+  idx = parseInt(idx);
+  var v = OBS_VIS[idx];
+  var el = document.getElementById('obsSheetVisVal');
+  el.textContent = v.l;
+  el.style.color = v.c;
+}
+
+function setObsFond(val) {
+  OBS_FOND = val;
+  document.getElementById('obsSheetFondOui').classList.toggle('on', val);
+  document.getElementById('obsSheetFondNon').classList.toggle('on', !val);
+}
+
+function submitObsSheet() {
+  if (OBS_SUBMITTING) return;
+  OBS_SUBMITTING = true;
+  var btn = document.getElementById('obsSheetSubmit');
+  btn.disabled = true;
+  btn.textContent = 'Envoi en cours…';
+
+  var latlng = isMobile() ? S.map.getCenter() : (S.clickLatLng || S.map.getCenter());
+  var idx = parseInt(document.getElementById('obsSheetVisSlider').value);
+  var visLevel = OBS_VIS[idx];
+
+  var data = {
+    lat: latlng.lat,
+    lon: latlng.lng,
+    date: document.getElementById('obsSheetDate').value,
+    time: document.getElementById('obsSheetTime').value,
+    visibility_m: visLevel.v,
+    visibility_label: visLevel.l,
+    bottom_visible: OBS_FOND,
+    current_felt: false,
+    comment: document.getElementById('obsSheetSpecies').value,
+    depth_m: null,
+    sediment: null
+  };
+
+  gasPost('submit_observation', data).then(function(result) {
+    OBS_SUBMITTING = false;
+    if (result && result.success) {
+      btn.style.display = 'none';
+      var rand = OBS_SUCCESS_MSGS[Math.floor(Math.random() * OBS_SUCCESS_MSGS.length)];
+      document.getElementById('obsSheetSuccessMsg').textContent = rand.msg;
+      document.getElementById('obsSheetSuccessSub').textContent = rand.sub;
+      document.getElementById('obsSheetSuccess').style.display = 'block';
+      setTimeout(closeObsSheet, 3000);
+    } else {
+      btn.disabled = false;
+      btn.textContent = 'Partager 🤙';
+      alert('Erreur envoi. Vérifie ta connexion.');
+    }
+  });
+}
+
+// Swipe down pour fermer le sheet
+var obsSheetSwipeY = 0;
+document.addEventListener('DOMContentLoaded', function() {
+  var sheet = document.getElementById('obsSheet');
+  if (sheet) {
+    sheet.addEventListener('touchstart', function(e){ obsSheetSwipeY = e.touches[0].clientY; }, {passive:true});
+    sheet.addEventListener('touchend', function(e){
+      if (e.changedTouches[0].clientY - obsSheetSwipeY > 80) closeObsSheet();
+    }, {passive:true});
+  }
+});
+
 
 // ============================================================
 // MOBILE — ANALYSER LE CENTRE DE LA CARTE
