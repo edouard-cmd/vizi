@@ -310,7 +310,7 @@
        DRAWER LATÉRAL
     ══════════════════════════════════════════ */
     #spotDrawer {
-      position:fixed; top:0; right:0; bottom:0; z-index:1100;
+      position:fixed; top:57px; right:0; bottom:0; z-index:1100;
       width:340px;
       background:var(--surface);
       border-left:1px solid var(--border);
@@ -1633,10 +1633,10 @@ function loadDrawerTides(lat, lon) {
   }, { spot: SPOTS[0], d: Infinity }).spot;
 
   document.getElementById('tidesPortName').textContent = nearest.name;
-  document.getElementById('tidesCoeff').textContent = '—';
-  document.getElementById('tidesPM').textContent = '—';
+  document.getElementById('tidesCoeff').textContent = '…';
+  document.getElementById('tidesPM').textContent = '…';
   document.getElementById('tidesPMh').textContent = '';
-  document.getElementById('tidesBM').textContent = '—';
+  document.getElementById('tidesBM').textContent = '…';
   document.getElementById('tidesBMh').textContent = '';
 
   loadTidesCache().then(function() {
@@ -1645,34 +1645,86 @@ function loadDrawerTides(lat, lon) {
       ? tidesCache.data.filter(function(t){ return t.port_id === nearest.id && t.date === today; })
       : [];
 
-    if (portTides.length === 0) {
-      // Fallback estimé
-      var now = new Date();
-      var dayOfYear = Math.floor((now - new Date(now.getFullYear(),0,0)) / 86400000);
-      var coeff = Math.round(70 + 50 * Math.sin(dayOfYear / 14.77 * Math.PI));
-      document.getElementById('tidesCoeff').textContent = coeff;
-      document.getElementById('tidesPM').textContent = '—';
-      document.getElementById('tidesPMh').textContent = 'estimé';
-      document.getElementById('tidesBM').textContent = '—';
-      document.getElementById('tidesBMh').textContent = 'estimé';
+    if (portTides.length > 0) {
+      renderDrawerTides(portTides);
       return;
     }
 
-    var highs = portTides.filter(function(t){ return t.type==='high'; }).sort(function(a,b){ return a.time.localeCompare(b.time); });
-    var lows  = portTides.filter(function(t){ return t.type==='low';  }).sort(function(a,b){ return a.time.localeCompare(b.time); });
+    // Fallback : WorldTides API directement
+    var apiKey = '17d84504-31e5-4520-90fc-537883a0492e';
+    var now = new Date();
+    var start = Math.floor(now.setHours(0,0,0,0) / 1000);
+    var end   = start + 86400;
+    var url = 'https://www.worldtides.info/api/v3?extremes'
+      + '&lat=' + nearest.lat + '&lon=' + nearest.lon
+      + '&start=' + start + '&end=' + end
+      + '&datum=LAT&key=' + apiKey;
 
-    var coeff = highs.length > 0 ? highs[0].coefficient : '—';
-    document.getElementById('tidesCoeff').textContent = coeff;
-
-    if (highs.length > 0) {
-      document.getElementById('tidesPM').textContent = highs[0].time;
-      document.getElementById('tidesPMh').textContent = highs[0].height_m + 'm';
-    }
-    if (lows.length > 0) {
-      document.getElementById('tidesBM').textContent = lows[0].time;
-      document.getElementById('tidesBMh').textContent = lows[0].height_m + 'm';
-    }
+    fetch(url)
+      .then(function(r){ return r.json(); })
+      .then(function(data) {
+        if (!data.extremes || data.extremes.length === 0) {
+          renderDrawerTidesFallback();
+          return;
+        }
+        // Convertir au format interne
+        var converted = data.extremes.map(function(e) {
+          var d = new Date(e.date);
+          return {
+            port_id: nearest.id,
+            date: today,
+            type: e.type === 'High' ? 'high' : 'low',
+            time: d.toLocaleTimeString('fr', {hour:'2-digit', minute:'2-digit', hour12:false}),
+            height_m: e.height.toFixed(2),
+            coefficient: data.extremes.filter(function(x){ return x.type==='High'; }).length > 0
+              ? estimateCoeff(data.extremes) : '—'
+          };
+        });
+        renderDrawerTides(converted);
+      })
+      .catch(function() { renderDrawerTidesFallback(); });
   });
+}
+
+function estimateCoeff(extremes) {
+  var highs = extremes.filter(function(e){ return e.type==='High'; });
+  var lows  = extremes.filter(function(e){ return e.type==='Low'; });
+  if (highs.length === 0 || lows.length === 0) return '—';
+  var marnage = highs[0].height - lows[0].height;
+  // Marnage Atlantique/Manche : 1.2m ≈ coeff 20, 7m ≈ coeff 120
+  return Math.min(120, Math.max(20, Math.round((marnage - 1.2) / 5.8 * 100 + 20)));
+}
+
+function renderDrawerTides(tides) {
+  var highs = tides.filter(function(t){ return t.type==='high'; }).sort(function(a,b){ return a.time.localeCompare(b.time); });
+  var lows  = tides.filter(function(t){ return t.type==='low';  }).sort(function(a,b){ return a.time.localeCompare(b.time); });
+  var coeff = (highs.length > 0 && highs[0].coefficient) ? highs[0].coefficient : estimateCoeff(
+    highs.concat(lows).map(function(t){ return { type: t.type==='high'?'High':'Low', height: parseFloat(t.height_m) }; })
+  );
+  document.getElementById('tidesCoeff').textContent = coeff;
+  if (highs.length > 0) {
+    document.getElementById('tidesPM').textContent = highs[0].time;
+    document.getElementById('tidesPMh').textContent = highs[0].height_m + 'm';
+  } else {
+    document.getElementById('tidesPM').textContent = '—';
+  }
+  if (lows.length > 0) {
+    document.getElementById('tidesBM').textContent = lows[0].time;
+    document.getElementById('tidesBMh').textContent = lows[0].height_m + 'm';
+  } else {
+    document.getElementById('tidesBM').textContent = '—';
+  }
+}
+
+function renderDrawerTidesFallback() {
+  var now = new Date();
+  var dayOfYear = Math.floor((now - new Date(now.getFullYear(),0,0)) / 86400000);
+  var coeff = Math.round(70 + 50 * Math.sin(dayOfYear / 14.77 * Math.PI));
+  document.getElementById('tidesCoeff').textContent = coeff;
+  document.getElementById('tidesPM').textContent = '—';
+  document.getElementById('tidesPMh').textContent = 'non dispo';
+  document.getElementById('tidesBM').textContent = '—';
+  document.getElementById('tidesBMh').textContent = 'non dispo';
 }
 
 function closeSpotPopup() {
