@@ -757,7 +757,7 @@
     </div>
   </div>
 
-  <div class="date-nav" id="dateNav"></div>
+
 
   <div class="controls">
     <div class="opacity-wrap">
@@ -1062,7 +1062,7 @@ function gasPost(action, data) {
 document.addEventListener('DOMContentLoaded', function() {
   initCanvas();
   initMap();
-  renderDateNav();
+
   loadPredictions();
   loadHeatmap(0);
 });
@@ -1430,20 +1430,6 @@ function toggleLayer(type) {
 // ============================================================
 // NAV
 // ============================================================
-function renderDateNav() {
-  const nav = document.getElementById('dateNav');
-  ['Auj.','Dem.','J+2','J+3'].forEach(function(l,i) {
-    const b = document.createElement('button');
-    b.className = 'day-btn'+(i===0?' active':'');
-    b.textContent = l;
-    b.onclick = function() {
-      S.day = i;
-      document.querySelectorAll('.day-btn').forEach(function(btn,idx){ btn.classList.toggle('active',idx===i); });
-      loadHeatmap(i); loadPredictions();
-    };
-    nav.appendChild(b);
-  });
-}
 
 function updateMarkerColors() {
   const d = new Date(); d.setDate(d.getDate()+S.day);
