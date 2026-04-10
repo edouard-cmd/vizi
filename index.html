@@ -307,30 +307,27 @@
     .tide-row .val { color:var(--text); font-weight:500; }
 
     /* ══════════════════════════════════════════
-       SPOT POPUP
+       DRAWER LATÉRAL
     ══════════════════════════════════════════ */
-    #spotPopup {
-      position:absolute; z-index:1100; width:324px;
+    #spotDrawer {
+      position:fixed; top:0; right:0; bottom:0; z-index:1100;
+      width:340px;
       background:var(--surface);
-      border:1px solid var(--border);
-      border-radius:16px;
-      box-shadow:0 12px 40px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.06);
-      display:none; overflow:hidden;
+      border-left:1px solid var(--border);
+      box-shadow:-8px 0 40px rgba(0,0,0,0.12);
+      display:flex; flex-direction:column;
+      transform:translateX(100%);
+      transition:transform 0.28s cubic-bezier(.4,0,.2,1);
+      overflow:hidden;
     }
-    #spotPopup::after {
-      content:''; position:absolute; bottom:-8px; left:50%;
-      transform:translateX(-50%) rotate(45deg);
-      width:14px; height:14px;
-      background:var(--surface);
-      border-right:1px solid var(--border);
-      border-bottom:1px solid var(--border);
-    }
+    #spotDrawer.open { transform:translateX(0); }
 
-    .spot-head {
+    .drawer-head {
       padding:14px 16px 12px;
+      background:var(--surface2);
       border-bottom:1px solid var(--border);
       display:flex; justify-content:space-between; align-items:flex-start;
-      background:var(--surface2);
+      flex-shrink:0;
     }
     .spot-coords {
       font-family:'JetBrains Mono', monospace;
@@ -339,23 +336,23 @@
     }
     .spot-meta {
       font-family:'JetBrains Mono', monospace;
-      font-size:11px; color:var(--text-3);
-      margin-top:3px;
+      font-size:11px; color:var(--text-3); margin-top:3px;
     }
     .spot-close {
-      background:none; border:none;
-      color:var(--text-3); cursor:pointer;
-      font-size:18px; line-height:1;
-      transition:color 0.15s;
+      width:26px; height:26px;
+      background:var(--border); border:none; border-radius:50%;
+      color:var(--text-2); cursor:pointer; font-size:13px;
+      display:flex; align-items:center; justify-content:center;
+      transition:background 0.15s; flex-shrink:0;
     }
-    .spot-close:hover { color:var(--text); }
+    .spot-close:hover { background:var(--border2); color:var(--text); }
 
-    .spot-datetime {
+    .drawer-datetime {
       display:flex; gap:8px; padding:10px 16px;
       border-bottom:1px solid var(--border);
-      background:var(--surface2);
+      background:var(--surface2); flex-shrink:0;
     }
-    .spot-datetime input {
+    .drawer-datetime input {
       flex:1; padding:7px 10px;
       background:var(--surface);
       border:1px solid var(--border);
@@ -364,44 +361,37 @@
       font-size:13px; outline:none; cursor:pointer;
       transition:border-color 0.15s;
     }
-    .spot-datetime input:focus { border-color:var(--accent); }
+    .drawer-datetime input:focus { border-color:var(--accent); }
 
-    .spot-vis-block { padding:16px 16px 12px; }
+    .drawer-body { overflow-y:auto; flex:1; }
+
+    /* VIS */
+    .spot-vis-block { padding:16px 16px 12px; border-bottom:1px solid var(--border); }
     .spot-vis-label {
       font-family:'JetBrains Mono', monospace;
-      font-size:11px; font-weight:500;
-      color:var(--text-3);
-      text-transform:uppercase; letter-spacing:0.1em;
-      margin-bottom:10px;
+      font-size:10px; font-weight:500; color:var(--text-3);
+      text-transform:uppercase; letter-spacing:0.1em; margin-bottom:10px;
     }
     .spot-vis-badge {
-      width:100%; padding:13px 0;
-      border-radius:10px;
+      width:100%; padding:13px 0; border-radius:10px;
       display:flex; align-items:center; justify-content:center;
-      margin-bottom:10px;
-      transition:background 0.35s;
+      margin-bottom:10px; transition:background 0.35s;
     }
     .spot-vis-badge-text {
       font-family:'Inter', system-ui, sans-serif;
-      font-size:22px; font-weight:700;
-      color:white; letter-spacing:0.01em;
+      font-size:22px; font-weight:700; color:white;
     }
-    .spot-vis-segments {
-      display:flex; gap:4px; margin-bottom:6px;
-    }
-    .spot-vis-seg {
-      flex:1; height:5px; border-radius:3px;
-      background:var(--border);
-    }
+    .spot-vis-segments { display:flex; gap:4px; margin-bottom:6px; }
+    .spot-vis-seg { flex:1; height:5px; border-radius:3px; background:var(--border); }
     .spot-vis-ticks {
       display:flex; justify-content:space-between;
       font-family:'JetBrains Mono', monospace;
       font-size:10px; color:var(--text-3); padding:0 1px;
     }
 
+    /* VENT */
     .spot-wind-block {
-      display:flex;
-      border-top:1px solid var(--border);
+      display:flex; border-bottom:1px solid var(--border);
     }
     .spot-wind-cell {
       flex:1; padding:14px 0; text-align:center;
@@ -410,10 +400,8 @@
     .spot-wind-cell:last-child { border-right:none; }
     .spot-wind-lbl {
       font-family:'JetBrains Mono', monospace;
-      font-size:10px; font-weight:500;
-      color:var(--text-3);
-      text-transform:uppercase; letter-spacing:0.08em;
-      margin-bottom:6px;
+      font-size:10px; font-weight:500; color:var(--text-3);
+      text-transform:uppercase; letter-spacing:0.08em; margin-bottom:6px;
     }
     .spot-wind-val {
       font-family:'JetBrains Mono', monospace;
@@ -425,11 +413,52 @@
     }
     .spot-wind-dir { font-size:24px; margin-top:2px; }
 
+    /* FACTEURS */
     #spotFactors {
-      padding:12px 16px 16px;
-      border-top:1px solid var(--border);
+      padding:12px 16px 14px;
+      border-bottom:1px solid var(--border);
       display:flex; flex-direction:column; gap:8px;
       background:var(--surface2);
+    }
+
+    /* MARÉES */
+    #drawerTides {
+      padding:14px 16px 16px;
+      background:var(--surface);
+    }
+    .tides-label {
+      font-family:'JetBrains Mono', monospace;
+      font-size:10px; font-weight:500; color:var(--text-3);
+      text-transform:uppercase; letter-spacing:0.1em;
+      margin-bottom:10px;
+    }
+    .tides-port-name {
+      font-family:'JetBrains Mono', monospace;
+      font-size:13px; font-weight:600; color:var(--text);
+      margin-bottom:10px;
+    }
+    .tides-grid {
+      display:grid; grid-template-columns:1fr 1fr 1fr;
+      border:1px solid var(--border); border-radius:9px; overflow:hidden;
+    }
+    .tides-cell {
+      padding:11px 0; text-align:center;
+      border-right:1px solid var(--border);
+    }
+    .tides-cell:last-child { border-right:none; }
+    .tides-cell-lbl {
+      font-family:'JetBrains Mono', monospace;
+      font-size:9px; font-weight:500; color:var(--text-3);
+      text-transform:uppercase; letter-spacing:0.08em; margin-bottom:5px;
+    }
+    .tides-cell-val {
+      font-family:'JetBrains Mono', monospace;
+      font-size:16px; font-weight:600; color:var(--text); line-height:1;
+    }
+    .tides-cell-val.coeff { color:var(--accent); font-size:22px; }
+    .tides-cell-sub {
+      font-family:'JetBrains Mono', monospace;
+      font-size:10px; color:var(--text-3); margin-top:3px;
     }
 
     /* ══════════════════════════════════════════
@@ -732,9 +761,6 @@
   <div class="legend-iso-row"><div class="legend-iso-line" style="background:#0277bd"></div><span>EMODnet contours</span></div>
 </div>
 
-<!-- MARÉES -->
-<div id="tideWidget">
-  <div class="tide-title">Marées · <span id="tideSpotName">—</span></div>
   <div id="tideContent"></div>
 </div>
 
@@ -748,52 +774,74 @@
   Envoyer une observation
 </button>
 
-<!-- SPOT POPUP -->
-<div id="spotPopup">
-  <div class="spot-head">
+<!-- DRAWER LATÉRAL -->
+<div id="spotDrawer">
+  <div class="drawer-head">
     <div>
       <div class="spot-coords" id="spotCoords">—</div>
       <div class="spot-meta" id="spotMeta">—</div>
     </div>
     <button class="spot-close" onclick="closeSpotPopup()">✕</button>
   </div>
-  <div class="spot-datetime">
+  <div class="drawer-datetime">
     <input type="date" id="spotDate" onchange="refreshSpotPopup()">
     <input type="time" id="spotTime" step="3600" onchange="refreshSpotPopup()">
   </div>
-  <div class="spot-vis-block">
-    <div class="spot-vis-label">Visibilité estimée</div>
-    <div class="spot-vis-badge" id="spotVisBadge">
-      <span class="spot-vis-badge-text" id="spotVisLabel">—</span>
+  <div class="drawer-body">
+    <div class="spot-vis-block">
+      <div class="spot-vis-label">Visibilité estimée</div>
+      <div class="spot-vis-badge" id="spotVisBadge">
+        <span class="spot-vis-badge-text" id="spotVisLabel">—</span>
+      </div>
+      <div class="spot-vis-segments">
+        <div class="spot-vis-seg" id="visSeg0"></div>
+        <div class="spot-vis-seg" id="visSeg1"></div>
+        <div class="spot-vis-seg" id="visSeg2"></div>
+        <div class="spot-vis-seg" id="visSeg3"></div>
+        <div class="spot-vis-seg" id="visSeg4"></div>
+      </div>
+      <div class="spot-vis-ticks"><span>Nulle</span><span>Faible</span><span>Moyenne</span><span>Bonne</span><span>Excellente</span></div>
+      <div id="spotMemoryNote" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--warn);margin-top:5px;min-height:12px;text-align:center;"></div>
     </div>
-    <div class="spot-vis-segments">
-      <div class="spot-vis-seg" id="visSeg0"></div>
-      <div class="spot-vis-seg" id="visSeg1"></div>
-      <div class="spot-vis-seg" id="visSeg2"></div>
-      <div class="spot-vis-seg" id="visSeg3"></div>
-      <div class="spot-vis-seg" id="visSeg4"></div>
+    <div class="spot-wind-block">
+      <div class="spot-wind-cell">
+        <div class="spot-wind-lbl">Vent</div>
+        <div class="spot-wind-val" id="spotWindSpeed">—</div>
+        <div class="spot-wind-unit">km/h</div>
+      </div>
+      <div class="spot-wind-cell">
+        <div class="spot-wind-lbl">Rafales</div>
+        <div class="spot-wind-val" id="spotWindGusts">—</div>
+        <div class="spot-wind-unit">km/h</div>
+      </div>
+      <div class="spot-wind-cell">
+        <div class="spot-wind-lbl">Direction</div>
+        <div class="spot-wind-dir" id="spotWindDir">—</div>
+        <div class="spot-wind-unit" id="spotWindDeg">—</div>
+      </div>
     </div>
-    <div class="spot-vis-ticks"><span>Nulle</span><span>Faible</span><span>Moyenne</span><span>Bonne</span><span>Excellente</span></div>
-    <div id="spotMemoryNote" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--warn);margin-top:5px;min-height:12px;text-align:center;letter-spacing:0.03em;"></div>
+    <div id="spotFactors"></div>
+    <div id="drawerTides">
+      <div class="tides-label">Marées</div>
+      <div class="tides-port-name" id="tidesPortName">—</div>
+      <div class="tides-grid">
+        <div class="tides-cell">
+          <div class="tides-cell-lbl">Coeff.</div>
+          <div class="tides-cell-val coeff" id="tidesCoeff">—</div>
+        </div>
+        <div class="tides-cell">
+          <div class="tides-cell-lbl">Pleine mer</div>
+          <div class="tides-cell-val" id="tidesPM">—</div>
+          <div class="tides-cell-sub" id="tidesPMh">—</div>
+        </div>
+        <div class="tides-cell">
+          <div class="tides-cell-lbl">Basse mer</div>
+          <div class="tides-cell-val" id="tidesBM">—</div>
+          <div class="tides-cell-sub" id="tidesBMh">—</div>
+        </div>
+      </div>
+    </div>
   </div>
-  <div class="spot-wind-block">
-    <div class="spot-wind-cell">
-      <div class="spot-wind-lbl">Vent</div>
-      <div class="spot-wind-val" id="spotWindSpeed">—</div>
-      <div class="spot-wind-unit">km/h</div>
-    </div>
-    <div class="spot-wind-cell">
-      <div class="spot-wind-lbl">Rafales</div>
-      <div class="spot-wind-val" id="spotWindGusts">—</div>
-      <div class="spot-wind-unit">km/h</div>
-    </div>
-    <div class="spot-wind-cell">
-      <div class="spot-wind-lbl">Direction</div>
-      <div class="spot-wind-dir" id="spotWindDir">—</div>
-      <div class="spot-wind-unit" id="spotWindDeg">—</div>
-    </div>
-  </div>
-  <div id="spotFactors"></div>
 </div>
 
 <!-- OBS POPUP -->
@@ -1047,7 +1095,7 @@ function initMap() {
     });
     m.on('click', function(e) {
       L.DomEvent.stopPropagation(e);
-      showTides(spot);
+      
       openSpotPopup(L.latLng(spot.lat, spot.lon), spot.name);
       loadForecast(spot.lat, spot.lon, spot.name);
     });
@@ -1055,7 +1103,7 @@ function initMap() {
   });
 
   S.map.on('click', function(e) {
-    hideTides();
+    
     openSpotPopup(e.latlng, null);
     loadForecast(e.latlng.lat, e.latlng.lng, null);
   });
@@ -1558,8 +1606,7 @@ function openSpotPopup(latlng, name) {
     depth = near.depth;
   } else {
     var distCoastDeg = Math.abs(latlng.lat - 49.34);
-    var distCoastKm = distCoastDeg * 111;
-    depth = Math.max(1, Math.min(50, distCoastKm * 10));
+    depth = Math.max(1, Math.min(50, distCoastDeg * 111 * 10));
   }
   S._spotDepth = depth;
   document.getElementById('spotMeta').textContent = '⚓ ~' + Math.round(depth) + 'm · AROME 2.5km';
@@ -1568,29 +1615,68 @@ function openSpotPopup(latlng, name) {
   document.getElementById('spotDate').value = now.toISOString().split('T')[0];
   document.getElementById('spotTime').value = now.getHours().toString().padStart(2,'0') + ':00';
 
-  document.getElementById('spotPopup').style.display = 'block';
-  positionSpotPopup(latlng);
+  // Ouvrir le drawer
+  document.getElementById('spotDrawer').classList.add('open');
 
   S_spotWeatherCache = null;
   fetchSpotWeather(latlng.lat, latlng.lng);
+  loadDrawerTides(latlng.lat, latlng.lng);
 }
 
-function positionSpotPopup(latlng) {
-  var px = S.map.latLngToContainerPoint(latlng);
-  var el = document.getElementById('spotPopup');
-  var w = 324;
-  // Essaie à droite du curseur, sinon à gauche
-  var left = px.x + 24;
-  if (left + w + 10 > window.innerWidth) left = px.x - w - 24;
-  left = Math.max(10, left);
-  var top = px.y - 140;
-  top = Math.max(60, Math.min(top, window.innerHeight - 500));
-  el.style.left = left + 'px';
-  el.style.top = top + 'px';
+function positionSpotPopup(latlng) { /* drawer — pas besoin de positionner */ }
+
+function loadDrawerTides(lat, lon) {
+  // Port le plus proche
+  var nearest = SPOTS.reduce(function(best, s) {
+    var d = Math.hypot(s.lat - lat, s.lon - lon);
+    return d < best.d ? { spot: s, d: d } : best;
+  }, { spot: SPOTS[0], d: Infinity }).spot;
+
+  document.getElementById('tidesPortName').textContent = nearest.name;
+  document.getElementById('tidesCoeff').textContent = '—';
+  document.getElementById('tidesPM').textContent = '—';
+  document.getElementById('tidesPMh').textContent = '';
+  document.getElementById('tidesBM').textContent = '—';
+  document.getElementById('tidesBMh').textContent = '';
+
+  loadTidesCache().then(function() {
+    var today = new Date().toISOString().split('T')[0];
+    var portTides = tidesCache.data
+      ? tidesCache.data.filter(function(t){ return t.port_id === nearest.id && t.date === today; })
+      : [];
+
+    if (portTides.length === 0) {
+      // Fallback estimé
+      var now = new Date();
+      var dayOfYear = Math.floor((now - new Date(now.getFullYear(),0,0)) / 86400000);
+      var coeff = Math.round(70 + 50 * Math.sin(dayOfYear / 14.77 * Math.PI));
+      document.getElementById('tidesCoeff').textContent = coeff;
+      document.getElementById('tidesPM').textContent = '—';
+      document.getElementById('tidesPMh').textContent = 'estimé';
+      document.getElementById('tidesBM').textContent = '—';
+      document.getElementById('tidesBMh').textContent = 'estimé';
+      return;
+    }
+
+    var highs = portTides.filter(function(t){ return t.type==='high'; }).sort(function(a,b){ return a.time.localeCompare(b.time); });
+    var lows  = portTides.filter(function(t){ return t.type==='low';  }).sort(function(a,b){ return a.time.localeCompare(b.time); });
+
+    var coeff = highs.length > 0 ? highs[0].coefficient : '—';
+    document.getElementById('tidesCoeff').textContent = coeff;
+
+    if (highs.length > 0) {
+      document.getElementById('tidesPM').textContent = highs[0].time;
+      document.getElementById('tidesPMh').textContent = highs[0].height_m + 'm';
+    }
+    if (lows.length > 0) {
+      document.getElementById('tidesBM').textContent = lows[0].time;
+      document.getElementById('tidesBMh').textContent = lows[0].height_m + 'm';
+    }
+  });
 }
 
 function closeSpotPopup() {
-  document.getElementById('spotPopup').style.display = 'none';
+  document.getElementById('spotDrawer').classList.remove('open');
   if (S.clickMarker) { S.map.removeLayer(S.clickMarker); S.clickMarker = null; }
 }
 
