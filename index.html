@@ -708,7 +708,8 @@
       border-radius:12px;
       box-shadow:0 4px 20px rgba(0,0,0,0.08);
       display:none; overflow:hidden;
-      min-width:190px;
+      min-width:200px; max-height:calc(100vh - 100px);
+      overflow-y:auto;
     }
     .sed-legend-header {
       display:flex; align-items:center; justify-content:space-between;
@@ -1911,39 +1912,53 @@ function fetchSedimentType(lat, lon) {
     + '?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo'
     + '&LAYERS=NDF_BDD_WLD_WGS84G_WMS'
     + '&QUERY_LAYERS=NDF_BDD_WLD_WGS84G_WMS'
-    + '&INFO_FORMAT=application/json'
+    + '&INFO_FORMAT=text/plain'
     + '&I=50&J=50&WIDTH=101&HEIGHT=101'
     + '&CRS=EPSG:4326'
     + '&BBOX='+bbox;
 
   fetch(url)
-    .then(function(r){ return r.json(); })
-    .then(function(data) {
-      if (!data.features || data.features.length === 0) {
+    .then(function(r){ return r.text(); })
+    .then(function(text) {
+      if (!text || text.trim() === '' || text.indexOf('no features') !== -1) {
         document.getElementById('sedimentType').textContent = 'Non cartographié';
         return;
       }
-      var props = data.features[0].properties;
-      var raw = props.nature_sed || props.nat_fond || props.layer || props.type_fond
-              || props.label || props.nature || Object.values(props)[0] || '?';
+      // Parser le texte brut GeoServer : "property = value\n..."
+      // On cherche la valeur de n'importe quel champ qui ressemble à une nature
       var sedMap = {
-        'Graviers':       { fr:'Graviers · cailloutis', c:'#CC2200' },
-        'Cailloutis':     { fr:'Cailloutis',            c:'#CC2200' },
-        'Sables grossiers':{ fr:'Sable grossier',       c:'#E86030' },
-        'Sable grossier': { fr:'Sable grossier',        c:'#E86030' },
-        'Sables':         { fr:'Sable',                 c:'#F0C060' },
-        'Sable':          { fr:'Sable',                 c:'#F0C060' },
-        'Sable fin':      { fr:'Sable fin',             c:'#F5E8A0' },
-        'Sables fins':    { fr:'Sable fin',             c:'#F5E8A0' },
-        'Sable vaseux':   { fr:'Sable vaseux',          c:'#D4B890' },
-        'Vase sableuse':  { fr:'Vase sableuse',         c:'#C8A878' },
-        'Vase':           { fr:'Vase',                  c:'#8B6A40' },
-        'Roche':          { fr:'Roche',                 c:'#909090' },
-        'Roche et gravier':{ fr:'Roche · gravier',      c:'#AA4444' },
+        'gravier': { fr:'Graviers · cailloutis', c:'#CC2200' },
+        'cailloutis': { fr:'Cailloutis', c:'#CC2200' },
+        'sable grossier': { fr:'Sable grossier', c:'#E86030' },
+        'sables grossiers': { fr:'Sable grossier', c:'#E86030' },
+        'sable fin': { fr:'Sable fin', c:'#F5E8A0' },
+        'sables fins': { fr:'Sable fin', c:'#F5E8A0' },
+        'sable': { fr:'Sable', c:'#F0C060' },
+        'sables': { fr:'Sable', c:'#F0C060' },
+        'sable vaseux': { fr:'Sable vaseux', c:'#D4B890' },
+        'vase sableuse': { fr:'Vase sableuse', c:'#C8A878' },
+        'vase': { fr:'Vase', c:'#8B6A40' },
+        'roche': { fr:'Roche', c:'#909090' },
       };
-      var m = sedMap[raw] || { fr: raw, c:'#E2E8F0' };
-      document.getElementById('sedimentType').textContent = m.fr;
-      document.getElementById('sedSwatchColor').style.background = m.c;
+
+      // Chercher dans tout le texte une correspondance
+      var lower = text.toLowerCase();
+      var found = null;
+      // Priorité aux valeurs les plus spécifiques
+      var keys = Object.keys(sedMap).sort(function(a,b){ return b.length - a.length; });
+      for (var k = 0; k < keys.length; k++) {
+        if (lower.indexOf(keys[k]) !== -1) { found = sedMap[keys[k]]; break; }
+      }
+
+      if (found) {
+        document.getElementById('sedimentType').textContent = found.fr;
+        document.getElementById('sedSwatchColor').style.background = found.c;
+      } else {
+        // Afficher la première ligne non vide comme fallback
+        var lines = text.split('\n').filter(function(l){ return l.trim() && l.indexOf('=') !== -1; });
+        var val = lines.length > 0 ? lines[0].split('=').pop().trim() : text.trim().slice(0,40);
+        document.getElementById('sedimentType').textContent = val || 'Non identifié';
+      }
     })
     .catch(function() {
       document.getElementById('sedimentType').textContent = 'Non disponible';
