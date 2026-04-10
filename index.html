@@ -719,6 +719,13 @@
   <div class="forecast-header">
     <div class="forecast-location" id="forecastLocation">— Cliquer sur la carte —</div>
     <div class="forecast-coords" id="forecastCoords"></div>
+    <button id="windUnitToggle" onclick="toggleWindUnit()" style="
+      margin-left:auto; margin-right:8px;
+      background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.15);
+      border-radius:6px; padding:4px 10px;
+      font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:600;
+      color:rgba(255,255,255,0.7); cursor:pointer; transition:all 0.15s;
+    ">km/h</button>
     <button class="forecast-close" onclick="closeForecast()">✕</button>
   </div>
   <div id="forecastTable" class="forecast-scroll">
@@ -1008,6 +1015,21 @@ let S = {
 };
 
 let S_forecastOpen = false;
+let S_windUnit = 'kmh'; // 'kmh' ou 'kt'
+let S_lastForecastData = null;
+
+function toggleWindUnit() {
+  S_windUnit = S_windUnit === 'kmh' ? 'kt' : 'kmh';
+  var btn = document.getElementById('windUnitToggle');
+  if (btn) {
+    btn.textContent = S_windUnit === 'kmh' ? 'km/h' : 'nœuds';
+    btn.style.color = S_windUnit === 'kt' ? '#A8E63D' : 'rgba(255,255,255,0.7)';
+    btn.style.borderColor = S_windUnit === 'kt' ? '#A8E63D' : 'rgba(255,255,255,0.15)';
+  }
+  if (S_lastForecastData) renderForecastTable(S_lastForecastData.h, S_lastForecastData.now);
+}
+
+function toKt(kmh) { return Math.round(kmh * 0.539957); }
 
 // ============================================================
 // API
@@ -1468,6 +1490,7 @@ function loadForecast(lat, lon, locationName) {
     .then(function(r){ return r.json(); })
     .then(function(d) {
       if (!d.hourly) throw new Error('Pas de données');
+      S_lastForecastData = { h: d.hourly, now: now };
       renderForecastTable(d.hourly, now);
     })
     .catch(function(e) {
@@ -1525,17 +1548,24 @@ function renderForecastTable(h, now) {
   });
   html += '</tr></thead><tbody>';
 
-  html += '<tr><td class="row-label">Vent (km/h)</td>';
+  var unitLabel = S_windUnit === 'kt' ? 'nœuds' : 'km/h';
+  var conv = S_windUnit === 'kt' ? function(v){ return toKt(v); } : function(v){ return Math.round(v); };
+  // Seuils windColor en kt si besoin
+  function windColorAdj(kmh) { return windColor(kmh); } // windColor reste en kmh interne
+
+  html += '<tr><td class="row-label">Vent ('+unitLabel+')</td>';
   cols.forEach(function(c) {
-    const v = Math.round(h.windspeed_10m[c.i]||0);
-    html += '<td class="'+windColor(v)+(c.isNow?' wg-now':'')+'" style="font-weight:600">'+v+'</td>';
+    const raw = h.windspeed_10m[c.i]||0;
+    const v = conv(raw);
+    html += '<td class="'+windColorAdj(raw)+(c.isNow?' wg-now':'')+'" style="font-weight:600">'+v+'</td>';
   });
   html += '</tr>';
 
-  html += '<tr><td class="row-label">Rafales (km/h)</td>';
+  html += '<tr><td class="row-label">Rafales ('+unitLabel+')</td>';
   cols.forEach(function(c) {
-    const v = Math.round(h.windgusts_10m[c.i]||0);
-    html += '<td class="'+windColor(v)+(c.isNow?' wg-now':'')+'">'+v+'</td>';
+    const raw = h.windgusts_10m[c.i]||0;
+    const v = conv(raw);
+    html += '<td class="'+windColor(raw)+(c.isNow?' wg-now':'')+'">'+v+'</td>';
   });
   html += '</tr>';
 
