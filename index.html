@@ -364,6 +364,12 @@
       <div class="spot-wind-unit" id="spotWindDeg">—</div>
     </div>
   </div>
+  <!-- FACTEURS EXPLICATIFS -->
+  <div id="spotFactors" style="
+    padding:10px 14px 12px;
+    border-top:1px solid rgba(255,255,255,0.06);
+    display:flex; flex-direction:column; gap:5px;
+  "></div>
 </div>
 
 <div id="obsPopup">
@@ -1352,6 +1358,77 @@ function renderSpotPopup() {
   var dirName = (dir !== null && dir !== undefined) ? fromNames[aidx] : '—';
   document.getElementById('spotWindDir').textContent = arrow;
   document.getElementById('spotWindDeg').textContent = dirName + (dir !== null ? ' ' + Math.round(dir) + '°' : '');
+
+  // ── FACTEURS EXPLICATIFS ──────────────────────────────────
+  var factors = [];
+
+  // Vent actuel
+  var windImpact = Math.round(windPenalty);
+  if (windImpact > 2) {
+    var windType = dirFactor <= 0.2 ? 'offshore · mer plate' : dirFactor >= 1.3 ? 'onshore · agite le fond' : 'latéral';
+    factors.push({
+      icon: '💨',
+      label: 'Vent ' + wind + ' km/h (' + dirName + ' — ' + windType + ')',
+      impact: windImpact,
+      max: 55
+    });
+  } else {
+    factors.push({
+      icon: '💨',
+      label: 'Vent ' + wind + ' km/h (' + dirName + ' — offshore · mer plate)',
+      impact: 0,
+      max: 55
+    });
+  }
+
+  // Mémoire agitation
+  if (residualPenalty > 5) {
+    factors.push({
+      icon: '⏱',
+      label: 'Agitation passée (coup de mer ' + Math.round(decayHours) + 'h de décantation)',
+      impact: Math.round(residualPenalty),
+      max: 55
+    });
+  }
+
+  // Vagues
+  if (wavePenalty > 3) {
+    factors.push({
+      icon: '🌊',
+      label: 'Vagues ' + wave.toFixed(1) + 'm',
+      impact: Math.round(wavePenalty),
+      max: 35
+    });
+  }
+
+  // Bathymétrie
+  factors.push({
+    icon: '⚓',
+    label: 'Fond ~' + Math.round(depth) + 'm (×' + bathyFactor.toFixed(1) + ' amplification)',
+    impact: null, // neutre, juste info
+    max: null
+  });
+
+  // Rendu
+  var factorsEl = document.getElementById('spotFactors');
+  factorsEl.innerHTML = factors.map(function(f) {
+    var barHtml = '';
+    if (f.impact !== null && f.max !== null) {
+      var pct = Math.min(100, Math.round(f.impact / f.max * 100));
+      var barColor = pct < 20 ? '#00e676' : pct < 50 ? '#ffd600' : pct < 80 ? '#ff6d00' : '#ff1744';
+      barHtml = '<div style="flex:1;height:3px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;">'
+        + '<div style="height:100%;width:'+pct+'%;background:'+barColor+';border-radius:2px;transition:width 0.4s"></div>'
+        + '</div>'
+        + '<div style="font-size:8px;color:'+barColor+';min-width:24px;text-align:right">'+(pct > 0 ? '-'+Math.round(f.impact) : '✓')+'</div>';
+    } else {
+      barHtml = '<div style="flex:1"></div><div style="font-size:8px;color:var(--text-muted)">×'+bathyFactor.toFixed(1)+'</div>';
+    }
+    return '<div style="display:flex;align-items:center;gap:8px;">'
+      + '<span style="font-size:11px;width:16px;text-align:center">'+f.icon+'</span>'
+      + '<span style="font-family:Space Mono,monospace;font-size:8px;color:var(--text-muted);flex:1;line-height:1.3">'+f.label+'</span>'
+      + '<div style="display:flex;align-items:center;gap:4px;min-width:80px">'+barHtml+'</div>'
+      + '</div>';
+  }).join('');
 }
 
 // ============================================================
