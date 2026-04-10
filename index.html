@@ -260,7 +260,16 @@
       color:var(--text-3); font-size:10px;
       background:var(--surface2);
     }
-    .wg-now { border-left:2px solid var(--accent) !important; background:rgba(11,168,136,0.05) !important; }
+    .wg-now { 
+      border-left:3px solid #A8E63D !important; 
+      background:rgba(168,230,61,0.06) !important; 
+    }
+    .wg-now-header {
+      border-left:3px solid #A8E63D !important;
+      background:rgba(168,230,61,0.1) !important;
+      color:#A8E63D !important;
+      font-weight:700 !important;
+    }
 
     .wc-0{background:rgba(11,168,136,0.10)} .wc-1{background:rgba(11,168,136,0.22)}
     .wc-2{background:rgba(22,163,74,0.22)}  .wc-3{background:rgba(202,138,4,0.25)}
@@ -811,7 +820,13 @@
   </div>
   <div class="drawer-body">
     <div class="spot-vis-block">
-      <div class="spot-vis-label">Visibilité estimée</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <div class="spot-vis-label" style="margin-bottom:0">Visibilité estimée</div>
+        <button onclick="var d=document.getElementById('visDetail');d.style.display=d.style.display==='none'?'block':'none'" style="background:none;border:1px solid var(--border2);border-radius:50%;width:18px;height:18px;font-size:11px;color:var(--text-3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:serif;font-weight:bold;flex-shrink:0;">i</button>
+      </div>
+      <div id="visDetail" style="display:none;margin-bottom:10px;padding:9px 12px;background:#EFF6FF;border-left:2px solid #3B82F6;border-radius:0 7px 7px 0;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#1E40AF;line-height:1.7;" id="visDetailText">—</div>
+      </div>
       <div class="spot-vis-badge" id="spotVisBadge">
         <span class="spot-vis-badge-text" id="spotVisLabel">—</span>
       </div>
@@ -1084,7 +1099,7 @@ function resizeCanvas() {
 // ============================================================
 function initMap() {
   S.map = L.map('map', {
-    center:[46.5, -1.5], zoom:6,
+    center:[49.32, -0.55], zoom:11,
     zoomControl:true,
     zoomSnap:1,
     zoomDelta:1,
@@ -1558,7 +1573,7 @@ function renderForecastTable(h, now) {
   html += '</tr>';
   html += '<tr><td class="row-label hour-row">Heure</td>';
   cols.forEach(function(c) {
-    html += '<td class="hour-row'+(c.isNow?' wg-now':'')+'">'+c.t.slice(11,16)+'</td>';
+    html += '<td class="hour-row'+(c.isNow?' wg-now wg-now-header':'')+'">'+c.t.slice(11,16)+'</td>';
   });
   html += '</tr></thead><tbody>';
 
@@ -1585,7 +1600,7 @@ function renderForecastTable(h, now) {
 
   html += '<tr><td class="row-label">Direction</td>';
   cols.forEach(function(c) {
-    html += '<td class="'+(c.isNow?'wg-now':'')+'" style="font-size:13px">'+dirArrow(h.winddirection_10m[c.i])+'</td>';
+    html += '<td class="'+(c.isNow?'wg-now':'')+'">'+dirArrow(h.winddirection_10m[c.i])+'</td>';
   });
   html += '</tr>';
 
@@ -1599,7 +1614,7 @@ function renderForecastTable(h, now) {
     html += '</tr>';
     html += '<tr><td class="row-label">Vagues dir.</td>';
     cols.forEach(function(c) {
-      html += '<td class="'+(c.isNow?'wg-now':'')+'" style="font-size:13px">'+dirArrow(h.wave_direction[c.i])+'</td>';
+      html += '<td class="'+(c.isNow?'wg-now':'')+'">'+dirArrow(h.wave_direction[c.i])+'</td>';
     });
     html += '</tr>';
   }
@@ -1909,6 +1924,25 @@ function renderSpotPopup() {
   else if (score >= 40) visLabel = 'Moyenne';
   else if (score >= 20) visLabel = 'Faible';
   else                  visLabel = 'Mauvaise';
+
+  // Estimation visibilité en mètres depuis le score (0→100)
+  // Mauvaise : <1m, Faible : 1-2m, Moyenne : 2-4m, Bonne : 4-8m, Excellente : >8m
+  var visM;
+  if (score >= 80)      visM = Math.round(8 + (score - 80) / 20 * 7) + 'm+';
+  else if (score >= 60) visM = (4 + Math.round((score - 60) / 20 * 4)) + ' – ' + (8 + Math.round((score - 60) / 20 * 2)) + 'm';
+  else if (score >= 40) visM = (2 + Math.round((score - 40) / 20 * 2)) + ' – ' + (4 + Math.round((score - 40) / 20 * 3)) + 'm';
+  else if (score >= 20) visM = '0.5 – ' + (1 + Math.round((score - 20) / 20)) + 'm';
+  else                  visM = score < 5 ? '< 0.3m' : '< 0.5m';
+
+  var visRanges = {
+    'Mauvaise':   'Mauvaise · ' + visM + ' — fond non visible, chasse très difficile.',
+    'Faible':     'Faible · ' + visM + ' — fond visible par endroits, chasse compromise.',
+    'Moyenne':    'Moyenne · ' + visM + ' — visibilité acceptable, chasse possible avec expérience.',
+    'Bonne':      'Bonne · ' + visM + ' — bonnes conditions, chasse confortable.',
+    'Excellente': 'Excellente · ' + visM + ' — conditions idéales, eau claire.'
+  };
+  var detailEl = document.getElementById('visDetailText');
+  if (detailEl) detailEl.textContent = visRanges[visLabel] || '';
 
   var memoryNote = '';
   if (residualPenalty > instantPenalty && residualPenalty > 10) {
