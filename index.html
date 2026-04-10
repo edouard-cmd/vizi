@@ -554,6 +554,86 @@
       #spotDrawer { height:90vh; }
     }
 
+    /* ══ CROSSHAIR MOBILE ══ */
+    #mobileCrosshair {
+      display:none;
+      position:fixed;
+      top:50%; left:50%;
+      transform:translate(-50%, -50%);
+      z-index:950;
+      pointer-events:none;
+    }
+    #mobileCrosshair .ch-ring {
+      width:48px; height:48px;
+      border:2px solid rgba(168,230,61,0.6);
+      border-radius:50%;
+      position:absolute;
+      top:50%; left:50%;
+      transform:translate(-50%,-50%);
+      animation:chPulse 2s ease-out infinite;
+    }
+    #mobileCrosshair .ch-dot {
+      width:8px; height:8px;
+      background:#A8E63D;
+      border-radius:50%;
+      position:absolute;
+      top:50%; left:50%;
+      transform:translate(-50%,-50%);
+      box-shadow:0 0 8px rgba(168,230,61,0.8);
+    }
+    #mobileCrosshair .ch-line-h {
+      width:28px; height:1.5px;
+      background:rgba(168,230,61,0.7);
+      position:absolute;
+      top:50%; left:50%;
+      transform:translate(-50%,-50%);
+    }
+    #mobileCrosshair .ch-line-v {
+      width:1.5px; height:28px;
+      background:rgba(168,230,61,0.7);
+      position:absolute;
+      top:50%; left:50%;
+      transform:translate(-50%,-50%);
+    }
+    @keyframes chPulse {
+      0%   { opacity:0.8; transform:translate(-50%,-50%) scale(1); }
+      100% { opacity:0; transform:translate(-50%,-50%) scale(2); }
+    }
+
+    /* ══ BOUTON ANALYSER MOBILE ══ */
+    #mobileAnalyzeBtn {
+      display:none;
+      position:fixed;
+      bottom:28px; left:50%;
+      transform:translateX(-50%);
+      z-index:960;
+      padding:14px 32px;
+      background:#1A2535;
+      border:2px solid #A8E63D;
+      border-radius:40px;
+      color:#A8E63D;
+      font-family:'Space Grotesk', sans-serif;
+      font-size:15px; font-weight:700;
+      letter-spacing:0.04em;
+      cursor:pointer;
+      box-shadow:0 4px 24px rgba(0,0,0,0.3);
+      white-space:nowrap;
+      transition:all 0.2s;
+      -webkit-tap-highlight-color:transparent;
+    }
+    #mobileAnalyzeBtn:active {
+      background:#A8E63D;
+      color:#1A2535;
+      transform:translateX(-50%) scale(0.97);
+    }
+
+    @media (max-width: 768px) {
+      #mobileCrosshair { display:block; }
+      #mobileAnalyzeBtn { display:block; }
+      #obsFloatBtn { display:none; }
+      .leaflet-container { cursor:default !important; }
+    }
+
   </style>
 </head>
 <body>
@@ -561,6 +641,19 @@
 <div id="map"></div>
 <canvas id="heatmapCanvas"></canvas>
 <div id="landToast"></div>
+
+<!-- CROSSHAIR MOBILE -->
+<div id="mobileCrosshair">
+  <div class="ch-ring"></div>
+  <div class="ch-line-h"></div>
+  <div class="ch-line-v"></div>
+  <div class="ch-dot"></div>
+</div>
+
+<!-- BOUTON ANALYSER CE POINT (mobile uniquement) -->
+<button id="mobileAnalyzeBtn" onclick="analyzeCenterPoint()">
+  ⊕ Analyser ce point
+</button>
 
 <!-- LÉGENDE SÉDIMENTS SHOM — top positionné par JS -->
 <div id="sedLegend">
@@ -949,6 +1042,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
   loadPredictions();
   loadHeatmap(0);
+
+  // Patch clic carte sur mobile
+  setTimeout(patchMapForMobile, 500);
 });
 
 // ============================================================
@@ -1946,6 +2042,42 @@ function showLandMessage(latlng) {
 function openObsPanel() {
   var latlng = S.clickLatLng || S.map.getCenter();
   openPopup(latlng, null);
+}
+
+// ============================================================
+// MOBILE — ANALYSER LE CENTRE DE LA CARTE
+// ============================================================
+function isMobile() {
+  return window.innerWidth <= 768;
+}
+
+function analyzeCenterPoint() {
+  var center = S.map.getCenter();
+  var btn = document.getElementById('mobileAnalyzeBtn');
+
+  // Feedback visuel
+  btn.textContent = '⟳ Analyse...';
+  btn.style.opacity = '0.7';
+
+  isOnSea(center.lat, center.lng, function(onSea) {
+    btn.textContent = '⊕ Analyser ce point';
+    btn.style.opacity = '1';
+    if (!onSea) {
+      showLandMessage(center);
+      return;
+    }
+    openSpotPopup(center, null);
+    loadForecast(center.lat, center.lng, null);
+  });
+}
+
+// Sur mobile, désactiver le clic libre sur la carte
+// (on utilise le crosshair + bouton analyser à la place)
+var _origMapClick = null;
+function patchMapForMobile() {
+  if (!isMobile()) return;
+  S.map.off('click');
+  S.map.on('click', function() {}); // no-op
 }
 </script>
 </body>
