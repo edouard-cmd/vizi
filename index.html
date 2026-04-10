@@ -1125,22 +1125,15 @@ function initMap() {
     attribution: 'Signalisation © OpenSeaMap', opacity: 0.95, maxZoom: 19
   });
 
-  // Sédiments SHOM — Natures de fond 1/50 000 (source officielle française)
+  // Sédiments SHOM — Natures de fond (source officielle française)
   S.sedLayer = L.tileLayer.wms('https://services.data.shom.fr/INSPIRE/wms/v', {
-    layers: 'NDF_BDD_WLD_WGS84G_WMS:natures_fond_50000',
+    layers: 'NDF_BDD_WLD_WGS84G_WMS',
     format: 'image/png', transparent: true,
     version: '1.3.0',
-    attribution: 'Sédiments © SHOM — Natures de fond 1/50 000',
-    opacity: 0.7, maxZoom: 19
+    attribution: 'Sédiments © SHOM — Natures de fond',
+    opacity: 0.75, maxZoom: 19
   });
-  // Fallback SHOM 1/500 000 (couverture plus large)
-  S.sedLayerFallback = L.tileLayer.wms('https://services.data.shom.fr/INSPIRE/wms/v', {
-    layers: 'NDF_BDD_WLD_WGS84G_WMS:natures_fond_500000',
-    format: 'image/png', transparent: true,
-    version: '1.3.0',
-    attribution: 'Sédiments © SHOM — Natures de fond 1/500 000',
-    opacity: 0.55, maxZoom: 19
-  });
+  S.sedLayerFallback = null;
 
   S.isoDeep.addTo(S.map);
   S.isoShom.addTo(S.map);
@@ -1458,10 +1451,8 @@ function toggleLayer(type) {
     document.getElementById('btnSed').classList.toggle('active', S.showSed);
     if (S.showSed) {
       S.sedLayer.addTo(S.map);
-      S.sedLayerFallback.addTo(S.map);
     } else {
       if (S.map.hasLayer(S.sedLayer)) S.map.removeLayer(S.sedLayer);
-      if (S.map.hasLayer(S.sedLayerFallback)) S.map.removeLayer(S.sedLayerFallback);
     }
   }
 }
