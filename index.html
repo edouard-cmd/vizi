@@ -636,7 +636,26 @@
 
 
     /* ══ BOUTON PARTAGER MON OBSERVATION (desktop) ══ */
-    /* shareObsBtn est dans le header */
+    /* ══ BOUTON PARTAGER DESKTOP ══ */
+    #shareObsBtn {
+      position:fixed; bottom:24px; right:24px; z-index:950;
+      display:flex; align-items:center; gap:7px;
+      padding:10px 18px;
+      background:#1A2535;
+      border:1.5px solid #A8E63D;
+      border-radius:30px;
+      color:#A8E63D;
+      font-family:'Space Grotesk', sans-serif;
+      font-size:12px; font-weight:700;
+      cursor:pointer;
+      box-shadow:0 4px 16px rgba(0,0,0,0.25);
+      transition:all 0.2s; white-space:nowrap;
+      letter-spacing:0.02em;
+    }
+    #shareObsBtn:hover {
+      background:#A8E63D; color:#1A2535;
+      box-shadow:0 6px 24px rgba(168,230,61,0.3);
+    }
 
     /* ══ BOUTON PARTAGER MOBILE ══ */
     #mobileShareBtn {
@@ -710,84 +729,88 @@
       display:flex; align-items:center; justify-content:center;
       flex-shrink:0;
     }
-    .obs-sheet-body { padding:18px 20px 24px; display:flex; flex-direction:column; gap:18px; }
+    /* ══ BOTTOM SHEET COMPACT ══ */
+    #obsSheet {
+      max-height:75vh; /* plus compact */
+    }
+    .obs-sheet-body { padding:12px 16px 20px; display:flex; flex-direction:column; gap:12px; }
 
     .obs-field-label {
       font-family:'DM Mono', monospace;
       font-size:10px; font-weight:600; color:var(--text-3);
       text-transform:uppercase; letter-spacing:0.1em;
-      margin-bottom:8px; display:block;
+      margin-bottom:5px; display:block;
     }
-    .obs-datetime-row { display:flex; gap:10px; }
+    .obs-datetime-row { display:flex; gap:8px; }
     .obs-datetime-row input {
-      flex:1; padding:10px 12px;
+      flex:1; padding:8px 10px;
       background:var(--surface2);
       border:1px solid var(--border);
-      border-radius:10px; color:var(--text);
+      border-radius:8px; color:var(--text);
       font-family:'DM Mono', monospace; font-size:13px;
       outline:none;
     }
     .obs-datetime-row input:focus { border-color:var(--accent); }
 
-    /* Slider visibilité */
-    .obs-vis-row { display:flex; flex-direction:column; gap:8px; }
+    /* Slider visibilité compact */
+    .obs-vis-row { display:flex; flex-direction:column; gap:6px; }
     .obs-vis-top { display:flex; justify-content:space-between; align-items:center; }
     .obs-vis-val {
       font-family:'DM Mono', monospace;
-      font-size:20px; font-weight:700;
+      font-size:17px; font-weight:700;
     }
     input[type=range].obs-vis-slider {
-      width:100%; height:6px; border-radius:3px;
+      width:100%; height:5px; border-radius:3px;
       outline:none; cursor:pointer;
       background:linear-gradient(to right, #DC2626, #CA8A04, #16A34A, #0BA888);
       -webkit-appearance:none; appearance:none;
     }
     input[type=range].obs-vis-slider::-webkit-slider-thumb {
       -webkit-appearance:none;
-      width:26px; height:26px; border-radius:50%;
+      width:22px; height:22px; border-radius:50%;
       background:white; cursor:pointer;
-      box-shadow:0 2px 10px rgba(0,0,0,0.2);
+      box-shadow:0 2px 8px rgba(0,0,0,0.2);
       border:2px solid var(--accent);
     }
     .obs-vis-ticks {
       display:flex; justify-content:space-between;
-      font-family:'DM Mono', monospace; font-size:10px; color:var(--text-3);
+      font-family:'DM Mono', monospace; font-size:9px; color:var(--text-3);
     }
 
-    /* Fond visible toggle */
-    .obs-toggle-row { display:flex; gap:10px; }
+    /* Fond visible toggle compact */
+    .obs-toggle-row { display:flex; gap:8px; }
     .obs-tog {
-      flex:1; padding:12px 8px;
+      flex:1; padding:9px 8px;
       border:1.5px solid var(--border);
-      border-radius:10px;
+      border-radius:9px;
       background:var(--surface); color:var(--text-2);
       cursor:pointer;
       font-family:'Space Grotesk', sans-serif;
-      font-size:14px; font-weight:600;
+      font-size:13px; font-weight:600;
       transition:all 0.15s; text-align:center;
     }
     .obs-tog.on { border-color:var(--accent); color:var(--accent); background:var(--accent-bg); }
 
-    /* Espèces */
+    /* Espèces compact */
     .obs-species-input {
-      width:100%; padding:12px 14px;
+      width:100%; padding:9px 12px;
       background:var(--surface2);
       border:1px solid var(--border);
-      border-radius:10px; color:var(--text);
-      font-family:'Space Grotesk', sans-serif; font-size:14px;
+      border-radius:9px; color:var(--text);
+      font-family:'Space Grotesk', sans-serif; font-size:13px;
       outline:none; transition:border-color 0.15s;
     }
     .obs-species-input:focus { border-color:var(--accent); }
     .obs-species-input::placeholder { color:var(--text-3); }
 
-    /* Bouton envoyer */
+    /* Bouton envoyer compact */
     .obs-submit-btn {
-      width:100%; padding:16px;
+      width:100%; padding:13px;
       background:var(--accent);
-      border:none; border-radius:14px;
+      border:none; border-radius:12px;
       color:white;
       font-family:'Space Grotesk', sans-serif;
-      font-size:16px; font-weight:700;
+      font-size:15px; font-weight:700;
       cursor:pointer; transition:opacity 0.15s;
       letter-spacing:0.02em;
     }
@@ -797,16 +820,28 @@
     /* Message succès */
     .obs-success-msg {
       display:none;
-      text-align:center; padding:20px;
+      text-align:center; padding:14px;
       font-family:'Space Grotesk', sans-serif;
-      font-size:18px; font-weight:700;
-      color:var(--accent);
-      line-height:1.5;
+      font-size:17px; font-weight:700;
+      color:var(--accent); line-height:1.5;
     }
     .obs-success-sub {
-      font-size:13px; color:var(--text-3);
+      font-size:12px; color:var(--text-3);
       font-family:'DM Mono', monospace;
-      margin-top:6px; font-weight:400;
+      margin-top:5px; font-weight:400;
+    }
+
+    /* Desktop : formulaire centré et limité en largeur */
+    @media (min-width: 769px) {
+      #obsSheet {
+        max-width:480px;
+        left:50%; right:auto;
+        transform:translateX(-50%) translateY(100%);
+        border-radius:16px 16px 0 0;
+      }
+      #obsSheet.open {
+        transform:translateX(-50%) translateY(0);
+      }
     }
 
     /* Overlay sombre derrière le sheet */
@@ -909,18 +944,7 @@
       color:rgba(255,255,255,0.75); cursor:pointer; transition:all 0.15s;
       letter-spacing:0.04em;
     ">km/h</button>
-    <button id="shareObsBtn" onclick="openObsSheet()" style="
-      flex-shrink:0;
-      display:flex; align-items:center; gap:6px;
-      padding:7px 14px;
-      background:#A8E63D; border:none;
-      border-radius:8px;
-      color:#1A2535;
-      font-family:'Space Grotesk',sans-serif;
-      font-size:12px; font-weight:700;
-      cursor:pointer; transition:all 0.15s;
-      white-space:nowrap; letter-spacing:0.02em;
-    ">📍 Partager</button>
+
   </div>
 </div>
 
