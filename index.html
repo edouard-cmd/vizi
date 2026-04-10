@@ -717,14 +717,16 @@
 <!-- FORECAST PANEL -->
 <div id="forecastPanel">
   <div class="forecast-header">
-    <div class="forecast-location" id="forecastLocation">— Cliquer sur la carte —</div>
-    <div class="forecast-coords" id="forecastCoords"></div>
+    <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;">
+      <div class="forecast-location" id="forecastLocation">— Cliquer sur la carte —</div>
+      <div class="forecast-coords" id="forecastCoords"></div>
+    </div>
     <button id="windUnitToggle" onclick="toggleWindUnit()" style="
-      margin-left:auto; margin-right:8px;
-      background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.15);
-      border-radius:6px; padding:4px 10px;
-      font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:600;
-      color:rgba(255,255,255,0.7); cursor:pointer; transition:all 0.15s;
+      flex-shrink:0;
+      background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.18);
+      border-radius:6px; padding:5px 12px;
+      font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:600;
+      color:rgba(255,255,255,0.75); cursor:pointer; transition:all 0.15s;
     ">km/h</button>
     <button class="forecast-close" onclick="closeForecast()">✕</button>
   </div>
