@@ -1918,47 +1918,43 @@ function fetchSedimentType(lat, lon) {
     + '&BBOX='+bbox;
 
   fetch(url)
-    .then(function(r){ return r.text(); })
+    .then(function(r){
+      console.log('SHOM status:', r.status, r.headers.get('content-type'));
+      return r.text();
+    })
     .then(function(text) {
-      console.log('SHOM sediment response:', text);
-      if (!text || text.trim() === '' || text.indexOf('no features') !== -1) {
-        document.getElementById('sedimentType').textContent = 'Non cartographié';
+      console.log('SHOM raw:', JSON.stringify(text.slice(0,300)));
+      if (!text || text.trim() === '' || text.indexOf('no features') !== -1 || text.indexOf('no results') !== -1) {
+        document.getElementById('sedimentType').textContent = 'Non cartographie';
         return;
       }
-      // Parser le texte brut GeoServer : "property = value\n..."
-      // On cherche la valeur de n'importe quel champ qui ressemble à une nature
       var sedMap = {
-        'gravier': { fr:'Graviers · cailloutis', c:'#CC2200' },
-        'cailloutis': { fr:'Cailloutis', c:'#CC2200' },
-        'sable grossier': { fr:'Sable grossier', c:'#E86030' },
-        'sables grossiers': { fr:'Sable grossier', c:'#E86030' },
-        'sable fin': { fr:'Sable fin', c:'#F5E8A0' },
-        'sables fins': { fr:'Sable fin', c:'#F5E8A0' },
-        'sable': { fr:'Sable', c:'#F0C060' },
-        'sables': { fr:'Sable', c:'#F0C060' },
-        'sable vaseux': { fr:'Sable vaseux', c:'#D4B890' },
-        'vase sableuse': { fr:'Vase sableuse', c:'#C8A878' },
-        'vase': { fr:'Vase', c:'#8B6A40' },
-        'roche': { fr:'Roche', c:'#909090' },
+        'gravier':        { fr:'Graviers / cailloutis', c:'#CC2200' },
+        'cailloutis':     { fr:'Cailloutis',            c:'#CC2200' },
+        'sables grossiers':{ fr:'Sable grossier',       c:'#E86030' },
+        'sable grossier': { fr:'Sable grossier',        c:'#E86030' },
+        'sables fins':    { fr:'Sable fin',             c:'#F5E8A0' },
+        'sable fin':      { fr:'Sable fin',             c:'#F5E8A0' },
+        'sable vaseux':   { fr:'Sable vaseux',          c:'#D4B890' },
+        'vase sableuse':  { fr:'Vase sableuse',         c:'#C8A878' },
+        'sables':         { fr:'Sable',                 c:'#F0C060' },
+        'sable':          { fr:'Sable',                 c:'#F0C060' },
+        'vase':           { fr:'Vase',                  c:'#8B6A40' },
+        'roche':          { fr:'Roche',                 c:'#909090' },
       };
-
-      // Chercher dans tout le texte une correspondance
       var lower = text.toLowerCase();
       var found = null;
-      // Priorité aux valeurs les plus spécifiques
       var keys = Object.keys(sedMap).sort(function(a,b){ return b.length - a.length; });
       for (var k = 0; k < keys.length; k++) {
         if (lower.indexOf(keys[k]) !== -1) { found = sedMap[keys[k]]; break; }
       }
-
       if (found) {
         document.getElementById('sedimentType').textContent = found.fr;
         document.getElementById('sedSwatchColor').style.background = found.c;
       } else {
-        // Afficher la première ligne non vide comme fallback
         var lines = text.split('\n').filter(function(l){ return l.trim() && l.indexOf('=') !== -1; });
         var val = lines.length > 0 ? lines[0].split('=').pop().trim() : text.trim().slice(0,40);
-        document.getElementById('sedimentType').textContent = val || 'Non identifié';
+        document.getElementById('sedimentType').textContent = val || '?';
       }
     })
     .catch(function() {
