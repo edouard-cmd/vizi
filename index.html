@@ -1919,11 +1919,11 @@ function fetchSedimentType(lat, lon) {
 
   fetch(url)
     .then(function(r){
-      console.log('SHOM status:', r.status, r.headers.get('content-type'));
+      console.log('SHOM status ' + r.status);
       return r.text();
     })
     .then(function(text) {
-      console.log('SHOM raw:', JSON.stringify(text.slice(0,300)));
+      console.log('SHOM raw ' + JSON.stringify(text.slice(0,300)));
       if (!text || text.trim() === '' || text.indexOf('no features') !== -1 || text.indexOf('no results') !== -1) {
         document.getElementById('sedimentType').textContent = 'Non cartographie';
         return;
