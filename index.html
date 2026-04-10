@@ -3,224 +3,628 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vizi — Nord Calvados</title>
+  <title>VIZI — Lisez la mer avant d'y entrer</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
   <style>
     :root {
-      --bg:#0a0e1a; --surface:rgba(10,14,26,0.96); --surface2:#1a2235;
-      --border:#1e2d45; --accent:#00d4ff; --accent2:#0066ff;
-      --text:#e8f0fe; --text-muted:#5a7297;
-      --vis-excellent:#00e676; --vis-good:#76ff03;
-      --vis-medium:#ffd600; --vis-bad:#ff6d00; --vis-null:#ff1744;
-    }
-    * { margin:0; padding:0; box-sizing:border-box; }
-    html,body { width:100%; height:100%; overflow:hidden; font-family:'Syne',sans-serif; background:var(--bg); color:var(--text); }
+      --bg:        #08111F;
+      --surface:   #0C1A2E;
+      --surface2:  #112238;
+      --surface3:  #172E4A;
+      --border:    #1E3550;
+      --border2:   #2A4A6A;
 
+      --accent:    #00CFA8;
+      --accent-bg: rgba(0,207,168,0.08);
+      --accent-glow: rgba(0,207,168,0.15);
+
+      --text:      #D8E8F4;
+      --text-2:    #7A9AB8;
+      --text-3:    #3A5A78;
+
+      --good:      #00CFA8;
+      --warn:      #E8A838;
+      --bad:       #E85050;
+      --mid:       #E8CF38;
+
+      --vis-null:  #E85050;
+      --vis-bad:   #E87038;
+      --vis-mid:   #E8CF38;
+      --vis-good:  #50D870;
+      --vis-exc:   #00CFA8;
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html,body { width:100%; height:100%; overflow:hidden; font-family:'Outfit',sans-serif; background:var(--bg); color:var(--text); }
+
+    /* ═══════════════════════════════════════════
+       HEADER
+    ═══════════════════════════════════════════ */
     #header {
       position:absolute; top:0; left:0; right:0; z-index:1000;
-      display:flex; align-items:center; justify-content:space-between;
-      padding:10px 18px;
-      background:linear-gradient(to bottom,rgba(10,14,26,0.92) 0%,transparent 100%);
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      padding:12px 20px;
+      background:linear-gradient(to bottom, rgba(8,17,31,0.97) 0%, rgba(8,17,31,0) 100%);
       pointer-events:none;
     }
     #header > * { pointer-events:all; }
-    .logo { display:flex; align-items:center; gap:9px; }
-    .logo-icon { width:28px; height:28px; background:linear-gradient(135deg,var(--accent),var(--accent2)); border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:13px; }
-    .logo-text { font-size:13px; font-weight:800; letter-spacing:0.1em; text-transform:uppercase; }
-    .logo-sub { font-family:'Space Mono',monospace; font-size:9px; color:var(--text-muted); }
 
-    .date-nav { display:flex; gap:5px; }
-    .day-btn { padding:5px 12px; border:1px solid rgba(255,255,255,0.15); background:rgba(10,14,26,0.85); color:var(--text-muted); border-radius:6px; cursor:pointer; font-family:'Space Mono',monospace; font-size:11px; backdrop-filter:blur(8px); transition:all 0.2s; }
-    .day-btn.active { border-color:var(--accent); color:var(--accent); background:rgba(0,212,255,0.12); }
+    /* LOGO */
+    .logo {
+      display:flex; align-items:center; gap:11px;
+      text-decoration:none;
+    }
+    .logo-mark {
+      width:34px; height:34px;
+      background:var(--accent-bg);
+      border:1px solid rgba(0,207,168,0.25);
+      border-radius:9px;
+      display:flex; align-items:center; justify-content:center;
+      flex-shrink:0;
+    }
+    .logo-mark svg { width:18px; height:18px; }
+    .logo-text-wrap { display:flex; flex-direction:column; gap:1px; }
+    .logo-name {
+      font-family:'Outfit', sans-serif;
+      font-size:17px; font-weight:700;
+      letter-spacing:0.18em;
+      color:var(--text);
+      text-transform:uppercase;
+      line-height:1;
+    }
+    .logo-tagline {
+      font-family:'DM Mono', monospace;
+      font-size:8.5px;
+      font-weight:400;
+      color:var(--text-3);
+      letter-spacing:0.06em;
+      line-height:1;
+    }
 
-    .controls { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
-    .ctrl-btn { padding:5px 10px; border:1px solid rgba(255,255,255,0.15); background:rgba(10,14,26,0.85); color:var(--text-muted); border-radius:6px; cursor:pointer; font-family:'Space Mono',monospace; font-size:10px; backdrop-filter:blur(8px); transition:all 0.2s; display:flex; align-items:center; gap:4px; white-space:nowrap; }
+    /* DATE NAV */
+    .date-nav { display:flex; gap:4px; }
+    .day-btn {
+      padding:5px 13px;
+      border:1px solid var(--border);
+      background:rgba(8,17,31,0.8);
+      color:var(--text-2);
+      border-radius:7px;
+      cursor:pointer;
+      font-family:'DM Mono', monospace;
+      font-size:10px;
+      backdrop-filter:blur(10px);
+      transition:all 0.18s;
+      letter-spacing:0.04em;
+    }
+    .day-btn:hover { border-color:var(--border2); color:var(--text); }
+    .day-btn.active { border-color:var(--accent); color:var(--accent); background:var(--accent-bg); }
+
+    /* CONTROLS */
+    .controls { display:flex; align-items:center; gap:5px; flex-wrap:wrap; }
+
+    .opacity-wrap {
+      display:flex; align-items:center; gap:7px;
+      font-family:'DM Mono', monospace; font-size:10px; color:var(--text-2);
+      background:rgba(8,17,31,0.8);
+      border:1px solid var(--border);
+      border-radius:7px; padding:5px 10px;
+      backdrop-filter:blur(10px);
+      letter-spacing:0.04em;
+    }
+    .opacity-wrap input { width:56px; accent-color:var(--accent); }
+
+    .ctrl-btn {
+      display:flex; align-items:center; gap:5px;
+      padding:5px 11px;
+      border:1px solid var(--border);
+      background:rgba(8,17,31,0.8);
+      color:var(--text-2);
+      border-radius:7px;
+      cursor:pointer;
+      font-family:'DM Mono', monospace; font-size:10px;
+      backdrop-filter:blur(10px);
+      transition:all 0.18s;
+      letter-spacing:0.04em;
+      white-space:nowrap;
+    }
+    .ctrl-btn:hover { border-color:var(--border2); color:var(--text); }
     .ctrl-btn.active { border-color:var(--accent); color:var(--accent); }
-    .ctrl-dot { width:6px; height:6px; border-radius:50%; background:currentColor; }
-    .opacity-wrap { display:flex; align-items:center; gap:5px; font-family:'Space Mono',monospace; font-size:10px; color:var(--text-muted); background:rgba(10,14,26,0.85); border:1px solid rgba(255,255,255,0.15); border-radius:6px; padding:5px 10px; backdrop-filter:blur(8px); }
-    .opacity-wrap input { width:60px; accent-color:var(--accent); }
+    .ctrl-dot { width:5px; height:5px; border-radius:50%; background:currentColor; }
 
-    #map { width:100%; height:100%; position:absolute; top:0; left:0; right:0; bottom:0; }
-    .leaflet-container { background:#040a14; cursor:crosshair !important; }
+    /* ═══════════════════════════════════════════
+       MAP
+    ═══════════════════════════════════════════ */
+    #map { width:100%; height:100%; position:absolute; inset:0; }
+    .leaflet-container { background:#040C18; cursor:crosshair !important; }
     .leaflet-control-zoom { border:none !important; }
-    .leaflet-control-zoom a { background:rgba(10,14,26,0.92) !important; color:var(--accent) !important; border:1px solid var(--border) !important; margin-bottom:2px !important; border-radius:6px !important; }
-    .leaflet-control-zoom a:hover { background:rgba(0,212,255,0.15) !important; }
-    .leaflet-control-attribution { background:rgba(10,14,26,0.55) !important; color:var(--text-muted) !important; font-size:8px !important; }
-    .leaflet-control-attribution a { color:var(--text-muted) !important; }
+    .leaflet-control-zoom a {
+      background:rgba(8,17,31,0.92) !important;
+      color:var(--accent) !important;
+      border:1px solid var(--border) !important;
+      margin-bottom:2px !important;
+      border-radius:6px !important;
+      font-family:'Outfit',sans-serif !important;
+    }
+    .leaflet-control-zoom a:hover { background:var(--accent-bg) !important; }
+    .leaflet-control-attribution {
+      background:rgba(8,17,31,0.55) !important;
+      color:var(--text-3) !important;
+      font-size:8px !important;
+    }
+    .leaflet-control-attribution a { color:var(--text-3) !important; }
+    #heatmapCanvas { position:absolute; inset:0; pointer-events:none; z-index:400; }
 
-    #heatmapCanvas { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:400; }
+    /* ═══════════════════════════════════════════
+       LÉGENDE
+    ═══════════════════════════════════════════ */
+    #legend {
+      position:absolute; bottom:26px; left:16px; z-index:900;
+      background:rgba(8,17,31,0.93);
+      border:1px solid var(--border);
+      border-radius:12px; padding:13px 16px;
+      backdrop-filter:blur(14px);
+      min-width:164px;
+    }
+    .legend-title {
+      font-family:'DM Mono', monospace;
+      font-size:8px; color:var(--text-3);
+      text-transform:uppercase; letter-spacing:0.12em;
+      margin-bottom:8px;
+    }
+    .legend-bar {
+      width:100%; height:5px; border-radius:3px;
+      background:linear-gradient(to right, var(--vis-exc), var(--vis-good), var(--vis-mid), var(--vis-bad), var(--vis-null));
+      margin-bottom:4px;
+    }
+    .legend-labels {
+      display:flex; justify-content:space-between;
+      font-family:'DM Mono', monospace; font-size:8px; color:var(--text-3);
+    }
+    .legend-sep { border-top:1px solid var(--border); margin:9px 0; }
+    .legend-iso-row {
+      display:flex; align-items:center; gap:7px; margin-bottom:4px;
+      font-family:'DM Mono', monospace; font-size:8px; color:var(--text-3);
+    }
+    .legend-iso-line { width:18px; height:1.5px; }
 
-    /* ── TABLEAU MÉTÉO WINDGURU-STYLE ── */
+    /* ═══════════════════════════════════════════
+       FORECAST PANEL (Windguru-style)
+    ═══════════════════════════════════════════ */
     #forecastPanel {
       position:absolute; bottom:0; left:0; right:0; z-index:1000;
-      background:rgba(8,12,24,0.97); border-top:1px solid var(--border);
-      backdrop-filter:blur(12px);
-      display:none; max-height:220px;
+      background:rgba(6,13,24,0.98);
+      border-top:1px solid var(--border);
+      backdrop-filter:blur(16px);
+      display:none; max-height:230px;
     }
     .forecast-header {
       display:flex; align-items:center; gap:12px;
-      padding:8px 16px; border-bottom:1px solid var(--border);
+      padding:9px 18px;
+      border-bottom:1px solid var(--border);
     }
-    .forecast-location { font-family:'Syne',sans-serif; font-size:13px; font-weight:700; color:var(--text); }
-    .forecast-coords { font-family:'Space Mono',monospace; font-size:9px; color:var(--text-muted); }
-    .forecast-close { margin-left:auto; background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px; }
+    .forecast-location {
+      font-family:'Outfit', sans-serif;
+      font-size:13px; font-weight:600; color:var(--text);
+    }
+    .forecast-coords {
+      font-family:'DM Mono', monospace;
+      font-size:9px; color:var(--text-3);
+    }
+    .forecast-close {
+      margin-left:auto;
+      background:none; border:none;
+      color:var(--text-3); cursor:pointer; font-size:15px;
+      transition:color 0.15s;
+    }
     .forecast-close:hover { color:var(--text); }
     .forecast-scroll { overflow-x:auto; overflow-y:hidden; }
 
-    .wg-table { border-collapse:collapse; font-family:'Space Mono',monospace; font-size:10px; white-space:nowrap; }
-    .wg-table td, .wg-table th { padding:3px 7px; border-right:1px solid rgba(255,255,255,0.04); text-align:center; height:24px; }
-    .wg-table .row-label { color:var(--text-muted); font-size:9px; text-align:left; padding-left:10px; min-width:90px; position:sticky; left:0; background:rgba(8,12,24,0.97); z-index:2; border-right:1px solid var(--border); }
-    .wg-table .day-header { background:rgba(255,255,255,0.05); color:var(--text-muted); font-size:8px; border-bottom:1px solid var(--border); }
-    .wg-table .hour-row { color:var(--text-muted); font-size:8px; background:rgba(0,0,0,0.2); }
+    .wg-table {
+      border-collapse:collapse;
+      font-family:'DM Mono', monospace;
+      font-size:10px; white-space:nowrap;
+    }
+    .wg-table td, .wg-table th {
+      padding:3px 8px;
+      border-right:1px solid rgba(255,255,255,0.04);
+      text-align:center; height:23px;
+    }
+    .wg-table .row-label {
+      color:var(--text-3); font-size:9px; text-align:left;
+      padding-left:12px; min-width:95px;
+      position:sticky; left:0;
+      background:rgba(6,13,24,0.98); z-index:2;
+      border-right:1px solid var(--border);
+      letter-spacing:0.03em;
+    }
+    .wg-table .day-header {
+      background:rgba(255,255,255,0.03);
+      color:var(--text-3); font-size:8px;
+      border-bottom:1px solid var(--border);
+      letter-spacing:0.06em;
+    }
+    .wg-table .hour-row {
+      color:var(--text-3); font-size:8px;
+      background:rgba(0,0,0,0.2);
+    }
     .wg-now { border-left:2px solid var(--accent) !important; }
-    .wc-0{background:rgba(100,180,255,0.15)} .wc-1{background:rgba(0,230,118,0.25)} .wc-2{background:rgba(0,230,118,0.4)}
-    .wc-3{background:rgba(118,255,3,0.4)} .wc-4{background:rgba(255,214,0,0.4)} .wc-5{background:rgba(255,109,0,0.4)}
-    .wc-6{background:rgba(255,23,68,0.5)} .wc-7{background:rgba(180,0,200,0.5)}
-    .ww-0{background:rgba(100,180,255,0.1)} .ww-1{background:rgba(0,230,118,0.2)} .ww-2{background:rgba(255,214,0,0.3)}
-    .ww-3{background:rgba(255,109,0,0.4)} .ww-4{background:rgba(255,23,68,0.5)}
 
-    #legend { position:absolute; bottom:22px; left:16px; z-index:900; background:rgba(10,14,26,0.92); border:1px solid var(--border); border-radius:10px; padding:11px 15px; backdrop-filter:blur(10px); min-width:160px; }
-    .legend-title { font-family:'Space Mono',monospace; font-size:8px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:7px; }
-    .legend-bar { width:100%; height:6px; border-radius:3px; background:linear-gradient(to right,#00e676,#76ff03,#ffd600,#ff6d00,#ff1744); margin-bottom:3px; }
-    .legend-labels { display:flex; justify-content:space-between; font-family:'Space Mono',monospace; font-size:8px; color:var(--text-muted); }
-    .legend-sep { border-top:1px solid var(--border); margin:8px 0; }
-    .legend-iso-row { display:flex; align-items:center; gap:6px; margin-bottom:3px; font-family:'Space Mono',monospace; font-size:8px; color:var(--text-muted); }
-    .legend-iso-line { width:20px; height:1.5px; }
+    .wc-0{background:rgba(0,207,168,0.10)} .wc-1{background:rgba(0,207,168,0.22)}
+    .wc-2{background:rgba(80,216,112,0.28)} .wc-3{background:rgba(232,207,56,0.32)}
+    .wc-4{background:rgba(232,112,56,0.38)} .wc-5{background:rgba(232,80,80,0.45)}
+    .wc-6{background:rgba(200,50,50,0.55)} .wc-7{background:rgba(160,30,30,0.65)}
+    .ww-0{background:rgba(0,207,168,0.08)} .ww-1{background:rgba(0,207,168,0.2)}
+    .ww-2{background:rgba(232,207,56,0.28)} .ww-3{background:rgba(232,112,56,0.38)}
+    .ww-4{background:rgba(232,80,80,0.48)}
 
-    #obsPopup {
-      position:absolute; z-index:1100; width:300px;
-      background:rgba(8,12,24,0.98); border:1px solid var(--accent);
-      border-radius:14px; padding:16px;
-      backdrop-filter:blur(20px);
-      box-shadow:0 12px 50px rgba(0,0,0,0.7);
-      display:none;
+    /* ═══════════════════════════════════════════
+       MARÉES WIDGET
+    ═══════════════════════════════════════════ */
+    #tideWidget {
+      position:absolute; bottom:26px; right:16px; z-index:900;
+      background:rgba(8,17,31,0.93);
+      border:1px solid var(--border);
+      border-radius:12px; padding:13px 17px;
+      backdrop-filter:blur(14px);
+      min-width:186px; display:none;
     }
-    #obsPopup::after {
-      content:''; position:absolute; bottom:-8px; left:50%; transform:translateX(-50%) rotate(45deg);
-      width:14px; height:14px;
-      background:rgba(8,12,24,0.98); border-right:1px solid var(--accent); border-bottom:1px solid var(--accent);
+    .tide-title {
+      font-family:'DM Mono', monospace;
+      font-size:8px; color:var(--text-3);
+      text-transform:uppercase; letter-spacing:0.12em;
+      margin-bottom:9px;
     }
-    .popup-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:12px; }
-    .popup-coords { font-family:'Space Mono',monospace; font-size:10px; color:var(--accent); line-height:1.4; }
-    .popup-depth { font-family:'Space Mono',monospace; font-size:9px; color:var(--text-muted); margin-top:2px; }
-    .popup-sediment { font-family:'Space Mono',monospace; font-size:9px; color:#ffd600; margin-top:1px; }
-    .popup-close { background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:16px; padding:0; line-height:1; flex-shrink:0; }
-    .popup-close:hover { color:var(--text); }
-    .popup-row { display:flex; gap:8px; margin-bottom:10px; }
-    .popup-field { flex:1; }
-    .popup-label { font-size:9px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px; display:block; }
-    .popup-input { width:100%; padding:7px 9px; background:rgba(255,255,255,0.05); border:1px solid var(--border); border-radius:7px; color:var(--text); font-family:'Space Mono',monospace; font-size:11px; outline:none; transition:border-color 0.2s; }
-    .popup-input:focus { border-color:var(--accent); }
-    .vis-wrap { margin-bottom:10px; }
-    .vis-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
-    .vis-header-label { font-size:9px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.08em; }
-    .vis-val { font-family:'Space Mono',monospace; font-size:18px; font-weight:700; }
-    input[type=range].vis-slider { width:100%; height:4px; border-radius:2px; outline:none; cursor:pointer; background:linear-gradient(to right,#ff1744,#ff6d00,#ffd600,#76ff03,#00e676); -webkit-appearance:none; appearance:none; }
-    input[type=range].vis-slider::-webkit-slider-thumb { -webkit-appearance:none; width:18px; height:18px; border-radius:50%; background:white; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.5); border:2px solid var(--accent); }
-    .vis-ticks { display:flex; justify-content:space-between; margin-top:4px; font-family:'Space Mono',monospace; font-size:8px; color:var(--text-muted); }
-    .toggles-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px; }
-    .toggle-block label { font-size:9px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px; display:block; }
-    .toggle-pair { display:flex; gap:4px; }
-    .tog { flex:1; padding:6px 4px; border:1px solid var(--border); border-radius:6px; background:transparent; color:var(--text-muted); cursor:pointer; font-family:'Space Mono',monospace; font-size:10px; transition:all 0.15s; text-align:center; }
-    .tog.on { border-color:var(--accent); color:var(--accent); background:rgba(0,212,255,0.08); }
-    .popup-textarea { width:100%; padding:7px 9px; margin-bottom:10px; background:rgba(255,255,255,0.05); border:1px solid var(--border); border-radius:7px; color:var(--text); font-family:'Syne',sans-serif; font-size:12px; outline:none; resize:none; height:50px; transition:border-color 0.2s; }
-    .popup-textarea:focus { border-color:var(--accent); }
-    .popup-textarea::placeholder { color:var(--text-muted); font-size:11px; }
-    .popup-submit { width:100%; padding:11px; background:linear-gradient(135deg,var(--accent),var(--accent2)); border:none; border-radius:9px; color:white; font-family:'Syne',sans-serif; font-size:13px; font-weight:800; cursor:pointer; transition:opacity 0.2s; }
-    .popup-submit:hover { opacity:0.88; }
-    .popup-submit:disabled { opacity:0.45; cursor:not-allowed; }
-    .popup-success { display:none; text-align:center; padding:8px; color:var(--vis-excellent); font-size:12px; font-family:'Space Mono',monospace; margin-top:8px; }
+    .tide-coeff {
+      font-family:'DM Mono', monospace;
+      font-size:24px; font-weight:500; color:var(--accent);
+      line-height:1;
+    }
+    .tide-coeff-label {
+      font-family:'DM Mono', monospace;
+      font-size:9px; color:var(--text-3);
+    }
+    .tide-times { margin-top:9px; border-top:1px solid var(--border); padding-top:9px; }
+    .tide-row {
+      display:flex; justify-content:space-between;
+      font-family:'DM Mono', monospace;
+      font-size:10px; margin-bottom:5px;
+    }
+    .tide-row .label { color:var(--text-3); }
+    .tide-row .val { color:var(--text); }
 
-    /* ── SPOT DASHBOARD POPUP ── */
+    /* ═══════════════════════════════════════════
+       SPOT POPUP (dashboard turbidité)
+    ═══════════════════════════════════════════ */
     #spotPopup {
-      position:absolute; z-index:1100; width:290px;
-      background:rgba(6,10,20,0.98); border:1px solid rgba(0,212,255,0.35);
-      border-radius:16px; padding:0;
+      position:absolute; z-index:1100; width:296px;
+      background:rgba(6,13,24,0.98);
+      border:1px solid var(--border2);
+      border-radius:16px;
       backdrop-filter:blur(24px);
-      box-shadow:0 16px 60px rgba(0,0,0,0.8);
+      box-shadow:0 20px 60px rgba(0,0,0,0.75), 0 0 0 1px rgba(0,207,168,0.06);
       display:none; overflow:hidden;
     }
     #spotPopup::after {
-      content:''; position:absolute; bottom:-8px; left:50%; transform:translateX(-50%) rotate(45deg);
+      content:''; position:absolute; bottom:-8px; left:50%;
+      transform:translateX(-50%) rotate(45deg);
       width:14px; height:14px;
-      background:rgba(6,10,20,0.98); border-right:1px solid rgba(0,212,255,0.35); border-bottom:1px solid rgba(0,212,255,0.35);
+      background:rgba(6,13,24,0.98);
+      border-right:1px solid var(--border2);
+      border-bottom:1px solid var(--border2);
     }
+
     .spot-head {
-      padding:12px 14px 10px;
-      border-bottom:1px solid rgba(255,255,255,0.06);
+      padding:13px 15px 11px;
+      border-bottom:1px solid rgba(255,255,255,0.05);
       display:flex; justify-content:space-between; align-items:flex-start;
     }
-    .spot-coords { font-family:'Space Mono',monospace; font-size:9px; color:var(--accent); }
-    .spot-meta { font-family:'Space Mono',monospace; font-size:8px; color:var(--text-muted); margin-top:2px; }
-    .spot-close { background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:15px; line-height:1; }
+    .spot-coords {
+      font-family:'DM Mono', monospace;
+      font-size:9px; color:var(--accent);
+      letter-spacing:0.04em;
+    }
+    .spot-meta {
+      font-family:'DM Mono', monospace;
+      font-size:8px; color:var(--text-3);
+      margin-top:3px; letter-spacing:0.03em;
+    }
+    .spot-close {
+      background:none; border:none;
+      color:var(--text-3); cursor:pointer;
+      font-size:14px; line-height:1;
+      padding:2px; transition:color 0.15s;
+    }
     .spot-close:hover { color:var(--text); }
 
-    /* Sélecteur date/heure */
     .spot-datetime {
-      display:flex; gap:6px; padding:8px 14px;
-      border-bottom:1px solid rgba(255,255,255,0.06);
+      display:flex; gap:6px; padding:8px 15px;
+      border-bottom:1px solid rgba(255,255,255,0.05);
     }
     .spot-datetime input {
-      flex:1; padding:5px 8px; background:rgba(255,255,255,0.05); border:1px solid var(--border);
-      border-radius:7px; color:var(--text); font-family:'Space Mono',monospace; font-size:10px;
+      flex:1; padding:5px 8px;
+      background:rgba(255,255,255,0.04);
+      border:1px solid var(--border);
+      border-radius:7px; color:var(--text);
+      font-family:'DM Mono', monospace; font-size:10px;
       outline:none; cursor:pointer;
+      transition:border-color 0.15s;
     }
     .spot-datetime input:focus { border-color:var(--accent); }
 
-    /* Gros indicateur visibilité */
-    .spot-vis-block { padding:14px 14px 10px; }
-    .spot-vis-label { font-family:'Space Mono',monospace; font-size:8px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px; }
-    .spot-vis-bar-wrap { position:relative; height:36px; border-radius:10px; overflow:hidden; margin-bottom:6px; }
-    .spot-vis-bar-bg { position:absolute; inset:0; background:linear-gradient(to right,#ff1744,#ff6d00,#ffd600,#76ff03,#00e676); }
+    /* BARRE DE VIS */
+    .spot-vis-block { padding:14px 15px 11px; }
+    .spot-vis-label {
+      font-family:'DM Mono', monospace;
+      font-size:8px; color:var(--text-3);
+      text-transform:uppercase; letter-spacing:0.12em;
+      margin-bottom:9px;
+    }
+    .spot-vis-bar-wrap {
+      position:relative; height:38px;
+      border-radius:10px; overflow:hidden;
+      margin-bottom:7px;
+    }
+    .spot-vis-bar-bg {
+      position:absolute; inset:0;
+      background:linear-gradient(to right, var(--vis-null), var(--vis-bad), var(--vis-mid), var(--vis-good), var(--vis-exc));
+    }
     .spot-vis-cursor {
       position:absolute; top:0; bottom:0; width:3px;
       background:white; border-radius:2px;
-      box-shadow:0 0 10px rgba(255,255,255,0.8);
+      box-shadow:0 0 12px rgba(255,255,255,0.9);
       transition:left 0.4s cubic-bezier(.4,0,.2,1);
     }
     .spot-vis-overlay {
-      position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-      font-family:'Syne',sans-serif; font-size:20px; font-weight:800;
-      color:white; text-shadow:0 1px 6px rgba(0,0,0,0.7); letter-spacing:0.02em;
+      position:absolute; inset:0;
+      display:flex; align-items:center; justify-content:center;
+      font-family:'Outfit', sans-serif;
+      font-size:19px; font-weight:700;
+      color:white;
+      text-shadow:0 1px 8px rgba(0,0,0,0.6);
+      letter-spacing:0.02em;
     }
-    .spot-vis-ticks { display:flex; justify-content:space-between; font-family:'Space Mono',monospace; font-size:7px; color:var(--text-muted); padding:0 2px; }
+    .spot-vis-ticks {
+      display:flex; justify-content:space-between;
+      font-family:'DM Mono', monospace;
+      font-size:7px; color:var(--text-3);
+      padding:0 2px;
+    }
 
-    /* Vent bloc */
+    /* VENT BLOC */
     .spot-wind-block {
-      display:flex; gap:0; border-top:1px solid rgba(255,255,255,0.06);
+      display:flex;
+      border-top:1px solid rgba(255,255,255,0.05);
     }
     .spot-wind-cell {
-      flex:1; padding:10px 14px; text-align:center;
-      border-right:1px solid rgba(255,255,255,0.06);
+      flex:1; padding:10px 0; text-align:center;
+      border-right:1px solid rgba(255,255,255,0.05);
     }
     .spot-wind-cell:last-child { border-right:none; }
-    .spot-wind-lbl { font-family:'Space Mono',monospace; font-size:7px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:4px; }
-    .spot-wind-val { font-family:'Syne',sans-serif; font-size:22px; font-weight:800; line-height:1; }
-    .spot-wind-unit { font-family:'Space Mono',monospace; font-size:8px; color:var(--text-muted); margin-top:2px; }
+    .spot-wind-lbl {
+      font-family:'DM Mono', monospace;
+      font-size:7px; color:var(--text-3);
+      text-transform:uppercase; letter-spacing:0.1em;
+      margin-bottom:5px;
+    }
+    .spot-wind-val {
+      font-family:'DM Mono', monospace;
+      font-size:24px; font-weight:500; line-height:1;
+    }
+    .spot-wind-unit {
+      font-family:'DM Mono', monospace;
+      font-size:8px; color:var(--text-3); margin-top:2px;
+    }
     .spot-wind-dir { font-size:20px; margin-top:2px; }
 
-    #tideWidget { position:absolute; bottom:22px; right:16px; z-index:900; background:rgba(10,14,26,0.92); border:1px solid var(--border); border-radius:10px; padding:12px 16px; backdrop-filter:blur(10px); min-width:180px; display:none; }
-    .tide-title { font-family:'Space Mono',monospace; font-size:8px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:8px; }
-    .tide-coeff { font-family:'Space Mono',monospace; font-size:22px; font-weight:700; color:var(--accent); }
-    .tide-coeff-label { font-family:'Space Mono',monospace; font-size:9px; color:var(--text-muted); }
-    .tide-times { margin-top:8px; border-top:1px solid var(--border); padding-top:8px; }
-    .tide-row { display:flex; justify-content:space-between; font-family:'Space Mono',monospace; font-size:10px; margin-bottom:4px; }
-    .tide-row .label { color:var(--text-muted); }
-    .tide-row .val { color:var(--text); }
+    /* FACTEURS */
+    #spotFactors {
+      padding:10px 15px 13px;
+      border-top:1px solid rgba(255,255,255,0.05);
+      display:flex; flex-direction:column; gap:6px;
+    }
 
-    /* ── MARKER PULSANT ── */
+    /* ═══════════════════════════════════════════
+       OBS POPUP
+    ═══════════════════════════════════════════ */
+    #obsPopup {
+      position:absolute; z-index:1100; width:304px;
+      background:rgba(6,13,24,0.98);
+      border:1px solid var(--border2);
+      border-radius:14px; padding:17px;
+      backdrop-filter:blur(22px);
+      box-shadow:0 14px 55px rgba(0,0,0,0.7);
+      display:none;
+    }
+    #obsPopup::after {
+      content:''; position:absolute; bottom:-8px; left:50%;
+      transform:translateX(-50%) rotate(45deg);
+      width:14px; height:14px;
+      background:rgba(6,13,24,0.98);
+      border-right:1px solid var(--border2);
+      border-bottom:1px solid var(--border2);
+    }
+    .popup-header {
+      display:flex; align-items:flex-start;
+      justify-content:space-between; margin-bottom:13px;
+    }
+    .popup-coords {
+      font-family:'DM Mono', monospace;
+      font-size:10px; color:var(--accent); line-height:1.4;
+    }
+    .popup-depth {
+      font-family:'DM Mono', monospace;
+      font-size:9px; color:var(--text-3); margin-top:2px;
+    }
+    .popup-sediment {
+      font-family:'DM Mono', monospace;
+      font-size:9px; color:var(--warn); margin-top:1px;
+    }
+    .popup-close {
+      background:none; border:none;
+      color:var(--text-3); cursor:pointer;
+      font-size:15px; padding:0; line-height:1;
+      flex-shrink:0; transition:color 0.15s;
+    }
+    .popup-close:hover { color:var(--text); }
+    .popup-row { display:flex; gap:8px; margin-bottom:11px; }
+    .popup-field { flex:1; }
+    .popup-label {
+      font-size:9px; color:var(--text-3);
+      text-transform:uppercase; letter-spacing:0.1em;
+      margin-bottom:4px; display:block;
+      font-family:'DM Mono', monospace;
+    }
+    .popup-input {
+      width:100%; padding:7px 10px;
+      background:rgba(255,255,255,0.04);
+      border:1px solid var(--border);
+      border-radius:7px; color:var(--text);
+      font-family:'DM Mono', monospace; font-size:11px;
+      outline:none; transition:border-color 0.18s;
+    }
+    .popup-input:focus { border-color:var(--accent); }
+
+    .vis-wrap { margin-bottom:11px; }
+    .vis-header {
+      display:flex; justify-content:space-between;
+      align-items:center; margin-bottom:7px;
+    }
+    .vis-header-label {
+      font-size:9px; color:var(--text-3);
+      text-transform:uppercase; letter-spacing:0.1em;
+      font-family:'DM Mono', monospace;
+    }
+    .vis-val {
+      font-family:'DM Mono', monospace;
+      font-size:17px; font-weight:500;
+    }
+    input[type=range].vis-slider {
+      width:100%; height:4px; border-radius:2px;
+      outline:none; cursor:pointer;
+      background:linear-gradient(to right, var(--vis-null), var(--vis-bad), var(--vis-mid), var(--vis-good), var(--vis-exc));
+      -webkit-appearance:none; appearance:none;
+    }
+    input[type=range].vis-slider::-webkit-slider-thumb {
+      -webkit-appearance:none;
+      width:18px; height:18px; border-radius:50%;
+      background:white; cursor:pointer;
+      box-shadow:0 2px 8px rgba(0,0,0,0.5);
+      border:2px solid var(--accent);
+    }
+    .vis-ticks {
+      display:flex; justify-content:space-between; margin-top:5px;
+      font-family:'DM Mono', monospace; font-size:8px; color:var(--text-3);
+    }
+
+    .toggles-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:11px; }
+    .toggle-block label {
+      font-size:9px; color:var(--text-3);
+      text-transform:uppercase; letter-spacing:0.1em;
+      margin-bottom:4px; display:block;
+      font-family:'DM Mono', monospace;
+    }
+    .toggle-pair { display:flex; gap:4px; }
+    .tog {
+      flex:1; padding:6px 4px;
+      border:1px solid var(--border);
+      border-radius:6px;
+      background:transparent; color:var(--text-3);
+      cursor:pointer;
+      font-family:'DM Mono', monospace; font-size:10px;
+      transition:all 0.15s; text-align:center;
+    }
+    .tog.on { border-color:var(--accent); color:var(--accent); background:var(--accent-bg); }
+
+    .popup-textarea {
+      width:100%; padding:8px 10px; margin-bottom:11px;
+      background:rgba(255,255,255,0.04);
+      border:1px solid var(--border);
+      border-radius:7px; color:var(--text);
+      font-family:'Outfit', sans-serif; font-size:12px;
+      outline:none; resize:none; height:52px;
+      transition:border-color 0.18s;
+    }
+    .popup-textarea:focus { border-color:var(--accent); }
+    .popup-textarea::placeholder { color:var(--text-3); font-size:11px; }
+
+    .popup-submit {
+      width:100%; padding:11px;
+      background:var(--accent);
+      border:none; border-radius:9px;
+      color:#08111F;
+      font-family:'Outfit', sans-serif;
+      font-size:13px; font-weight:700;
+      cursor:pointer; transition:opacity 0.18s;
+      letter-spacing:0.02em;
+    }
+    .popup-submit:hover { opacity:0.88; }
+    .popup-submit:disabled { opacity:0.4; cursor:not-allowed; }
+    .popup-success {
+      display:none; text-align:center;
+      padding:8px; color:var(--good);
+      font-size:12px;
+      font-family:'DM Mono', monospace;
+      margin-top:8px;
+    }
+
+    /* OBS BADGE */
+    .obs-badge {
+      display:inline-flex; align-items:center; gap:5px;
+      background:var(--accent-bg);
+      border:1px solid rgba(0,207,168,0.25);
+      border-radius:20px; padding:3px 10px;
+      font-family:'DM Mono', monospace;
+      font-size:9px; color:var(--accent);
+      margin-bottom:10px;
+    }
+    .obs-badge-dot {
+      width:5px; height:5px; border-radius:50%;
+      background:var(--accent);
+      animation:viziPulse 2s ease-out infinite;
+    }
+
+    /* ═══════════════════════════════════════════
+       BOUTON OBSERVATION FLOTTANT
+    ═══════════════════════════════════════════ */
+    #obsFloatBtn {
+      position:absolute; bottom:30px; left:50%; transform:translateX(-50%);
+      z-index:950;
+      display:flex; align-items:center; gap:8px;
+      padding:10px 22px;
+      background:rgba(8,17,31,0.9);
+      border:1px solid rgba(0,207,168,0.35);
+      border-radius:30px;
+      color:var(--accent);
+      font-family:'DM Mono', monospace; font-size:11px;
+      cursor:pointer; backdrop-filter:blur(14px);
+      box-shadow:0 4px 24px rgba(0,207,168,0.15);
+      transition:all 0.2s; white-space:nowrap;
+      letter-spacing:0.04em;
+    }
+    #obsFloatBtn:hover {
+      background:var(--accent-bg);
+      border-color:rgba(0,207,168,0.6);
+      box-shadow:0 6px 30px rgba(0,207,168,0.22);
+    }
+
+    /* ═══════════════════════════════════════════
+       MARKER PULSANT
+    ═══════════════════════════════════════════ */
     .vizi-pulse-marker { position:relative; width:40px; height:40px; }
     .vizi-pulse-dot {
-      position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+      position:absolute; top:50%; left:50%;
+      transform:translate(-50%,-50%);
       width:8px; height:8px; border-radius:50%;
-      background:#00d4ff; box-shadow:0 0 6px #00d4ff;
+      background:var(--accent);
+      box-shadow:0 0 8px var(--accent);
     }
     .vizi-pulse-ring {
-      position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+      position:absolute; top:50%; left:50%;
+      transform:translate(-50%,-50%);
       width:8px; height:8px; border-radius:50%;
-      border:1.5px solid #00d4ff;
+      border:1.5px solid var(--accent);
       animation:viziPulse 2s ease-out infinite;
     }
     .vizi-pulse-ring2 { animation-delay:1s; }
@@ -229,17 +633,18 @@
       100% { width:40px; height:40px; opacity:0; }
     }
 
-    /* ── POPUP HEADER OBS ── */
-    .obs-badge {
-      display:inline-flex; align-items:center; gap:5px;
-      background:rgba(0,212,255,0.1); border:1px solid rgba(0,212,255,0.3);
-      border-radius:20px; padding:3px 10px;
-      font-family:'Space Mono',monospace; font-size:9px; color:var(--accent);
-      margin-bottom:10px;
+    /* TOOLTIP */
+    .vizi-tooltip {
+      background:rgba(8,17,31,0.95) !important;
+      border:1px solid var(--border) !important;
+      color:var(--text) !important;
+      font-family:'DM Mono', monospace !important;
+      font-size:10px !important;
+      border-radius:7px !important;
+      padding:5px 11px !important;
+      box-shadow:none !important;
+      letter-spacing:0.03em !important;
     }
-    .obs-badge-dot { width:5px; height:5px; border-radius:50%; background:var(--accent); animation:viziPulse 2s ease-out infinite; }
-
-    .vizi-tooltip { background:rgba(10,14,26,0.92) !important; border:1px solid var(--border) !important; color:var(--text) !important; font-family:'Space Mono',monospace !important; font-size:10px !important; border-radius:6px !important; padding:4px 10px !important; box-shadow:none !important; }
     .vizi-tooltip::before { display:none !important; }
   </style>
 </head>
@@ -248,7 +653,7 @@
 <div id="map"></div>
 <canvas id="heatmapCanvas"></canvas>
 
-<!-- TABLEAU MÉTÉO WINDGURU-STYLE -->
+<!-- FORECAST PANEL -->
 <div id="forecastPanel">
   <div class="forecast-header">
     <div class="forecast-location" id="forecastLocation">— Cliquer sur la carte —</div>
@@ -256,21 +661,34 @@
     <button class="forecast-close" onclick="closeForecast()">✕</button>
   </div>
   <div id="forecastTable" class="forecast-scroll">
-    <div style="padding:20px;text-align:center;color:var(--text-muted);font-family:'Space Mono',monospace;font-size:11px;">
+    <div style="padding:22px;text-align:center;color:var(--text-3);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.04em;">
       Cliquer sur la carte pour afficher les prévisions AROME
     </div>
   </div>
 </div>
 
+<!-- HEADER -->
 <div id="header">
   <div class="logo">
-    <div class="logo-icon">🌊</div>
-    <div>
-      <div class="logo-text">Vizi</div>
-      <div class="logo-sub">Nord Calvados</div>
+    <div class="logo-mark">
+      <svg viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="9" cy="9" r="6.5" stroke="#00CFA8" stroke-width="1.2"/>
+        <circle cx="9" cy="9" r="2.5" fill="#00CFA8" opacity="0.35"/>
+        <circle cx="9" cy="9" r="1.2" fill="#00CFA8"/>
+        <line x1="9" y1="2.5" x2="9" y2="0.5" stroke="#00CFA8" stroke-width="1.2" stroke-linecap="round"/>
+        <line x1="15.5" y1="9" x2="17.5" y2="9" stroke="#00CFA8" stroke-width="1.2" stroke-linecap="round"/>
+        <line x1="9" y1="15.5" x2="9" y2="17.5" stroke="#00CFA8" stroke-width="1.2" stroke-linecap="round"/>
+        <line x1="2.5" y1="9" x2="0.5" y2="9" stroke="#00CFA8" stroke-width="1.2" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div class="logo-text-wrap">
+      <div class="logo-name">VIZI</div>
+      <div class="logo-tagline">Lisez la mer avant d'y entrer.</div>
     </div>
   </div>
+
   <div class="date-nav" id="dateNav"></div>
+
   <div class="controls">
     <div class="opacity-wrap">
       <span>Turb.</span>
@@ -283,48 +701,40 @@
   </div>
 </div>
 
+<!-- LÉGENDE -->
 <div id="legend">
   <div class="legend-title">Turbidité estimée</div>
   <div class="legend-bar"></div>
   <div class="legend-labels"><span>Clair</span><span>Turbide</span></div>
   <div class="legend-sep"></div>
   <div class="legend-title">Ports · cliquer pour marées</div>
-  <div class="legend-iso-row"><div style="width:8px;height:8px;border-radius:50%;background:#00d4ff;margin-right:2px"></div><span>Manche</span></div>
-  <div class="legend-iso-row"><div style="width:8px;height:8px;border-radius:50%;background:#00e676;margin-right:2px"></div><span>Bretagne</span></div>
-  <div class="legend-iso-row"><div style="width:8px;height:8px;border-radius:50%;background:#ffd600;margin-right:2px"></div><span>Atlantique</span></div>
-  <div class="legend-iso-row"><div style="width:8px;height:8px;border-radius:50%;background:#ff6d00;margin-right:2px"></div><span>Méditerranée</span></div>
+  <div class="legend-iso-row"><div style="width:7px;height:7px;border-radius:50%;background:var(--accent);margin-right:1px"></div><span>Manche</span></div>
+  <div class="legend-iso-row"><div style="width:7px;height:7px;border-radius:50%;background:#50D870;margin-right:1px"></div><span>Bretagne</span></div>
+  <div class="legend-iso-row"><div style="width:7px;height:7px;border-radius:50%;background:var(--warn);margin-right:1px"></div><span>Atlantique</span></div>
+  <div class="legend-iso-row"><div style="width:7px;height:7px;border-radius:50%;background:var(--bad);margin-right:1px"></div><span>Méditerranée</span></div>
   <div class="legend-sep"></div>
   <div class="legend-title" id="isoLegend">Isobathes adaptatives</div>
   <div class="legend-iso-row"><div class="legend-iso-line" style="background:#4fc3f7"></div><span>OpenSeaMap (zoom ≥10)</span></div>
   <div class="legend-iso-row"><div class="legend-iso-line" style="background:#0277bd"></div><span>EMODnet contours</span></div>
 </div>
 
+<!-- MARÉES -->
 <div id="tideWidget">
   <div class="tide-title">Marées · <span id="tideSpotName">—</span></div>
   <div id="tideContent"></div>
 </div>
 
-<!-- BOUTON FLOTTANT OBSERVATION -->
-<button id="obsFloatBtn" onclick="openObsPanel()" style="
-  position:absolute; bottom:28px; left:50%; transform:translateX(-50%);
-  z-index:950; display:flex; align-items:center; gap:8px;
-  padding:10px 20px;
-  background:linear-gradient(135deg,rgba(0,212,255,0.15),rgba(0,102,255,0.15));
-  border:1px solid var(--accent); border-radius:30px;
-  color:var(--accent); font-family:'Space Mono',monospace; font-size:11px;
-  cursor:pointer; backdrop-filter:blur(12px);
-  box-shadow:0 4px 20px rgba(0,212,255,0.2);
-  transition:all 0.2s; white-space:nowrap;
-">
-  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="7" cy="7" r="6" stroke="#00d4ff" stroke-width="1.5"/>
-    <line x1="7" y1="4" x2="7" y2="10" stroke="#00d4ff" stroke-width="1.5" stroke-linecap="round"/>
-    <line x1="4" y1="7" x2="10" y2="7" stroke="#00d4ff" stroke-width="1.5" stroke-linecap="round"/>
+<!-- BOUTON OBSERVATION -->
+<button id="obsFloatBtn" onclick="openObsPanel()">
+  <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+    <circle cx="6.5" cy="6.5" r="5.5" stroke="#00CFA8" stroke-width="1.4"/>
+    <line x1="6.5" y1="3.5" x2="6.5" y2="9.5" stroke="#00CFA8" stroke-width="1.4" stroke-linecap="round"/>
+    <line x1="3.5" y1="6.5" x2="9.5" y2="6.5" stroke="#00CFA8" stroke-width="1.4" stroke-linecap="round"/>
   </svg>
   Envoyer une observation
 </button>
 
-<!-- SPOT DASHBOARD POPUP (clic carte) -->
+<!-- SPOT POPUP -->
 <div id="spotPopup">
   <div class="spot-head">
     <div>
@@ -345,7 +755,7 @@
       <div class="spot-vis-overlay" id="spotVisLabel">—</div>
     </div>
     <div class="spot-vis-ticks"><span>Nulle</span><span>Faible</span><span>Moyenne</span><span>Bonne</span><span>Excellente</span></div>
-    <div id="spotMemoryNote" style="font-family:'Space Mono',monospace;font-size:8px;color:#ffd600;margin-top:4px;min-height:12px;text-align:center;"></div>
+    <div id="spotMemoryNote" style="font-family:'DM Mono',monospace;font-size:8px;color:var(--warn);margin-top:5px;min-height:12px;text-align:center;letter-spacing:0.03em;"></div>
   </div>
   <div class="spot-wind-block">
     <div class="spot-wind-cell">
@@ -364,14 +774,10 @@
       <div class="spot-wind-unit" id="spotWindDeg">—</div>
     </div>
   </div>
-  <!-- FACTEURS EXPLICATIFS -->
-  <div id="spotFactors" style="
-    padding:10px 14px 12px;
-    border-top:1px solid rgba(255,255,255,0.06);
-    display:flex; flex-direction:column; gap:5px;
-  "></div>
+  <div id="spotFactors"></div>
 </div>
 
+<!-- OBS POPUP -->
 <div id="obsPopup">
   <div class="popup-header">
     <div style="width:100%">
@@ -397,7 +803,7 @@
   <div class="vis-wrap">
     <div class="vis-header">
       <span class="vis-header-label">Visibilité</span>
-      <span class="vis-val" id="visVal" style="color:#00e676">+10m</span>
+      <span class="vis-val" id="visVal" style="color:var(--good)">+10m</span>
     </div>
     <input type="range" class="vis-slider" id="visSlider" min="0" max="8" step="1" value="8" oninput="updateVis(this.value)">
     <div class="vis-ticks"><span>0</span><span>0.5</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>8</span><span>+10</span></div>
@@ -479,15 +885,15 @@ const SPOTS = [
 let tidesCache = { data: null, loadedAt: null };
 
 const VIS = [
-  {v:0,   l:'0m',   c:'#ff1744'},
-  {v:0.5, l:'0.5m', c:'#ff6d00'},
-  {v:1,   l:'1m',   c:'#ff9100'},
-  {v:2,   l:'2m',   c:'#ffd600'},
-  {v:3,   l:'3m',   c:'#c6ff00'},
-  {v:4,   l:'4m',   c:'#76ff03'},
-  {v:5,   l:'5m',   c:'#00e676'},
-  {v:8,   l:'8m',   c:'#00e5ff'},
-  {v:10,  l:'+10m', c:'#00b0ff'}
+  {v:0,   l:'0m',   c:'#E85050'},
+  {v:0.5, l:'0.5m', c:'#E87038'},
+  {v:1,   l:'1m',   c:'#E89038'},
+  {v:2,   l:'2m',   c:'#E8CF38'},
+  {v:3,   l:'3m',   c:'#A0D840'},
+  {v:4,   l:'4m',   c:'#50D870'},
+  {v:5,   l:'5m',   c:'#00CFA8'},
+  {v:8,   l:'8m',   c:'#00B8E8'},
+  {v:10,  l:'+10m', c:'#0090E8'}
 ];
 
 // ============================================================
@@ -550,7 +956,6 @@ function initCanvas() {
   resizeCanvas();
   window.addEventListener('resize', function(){ resizeCanvas(); drawHeatmap(); });
 }
-
 function resizeCanvas() {
   S.canvas.width = window.innerWidth;
   S.canvas.height = window.innerHeight;
@@ -562,43 +967,31 @@ function resizeCanvas() {
 function initMap() {
   S.map = L.map('map', { center:[46.5, -1.5], zoom:6, zoomControl:true, zoomSnap:0.5 });
 
-  // Satellite Esri
   L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
     attribution:'Imagery © Esri | SHOM | EMODnet', maxZoom:19
   }).addTo(S.map);
 
-  // Labels
   L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
     attribution:'', maxZoom:19, opacity:0.45
   }).addTo(S.map);
 
-  // EMODnet contours grandes profondeurs
   S.isoDeep = L.tileLayer.wms('https://ows.emodnet-bathymetry.eu/wms', {
-    layers: 'emodnet:contours',
-    format: 'image/png', transparent: true,
-    version: '1.3.0',
-    attribution: 'Isobathes © EMODnet',
-    opacity: 0.9,
-    maxZoom: 19
+    layers: 'emodnet:contours', format: 'image/png', transparent: true,
+    version: '1.3.0', attribution: 'Isobathes © EMODnet', opacity: 0.9, maxZoom: 19
   });
 
-  // OpenSeaMap signalisation maritime
   S.isoShom = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', {
-    attribution: 'Signalisation © OpenSeaMap',
-    opacity: 0.95, maxZoom: 19
+    attribution: 'Signalisation © OpenSeaMap', opacity: 0.95, maxZoom: 19
   });
 
-  // Sédiments EMODnet
   S.sedLayer = L.tileLayer.wms('https://geo-service.maris.nl/emodnet_geology/wms', {
     layers: 'seabed_substrate_250k', format: 'image/png', transparent: true,
     version: '1.3.0', attribution: 'Sédiments © EMODnet Geology', opacity: 0.55
   });
 
-  // Ajout initial
   S.isoDeep.addTo(S.map);
   S.isoShom.addTo(S.map);
 
-  // Gestion adaptive zoom
   S.map.on('zoomend', function() {
     const zoom = S.map.getZoom();
     if (!S.showIso) return;
@@ -619,17 +1012,16 @@ function initMap() {
     }
   });
 
-  // Ports
   const regionColors = {
-    'Manche':'#00d4ff', 'Bretagne':'#00e676',
-    'Atlantique':'#ffd600', 'Méditerranée':'#ff6d00'
+    'Manche':'#00CFA8', 'Bretagne':'#50D870',
+    'Atlantique':'#E8A838', 'Méditerranée':'#E85050'
   };
 
   SPOTS.forEach(function(spot) {
-    const color = regionColors[spot.region] || '#5a7297';
+    const color = regionColors[spot.region] || '#3A5A78';
     const m = L.circleMarker([spot.lat, spot.lon], {
-      radius:7, fillColor:color, color:'rgba(0,0,0,0.4)',
-      weight:1.5, fillOpacity:0.85
+      radius:7, fillColor:color, color:'rgba(0,0,0,0.45)',
+      weight:1.5, fillOpacity:0.88
     }).addTo(S.map);
     m.bindTooltip('<b>'+spot.name+'</b><br><span style="color:'+color+';font-size:9px">'+spot.region+'</span>', {
       permanent:false, direction:'top', className:'vizi-tooltip', offset:[0,-8]
@@ -649,9 +1041,7 @@ function initMap() {
     loadForecast(e.latlng.lat, e.latlng.lng, null);
   });
 
-  S.map.on('moveend zoomend', function() {
-    drawHeatmap();
-  });
+  S.map.on('moveend zoomend', function() { drawHeatmap(); });
 }
 
 // ============================================================
@@ -718,7 +1108,7 @@ function mockHeatmap(day) {
 }
 
 // ============================================================
-// POPUP
+// POPUP OBS
 // ============================================================
 function openPopup(latlng, spotName) {
   S.clickLatLng = latlng;
@@ -751,16 +1141,14 @@ function openPopup(latlng, spotName) {
 
 function positionPopup(latlng) {
   const px = S.map.latLngToContainerPoint(latlng);
-  let left = px.x - 150, top = px.y - 480;
-  left = Math.max(10, Math.min(left, window.innerWidth - 310));
+  let left = px.x - 152, top = px.y - 490;
+  left = Math.max(10, Math.min(left, window.innerWidth - 314));
   top = Math.max(55, top);
   document.getElementById('obsPopup').style.left = left+'px';
   document.getElementById('obsPopup').style.top = top+'px';
 }
 
-function closePopup() {
-  document.getElementById('obsPopup').style.display = 'none';
-}
+function closePopup() { document.getElementById('obsPopup').style.display = 'none'; }
 
 function fetchSediment(lat, lon) {
   const url = 'https://geo-service.maris.nl/emodnet_geology/wms?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo&LAYERS=seabed_substrate_250k&QUERY_LAYERS=seabed_substrate_250k&INFO_FORMAT=application/json&I=50&J=50&WIDTH=101&HEIGHT=101&CRS=EPSG:4326&BBOX='+(lon-0.01)+','+(lat-0.01)+','+(lon+0.01)+','+(lat+0.01);
@@ -830,7 +1218,7 @@ function loadTidesCache() {
 function showTides(spot) {
   document.getElementById('tideWidget').style.display = 'block';
   document.getElementById('tideSpotName').textContent = spot.name;
-  document.getElementById('tideContent').innerHTML = '<div style="font-family:Space Mono,monospace;font-size:10px;color:var(--text-muted);padding:8px 0;">Chargement...</div>';
+  document.getElementById('tideContent').innerHTML = '<div style="font-family:DM Mono,monospace;font-size:10px;color:var(--text-3);padding:8px 0;">Chargement...</div>';
 
   loadTidesCache().then(function() {
     const today = new Date().toISOString().split('T')[0];
@@ -850,7 +1238,7 @@ function showTides(spot) {
     let tidesHtml = '';
     portTides.sort(function(a,b){ return a.time.localeCompare(b.time); }).forEach(function(t) {
       const icon = t.type === 'high' ? '▲' : '▽';
-      const color = t.type === 'high' ? 'var(--accent)' : 'var(--text-muted)';
+      const color = t.type === 'high' ? 'var(--accent)' : 'var(--text-2)';
       tidesHtml += '<div class="tide-row"><span class="label">'+icon+' '+(t.type==='high'?'PM':'BM')+'</span><span class="val" style="color:'+color+'">'+t.time+' · '+t.height_m+'m</span></div>';
     });
 
@@ -861,9 +1249,9 @@ function showTides(spot) {
 
     document.getElementById('tideContent').innerHTML =
       '<div style="display:flex;align-items:baseline;gap:6px;margin-bottom:4px;"><div class="tide-coeff">'+coeff+'</div><div class="tide-coeff-label">coefficient</div></div>'+
-      '<div style="font-family:Space Mono,monospace;font-size:9px;color:var(--text-muted);margin-bottom:8px;">'+coeffLabel+'</div>'+
+      '<div style="font-family:DM Mono,monospace;font-size:9px;color:var(--text-3);margin-bottom:8px;">'+coeffLabel+'</div>'+
       '<div class="tide-times">'+tidesHtml+'</div>'+
-      '<div style="font-family:Space Mono,monospace;font-size:8px;color:var(--text-muted);margin-top:6px;border-top:1px solid var(--border);padding-top:6px;">Source : WorldTides / SHOM</div>';
+      '<div style="font-family:DM Mono,monospace;font-size:8px;color:var(--text-3);margin-top:6px;border-top:1px solid var(--border);padding-top:6px;">Source : WorldTides / SHOM</div>';
   });
 }
 
@@ -885,7 +1273,7 @@ function renderTidesFallback(spot) {
     '<div class="tide-row"><span class="label">▲ PM</span><span class="val">'+(isHigh?fmt(nextTime):'—')+' · '+hPM+'cm</span></div>'+
     '<div class="tide-row"><span class="label">▽ BM</span><span class="val">'+(!isHigh?fmt(nextTime):'—')+' · '+hBM+'cm</span></div>'+
     '<div class="tide-row" style="margin-top:4px;"><span class="label">Marnage</span><span class="val" style="color:var(--accent)">'+(hPM-hBM)+'cm</span></div>'+
-    '</div><div style="font-family:Space Mono,monospace;font-size:8px;color:var(--text-muted);margin-top:6px;">⚠ Données estimées</div>';
+    '</div><div style="font-family:DM Mono,monospace;font-size:8px;color:var(--text-3);margin-top:6px;">⚠ Données estimées</div>';
 }
 
 function hideTides() { document.getElementById('tideWidget').style.display = 'none'; }
@@ -902,11 +1290,8 @@ function toggleLayer(type) {
     S.showIso = !S.showIso;
     document.getElementById('btnIso').classList.toggle('active', S.showIso);
     document.getElementById('isoLegend').style.display = S.showIso ? 'block' : 'none';
-    if (S.showIso) {
-      S.isoDeep.addTo(S.map);
-      S.isoShom.addTo(S.map);
-      S.map.fire('zoomend');
-    } else {
+    if (S.showIso) { S.isoDeep.addTo(S.map); S.isoShom.addTo(S.map); S.map.fire('zoomend'); }
+    else {
       if (S.map.hasLayer(S.isoDeep)) S.map.removeLayer(S.isoDeep);
       if (S.map.hasLayer(S.isoShom)) S.map.removeLayer(S.isoShom);
     }
@@ -965,7 +1350,7 @@ function loadForecast(lat, lon, locationName) {
   document.getElementById('forecastPanel').style.display = 'block';
   document.getElementById('forecastLocation').textContent = locationName || (lat.toFixed(4)+', '+lon.toFixed(4));
   document.getElementById('forecastCoords').textContent = lat.toFixed(4)+'°N '+lon.toFixed(4)+'°E · AROME';
-  document.getElementById('forecastTable').innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-muted);font-family:Space Mono,monospace;font-size:10px;">Chargement AROME...</div>';
+  document.getElementById('forecastTable').innerHTML = '<div style="padding:18px;text-align:center;color:var(--text-3);font-family:DM Mono,monospace;font-size:10px;letter-spacing:0.04em;">Chargement AROME...</div>';
 
   const now = new Date();
   const start = new Date(now); start.setHours(0,0,0,0);
@@ -985,7 +1370,7 @@ function loadForecast(lat, lon, locationName) {
       renderForecastTable(d.hourly, now);
     })
     .catch(function(e) {
-      document.getElementById('forecastTable').innerHTML = '<div style="padding:16px;color:#ff1744;font-family:Space Mono,monospace;font-size:10px;">Erreur : '+e.message+'</div>';
+      document.getElementById('forecastTable').innerHTML = '<div style="padding:18px;color:var(--bad);font-family:DM Mono,monospace;font-size:10px;">Erreur : '+e.message+'</div>';
     });
 }
 
@@ -1019,8 +1404,6 @@ function renderForecastTable(h, now) {
   }
   function dirArrow(deg) {
     if(deg===null||deg===undefined) return '—';
-    // deg = d'où vient le vent (convention météo)
-    // On affiche une flèche qui pointe vers l'origine du vent
     const arrows = ['↑','↗','→','↘','↓','↙','←','↖'];
     return arrows[Math.round(deg/45)%8];
   }
@@ -1031,25 +1414,22 @@ function renderForecastTable(h, now) {
     const dcols = days[day];
     const date = new Date(day);
     const label = date.toLocaleDateString('fr',{weekday:'short',day:'numeric',month:'short'});
-    html += '<td colspan="'+dcols.length+'" class="day-header" style="border-left:1px solid rgba(255,255,255,0.1)">'+label+'</td>';
+    html += '<td colspan="'+dcols.length+'" class="day-header" style="border-left:1px solid rgba(255,255,255,0.08)">'+label+'</td>';
   });
   html += '</tr>';
-
   html += '<tr><td class="row-label hour-row">Heure</td>';
   cols.forEach(function(c) {
     html += '<td class="hour-row'+(c.isNow?' wg-now':'')+'">'+c.t.slice(11,16)+'</td>';
   });
   html += '</tr></thead><tbody>';
 
-  // Vent
   html += '<tr><td class="row-label">Vent (km/h)</td>';
   cols.forEach(function(c) {
     const v = Math.round(h.windspeed_10m[c.i]||0);
-    html += '<td class="'+windColor(v)+(c.isNow?' wg-now':'')+'" style="font-weight:700">'+v+'</td>';
+    html += '<td class="'+windColor(v)+(c.isNow?' wg-now':'')+'" style="font-weight:600">'+v+'</td>';
   });
   html += '</tr>';
 
-  // Rafales
   html += '<tr><td class="row-label">Rafales (km/h)</td>';
   cols.forEach(function(c) {
     const v = Math.round(h.windgusts_10m[c.i]||0);
@@ -1057,14 +1437,12 @@ function renderForecastTable(h, now) {
   });
   html += '</tr>';
 
-  // Direction
   html += '<tr><td class="row-label">Direction</td>';
   cols.forEach(function(c) {
-    html += '<td class="'+(c.isNow?'wg-now':'')+'" style="font-size:14px">'+dirArrow(h.winddirection_10m[c.i])+'</td>';
+    html += '<td class="'+(c.isNow?'wg-now':'')+'" style="font-size:13px">'+dirArrow(h.winddirection_10m[c.i])+'</td>';
   });
   html += '</tr>';
 
-  // Vagues
   const hasWaves = h.wave_height && h.wave_height.some(function(v){ return v > 0; });
   if (hasWaves) {
     html += '<tr><td class="row-label">Vagues (m)</td>';
@@ -1073,32 +1451,29 @@ function renderForecastTable(h, now) {
       html += '<td class="'+waveColor(v)+(c.isNow?' wg-now':'')+'">'+( v ? v.toFixed(1) : '—')+'</td>';
     });
     html += '</tr>';
-
     html += '<tr><td class="row-label">Vagues dir.</td>';
     cols.forEach(function(c) {
-      html += '<td class="'+(c.isNow?'wg-now':'')+'" style="font-size:14px">'+dirArrow(h.wave_direction[c.i])+'</td>';
+      html += '<td class="'+(c.isNow?'wg-now':'')+'" style="font-size:13px">'+dirArrow(h.wave_direction[c.i])+'</td>';
     });
     html += '</tr>';
   }
 
-  // Température
   html += '<tr><td class="row-label">Temp. (°C)</td>';
   cols.forEach(function(c) {
     html += '<td class="'+(c.isNow?'wg-now':'')+'">'+Math.round(h.temperature_2m[c.i]||0)+'</td>';
   });
   html += '</tr>';
 
-  // Précipitations
   html += '<tr><td class="row-label">Pluie (mm/h)</td>';
   cols.forEach(function(c) {
     const v = h.precipitation[c.i];
-    const bg = v > 2 ? 'background:rgba(0,100,255,0.4)' : v > 0.5 ? 'background:rgba(0,100,255,0.2)' : '';
+    const bg = v > 2 ? 'background:rgba(0,90,230,0.4)' : v > 0.5 ? 'background:rgba(0,90,230,0.2)' : '';
     html += '<td class="'+(c.isNow?'wg-now':'')+'" style="'+bg+'">'+( v && v > 0 ? v.toFixed(1) : '')+'</td>';
   });
   html += '</tr>';
 
   html += '</tbody></table>';
-  html += '<div style="padding:4px 10px;font-family:Space Mono,monospace;font-size:8px;color:var(--text-muted)">Source : Météo-France AROME 2.5km · ▏= heure actuelle</div>';
+  html += '<div style="padding:4px 12px 6px;font-family:DM Mono,monospace;font-size:8px;color:var(--text-3);letter-spacing:0.04em;">Source : Météo-France AROME 2.5km · ▏= heure actuelle</div>';
 
   document.getElementById('forecastTable').innerHTML = html;
 
@@ -1123,19 +1498,19 @@ function setTog(f,val) {
   document.getElementById('tog-'+f+'-no').classList.toggle('on', !val);
 }
 function scoreRgb(s) {
-  if(s<20)return'0,230,118'; if(s<40)return'118,255,3';
-  if(s<60)return'255,214,0'; if(s<80)return'255,109,0';
-  return'255,23,68';
+  if(s<20)return'0,207,168'; if(s<40)return'80,216,112';
+  if(s<60)return'232,207,56'; if(s<80)return'232,112,56';
+  return'232,80,80';
 }
 function scoreColor(s) {
-  if(s<20)return'#00e676'; if(s<40)return'#76ff03';
-  if(s<60)return'#ffd600'; if(s<80)return'#ff6d00';
-  return'#ff1744';
+  if(s<20)return'#00CFA8'; if(s<40)return'#50D870';
+  if(s<60)return'#E8CF38'; if(s<80)return'#E87038';
+  return'#E85050';
 }
 function setOpacity(v) { S.opacity = v/100; drawHeatmap(); }
 
 // ============================================================
-// SPOT DASHBOARD POPUP
+// SPOT POPUP
 // ============================================================
 let S_spotLat = null, S_spotLon = null, S_spotWeatherCache = null;
 
@@ -1144,7 +1519,6 @@ function openSpotPopup(latlng, name) {
   S_spotLon = latlng.lng;
   S.clickLatLng = latlng;
 
-  // Placer le marqueur pulsant
   if (S.clickMarker) S.map.removeLayer(S.clickMarker);
   var pulseIcon = L.divIcon({
     className: '',
@@ -1153,39 +1527,31 @@ function openSpotPopup(latlng, name) {
   });
   S.clickMarker = L.marker([latlng.lat, latlng.lng], { icon: pulseIcon, interactive: false }).addTo(S.map);
 
-  // Remplir coords + meta
   document.getElementById('spotCoords').textContent =
     latlng.lat.toFixed(4) + '°N · ' + Math.abs(latlng.lng).toFixed(4) + '°O' + (name ? ' — ' + name : '');
 
-  // Profondeur : depuis heatmap si dispo, sinon estimation par distance à la côte
   var near = S.heatmap.length ? S.heatmap.reduce(function(a,b){
     return Math.hypot(a.lat-latlng.lat,a.lon-latlng.lng) < Math.hypot(b.lat-latlng.lat,b.lon-latlng.lng) ? a : b;
   }) : null;
-  var distToNear = near ? Math.hypot(near.lat-latlng.lat, near.lon-latlng.lng) * 111 : 999; // km approx
+  var distToNear = near ? Math.hypot(near.lat-latlng.lat, near.lon-latlng.lng) * 111 : 999;
   var depth;
   if (near && distToNear < 0.05) {
-    depth = near.depth; // point heatmap très proche — on lui fait confiance
+    depth = near.depth;
   } else {
-    // Estimation par latitude : plus on est au nord (vers la côte calvados) = plus peu profond
-    // Proxy simple : distance approximative à la ligne de côte connue (~49.34°N)
     var distCoastDeg = Math.abs(latlng.lat - 49.34);
     var distCoastKm = distCoastDeg * 111;
-    // Règle empirique Calvados : ~1m de fond par 100m de distance à la côte (plateau très plat)
     depth = Math.max(1, Math.min(50, distCoastKm * 10));
   }
   S._spotDepth = depth;
   document.getElementById('spotMeta').textContent = '⚓ ~' + Math.round(depth) + 'm · AROME 2.5km';
 
-  // Date/heure actuelles
   var now = new Date();
   document.getElementById('spotDate').value = now.toISOString().split('T')[0];
   document.getElementById('spotTime').value = now.getHours().toString().padStart(2,'0') + ':00';
 
-  // Afficher le popup
   document.getElementById('spotPopup').style.display = 'block';
   positionSpotPopup(latlng);
 
-  // Charger les données météo
   S_spotWeatherCache = null;
   fetchSpotWeather(latlng.lat, latlng.lng);
 }
@@ -1193,7 +1559,7 @@ function openSpotPopup(latlng, name) {
 function positionSpotPopup(latlng) {
   var px = S.map.latLngToContainerPoint(latlng);
   var el = document.getElementById('spotPopup');
-  var w = 290, h = 260;
+  var w = 296, h = 260;
   var left = px.x - w/2;
   var top = px.y - h - 20;
   left = Math.max(10, Math.min(left, window.innerWidth - w - 10));
@@ -1238,7 +1604,6 @@ function renderSpotPopup() {
   var timeVal = document.getElementById('spotTime').value;
   var targetStr = dateVal + 'T' + timeVal;
 
-  // Index horaire le plus proche
   var idx = 0, best = Infinity;
   h.time.forEach(function(t, i) {
     var d = Math.abs(new Date(t) - new Date(targetStr));
@@ -1251,72 +1616,43 @@ function renderSpotPopup() {
   var wave  = h.wave_height    ? (h.wave_height[idx]    || 0) : 0;
   var rain  = h.precipitation  ? (h.precipitation[idx]  || 0) : 0;
 
-  // ── MODÈLE TURBIDITÉ ──────────────────────────────────────
   var depth = S._spotDepth || 5;
 
-  // Facteur bathymétrique
-  var bathyFactor = depth <= 2  ? 4.0
-                  : depth <= 5  ? 3.0
-                  : depth <= 10 ? 2.0
-                  : depth <= 20 ? 1.3
-                  : 1.0;
+  var bathyFactor = depth <= 2  ? 4.0 : depth <= 5  ? 3.0 : depth <= 10 ? 2.0 : depth <= 20 ? 1.3 : 1.0;
+  var decayHours  = depth <= 3  ? 72  : depth <= 8  ? 48  : depth <= 15 ? 24  : 12;
 
-  // Temps de décantation selon profondeur (en heures)
-  // Zone peu profonde = sédiments remis en suspension longtemps
-  var decayHours = depth <= 3  ? 72
-                 : depth <= 8  ? 48
-                 : depth <= 15 ? 24
-                 : 12;
-
-  // ── FACTEUR DIRECTIONNEL ──────────────────────────────────
   function getDirFactor(d) {
     if (d === null || d === undefined) return 1.0;
-    // Vent de terre Calvados : S/SO/SE (135°→225°)
     if (d >= 135 && d <= 225) return 0.15;
-    // Vent latéral
     if ((d > 45 && d < 135) || (d > 225 && d < 315)) return 0.7;
-    // Vent de mer : N/NO/NE (315°→45°)
     return 1.4;
   }
 
   var dirFactor = getDirFactor(dir);
 
-  // ── MÉMOIRE TURBIDITÉ RÉSIDUELLE (72h) ───────────────────
-  // On remonte dans les données horaires sur decayHours heures
-  // et on calcule le "coup de mer" maximal reçu, avec décroissance exponentielle
   var residualPenalty = 0;
   var startIdx = Math.max(0, idx - decayHours);
-
   for (var i = startIdx; i < idx; i++) {
     var pastWind  = h.windspeed_10m[i]  || 0;
     var pastGusts = h.windgusts_10m[i]  || 0;
     var pastDir   = h.winddirection_10m[i];
     var pastDirF  = getDirFactor(pastDir);
-
-    // Contribution onshore de cette heure passée
-    var pastImpact = (Math.max(pastWind - 5, 0) / 20 * 55 +
-                      Math.max(pastGusts - 10, 0) / 25 * 30) * pastDirF;
-
-    // Décroissance exponentielle : plus c'est vieux, moins ça compte
-    // τ = decayHours/3 → à decayHours heures de distance, facteur ~5%
+    var pastImpact = (Math.max(pastWind - 5, 0) / 20 * 55 + Math.max(pastGusts - 10, 0) / 25 * 30) * pastDirF;
     var hoursAgo = idx - i;
     var decay = Math.exp(-hoursAgo / (decayHours / 3));
     residualPenalty = Math.max(residualPenalty, pastImpact * decay);
   }
 
-  // Pénalité courante (vent/rafales de maintenant)
   var windPenalty = Math.min(Math.max(wind - 5, 0) / 20, 1) * 55 * dirFactor;
   var gustPenalty = Math.min(Math.max(gusts - 10, 0) / 25, 1) * 30 * dirFactor;
   var wavePenalty = Math.min(wave / 1.2, 1) * 35;
   var rainPenalty = Math.min(rain / 3, 1) * 10;
 
-  // Pénalité finale = max(courante, résiduelle) + vagues + pluie
   var instantPenalty = windPenalty + gustPenalty;
   var combinedPenalty = Math.max(instantPenalty, residualPenalty) + wavePenalty + rainPenalty;
   var totalPenalty = Math.min(combinedPenalty * bathyFactor, 100);
   var score = Math.max(0, Math.min(100, 100 - totalPenalty));
 
-  // Label
   var visLabel;
   if (score >= 80)      visLabel = 'Excellente';
   else if (score >= 60) visLabel = 'Bonne';
@@ -1324,33 +1660,26 @@ function renderSpotPopup() {
   else if (score >= 20) visLabel = 'Faible';
   else                  visLabel = 'Mauvaise';
 
-  // Indicateur mémoire (si la résiduelle domine, on le signale)
   var memoryNote = '';
   if (residualPenalty > instantPenalty && residualPenalty > 10) {
-    memoryNote = ' ·  agitation passée';
+    memoryNote = '· agitation passée';
   }
 
-  // Curseur — calcul précis en tenant compte de la largeur du curseur (3px)
   var pct = Math.max(0, Math.min(100, score));
   document.getElementById('spotVisCursor').style.left = 'calc(' + pct + '% - 1.5px)';
   document.getElementById('spotVisLabel').textContent = visLabel;
   document.getElementById('spotVisLabel').style.color = score > 55 ? 'rgba(0,0,0,0.85)' : 'white';
 
-  // Note mémoire sous la barre
   var noteEl = document.getElementById('spotMemoryNote');
   if (noteEl) noteEl.textContent = memoryNote;
 
-  // Vent coloré
-  var windColor = wind < 10 ? '#00e676' : wind < 20 ? '#ffd600' : wind < 35 ? '#ff6d00' : '#ff1744';
-  var gustColor = gusts < 15 ? '#00e676' : gusts < 25 ? '#ffd600' : gusts < 45 ? '#ff6d00' : '#ff1744';
+  var windColor = wind < 10 ? '#00CFA8' : wind < 20 ? '#E8CF38' : wind < 35 ? '#E87038' : '#E85050';
+  var gustColor = gusts < 15 ? '#00CFA8' : gusts < 25 ? '#E8CF38' : gusts < 45 ? '#E87038' : '#E85050';
   document.getElementById('spotWindSpeed').textContent = wind;
   document.getElementById('spotWindSpeed').style.color = windColor;
   document.getElementById('spotWindGusts').textContent = gusts;
   document.getElementById('spotWindGusts').style.color = gustColor;
 
-  // Direction — flèche pointe d'où vient le vent
-  // NO 317° = vent qui VIENT du NO → flèche pointe vers le bas-droite (vers où il va)
-  // On affiche le nom d'où il vient, flèche vers où il souffle
   var arrowsTo = ['↑','↗','→','↘','↓','↙','←','↖'];
   var fromNames = ['N','NE','E','SE','S','SO','O','NO'];
   var aidx = Math.round(dir/45)%8;
@@ -1359,80 +1688,46 @@ function renderSpotPopup() {
   document.getElementById('spotWindDir').textContent = arrow;
   document.getElementById('spotWindDeg').textContent = dirName + (dir !== null ? ' ' + Math.round(dir) + '°' : '');
 
-  // ── FACTEURS EXPLICATIFS ──────────────────────────────────
   var factors = [];
-
-  // Vent actuel
   var windImpact = Math.round(windPenalty);
   if (windImpact > 2) {
     var windType = dirFactor <= 0.2 ? 'offshore · mer plate' : dirFactor >= 1.3 ? 'onshore · agite le fond' : 'latéral';
-    factors.push({
-      icon: '💨',
-      label: 'Vent ' + wind + ' km/h (' + dirName + ' — ' + windType + ')',
-      impact: windImpact,
-      max: 55
-    });
+    factors.push({ icon:'💨', label:'Vent '+wind+' km/h ('+dirName+' — '+windType+')', impact:windImpact, max:55 });
   } else {
-    factors.push({
-      icon: '💨',
-      label: 'Vent ' + wind + ' km/h (' + dirName + ' — offshore · mer plate)',
-      impact: 0,
-      max: 55
-    });
+    factors.push({ icon:'💨', label:'Vent '+wind+' km/h ('+dirName+' — offshore · mer plate)', impact:0, max:55 });
   }
 
-  // Mémoire agitation
   if (residualPenalty > 5) {
-    factors.push({
-      icon: '⏱',
-      label: 'Agitation passée (coup de mer ' + Math.round(decayHours) + 'h de décantation)',
-      impact: Math.round(residualPenalty),
-      max: 55
-    });
+    factors.push({ icon:'⏱', label:'Agitation passée (coup de mer '+Math.round(decayHours)+'h de décantation)', impact:Math.round(residualPenalty), max:55 });
   }
-
-  // Vagues
   if (wavePenalty > 3) {
-    factors.push({
-      icon: '🌊',
-      label: 'Vagues ' + wave.toFixed(1) + 'm',
-      impact: Math.round(wavePenalty),
-      max: 35
-    });
+    factors.push({ icon:'🌊', label:'Vagues '+wave.toFixed(1)+'m', impact:Math.round(wavePenalty), max:35 });
   }
+  factors.push({ icon:'⚓', label:'Fond ~'+Math.round(depth)+'m (×'+bathyFactor.toFixed(1)+' amplification)', impact:null, max:null });
 
-  // Bathymétrie
-  factors.push({
-    icon: '⚓',
-    label: 'Fond ~' + Math.round(depth) + 'm (×' + bathyFactor.toFixed(1) + ' amplification)',
-    impact: null, // neutre, juste info
-    max: null
-  });
-
-  // Rendu
   var factorsEl = document.getElementById('spotFactors');
   factorsEl.innerHTML = factors.map(function(f) {
     var barHtml = '';
     if (f.impact !== null && f.max !== null) {
       var pct = Math.min(100, Math.round(f.impact / f.max * 100));
-      var barColor = pct < 20 ? '#00e676' : pct < 50 ? '#ffd600' : pct < 80 ? '#ff6d00' : '#ff1744';
-      barHtml = '<div style="flex:1;height:3px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;">'
+      var barColor = pct < 20 ? '#00CFA8' : pct < 50 ? '#E8CF38' : pct < 80 ? '#E87038' : '#E85050';
+      barHtml = '<div style="flex:1;height:3px;background:rgba(255,255,255,0.07);border-radius:2px;overflow:hidden;">'
         + '<div style="height:100%;width:'+pct+'%;background:'+barColor+';border-radius:2px;transition:width 0.4s"></div>'
         + '</div>'
-        + '<div style="font-size:8px;color:'+barColor+';min-width:24px;text-align:right">'+(pct > 0 ? '-'+Math.round(f.impact) : '✓')+'</div>';
+        + '<div style="font-size:8px;color:'+barColor+';min-width:24px;text-align:right;font-family:DM Mono,monospace">'+(pct > 0 ? '-'+Math.round(f.impact) : '✓')+'</div>';
     } else {
-      barHtml = '<div style="flex:1"></div><div style="font-size:8px;color:var(--text-muted)">×'+bathyFactor.toFixed(1)+'</div>';
+      barHtml = '<div style="flex:1"></div><div style="font-size:8px;color:var(--text-3);font-family:DM Mono,monospace">×'+bathyFactor.toFixed(1)+'</div>';
     }
     return '<div style="display:flex;align-items:center;gap:8px;">'
       + '<span style="font-size:11px;width:16px;text-align:center">'+f.icon+'</span>'
-      + '<span style="font-family:Space Mono,monospace;font-size:8px;color:var(--text-muted);flex:1;line-height:1.3">'+f.label+'</span>'
+      + '<span style="font-family:DM Mono,monospace;font-size:8px;color:var(--text-3);flex:1;line-height:1.4;letter-spacing:0.02em">'+f.label+'</span>'
       + '<div style="display:flex;align-items:center;gap:4px;min-width:80px">'+barHtml+'</div>'
       + '</div>';
   }).join('');
 }
 
 // ============================================================
-// BOUTON OBSERVATION FLOTTANT
+// BOUTON OBS
 // ============================================================
 function openObsPanel() {
   var latlng = S.clickLatLng || S.map.getCenter();
