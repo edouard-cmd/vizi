@@ -22,6 +22,10 @@
       --accent-bg: rgba(11,168,136,0.08);
       --accent-mid: rgba(11,168,136,0.18);
 
+      /* ── Citron ── */
+      --citron:    #A8E63D;
+      --citron-dark: #7AB828;
+
       /* ── Texte ── */
       --text:      #1A2535;
       --text-2:    #4A6080;
@@ -67,25 +71,25 @@
     .logo { display:flex; align-items:center; gap:10px; text-decoration:none; }
     .logo-mark {
       width:36px; height:36px;
-      background:var(--accent);
+      background:var(--text);
       border-radius:9px;
       display:flex; align-items:center; justify-content:center;
       flex-shrink:0;
     }
     .logo-mark svg { width:18px; height:18px; }
-    .logo-text-wrap { display:flex; flex-direction:column; gap:1px; }
+    .logo-text-wrap { display:flex; flex-direction:column; gap:2px; }
     .logo-name {
       font-family:'Inter', sans-serif;
-      font-size:18px; font-weight:700;
-      letter-spacing:0.14em;
+      font-size:19px; font-weight:800;
+      letter-spacing:0.16em;
       color:var(--text);
       text-transform:uppercase;
       line-height:1;
     }
     .logo-tagline {
       font-family:'JetBrains Mono', 'Courier New', monospace;
-      font-size:10px; font-weight:400;
-      color:var(--text-3);
+      font-size:10px; font-weight:500;
+      color:var(--citron-dark);
       letter-spacing:0.03em;
       line-height:1;
     }
@@ -691,13 +695,13 @@
   <div class="logo">
     <div class="logo-mark">
       <svg viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="9" cy="9" r="6.5" stroke="#0BA888" stroke-width="1.2"/>
-        <circle cx="9" cy="9" r="2.5" fill="#0BA888" opacity="0.35"/>
-        <circle cx="9" cy="9" r="1.2" fill="#0BA888"/>
-        <line x1="9" y1="2.5" x2="9" y2="0.5" stroke="#0BA888" stroke-width="1.2" stroke-linecap="round"/>
-        <line x1="15.5" y1="9" x2="17.5" y2="9" stroke="#0BA888" stroke-width="1.2" stroke-linecap="round"/>
-        <line x1="9" y1="15.5" x2="9" y2="17.5" stroke="#0BA888" stroke-width="1.2" stroke-linecap="round"/>
-        <line x1="2.5" y1="9" x2="0.5" y2="9" stroke="#0BA888" stroke-width="1.2" stroke-linecap="round"/>
+        <circle cx="9" cy="9" r="6.5" stroke="#A8E63D" stroke-width="1.2"/>
+        <circle cx="9" cy="9" r="2.5" fill="#A8E63D" opacity="0.35"/>
+        <circle cx="9" cy="9" r="1.2" fill="#A8E63D"/>
+        <line x1="9" y1="2.5" x2="9" y2="0.5" stroke="#A8E63D" stroke-width="1.2" stroke-linecap="round"/>
+        <line x1="15.5" y1="9" x2="17.5" y2="9" stroke="#A8E63D" stroke-width="1.2" stroke-linecap="round"/>
+        <line x1="9" y1="15.5" x2="9" y2="17.5" stroke="#A8E63D" stroke-width="1.2" stroke-linecap="round"/>
+        <line x1="2.5" y1="9" x2="0.5" y2="9" stroke="#A8E63D" stroke-width="1.2" stroke-linecap="round"/>
       </svg>
     </div>
     <div class="logo-text-wrap">
@@ -713,7 +717,7 @@
       <span>Turb.</span>
       <input type="range" id="opacitySlider" min="0" max="100" value="55" oninput="setOpacity(this.value)">
     </div>
-    <button class="ctrl-btn active" id="btnHeatmap" onclick="toggleLayer('heatmap')"><span class="ctrl-dot"></span>Heatmap</button>
+    <button class="ctrl-btn" id="btnHeatmap" onclick="toggleLayer('heatmap')"><span class="ctrl-dot"></span>Heatmap</button>
     <button class="ctrl-btn active" id="btnIso" onclick="toggleLayer('iso')"><span class="ctrl-dot"></span>Isobathes</button>
     <button class="ctrl-btn" id="btnSed" onclick="toggleLayer('sed')"><span class="ctrl-dot"></span>Sédiments</button>
     <button class="ctrl-btn" id="btnWind" onclick="toggleForecastPanel()"><span class="ctrl-dot"></span>Météo spot</button>
@@ -721,8 +725,6 @@
 </div>
 
 <!-- LÉGENDE -->
-<div id="legend">
-  <div class="legend-title">Turbidité estimée</div>
   <div class="legend-bar"></div>
   <div class="legend-labels"><span>Clair</span><span>Turbide</span></div>
   <div class="legend-sep"></div>
@@ -921,7 +923,7 @@ const VIS = [
 let S = {
   map:null, day:0,
   heatmap:[], opacity:0.55,
-  showHeatmap:true, showIso:true, showSed:false,
+  showHeatmap:false, showIso:true, showSed:false,
   isoDeep:null, isoShom:null, sedLayer:null,
   spotMarkers:{}, clickMarker:null, clickLatLng:null,
   form:{ bottom:true, current:false, visIdx:8 },
