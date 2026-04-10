@@ -1505,8 +1505,9 @@ function renderForecastTable(h, now) {
   }
   function dirArrow(deg) {
     if(deg===null||deg===undefined) return '—';
+    // winddirection = d'où vient le vent → flèche vers où il va (+180°)
     const arrows = ['↑','↗','→','↘','↓','↙','←','↖'];
-    return arrows[Math.round(deg/45)%8];
+    return arrows[(Math.round(deg/45) + 4) % 8];
   }
 
   let html = '<table class="wg-table"><thead>';
@@ -1826,6 +1827,7 @@ function renderSpotPopup() {
   // ── MÉMOIRE AGITATION : on track le pic ──────────────────
   var residualPenalty = 0;
   var peakWind = 0, peakGusts = 0, peakDir = null, peakHoursAgo = 0, peakTime = null;
+  var peakRawImpact = 0;
   var startIdx = Math.max(0, idx - decayHours);
   for (var i = startIdx; i < idx; i++) {
     var pastWind  = h.windspeed_10m[i]  || 0;
@@ -1835,9 +1837,10 @@ function renderSpotPopup() {
     var pastImpact = (Math.max(pastWind - 5, 0) / 20 * 55 + Math.max(pastGusts - 10, 0) / 25 * 30) * pastDirF;
     var hoursAgo = idx - i;
     var decay = Math.exp(-hoursAgo / (decayHours / 3));
-    var weighted = pastImpact * decay;
-    if (weighted > residualPenalty) {
-      residualPenalty = weighted;
+    residualPenalty = Math.max(residualPenalty, pastImpact * decay);
+    // Pic = heure avec le vent brut le plus fort (onshore), sans pondération decay
+    if (pastImpact > peakRawImpact) {
+      peakRawImpact = pastImpact;
       peakWind = Math.round(pastWind);
       peakGusts = Math.round(pastGusts);
       peakDir = pastDir;
@@ -1905,7 +1908,7 @@ function renderSpotPopup() {
   var arrowsTo = ['↑','↗','→','↘','↓','↙','←','↖'];
   var fromNames = ['N','NE','E','SE','S','SO','O','NO'];
   var aidx = Math.round(dir/45)%8;
-  var arrow   = (dir !== null && dir !== undefined) ? arrowsTo[aidx] : '—';
+  var arrow   = (dir !== null && dir !== undefined) ? arrowsTo[(aidx + 4) % 8] : '—';
   var dirName = (dir !== null && dir !== undefined) ? fromNames[aidx] : '—';
   document.getElementById('spotWindDir').textContent = arrow;
   document.getElementById('spotWindDeg').textContent = dirName + (dir !== null ? ' ' + Math.round(dir) + '°' : '');
@@ -1923,13 +1926,16 @@ function renderSpotPopup() {
     var peakFromNames = ['N','NE','E','SE','S','SO','O','NO'];
     var peakDirName = (peakDir !== null && peakDir !== undefined) ? peakFromNames[Math.round(peakDir/45)%8] : '—';
     var peakDirType = getDirFactor(peakDir) <= 0.2 ? 'offshore' : getDirFactor(peakDir) >= 1.3 ? 'onshore ⚠' : 'latéral';
+    var quand = peakHoursAgo >= 24
+      ? 'il y a ' + peakHoursAgo + 'h (hier vers ' + peakTime + ')'
+      : 'il y a ' + peakHoursAgo + 'h (vers ' + peakTime + ')';
     factors.push({
       icon:'⏱',
       label:'Agitation passée — ' + Math.round(decayHours) + 'h de décantation',
       impact:Math.round(residualPenalty), max:55,
-      detail: 'Pic il y a ' + peakHoursAgo + 'h (vers ' + peakTime + ') · '
-        + peakWind + ' km/h rafales ' + peakGusts + ' km/h · '
-        + peakDirName + ' ' + Math.round(peakDir||0) + '° — ' + peakDirType
+      detail: 'Pic ' + quand
+        + ' · ' + peakWind + ' km/h rafales ' + peakGusts + ' km/h'
+        + ' · ' + peakDirName + ' ' + Math.round(peakDir||0) + '° — ' + peakDirType
     });
   }
   if (wavePenalty > 3) {
