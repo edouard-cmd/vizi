@@ -700,7 +700,45 @@
       font-family:'JetBrains Mono', monospace;
       font-size:11px;
     }
-    /* TOAST TERRE */
+    /* LÉGENDE SÉDIMENTS */
+    #sedLegend {
+      position:absolute; bottom:26px; left:16px; z-index:900;
+      background:var(--surface);
+      border:1px solid var(--border);
+      border-radius:12px;
+      box-shadow:0 4px 20px rgba(0,0,0,0.08);
+      display:none; overflow:hidden;
+      min-width:190px;
+    }
+    .sed-legend-header {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:10px 14px 8px;
+      cursor:pointer;
+      border-bottom:1px solid var(--border);
+      background:var(--surface2);
+    }
+    .sed-legend-title {
+      font-family:'JetBrains Mono', monospace;
+      font-size:10px; font-weight:600;
+      color:var(--text-3);
+      text-transform:uppercase; letter-spacing:0.1em;
+    }
+    .sed-legend-toggle {
+      font-size:10px; color:var(--text-3);
+      transition:transform 0.2s;
+    }
+    .sed-legend-body { padding:10px 14px 12px; }
+    .sed-legend-row {
+      display:flex; align-items:center; gap:9px;
+      margin-bottom:6px;
+      font-family:'JetBrains Mono', monospace;
+      font-size:11px; color:var(--text-2);
+    }
+    .sed-legend-row:last-child { margin-bottom:0; }
+    .sed-swatch {
+      width:16px; height:16px; border-radius:3px;
+      flex-shrink:0; border:1px solid rgba(0,0,0,0.08);
+    }
     #landToast {
       position:fixed; bottom:80px; left:50%; transform:translateX(-50%) translateY(20px);
       z-index:1200;
@@ -722,6 +760,23 @@
 <div id="map"></div>
 <canvas id="heatmapCanvas"></canvas>
 <div id="landToast"></div>
+
+<!-- LÉGENDE SÉDIMENTS SHOM -->
+<div id="sedLegend">
+  <div class="sed-legend-header" onclick="var b=document.getElementById('sedLegendBody');var a=document.getElementById('sedLegendArrow');var open=b.style.display!=='none';b.style.display=open?'none':'block';a.style.transform=open?'rotate(0deg)':'rotate(180deg)';">
+    <div class="sed-legend-title">Natures de fond · SHOM</div>
+    <div class="sed-legend-toggle" id="sedLegendArrow">▲</div>
+  </div>
+  <div class="sed-legend-body" id="sedLegendBody">
+    <div class="sed-legend-row"><div class="sed-swatch" style="background:#CC2200"></div>Cailloutis · gravier</div>
+    <div class="sed-legend-row"><div class="sed-swatch" style="background:#E86030"></div>Sable grossier</div>
+    <div class="sed-legend-row"><div class="sed-swatch" style="background:#F0C060"></div>Sable fin</div>
+    <div class="sed-legend-row"><div class="sed-swatch" style="background:#F5E8A0"></div>Sable vaseux</div>
+    <div class="sed-legend-row"><div class="sed-swatch" style="background:#C8A878"></div>Vase sableuse</div>
+    <div class="sed-legend-row"><div class="sed-swatch" style="background:#8B6A40"></div>Vase</div>
+    <div class="sed-legend-row"><div class="sed-swatch" style="background:#B0B0B0"></div>Roche</div>
+  </div>
+</div>
 
 <!-- FORECAST PANEL -->
 <div id="forecastPanel">
@@ -1449,6 +1504,7 @@ function toggleLayer(type) {
   } else if (type==='sed') {
     S.showSed = !S.showSed;
     document.getElementById('btnSed').classList.toggle('active', S.showSed);
+    document.getElementById('sedLegend').style.display = S.showSed ? 'block' : 'none';
     if (S.showSed) {
       S.sedLayer.addTo(S.map);
     } else {
