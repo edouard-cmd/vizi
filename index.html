@@ -1920,6 +1920,7 @@ function fetchSedimentType(lat, lon) {
   fetch(url)
     .then(function(r){ return r.text(); })
     .then(function(text) {
+      console.log('SHOM sediment response:', text);
       if (!text || text.trim() === '' || text.indexOf('no features') !== -1) {
         document.getElementById('sedimentType').textContent = 'Non cartographié';
         return;
