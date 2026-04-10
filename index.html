@@ -60,9 +60,8 @@
       position:absolute; top:0; left:0; right:0; z-index:1000;
       display:flex; align-items:center; justify-content:space-between; gap:12px;
       padding:12px 20px;
-      background:rgba(255,255,255,0.92);
-      backdrop-filter:blur(12px);
-      border-bottom:1px solid var(--border);
+      background:#1A2535;
+      border-bottom:1px solid rgba(255,255,255,0.06);
       pointer-events:none;
     }
     #header > * { pointer-events:all; }
@@ -82,14 +81,14 @@
       font-family:'Inter', sans-serif;
       font-size:19px; font-weight:800;
       letter-spacing:0.16em;
-      color:var(--text);
+      color:#FFFFFF;
       text-transform:uppercase;
       line-height:1;
     }
     .logo-tagline {
       font-family:'JetBrains Mono', 'Courier New', monospace;
       font-size:10px; font-weight:500;
-      color:var(--citron-dark);
+      color:#A8E63D;
       letter-spacing:0.03em;
       line-height:1;
     }
@@ -98,42 +97,41 @@
     .date-nav { display:flex; gap:4px; }
     .day-btn {
       padding:7px 15px;
-      border:1px solid var(--border);
-      background:var(--surface);
-      color:var(--text-2);
+      border:1px solid rgba(255,255,255,0.15);
+      background:rgba(255,255,255,0.07);
+      color:rgba(255,255,255,0.6);
       border-radius:8px;
       cursor:pointer;
       font-family:'JetBrains Mono', monospace;
       font-size:12px; font-weight:500;
       transition:all 0.15s;
     }
-    .day-btn:hover { border-color:var(--accent); color:var(--accent); }
+    .day-btn:hover { border-color:rgba(168,230,61,0.5); color:#A8E63D; }
     .day-btn.active {
-      border-color:var(--accent);
-      color:var(--accent);
-      background:var(--accent-bg);
+      border-color:#A8E63D;
+      color:#A8E63D;
+      background:rgba(168,230,61,0.1);
       font-weight:600;
     }
 
-    /* CONTROLS */
     .controls { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
 
     .opacity-wrap {
       display:flex; align-items:center; gap:8px;
       font-family:'JetBrains Mono', monospace;
-      font-size:12px; color:var(--text-2);
-      background:var(--surface);
-      border:1px solid var(--border);
+      font-size:12px; color:rgba(255,255,255,0.5);
+      background:rgba(255,255,255,0.07);
+      border:1px solid rgba(255,255,255,0.12);
       border-radius:8px; padding:6px 12px;
     }
-    .opacity-wrap input { width:60px; accent-color:var(--accent); }
+    .opacity-wrap input { width:60px; accent-color:#A8E63D; }
 
     .ctrl-btn {
       display:flex; align-items:center; gap:6px;
       padding:7px 13px;
-      border:1px solid var(--border);
-      background:var(--surface);
-      color:var(--text-2);
+      border:1px solid rgba(255,255,255,0.12);
+      background:rgba(255,255,255,0.07);
+      color:rgba(255,255,255,0.55);
       border-radius:8px;
       cursor:pointer;
       font-family:'JetBrains Mono', monospace;
@@ -141,8 +139,8 @@
       transition:all 0.15s;
       white-space:nowrap;
     }
-    .ctrl-btn:hover { border-color:var(--accent); color:var(--accent); }
-    .ctrl-btn.active { border-color:var(--accent); color:var(--accent); background:var(--accent-bg); }
+    .ctrl-btn:hover { border-color:rgba(11,168,136,0.5); color:#0BA888; }
+    .ctrl-btn.active { border-color:#0BA888; color:#0BA888; background:rgba(11,168,136,0.1); }
     .ctrl-dot { width:6px; height:6px; border-radius:50%; background:currentColor; }
 
     /* ══════════════════════════════════════════
@@ -376,34 +374,29 @@
       text-transform:uppercase; letter-spacing:0.1em;
       margin-bottom:10px;
     }
-    .spot-vis-bar-wrap {
-      position:relative; height:44px;
-      border-radius:10px; overflow:hidden;
-      margin-bottom:8px;
-      box-shadow:0 2px 8px rgba(0,0,0,0.1);
-    }
-    .spot-vis-bar-bg {
-      position:absolute; inset:0;
-      background:linear-gradient(to right, var(--vis-null), var(--vis-bad), var(--vis-mid), var(--vis-good), var(--vis-exc));
-    }
-    .spot-vis-cursor {
-      position:absolute; top:0; bottom:0; width:3px;
-      background:white; border-radius:2px;
-      box-shadow:0 0 10px rgba(0,0,0,0.4);
-      transition:left 0.4s cubic-bezier(.4,0,.2,1);
-    }
-    .spot-vis-overlay {
-      position:absolute; inset:0;
+    .spot-vis-badge {
+      width:100%; padding:13px 0;
+      border-radius:10px;
       display:flex; align-items:center; justify-content:center;
-      font-family:'Inter', sans-serif;
+      margin-bottom:10px;
+      transition:background 0.35s;
+    }
+    .spot-vis-badge-text {
+      font-family:'Inter', system-ui, sans-serif;
       font-size:22px; font-weight:700;
-      color:white;
-      text-shadow:0 1px 6px rgba(0,0,0,0.35);
+      color:white; letter-spacing:0.01em;
+    }
+    .spot-vis-segments {
+      display:flex; gap:4px; margin-bottom:6px;
+    }
+    .spot-vis-seg {
+      flex:1; height:5px; border-radius:3px;
+      background:var(--border);
     }
     .spot-vis-ticks {
       display:flex; justify-content:space-between;
       font-family:'JetBrains Mono', monospace;
-      font-size:10px; color:var(--text-3); padding:0 2px;
+      font-size:10px; color:var(--text-3); padding:0 1px;
     }
 
     .spot-wind-block {
@@ -770,10 +763,15 @@
   </div>
   <div class="spot-vis-block">
     <div class="spot-vis-label">Visibilité estimée</div>
-    <div class="spot-vis-bar-wrap">
-      <div class="spot-vis-bar-bg"></div>
-      <div class="spot-vis-cursor" id="spotVisCursor"></div>
-      <div class="spot-vis-overlay" id="spotVisLabel">—</div>
+    <div class="spot-vis-badge" id="spotVisBadge">
+      <span class="spot-vis-badge-text" id="spotVisLabel">—</span>
+    </div>
+    <div class="spot-vis-segments">
+      <div class="spot-vis-seg" id="visSeg0"></div>
+      <div class="spot-vis-seg" id="visSeg1"></div>
+      <div class="spot-vis-seg" id="visSeg2"></div>
+      <div class="spot-vis-seg" id="visSeg3"></div>
+      <div class="spot-vis-seg" id="visSeg4"></div>
     </div>
     <div class="spot-vis-ticks"><span>Nulle</span><span>Faible</span><span>Moyenne</span><span>Bonne</span><span>Excellente</span></div>
     <div id="spotMemoryNote" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--warn);margin-top:5px;min-height:12px;text-align:center;letter-spacing:0.03em;"></div>
@@ -1580,11 +1578,13 @@ function openSpotPopup(latlng, name) {
 function positionSpotPopup(latlng) {
   var px = S.map.latLngToContainerPoint(latlng);
   var el = document.getElementById('spotPopup');
-  var w = 296, h = 260;
-  var left = px.x - w/2;
-  var top = px.y - h - 20;
-  left = Math.max(10, Math.min(left, window.innerWidth - w - 10));
-  top = Math.max(55, top);
+  var w = 324;
+  // Essaie à droite du curseur, sinon à gauche
+  var left = px.x + 24;
+  if (left + w + 10 > window.innerWidth) left = px.x - w - 24;
+  left = Math.max(10, left);
+  var top = px.y - 140;
+  top = Math.max(60, Math.min(top, window.innerHeight - 500));
   el.style.left = left + 'px';
   el.style.top = top + 'px';
 }
@@ -1686,10 +1686,29 @@ function renderSpotPopup() {
     memoryNote = '· agitation passée';
   }
 
-  var pct = Math.max(0, Math.min(100, score));
-  document.getElementById('spotVisCursor').style.left = 'calc(' + pct + '% - 1.5px)';
-  document.getElementById('spotVisLabel').textContent = visLabel;
-  document.getElementById('spotVisLabel').style.color = score > 55 ? 'rgba(0,0,0,0.85)' : 'white';
+  // Badge couleur unie selon niveau
+  var badgeColors = {
+    'Mauvaise':  '#DC2626',
+    'Faible':    '#EA580C',
+    'Moyenne':   '#CA8A04',
+    'Bonne':     '#16A34A',
+    'Excellente':'#0BA888'
+  };
+  var segColors = ['#DC2626','#EA580C','#CA8A04','#16A34A','#0BA888'];
+  var levelIdx = ['Mauvaise','Faible','Moyenne','Bonne','Excellente'].indexOf(visLabel);
+
+  var badge = document.getElementById('spotVisBadge');
+  var label = document.getElementById('spotVisLabel');
+  if (badge) badge.style.background = badgeColors[visLabel] || '#CA8A04';
+  if (label) label.textContent = visLabel;
+
+  // Segments : allumés jusqu'au niveau actif
+  for (var si = 0; si < 5; si++) {
+    var seg = document.getElementById('visSeg'+si);
+    if (seg) {
+      seg.style.background = si <= levelIdx ? segColors[si] : 'var(--border)';
+    }
+  }
 
   var noteEl = document.getElementById('spotMemoryNote');
   if (noteEl) noteEl.textContent = memoryNote;
