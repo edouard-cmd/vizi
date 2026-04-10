@@ -691,12 +691,28 @@
       font-family:'JetBrains Mono', monospace;
       font-size:11px;
     }
+    /* TOAST TERRE */
+    #landToast {
+      position:fixed; bottom:80px; left:50%; transform:translateX(-50%) translateY(20px);
+      z-index:1200;
+      background:#1A2535; color:white;
+      padding:14px 22px; border-radius:12px;
+      font-family:'JetBrains Mono', monospace; font-size:13px;
+      box-shadow:0 8px 30px rgba(0,0,0,0.2);
+      opacity:0; pointer-events:none;
+      transition:opacity 0.2s, transform 0.2s;
+      white-space:nowrap; max-width:90vw; text-align:center;
+    }
+    #landToast.show {
+      opacity:1; transform:translateX(-50%) translateY(0);
+    }
   </style>
 </head>
 <body>
 
 <div id="map"></div>
 <canvas id="heatmapCanvas"></canvas>
+<div id="landToast"></div>
 
 <!-- FORECAST PANEL -->
 <div id="forecastPanel">
@@ -951,6 +967,19 @@ const SPOTS = [
 
 let tidesCache = { data: null, loadedAt: null };
 
+function getTidesCacheKey() { return 'vizi_tides_' + new Date().toISOString().split('T')[0]; }
+
+function saveTidesToStorage(data) {
+  try { localStorage.setItem(getTidesCacheKey(), JSON.stringify({ data: data, ts: Date.now() })); } catch(e){}
+}
+function loadTidesFromStorage() {
+  try {
+    var raw = localStorage.getItem(getTidesCacheKey());
+    if (raw) { var p = JSON.parse(raw); return p.data || null; }
+  } catch(e){}
+  return null;
+}
+
 const VIS = [
   {v:0,   l:'0m',   c:'#DC2626'},
   {v:0.5, l:'0.5m', c:'#EA580C'},
@@ -1103,9 +1132,14 @@ function initMap() {
   });
 
   S.map.on('click', function(e) {
-    
-    openSpotPopup(e.latlng, null);
-    loadForecast(e.latlng.lat, e.latlng.lng, null);
+    isOnSea(e.latlng.lat, e.latlng.lng, function(onSea) {
+      if (!onSea) {
+        showLandMessage(e.latlng);
+        return;
+      }
+      openSpotPopup(e.latlng, null);
+      loadForecast(e.latlng.lat, e.latlng.lng, null);
+    });
   });
 
   S.map.on('moveend zoomend', function() { drawHeatmap(); });
@@ -1271,13 +1305,13 @@ function submitObs() {
 // MARÉES
 // ============================================================
 function loadTidesCache() {
-  if (tidesCache.data && tidesCache.loadedAt && (Date.now() - tidesCache.loadedAt) < 3600000) {
-    return Promise.resolve();
-  }
+  if (tidesCache.data) return Promise.resolve();
+  var stored = loadTidesFromStorage();
+  if (stored) { tidesCache.data = stored; return Promise.resolve(); }
   return gasGet('tides').then(function(data) {
     if (data && data.tides) {
       tidesCache.data = data.tides;
-      tidesCache.loadedAt = Date.now();
+      saveTidesToStorage(data.tides);
     }
   });
 }
@@ -1789,7 +1823,9 @@ function renderSpotPopup() {
 
   var dirFactor = getDirFactor(dir);
 
+  // ── MÉMOIRE AGITATION : on track le pic ──────────────────
   var residualPenalty = 0;
+  var peakWind = 0, peakGusts = 0, peakDir = null, peakHoursAgo = 0, peakTime = null;
   var startIdx = Math.max(0, idx - decayHours);
   for (var i = startIdx; i < idx; i++) {
     var pastWind  = h.windspeed_10m[i]  || 0;
@@ -1799,7 +1835,15 @@ function renderSpotPopup() {
     var pastImpact = (Math.max(pastWind - 5, 0) / 20 * 55 + Math.max(pastGusts - 10, 0) / 25 * 30) * pastDirF;
     var hoursAgo = idx - i;
     var decay = Math.exp(-hoursAgo / (decayHours / 3));
-    residualPenalty = Math.max(residualPenalty, pastImpact * decay);
+    var weighted = pastImpact * decay;
+    if (weighted > residualPenalty) {
+      residualPenalty = weighted;
+      peakWind = Math.round(pastWind);
+      peakGusts = Math.round(pastGusts);
+      peakDir = pastDir;
+      peakHoursAgo = hoursAgo;
+      peakTime = h.time[i] ? h.time[i].slice(11,16) : '—';
+    }
   }
 
   var windPenalty = Math.min(Math.max(wind - 5, 0) / 20, 1) * 55 * dirFactor;
@@ -1876,7 +1920,17 @@ function renderSpotPopup() {
   }
 
   if (residualPenalty > 5) {
-    factors.push({ icon:'⏱', label:'Agitation passée (coup de mer '+Math.round(decayHours)+'h de décantation)', impact:Math.round(residualPenalty), max:55 });
+    var peakFromNames = ['N','NE','E','SE','S','SO','O','NO'];
+    var peakDirName = (peakDir !== null && peakDir !== undefined) ? peakFromNames[Math.round(peakDir/45)%8] : '—';
+    var peakDirType = getDirFactor(peakDir) <= 0.2 ? 'offshore' : getDirFactor(peakDir) >= 1.3 ? 'onshore ⚠' : 'latéral';
+    factors.push({
+      icon:'⏱',
+      label:'Agitation passée — ' + Math.round(decayHours) + 'h de décantation',
+      impact:Math.round(residualPenalty), max:55,
+      detail: 'Pic il y a ' + peakHoursAgo + 'h (vers ' + peakTime + ') · '
+        + peakWind + ' km/h rafales ' + peakGusts + ' km/h · '
+        + peakDirName + ' ' + Math.round(peakDir||0) + '° — ' + peakDirType
+    });
   }
   if (wavePenalty > 3) {
     factors.push({ icon:'🌊', label:'Vagues '+wave.toFixed(1)+'m', impact:Math.round(wavePenalty), max:35 });
@@ -1884,29 +1938,91 @@ function renderSpotPopup() {
   factors.push({ icon:'⚓', label:'Fond ~'+Math.round(depth)+'m (×'+bathyFactor.toFixed(1)+' amplification)', impact:null, max:null });
 
   var factorsEl = document.getElementById('spotFactors');
-  factorsEl.innerHTML = factors.map(function(f) {
+  factorsEl.innerHTML = factors.map(function(f, fi) {
     var barHtml = '';
     if (f.impact !== null && f.max !== null) {
       var pct = Math.min(100, Math.round(f.impact / f.max * 100));
       var barColor = pct < 20 ? '#0BA888' : pct < 50 ? '#CA8A04' : pct < 80 ? '#EA580C' : '#DC2626';
-      barHtml = '<div style="flex:1;height:3px;background:rgba(255,255,255,0.07);border-radius:2px;overflow:hidden;">'
+      barHtml = '<div style="flex:1;height:3px;background:#E2E8F0;border-radius:2px;overflow:hidden;">'
         + '<div style="height:100%;width:'+pct+'%;background:'+barColor+';border-radius:2px;transition:width 0.4s"></div>'
         + '</div>'
-        + '<div style="font-size:12px;color:'+barColor+';min-width:24px;text-align:right;font-family:JetBrains Mono,monospace">'+(pct > 0 ? '-'+Math.round(f.impact) : '✓')+'</div>';
+        + '<div style="font-size:12px;color:'+barColor+';min-width:28px;text-align:right;font-family:JetBrains Mono,monospace;font-weight:600">'+(pct > 0 ? '−'+Math.round(f.impact) : '✓')+'</div>';
     } else {
-      barHtml = '<div style="flex:1"></div><div style="font-size:12px;color:var(--text-3);font-family:JetBrains Mono,monospace">×'+bathyFactor.toFixed(1)+'</div>';
+      barHtml = '<div style="flex:1"></div><div style="font-size:12px;color:#94A3B8;font-family:JetBrains Mono,monospace">×'+bathyFactor.toFixed(1)+'</div>';
     }
-    return '<div style="display:flex;align-items:center;gap:8px;">'
-      + '<span style="font-size:11px;width:16px;text-align:center">'+f.icon+'</span>'
-      + '<span style="font-family:JetBrains Mono,monospace;font-size:12px;color:var(--text-3);flex:1;line-height:1.4;letter-spacing:0.02em">'+f.label+'</span>'
-      + '<div style="display:flex;align-items:center;gap:4px;min-width:80px">'+barHtml+'</div>'
+
+    var detailHtml = '';
+    if (f.detail) {
+      var detailId = 'fdetail_' + fi;
+      detailHtml = '<div id="'+detailId+'" style="display:none;margin-top:6px;padding:8px 10px;background:#EFF6FF;border-left:2px solid #3B82F6;border-radius:0 6px 6px 0;">'
+        + '<div style="font-family:JetBrains Mono,monospace;font-size:11px;color:#1E40AF;line-height:1.6">'+f.detail+'</div>'
+        + '</div>';
+    }
+
+    var infoBtn = f.detail
+      ? '<button onclick="var d=document.getElementById(\'fdetail_'+fi+'\');d.style.display=d.style.display===\'none\'?\'block\':\'none\'" '
+        + 'style="background:none;border:1px solid #CBD5E0;border-radius:50%;width:18px;height:18px;font-size:10px;color:#64748B;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:serif;font-weight:bold">i</button>'
+      : '';
+
+    return '<div style="display:flex;flex-direction:column;gap:0">'
+      + '<div style="display:flex;align-items:center;gap:8px;">'
+      + '<span style="font-size:13px;width:16px;text-align:center;flex-shrink:0">'+f.icon+'</span>'
+      + '<span style="font-family:JetBrains Mono,monospace;font-size:11px;color:#4A6080;flex:1;line-height:1.4">'+f.label+'</span>'
+      + '<div style="display:flex;align-items:center;gap:6px;min-width:90px">'+barHtml+'</div>'
+      + infoBtn
+      + '</div>'
+      + detailHtml
       + '</div>';
   }).join('');
 }
 
 // ============================================================
-// BOUTON OBS
+// DÉTECTION TERRE / MER
 // ============================================================
+var LAND_MESSAGES = [
+  '🏕️ Ça va être compliqué la chasse sous-marine ici…',
+  '🌾 Belle profondeur de 0m. Les poissons sont en vacances.',
+  '🚜 Visibilité excellente — mais il n\'y a pas d\'eau.',
+  '🐄 Spotted : un banc de vaches. Turbidité nulle.',
+  '⛰️ Fond détecté à -0m. Technique de chasse : la marche.',
+  '🌳 Zone boisée. Les bars préfèrent l\'eau salée.',
+  '🏠 Ce spot est sur la terre ferme. Essaie 50m plus à gauche.',
+  '🧭 Bon, t\'as raté la mer. C\'est juste en bas.',
+];
+
+var _landToastTimer = null;
+
+function isOnSea(lat, lon, callback) {
+  // Nominatim reverse geocoding — renvoie type "water" ou non
+  var url = 'https://nominatim.openstreetmap.org/reverse?lat='+lat+'&lon='+lon+'&format=json&zoom=10';
+  fetch(url, { headers: { 'Accept-Language': 'fr' } })
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+      var type = (data.type || '').toLowerCase();
+      var cls  = (data.class || '').toLowerCase();
+      // C'est de la mer/eau si class=waterway, natural=water, type=sea/bay/strait/ocean...
+      var waterTypes = ['sea','bay','strait','ocean','water','coastline','harbour','inlet','river','lake'];
+      var isWater = cls === 'waterway' || cls === 'natural' && type === 'water'
+        || waterTypes.indexOf(type) !== -1
+        || !data.address  // pas d'adresse = très probablement en mer
+        || (!data.address.road && !data.address.city && !data.address.town && !data.address.village && !data.address.hamlet && !data.address.municipality && !data.address.county);
+      callback(isWater);
+    })
+    .catch(function() {
+      callback(true); // En cas d'erreur, on laisse passer
+    });
+}
+
+function showLandMessage(latlng) {
+  var msg = LAND_MESSAGES[Math.floor(Math.random() * LAND_MESSAGES.length)];
+  var toast = document.getElementById('landToast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  if (_landToastTimer) clearTimeout(_landToastTimer);
+  _landToastTimer = setTimeout(function() {
+    toast.classList.remove('show');
+  }, 3200);
+}
 function openObsPanel() {
   var latlng = S.clickLatLng || S.map.getCenter();
   openPopup(latlng, null);
