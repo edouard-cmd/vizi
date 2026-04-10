@@ -1020,7 +1020,7 @@ let S = {
   map:null, day:0,
   heatmap:[], opacity:0.55,
   showHeatmap:false, showIso:true, showSed:false,
-  isoDeep:null, isoShom:null, sedLayer:null,
+  isoDeep:null, isoShom:null, sedLayer:null, sedLayerFallback:null,
   spotMarkers:{}, clickMarker:null, clickLatLng:null,
   form:{ bottom:true, current:false, visIdx:8 },
   canvas:null, ctx:null,
@@ -1125,11 +1125,20 @@ function initMap() {
     attribution: 'Signalisation © OpenSeaMap', opacity: 0.95, maxZoom: 19
   });
 
-  S.sedLayer = L.tileLayer.wms('https://ows.emodnet-seabedhabitats.eu/geoserver/emodnet_view/wms', {
+  // Couche sédiments principale : EMODnet Geology 2024
+  S.sedLayer = L.tileLayer.wms('https://geoserver.emodnet-geology.eu/geoserver/bgr/wms', {
+    layers: 'seabed_substrate_250k',
+    format: 'image/png', transparent: true,
+    version: '1.1.1',
+    attribution: 'Sédiments © EMODnet Geology',
+    opacity: 0.7, maxZoom: 19
+  });
+  // Fallback : Seabed Habitats EUSeaMap
+  S.sedLayerFallback = L.tileLayer.wms('https://ows.emodnet-seabedhabitats.eu/geoserver/emodnet_view/wms', {
     layers: 'emodnet_view:euseamap_2023',
     format: 'image/png', transparent: true,
     version: '1.1.1',
-    attribution: 'Sédiments © EMODnet Seabed Habitats 2023',
+    attribution: 'Habitats © EMODnet Seabed Habitats',
     opacity: 0.65, maxZoom: 19
   });
 
@@ -1447,7 +1456,13 @@ function toggleLayer(type) {
   } else if (type==='sed') {
     S.showSed = !S.showSed;
     document.getElementById('btnSed').classList.toggle('active', S.showSed);
-    if (S.showSed) S.sedLayer.addTo(S.map); else S.map.removeLayer(S.sedLayer);
+    if (S.showSed) {
+      S.sedLayer.addTo(S.map);
+      S.sedLayerFallback.addTo(S.map);
+    } else {
+      if (S.map.hasLayer(S.sedLayer)) S.map.removeLayer(S.sedLayer);
+      if (S.map.hasLayer(S.sedLayerFallback)) S.map.removeLayer(S.sedLayerFallback);
+    }
   }
 }
 
