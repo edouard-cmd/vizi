@@ -60,7 +60,7 @@
     #header {
       position:absolute; top:0; left:0; right:0; z-index:1000;
       display:flex; align-items:center; justify-content:space-between; gap:12px;
-      padding:12px 20px;
+      padding:16px 24px;
       background:#1A2535;
       border-bottom:1px solid rgba(255,255,255,0.06);
       pointer-events:none;
@@ -70,15 +70,15 @@
     /* LOGO */
     .logo { display:flex; align-items:center; gap:10px; text-decoration:none; }
     .logo-mark {
-      width:54px; height:54px;
+      width:64px; height:64px;
       display:flex; align-items:center; justify-content:center;
       flex-shrink:0;
     }
-    .logo-mark svg { width:18px; height:18px; }
-    .logo-text-wrap { display:flex; flex-direction:column; gap:2px; }
+    .logo-mark svg { width:64px; height:64px; }
+    .logo-text-wrap { display:flex; flex-direction:column; gap:4px; }
     .logo-name {
       font-family:'Inter', sans-serif;
-      font-size:30px; font-weight:800;
+      font-size:36px; font-weight:800;
       letter-spacing:0.16em;
       color:#FFFFFF;
       text-transform:uppercase;
@@ -86,11 +86,10 @@
     }
     .logo-tagline {
       font-family:'JetBrains Mono', 'Courier New', monospace;
-      font-size:12px; font-weight:500;
+      font-size:13px; font-weight:500;
       color:#A8E63D;
       letter-spacing:0.03em;
       line-height:1;
-      margin-top:2px;
     }
 
     /* DATE NAV */
@@ -139,8 +138,8 @@
       transition:all 0.15s;
       white-space:nowrap;
     }
-    .ctrl-btn:hover { border-color:rgba(11,168,136,0.5); color:#0BA888; }
-    .ctrl-btn.active { border-color:#0BA888; color:#0BA888; background:rgba(11,168,136,0.1); }
+    .ctrl-btn:hover { border-color:rgba(168,230,61,0.5); color:#A8E63D; }
+    .ctrl-btn.active { border-color:#A8E63D; color:#A8E63D; background:rgba(168,230,61,0.08); }
     .ctrl-dot { width:6px; height:6px; border-radius:50%; background:currentColor; }
 
     /* ══════════════════════════════════════════
@@ -311,7 +310,7 @@
        DRAWER LATÉRAL
     ══════════════════════════════════════════ */
     #spotDrawer {
-      position:fixed; top:57px; right:0; bottom:0; z-index:1100;
+      position:fixed; top:73px; right:0; bottom:0; z-index:1100;
       width:340px;
       background:var(--surface);
       border-left:1px solid var(--border);
@@ -735,7 +734,7 @@
 <div id="header">
   <div class="logo">
     <div class="logo-mark">
-      <svg width="54" height="54" viewBox="0 0 46 46" fill="none">
+      <svg width="64" height="64" viewBox="0 0 46 46" fill="none">
         <circle cx="23" cy="23" r="21" fill="#0F1923"/>
         <circle cx="23" cy="23" r="21" stroke="#A8E63D" stroke-width="1.8"/>
         <path d="M23 35 Q14 27 11 17 Q10 11 14 9 Q18 9 20 17 Q22 27 23 31" stroke="#A8E63D" stroke-width="2.8" stroke-linecap="round" fill="none"/>
@@ -754,10 +753,6 @@
 
 
   <div class="controls">
-    <div class="opacity-wrap">
-      <span>Turb.</span>
-      <input type="range" id="opacitySlider" min="0" max="100" value="55" oninput="setOpacity(this.value)">
-    </div>
     <button class="ctrl-btn" id="btnHeatmap" onclick="toggleLayer('heatmap')"><span class="ctrl-dot"></span>Heatmap</button>
     <button class="ctrl-btn active" id="btnIso" onclick="toggleLayer('iso')"><span class="ctrl-dot"></span>Isobathes</button>
     <button class="ctrl-btn" id="btnSed" onclick="toggleLayer('sed')"><span class="ctrl-dot"></span>Sédiments</button>
@@ -1031,6 +1026,7 @@ function toggleWindUnit() {
     btn.style.borderColor = S_windUnit === 'kt' ? '#A8E63D' : 'rgba(255,255,255,0.15)';
   }
   if (S_lastForecastData) renderForecastTable(S_lastForecastData.h, S_lastForecastData.now);
+  if (S_spotWeatherCache) renderSpotPopup();
 }
 
 function toKt(kmh) { return Math.round(kmh * 0.539957); }
@@ -1928,10 +1924,19 @@ function renderSpotPopup() {
 
   var windColor = wind < 10 ? '#0BA888' : wind < 20 ? '#CA8A04' : wind < 35 ? '#EA580C' : '#DC2626';
   var gustColor = gusts < 15 ? '#0BA888' : gusts < 25 ? '#CA8A04' : gusts < 45 ? '#EA580C' : '#DC2626';
-  document.getElementById('spotWindSpeed').textContent = wind;
+
+  var windDisp  = S_windUnit === 'kt' ? toKt(wind)  : wind;
+  var gustDisp  = S_windUnit === 'kt' ? toKt(gusts) : gusts;
+  var unitDisp  = S_windUnit === 'kt' ? 'nœuds' : 'km/h';
+
+  document.getElementById('spotWindSpeed').textContent = windDisp;
   document.getElementById('spotWindSpeed').style.color = windColor;
-  document.getElementById('spotWindGusts').textContent = gusts;
+  document.getElementById('spotWindGusts').textContent = gustDisp;
   document.getElementById('spotWindGusts').style.color = gustColor;
+  // Mettre à jour les labels km/h du drawer
+  document.querySelectorAll('.spot-wind-unit').forEach(function(el, i) {
+    if (i < 2) el.textContent = unitDisp;
+  });
 
   var arrowsTo = ['↑','↗','→','↘','↓','↙','←','↖'];
   var fromNames = ['N','NE','E','SE','S','SO','O','NO'];
@@ -1943,11 +1948,12 @@ function renderSpotPopup() {
 
   var factors = [];
   var windImpact = Math.round(windPenalty);
+  var windDispLabel = windDisp + ' ' + unitDisp;
   if (windImpact > 2) {
     var windType = dirFactor <= 0.2 ? 'offshore · mer plate' : dirFactor >= 1.3 ? 'onshore · agite le fond' : 'latéral';
-    factors.push({ icon:'💨', label:'Vent '+wind+' km/h ('+dirName+' — '+windType+')', impact:windImpact, max:55 });
+    factors.push({ icon:'💨', label:'Vent '+windDispLabel+' ('+dirName+' — '+windType+')', impact:windImpact, max:55 });
   } else {
-    factors.push({ icon:'💨', label:'Vent '+wind+' km/h ('+dirName+' — offshore · mer plate)', impact:0, max:55 });
+    factors.push({ icon:'💨', label:'Vent '+windDispLabel+' ('+dirName+' — offshore · mer plate)', impact:0, max:55 });
   }
 
   if (residualPenalty > 5) {
