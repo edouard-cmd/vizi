@@ -1475,15 +1475,16 @@ function showHexLayer() {
     var score = f.properties.score;
     var color = scoreToColor(score);
     var c = L.circle([lat, lon], {
-      radius: 1400,
+      radius: 2200,
       fillColor: color,
-      fillOpacity: 1.0,
-      color: 'none',
-      weight: 0
-    }).addTo(S.map);
+      fillOpacity: 0.85,
+      color: color,
+      weight: 0.5,
+      opacity: 0.3
+    });
     circles.push(c);
   });
-  S_hexLayer = L.layerGroup(circles).addTo(S.map);
+  S_hexLayer = L.featureGroup(circles).addTo(S.map);
 }
 
 function hideHexLayer() {
