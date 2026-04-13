@@ -1445,31 +1445,67 @@ function initMap() {
 // ============================================================
 // HEATMAP
 // ============================================================
+// Grille hexagonale pré-calculée — Courseulles / Arromanches (mock visuel)
+var HEX_GRID = [
+  // Arromanches ouest — graviers, bonne visi
+  {lat:49.3422,lon:-0.6231,score:15},{lat:49.3480,lon:-0.6100,score:18},
+  {lat:49.3520,lon:-0.6350,score:20},{lat:49.3460,lon:-0.6500,score:22},
+  {lat:49.3560,lon:-0.6000,score:12},{lat:49.3600,lon:-0.6200,score:16},
+  // Arromanches est — transition
+  {lat:49.3422,lon:-0.5900,score:35},{lat:49.3480,lon:-0.5700,score:42},
+  {lat:49.3520,lon:-0.5500,score:48},{lat:49.3560,lon:-0.5800,score:38},
+  {lat:49.3600,lon:-0.5600,score:45},{lat:49.3460,lon:-0.5300,score:52},
+  // Ver-sur-Mer — sable, plus turbide
+  {lat:49.3358,lon:-0.5303,score:58},{lat:49.3400,lon:-0.5100,score:62},
+  {lat:49.3450,lon:-0.5400,score:55},{lat:49.3500,lon:-0.5200,score:60},
+  {lat:49.3380,lon:-0.4900,score:65},{lat:49.3420,lon:-0.4700,score:68},
+  // Courseulles — embouchure Seulles, très turbide
+  {lat:49.3383,lon:-0.4572,score:78},{lat:49.3430,lon:-0.4400,score:75},
+  {lat:49.3350,lon:-0.4350,score:80},{lat:49.3480,lon:-0.4600,score:72},
+  {lat:49.3520,lon:-0.4400,score:70},{lat:49.3300,lon:-0.4200,score:82},
+  // Luc-sur-Mer — sable fin, turbide
+  {lat:49.3219,lon:-0.3556,score:72},{lat:49.3280,lon:-0.3700,score:68},
+  {lat:49.3350,lon:-0.3800,score:65},{lat:49.3260,lon:-0.3400,score:75},
+  {lat:49.3180,lon:-0.3300,score:70},{lat:49.3320,lon:-0.3200,score:73},
+  // Lion-sur-Mer — légèrement meilleur
+  {lat:49.2986,lon:-0.3147,score:60},{lat:49.3050,lon:-0.3000,score:55},
+  {lat:49.3100,lon:-0.3300,score:58},{lat:49.3150,lon:-0.2900,score:52},
+  // Large (profond) — meilleure visi
+  {lat:49.3700,lon:-0.6000,score:10},{lat:49.3750,lon:-0.5500,score:15},
+  {lat:49.3800,lon:-0.5000,score:18},{lat:49.3700,lon:-0.4500,score:22},
+  {lat:49.3750,lon:-0.4000,score:20},{lat:49.3800,lon:-0.3500,score:25},
+];
+
 function drawHeatmap() {
   S.ctx.clearRect(0, 0, S.canvas.width, S.canvas.height);
-  if (!S.showHeatmap || !S.map || S.heatmap.length === 0) return;
+  if (!S.showHeatmap || !S.map) return;
 
-  // Approche simple et rapide : cercles gaussiens avec flou CSS
-  // Pas de calcul pixel par pixel — juste des dégradés radials sur les points visibles
-  var W = S.canvas.width, H = S.canvas.height;
   var zoom = S.map.getZoom();
-  var radius = Math.max(30, Math.min(zoom * 8, 120));
+  // Rayon hexagone en pixels selon zoom — adaptatif
+  var hexPx = zoom >= 13 ? 18 : zoom >= 11 ? 28 : zoom >= 9 ? 44 : 65;
 
-  S.ctx.globalCompositeOperation = 'source-over';
-
-  S.heatmap.forEach(function(pt) {
-    var px = S.map.latLngToContainerPoint([pt.lat, pt.lon]);
-    if (px.x < -radius || px.x > W + radius || px.y < -radius || px.y > H + radius) return;
-    var grad = S.ctx.createRadialGradient(px.x, px.y, 0, px.x, px.y, radius);
-    var rgb = scoreRgb(pt.score);
-    grad.addColorStop(0,    'rgba(' + rgb + ',' + S.opacity + ')');
-    grad.addColorStop(0.4,  'rgba(' + rgb + ',' + (S.opacity * 0.6) + ')');
-    grad.addColorStop(0.75, 'rgba(' + rgb + ',' + (S.opacity * 0.15) + ')');
-    grad.addColorStop(1,    'rgba(' + rgb + ',0)');
-    S.ctx.fillStyle = grad;
+  function drawHex(cx, cy, r, color) {
     S.ctx.beginPath();
-    S.ctx.arc(px.x, px.y, radius, 0, Math.PI * 2);
+    for (var i = 0; i < 6; i++) {
+      var angle = Math.PI / 3 * i - Math.PI / 6;
+      if (i === 0) S.ctx.moveTo(cx + r * Math.cos(angle), cy + r * Math.sin(angle));
+      else S.ctx.lineTo(cx + r * Math.cos(angle), cy + r * Math.sin(angle));
+    }
+    S.ctx.closePath();
+    S.ctx.fillStyle = color;
     S.ctx.fill();
+  }
+
+  var W = S.canvas.width, H = S.canvas.height;
+
+  // Utiliser HEX_GRID si heatmap vide ou mock
+  var grid = S.heatmap.length > 0 ? S.heatmap : HEX_GRID;
+
+  grid.forEach(function(pt) {
+    var px = S.map.latLngToContainerPoint([pt.lat, pt.lon]);
+    if (px.x < -hexPx*2 || px.x > W+hexPx*2 || px.y < -hexPx*2 || px.y > H+hexPx*2) return;
+    var rgb = scoreRgb(pt.score);
+    drawHex(px.x, px.y, hexPx, 'rgba(' + rgb + ',' + S.opacity + ')');
   });
 }
 
