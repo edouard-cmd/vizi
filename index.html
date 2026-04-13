@@ -945,7 +945,7 @@
       color:rgba(255,255,255,0.75); cursor:pointer; transition:all 0.15s;
       letter-spacing:0.04em;
     ">km/h</button>
-    <button onclick="openObsSheet()" style="flex-shrink:0;padding:7px 14px;background:#A8E63D;border:none;border-radius:8px;color:#1A2535;font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;pointer-events:all;">📍 Partager</button>
+    <button onclick="openObsSheet()" style="flex-shrink:0;padding:7px 14px;background:#A8E63D;border:none;border-radius:8px;color:#1A2535;font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;pointer-events:all;"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="flex-shrink:0"><line x1="6" y1="1" x2="6" y2="11" stroke="#1A2535" stroke-width="2" stroke-linecap="round"/><line x1="1" y1="6" x2="11" y2="6" stroke="#1A2535" stroke-width="2" stroke-linecap="round"/></svg> Améliorer les prévisions</button>
 
   </div>
 </div>
@@ -956,7 +956,7 @@
 
 <!-- BOUTON PARTAGER MOBILE -->
 <button id="mobileShareBtn" onclick="openObsSheet()">
-  📍 Partager mon observation
+  Améliorer les prévisions
 </button>
 
 <!-- OVERLAY -->
@@ -973,8 +973,9 @@
     <button class="obs-sheet-close" onclick="closeObsSheet()">✕</button>
   </div>
   <div style="padding:10px 20px;background:#F0FDF4;border-bottom:1px solid #BBF7D0;">
-    <div style="font-family:'DM Mono',monospace;font-size:11px;color:#166534;line-height:1.6;">
-      🎯 Tes observations terrain améliorent directement le modèle de prédiction de visibilité — plus on a de données réelles, plus les estimations sont précises pour tous.
+    <div style="font-family:'Space Grotesk',sans-serif;font-size:12px;color:#166534;line-height:1.6;">
+      <strong>Comment ça marche ?</strong><br>
+      Chaque condition que tu renseignes est comparée à nos prévisions météo et de marée. Plus on accumule de données terrain réelles, plus le modèle apprend à prédire avec précision — et meilleures sont les prévisions pour toi et tous les chasseurs de la zone.
     </div>
   </div>
   <div class="obs-sheet-body">
@@ -1165,7 +1166,7 @@
     </div>
   </div>
   <textarea class="popup-textarea" id="obsComment" placeholder="Espèces vues, visibilité latérale, type de fond..."></textarea>
-  <button class="popup-submit" id="obsSubmit" onclick="submitObs()">📍 Partager mon observation</button>
+  <button class="popup-submit" id="obsSubmit" onclick="submitObs()"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="flex-shrink:0"><line x1="6" y1="1" x2="6" y2="11" stroke="#1A2535" stroke-width="2" stroke-linecap="round"/><line x1="1" y1="6" x2="11" y2="6" stroke="#1A2535" stroke-width="2" stroke-linecap="round"/></svg> Améliorer les prévisions</button>
   <div class="popup-success" id="obsSuccess">✅ Observation enregistrée !</div>
 </div>
 
@@ -1527,7 +1528,7 @@ function openPopup(latlng, spotName) {
   document.getElementById('obsSuccess').style.display = 'none';
   document.getElementById('obsSubmit').style.display = 'block';
   document.getElementById('obsSubmit').disabled = false;
-  document.getElementById('obsSubmit').textContent = '📍 Partager mon observation';
+  document.getElementById('obsSubmit').textContent = 'Améliorer les prévisions';
 
   positionPopup(latlng);
   document.getElementById('obsPopup').style.display = 'block';
@@ -2364,14 +2365,14 @@ var OBS_FOND = true;
 var OBS_SUBMITTING = false;
 
 var OBS_SUCCESS_MSGS = [
-  { msg:'🤫 Reçu. Ton spot reste ton spot.', sub:'On note la turbidité, pas les coordonnées.' },
-  { msg:'🔒 Transmis anonymement.', sub:'Les bars sont en sécurité, promis.' },
-  { msg:'🤝 Merci. On partage la visi, pas le spot.', sub:'Observation enregistrée avec succès.' },
-  { msg:'🐟 Noté ! Ton coin secret est bien gardé.', sub:'La communauté VIZI te remercie.' },
-  { msg:'👌 Parfait. Ton spot reste secret.', sub:'On retient juste la visibilité et les espèces.' },
-  { msg:'🦑 Même la seiche ne parlera pas.', sub:'Observation bien reçue.' },
-  { msg:'📍 Coordonnées reçues, bouche cousue.', sub:'Merci pour la communauté.' },
-  { msg:'🎯 Top ! Le secret de ton spot est safe.', sub:'Tu viens aider les chasseurs du coin.' },
+  { msg:'Reçu. Ton spot reste ton spot.', sub:'On note la turbidité, pas les coordonnées.' },
+  { msg:'Transmis anonymement.', sub:'Les bars sont en sécurité, promis.' },
+  { msg:'Merci. On partage la visi, pas le spot.', sub:'Observation enregistrée avec succès.' },
+  { msg:'Noté ! Ton coin secret est bien gardé.', sub:'La communauté VIZI te remercie.' },
+  { msg:'Parfait. Ton spot reste secret.', sub:'On retient juste la visibilité et les espèces.' },
+  { msg:'Même la seiche ne parlera pas.', sub:'Observation bien reçue.' },
+  { msg:'Coordonnées reçues, bouche cousue.', sub:'Merci pour la communauté.' },
+  { msg:'Top ! Le secret de ton spot est safe.', sub:'Tu viens aider les chasseurs du coin.' },
 ];
 
 function openObsSheet() {
@@ -2387,7 +2388,7 @@ function openObsSheet() {
   document.getElementById('obsSheetSpecies').value = '';
   document.getElementById('obsSheetSubmit').style.display = 'block';
   document.getElementById('obsSheetSubmit').disabled = false;
-  document.getElementById('obsSheetSubmit').textContent = 'Partager 🤙';
+  document.getElementById('obsSheetSubmit').textContent = 'Envoyer mes conditions';
   document.getElementById('obsSheetSuccess').style.display = 'none';
 
   document.getElementById('obsSheet').classList.add('open');
@@ -2439,7 +2440,17 @@ function submitObsSheet() {
     sediment: null
   };
 
-  gasPost('submit_observation', data).then(function(result) {
+  // Envoi via GET pour éviter les problèmes CORS avec gasPost
+  gasGet('submit_observation', {
+    lat: data.lat,
+    lon: data.lon,
+    date: data.date,
+    time: data.time,
+    visibility_m: data.visibility_m,
+    visibility_label: data.visibility_label,
+    bottom_visible: data.bottom_visible,
+    comment: data.comment
+  }).then(function(result) {
     OBS_SUBMITTING = false;
     if (result && result.success) {
       btn.style.display = 'none';
@@ -2450,7 +2461,7 @@ function submitObsSheet() {
       setTimeout(closeObsSheet, 3000);
     } else {
       btn.disabled = false;
-      btn.textContent = 'Partager 🤙';
+      btn.textContent = 'Envoyer mes conditions';
       alert('Erreur envoi. Vérifie ta connexion.');
     }
   });
