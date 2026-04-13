@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VIZI — Lisez la mer avant d'y entrer</title>
+  <title>VIZI - Lisez la mer avant d'y entrer</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 46 46' fill='none'%3E%3Ccircle cx='23' cy='23' r='21' fill='%231A2535'/%3E%3Ccircle cx='23' cy='23' r='21' stroke='%23A8E63D' stroke-width='2.2'/%3E%3Cpath d='M23 35 Q14 27 11 17 Q10 11 14 9 Q18 9 20 17 Q22 27 23 31' stroke='%23A8E63D' stroke-width='3.2' stroke-linecap='round'/%3E%3Cpath d='M23 35 Q32 27 35 17 Q36 11 32 9 Q28 9 26 17 Q24 27 23 31' stroke='%23A8E63D' stroke-width='3.2' stroke-linecap='round'/%3E%3Ccircle cx='23' cy='38' r='3.2' fill='%23A8E63D'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -190,7 +190,7 @@
     .ww-2{background:rgba(202,138,4,0.22)}  .ww-3{background:rgba(234,88,12,0.30)}
     .ww-4{background:rgba(220,38,38,0.38)}
 
-    /* ══ LÉGENDE SÉDIMENTS — positionnée dynamiquement via JS ══ */
+    /* ══ LÉGENDE SÉDIMENTS - positionnée dynamiquement via JS ══ */
     #sedLegend {
       position:absolute; left:16px; z-index:900;
       background:var(--surface); border:1px solid var(--border);
@@ -535,7 +535,7 @@
         margin-bottom:80px !important;
       }
 
-      /* Table météo — colonnes plus étroites */
+      /* Table météo - colonnes plus étroites */
       .wg-table td, .wg-table th {
         padding:4px 7px;
         font-size:11px;
@@ -873,7 +873,7 @@
   ⊕ Analyser ce point
 </button>
 
-<!-- LÉGENDE SÉDIMENTS SHOM — top positionné par JS -->
+<!-- LÉGENDE SÉDIMENTS SHOM - top positionné par JS -->
 <div id="sedLegend">
   <div class="sed-legend-header" onclick="
     var b=document.getElementById('sedLegendBody');
@@ -900,7 +900,7 @@
 <div id="forecastPanel">
   <div class="forecast-header">
     <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;">
-      <div class="forecast-location" id="forecastLocation">— Cliquer sur la carte —</div>
+      <div class="forecast-location" id="forecastLocation">- Cliquer sur la carte -</div>
       <div class="forecast-coords" id="forecastCoords"></div>
     </div>
     <button class="forecast-close" onclick="closeForecast()">✕</button>
@@ -968,14 +968,14 @@
   <div class="obs-sheet-head">
     <div>
       <div class="obs-sheet-title">Mon observation</div>
-      <div class="obs-sheet-coords" id="obsSheetCoords">—</div>
+      <div class="obs-sheet-coords" id="obsSheetCoords">-</div>
     </div>
     <button class="obs-sheet-close" onclick="closeObsSheet()">✕</button>
   </div>
   <div style="padding:10px 20px;background:#F0FDF4;border-bottom:1px solid #BBF7D0;">
     <div style="font-family:'Space Grotesk',sans-serif;font-size:12px;color:#166534;line-height:1.6;">
       <strong>Comment ça marche ?</strong><br>
-      Chaque condition que tu renseignes est comparée à nos prévisions météo et de marée. Plus on accumule de données terrain réelles, plus le modèle apprend à prédire avec précision — et meilleures sont les prévisions pour toi et tous les chasseurs de la zone.
+      Chaque condition que tu renseignes est comparée à nos prévisions météo et de marée. Plus on accumule de données terrain réelles, plus le modèle apprend à prédire avec précision - et meilleures sont les prévisions pour toi et tous les chasseurs de la zone.
     </div>
   </div>
   <div class="obs-sheet-body">
@@ -1036,8 +1036,8 @@
 <div id="spotDrawer">
   <div class="drawer-head">
     <div>
-      <div class="spot-coords" id="spotCoords">—</div>
-      <div class="spot-meta" id="spotMeta">—</div>
+      <div class="spot-coords" id="spotCoords">-</div>
+      <div class="spot-meta" id="spotMeta">-</div>
     </div>
     <button class="spot-close" onclick="closeSpotPopup()">✕</button>
   </div>
@@ -1052,10 +1052,10 @@
         <button onclick="var d=document.getElementById('visDetail');d.style.display=d.style.display==='none'?'block':'none'" style="background:none;border:1px solid var(--border2);border-radius:50%;width:18px;height:18px;font-size:11px;color:var(--text-3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:serif;font-weight:bold;flex-shrink:0;">i</button>
       </div>
       <div id="visDetail" style="display:none;margin-bottom:10px;padding:9px 12px;background:#EFF6FF;border-left:2px solid #3B82F6;border-radius:0 7px 7px 0;">
-        <div style="font-family:'DM Mono',monospace;font-size:11px;color:#1E40AF;line-height:1.7;" id="visDetailText">—</div>
+        <div style="font-family:'DM Mono',monospace;font-size:11px;color:#1E40AF;line-height:1.7;" id="visDetailText">-</div>
       </div>
       <div class="spot-vis-badge" id="spotVisBadge">
-        <span class="spot-vis-badge-text" id="spotVisLabel">—</span>
+        <span class="spot-vis-badge-text" id="spotVisLabel">-</span>
       </div>
       <div class="spot-vis-segments">
         <div class="spot-vis-seg" id="visSeg0"></div>
@@ -1070,18 +1070,18 @@
     <div class="spot-wind-block">
       <div class="spot-wind-cell">
         <div class="spot-wind-lbl">Vent</div>
-        <div class="spot-wind-val" id="spotWindSpeed">—</div>
+        <div class="spot-wind-val" id="spotWindSpeed">-</div>
         <div class="spot-wind-unit">km/h</div>
       </div>
       <div class="spot-wind-cell">
         <div class="spot-wind-lbl">Rafales</div>
-        <div class="spot-wind-val" id="spotWindGusts">—</div>
+        <div class="spot-wind-val" id="spotWindGusts">-</div>
         <div class="spot-wind-unit">km/h</div>
       </div>
       <div class="spot-wind-cell">
         <div class="spot-wind-lbl">Direction</div>
-        <div class="spot-wind-dir" id="spotWindDir">—</div>
-        <div class="spot-wind-unit" id="spotWindDeg">—</div>
+        <div class="spot-wind-dir" id="spotWindDir">-</div>
+        <div class="spot-wind-unit" id="spotWindDeg">-</div>
       </div>
     </div>
     <div id="spotFactors"></div>
@@ -1091,27 +1091,27 @@
       <div style="width:14px;height:14px;border-radius:3px;flex-shrink:0;border:1px solid rgba(0,0,0,0.1);" id="sedSwatchColor"></div>
       <div>
         <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:2px;">Nature du fond</div>
-        <div style="font-family:'DM Mono',monospace;font-size:13px;font-weight:600;color:var(--text);" id="sedimentType">—</div>
+        <div style="font-family:'DM Mono',monospace;font-size:13px;font-weight:600;color:var(--text);" id="sedimentType">-</div>
       </div>
     </div>
 
     <div id="drawerTides">
       <div class="tides-label">Marées</div>
-      <div class="tides-port-name" id="tidesPortName">—</div>
+      <div class="tides-port-name" id="tidesPortName">-</div>
       <div class="tides-grid">
         <div class="tides-cell">
           <div class="tides-cell-lbl">Coeff.</div>
-          <div class="tides-cell-val coeff" id="tidesCoeff">—</div>
+          <div class="tides-cell-val coeff" id="tidesCoeff">-</div>
         </div>
         <div class="tides-cell">
           <div class="tides-cell-lbl">Pleine mer</div>
-          <div class="tides-cell-val" id="tidesPM">—</div>
-          <div class="tides-cell-sub" id="tidesPMh">—</div>
+          <div class="tides-cell-val" id="tidesPM">-</div>
+          <div class="tides-cell-sub" id="tidesPMh">-</div>
         </div>
         <div class="tides-cell">
           <div class="tides-cell-lbl">Basse mer</div>
-          <div class="tides-cell-val" id="tidesBM">—</div>
-          <div class="tides-cell-sub" id="tidesBMh">—</div>
+          <div class="tides-cell-val" id="tidesBM">-</div>
+          <div class="tides-cell-sub" id="tidesBMh">-</div>
         </div>
       </div>
     </div>
@@ -1123,7 +1123,7 @@
   <div class="popup-header">
     <div style="width:100%">
       <div class="obs-badge"><span class="obs-badge-dot"></span>Ton observation terrain</div>
-      <div class="popup-coords" id="popupCoords">—</div>
+      <div class="popup-coords" id="popupCoords">-</div>
       <div style="display:flex;gap:10px;align-items:center;margin-top:2px;">
         <div class="popup-depth" id="popupDepth"></div>
         <div class="popup-sediment" id="popupSediment"></div>
@@ -1382,7 +1382,7 @@ function initMap() {
     layers:'NDF_BDD_WLD_WGS84G_WMS',
     format:'image/png', transparent:true,
     version:'1.3.0',
-    attribution:'Nature du fond © SHOM — Natures de fond',
+    attribution:'Nature du fond © SHOM - Natures de fond',
     opacity:0.75, maxZoom:19
   });
 
@@ -1511,7 +1511,7 @@ function openPopup(latlng, spotName) {
   document.getElementById('obsDate').value = now.toISOString().split('T')[0];
   document.getElementById('obsTime').value = now.toTimeString().slice(0,5);
   document.getElementById('popupCoords').textContent =
-    latlng.lat.toFixed(5)+'°N · '+Math.abs(latlng.lng).toFixed(5)+'°O'+(spotName?' — '+spotName:'');
+    latlng.lat.toFixed(5)+'°N · '+Math.abs(latlng.lng).toFixed(5)+'°O'+(spotName?' - '+spotName:'');
 
   const near = S.heatmap.length ? S.heatmap.reduce(function(a,b) {
     return Math.hypot(a.lat-latlng.lat,a.lon-latlng.lng) < Math.hypot(b.lat-latlng.lat,b.lon-latlng.lng) ? a : b;
@@ -1543,7 +1543,7 @@ function positionPopup(latlng) {
 }
 function closePopup() { document.getElementById('obsPopup').style.display = 'none'; }
 
-// Popup obs — sédiment via proxy GAS
+// Popup obs - sédiment via proxy GAS
 function fetchSedimentPopup(lat, lon) {
   gasGet('sediment', {lat:lat, lon:lon}).then(function(data) {
     var text = data && data.text ? data.text : '';
@@ -1647,7 +1647,7 @@ function updateMarkerColors() {
 }
 
 // ============================================================
-// MÉTÉO SPOT — Windguru-style
+// MÉTÉO SPOT - Windguru-style
 // ============================================================
 function toggleForecastPanel() {
   S_forecastOpen = !S_forecastOpen;
@@ -1717,7 +1717,7 @@ function renderForecastTable(h, now) {
     if(v<3) return 'ww-3'; return 'ww-4';
   }
   function dirArrow(deg) {
-    if(deg===null||deg===undefined) return '<span style="color:#CBD5E0">—</span>';
+    if(deg===null||deg===undefined) return '<span style="color:#CBD5E0">-</span>';
     var c = '#1A2535';
     var s = 'width:14px;height:14px;display:inline-block;vertical-align:middle;';
     var idx = (Math.round(deg/45) + 4) % 8;
@@ -1779,7 +1779,7 @@ function renderForecastTable(h, now) {
     html += '<tr><td class="row-label">Vagues (m)</td>';
     cols.forEach(function(c) {
       const v = h.wave_height[c.i];
-      html += '<td class="'+waveColor(v)+(c.isNow?' wg-now':'')+'">'+( v ? v.toFixed(1) : '—')+'</td>';
+      html += '<td class="'+waveColor(v)+(c.isNow?' wg-now':'')+'">'+( v ? v.toFixed(1) : '-')+'</td>';
     });
     html += '</tr>';
     html += '<tr><td class="row-label">Vagues dir.</td>';
@@ -1857,7 +1857,7 @@ function openSpotPopup(latlng, name) {
   S.clickMarker = L.marker([latlng.lat, latlng.lng], {icon:pulseIcon, interactive:false}).addTo(S.map);
 
   document.getElementById('spotCoords').textContent =
-    latlng.lat.toFixed(4)+'°N · '+Math.abs(latlng.lng).toFixed(4)+'°O'+(name?' — '+name:'');
+    latlng.lat.toFixed(4)+'°N · '+Math.abs(latlng.lng).toFixed(4)+'°O'+(name?' - '+name:'');
 
   var near = S.heatmap.length ? S.heatmap.reduce(function(a,b){
     return Math.hypot(a.lat-latlng.lat,a.lon-latlng.lng) < Math.hypot(b.lat-latlng.lat,b.lon-latlng.lng) ? a : b;
@@ -1888,7 +1888,7 @@ function openSpotPopup(latlng, name) {
 }
 
 // ============================================================
-// NATURE DU FOND — via proxy GAS (fix CORS)
+// NATURE DU FOND - via proxy GAS (fix CORS)
 // ============================================================
 const SED_MAP = {
   'gravier':         { fr:'Graviers / cailloutis', c:'#CC2200' },
@@ -1985,7 +1985,7 @@ function fallbackSediment() {
 }
 
 // ============================================================
-// MARÉES — DRAWER
+// MARÉES - DRAWER
 // ============================================================
 function loadDrawerTides(lat, lon) {
   var nearest = SPOTS.reduce(function(best, s) {
@@ -2041,7 +2041,7 @@ function loadDrawerTides(lat, lon) {
 function estimateCoeff(extremes) {
   var highs = extremes.filter(function(e){ return e.type==='High'; });
   var lows  = extremes.filter(function(e){ return e.type==='Low'; });
-  if (highs.length===0 || lows.length===0) return '—';
+  if (highs.length===0 || lows.length===0) return '-';
   var marnage = highs[0].height - lows[0].height;
   return Math.min(120, Math.max(20, Math.round((marnage-1.2)/5.8*100+20)));
 }
@@ -2067,13 +2067,13 @@ function renderDrawerTides(tides) {
     var pmLabel = nextHigh.time >= nowStr ? nextHigh.time : nextHigh.time + ' ✓';
     document.getElementById('tidesPM').textContent = pmLabel;
     document.getElementById('tidesPMh').textContent = nextHigh.height_m + 'm';
-  } else { document.getElementById('tidesPM').textContent = '—'; }
+  } else { document.getElementById('tidesPM').textContent = '-'; }
 
   if (nextLow) {
     var bmLabel = nextLow.time >= nowStr ? nextLow.time : nextLow.time + ' ✓';
     document.getElementById('tidesBM').textContent = bmLabel;
     document.getElementById('tidesBMh').textContent = nextLow.height_m + 'm';
-  } else { document.getElementById('tidesBM').textContent = '—'; }
+  } else { document.getElementById('tidesBM').textContent = '-'; }
 }
 
 function renderDrawerTidesFallback() {
@@ -2081,9 +2081,9 @@ function renderDrawerTidesFallback() {
   var dayOfYear = Math.floor((now - new Date(now.getFullYear(),0,0)) / 86400000);
   var coeff = Math.round(70 + 50 * Math.sin(dayOfYear / 14.77 * Math.PI));
   document.getElementById('tidesCoeff').textContent = coeff;
-  document.getElementById('tidesPM').textContent = '—';
+  document.getElementById('tidesPM').textContent = '-';
   document.getElementById('tidesPMh').textContent = 'non dispo';
-  document.getElementById('tidesBM').textContent = '—';
+  document.getElementById('tidesBM').textContent = '-';
   document.getElementById('tidesBMh').textContent = 'non dispo';
 }
 
@@ -2093,7 +2093,7 @@ function closeSpotPopup() {
 }
 
 // ============================================================
-// MÉTÉO SPOT — DRAWER
+// MÉTÉO SPOT - DRAWER
 // ============================================================
 function fetchSpotWeather(lat, lon) {
   var now = new Date();
@@ -2159,7 +2159,7 @@ function renderSpotPopup() {
     var hoursAgo=idx-i;
     var decay=Math.exp(-hoursAgo/(decayHours/3));
     residualPenalty=Math.max(residualPenalty, pastImpact*decay);
-    if(pastImpact>peakRawImpact){ peakRawImpact=pastImpact; peakWind=Math.round(pastWind); peakGusts=Math.round(pastGusts); peakDir=pastDir; peakHoursAgo=hoursAgo; peakTime=h.time[i]?h.time[i].slice(11,16):'—'; }
+    if(pastImpact>peakRawImpact){ peakRawImpact=pastImpact; peakWind=Math.round(pastWind); peakGusts=Math.round(pastGusts); peakDir=pastDir; peakHoursAgo=hoursAgo; peakTime=h.time[i]?h.time[i].slice(11,16):'-'; }
   }
 
   var windPenalty=Math.min(Math.max(wind-5,0)/20,1)*55*dirFactor;
@@ -2186,11 +2186,11 @@ function renderSpotPopup() {
   else visM=score<5?'< 0.3m':'< 0.5m';
 
   var visRanges = {
-    'Nulle':      'Nulle · '+visM+' — fond invisible, chasse impossible.',
-    'Faible':     'Faible · '+visM+' — fond à peine visible, chasse très difficile.',
-    'Moyenne':    'Moyenne · '+visM+' — chasse possible pour les expérimentés.',
-    'Bonne':      'Bonne · '+visM+' — bonnes conditions, chasse confortable.',
-    'Excellente': 'Excellente · '+visM+' — eau cristalline, conditions idéales.'
+    'Nulle':      'Nulle · '+visM+' - fond invisible, chasse impossible.',
+    'Faible':     'Faible · '+visM+' - fond à peine visible, chasse très difficile.',
+    'Moyenne':    'Moyenne · '+visM+' - chasse possible pour les expérimentés.',
+    'Bonne':      'Bonne · '+visM+' - bonnes conditions, chasse confortable.',
+    'Excellente': 'Excellente · '+visM+' - eau cristalline, conditions idéales.'
   };
   var detailEl = document.getElementById('visDetailText');
   if(detailEl) detailEl.textContent = visRanges[visLabel] || '';
@@ -2228,7 +2228,7 @@ function renderSpotPopup() {
 
   var fromNames=['N','NE','E','SE','S','SO','O','NO'];
   var aidx=Math.round(dir/45)%8;
-  var dirName=(dir!==null&&dir!==undefined)?fromNames[aidx]:'—';
+  var dirName=(dir!==null&&dir!==undefined)?fromNames[aidx]:'-';
 
   var dc='#1A2535';
   var drawerArrows=[
@@ -2241,7 +2241,7 @@ function renderSpotPopup() {
     '<svg width="22" height="22" viewBox="0 0 16 16" fill="none"><line x1="13" y1="8" x2="4" y2="8" stroke="'+dc+'" stroke-width="2" stroke-linecap="round"/><path d="M7 5 L4 8 L7 11" stroke="'+dc+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     '<svg width="22" height="22" viewBox="0 0 16 16" fill="none"><line x1="11" y1="11" x2="5" y2="5" stroke="'+dc+'" stroke-width="2" stroke-linecap="round"/><path d="M5 9 L5 5 L9 5" stroke="'+dc+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
   ];
-  var arrow=(dir!==null&&dir!==undefined)?drawerArrows[(aidx+4)%8]:'—';
+  var arrow=(dir!==null&&dir!==undefined)?drawerArrows[(aidx+4)%8]:'-';
   document.getElementById('spotWindDir').innerHTML=arrow;
   document.getElementById('spotWindDeg').textContent=dirName+(dir!==null?' '+Math.round(dir)+'°':'');
 
@@ -2250,17 +2250,17 @@ function renderSpotPopup() {
   var windDispLabel=windDisp+' '+unitDisp;
   if(windImpact>2){
     var windType=dirFactor<=0.2?'offshore · mer plate':dirFactor>=1.3?'onshore · agite le fond':'latéral';
-    factors.push({icon:'💨',label:'Vent '+windDispLabel+' ('+dirName+' — '+windType+')',impact:windImpact,max:55});
+    factors.push({icon:'💨',label:'Vent '+windDispLabel+' ('+dirName+' - '+windType+')',impact:windImpact,max:55});
   } else {
-    factors.push({icon:'💨',label:'Vent '+windDispLabel+' ('+dirName+' — offshore · mer plate)',impact:0,max:55});
+    factors.push({icon:'💨',label:'Vent '+windDispLabel+' ('+dirName+' - offshore · mer plate)',impact:0,max:55});
   }
   if(residualPenalty>5){
     var peakFromNames=['N','NE','E','SE','S','SO','O','NO'];
-    var peakDirName=(peakDir!==null&&peakDir!==undefined)?peakFromNames[Math.round(peakDir/45)%8]:'—';
+    var peakDirName=(peakDir!==null&&peakDir!==undefined)?peakFromNames[Math.round(peakDir/45)%8]:'-';
     var peakDirType=getDirFactor(peakDir)<=0.2?'offshore':getDirFactor(peakDir)>=1.3?'onshore ⚠':'latéral';
     var quand=peakHoursAgo>=24?'il y a '+peakHoursAgo+'h (hier vers '+peakTime+')':'il y a '+peakHoursAgo+'h (vers '+peakTime+')';
-    factors.push({icon:'⏱',label:'Agitation passée — '+Math.round(decayHours)+'h de décantation',impact:Math.round(residualPenalty),max:55,
-      detail:'Pic '+quand+' · '+peakWind+' km/h rafales '+peakGusts+' km/h · '+peakDirName+' '+Math.round(peakDir||0)+'° — '+peakDirType});
+    factors.push({icon:'⏱',label:'Agitation passée - '+Math.round(decayHours)+'h de décantation',impact:Math.round(residualPenalty),max:55,
+      detail:'Pic '+quand+' · '+peakWind+' km/h rafales '+peakGusts+' km/h · '+peakDirName+' '+Math.round(peakDir||0)+'° - '+peakDirType});
   }
   if(wavePenalty>3) factors.push({icon:'🌊',label:'Vagues '+wave.toFixed(1)+'m',impact:Math.round(wavePenalty),max:35});
   factors.push({icon:'⚓',label:'Fond ~'+Math.round(depth)+'m (×'+bathyFactor.toFixed(1)+' amplification)',impact:null,max:null});
@@ -2307,7 +2307,7 @@ function renderSpotPopup() {
 var LAND_MESSAGES = [
   '🏕️ Ça va être compliqué la chasse sous-marine ici…',
   '🌾 Belle profondeur de 0m. Les poissons sont en vacances.',
-  '🚜 Visibilité excellente — mais il n\'y a pas d\'eau.',
+  '🚜 Visibilité excellente - mais il n\'y a pas d\'eau.',
   '🐄 Spotted : un banc de vaches. Turbidité nulle.',
   '⛰️ Fond détecté à -0m. Technique de chasse : la marche.',
   '🌳 Zone boisée. Les bars préfèrent l\'eau salée.',
@@ -2481,7 +2481,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 // ============================================================
-// MOBILE — ANALYSER LE CENTRE DE LA CARTE
+// MOBILE - ANALYSER LE CENTRE DE LA CARTE
 // ============================================================
 function isMobile() {
   return window.innerWidth <= 768;
