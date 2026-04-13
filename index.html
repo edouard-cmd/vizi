@@ -1471,33 +1471,71 @@ function scoreToLabel(score) {
   return '<1m';
 }
 
+// Rayon géographique de la maille = ~500m
+var TURB_RADIUS_M = 500;
+var S_turbMarkers = []; // garder ref pour redessiner au zoom
+
+function createTurbLayer() {
+  var markers = [];
+  TURB_PTS.forEach(function(pt) {
+    var color = scoreToColor(pt[2]);
+    var label = scoreToLabel(pt[2]);
+    var textColor = pt[2] < 50 ? '#fff' : '#1A2535';
+    // L.circle = rayon en mètres, s'adapte au zoom automatiquement
+    var circle = L.circle([pt[0], pt[1]], {
+      radius: TURB_RADIUS_M,
+      fillColor: color,
+      fillOpacity: 1,
+      color: 'none',
+      weight: 0,
+      interactive: false
+    });
+    markers.push(circle);
+
+    // Marker texte séparé — se repositionne avec la carte
+    var textIcon = L.divIcon({
+      className: '',
+      html: '<div id="tl_' + markers.length + '" style="'
+        + 'font-family:DM Mono,monospace;font-size:10px;font-weight:700;'
+        + 'color:' + textColor + ';background:' + color + ';'
+        + 'border-radius:50%;text-align:center;line-height:1;'
+        + 'display:flex;align-items:center;justify-content:center;'
+        + 'pointer-events:none;white-space:nowrap;'
+        + 'padding:2px 3px;">' + label + '</div>',
+      iconSize: null,
+      iconAnchor: [0, 0]
+    });
+    var tm = L.marker([pt[0], pt[1]], { icon: textIcon, interactive: false, zIndexOffset: 100 });
+    markers.push(tm);
+  });
+  return markers;
+}
+
 function showHexLayer() {
   if (S_hexLayer) return;
   var markers = [];
   TURB_PTS.forEach(function(pt) {
     var color = scoreToColor(pt[2]);
     var label = scoreToLabel(pt[2]);
-    // Couleur texte : blanc sur fond foncé, noir sur fond clair
-    var textColor = (pt[2] < 50) ? '#fff' : '#1A2535';
-    var size = 64; // px diamètre
+    var textColor = pt[2] < 50 ? '#fff' : '#1A2535';
+    var m = L.circleMarker([pt[0], pt[1]], {
+      radius: 22,
+      fillColor: color,
+      fillOpacity: 1,
+      color: 'none',
+      weight: 0,
+      interactive: false
+    });
+    markers.push(m);
+
+    // Label centré
     var icon = L.divIcon({
       className: '',
-      html: '<div style="'
-        + 'width:' + size + 'px;height:' + size + 'px;'
-        + 'border-radius:50%;'
-        + 'background:' + color + ';'
-        + 'display:flex;align-items:center;justify-content:center;'
-        + 'font-family:DM Mono,monospace;'
-        + 'font-size:11px;font-weight:700;'
-        + 'color:' + textColor + ';'
-        + 'letter-spacing:-0.02em;'
-        + 'pointer-events:none;'
-        + '">' + label + '</div>',
-      iconSize: [size, size],
-      iconAnchor: [size/2, size/2]
+      html: '<div style="font-family:DM Mono,monospace;font-size:9px;font-weight:700;color:' + textColor + ';pointer-events:none;white-space:nowrap;transform:translate(-50%,-50%)">' + label + '</div>',
+      iconSize: [0, 0],
+      iconAnchor: [0, 0]
     });
-    var m = L.marker([pt[0], pt[1]], { icon: icon, interactive: false });
-    markers.push(m);
+    markers.push(L.marker([pt[0], pt[1]], { icon: icon, interactive: false, zIndexOffset: 200 }));
   });
   S_hexLayer = L.featureGroup(markers).addTo(S.map);
 }
