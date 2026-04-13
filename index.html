@@ -1514,7 +1514,7 @@ function createTurbLayer() {
 function showHexLayer() {
   if (S_hexLayer) return;
   var markers = [];
-  var S = 44; // diamètre fixe px
+  var SZ = 44; // diamètre fixe px
   TURB_PTS.forEach(function(pt) {
     var color = scoreToColor(pt[2]);
     var label = scoreToLabel(pt[2]);
@@ -1531,8 +1531,8 @@ function showHexLayer() {
         + 'color:' + textColor + ';'
         + 'pointer-events:none;'
         + '">' + label + '</div>',
-      iconSize: [S, S],
-      iconAnchor: [S/2, S/2]
+      iconSize: [SZ, SZ],
+      iconAnchor: [SZ/2, SZ/2]
     });
     markers.push(L.marker([pt[0], pt[1]], { icon: icon, interactive: false }));
   });
