@@ -1450,20 +1450,56 @@ function drawHeatmap() {
   if (!S.showHeatmap || !S.map || S.heatmap.length === 0) return;
   const W = S.canvas.width, H = S.canvas.height;
   const zoom = S.map.getZoom();
-  const radius = Math.max(8, Math.min(zoom * 4.5, 70));
+
+  // Résolution de la grille d'interpolation selon le zoom
+  var step = zoom >= 12 ? 6 : zoom >= 10 ? 10 : zoom >= 8 ? 16 : 24;
+
+  // Convertir les points heatmap en pixels une fois
+  var pts = [];
   S.heatmap.forEach(function(pt) {
-    const px = S.map.latLngToContainerPoint([pt.lat, pt.lon]);
-    if (px.x < -radius || px.x > W+radius || px.y < -radius || px.y > H+radius) return;
-    const grad = S.ctx.createRadialGradient(px.x,px.y,0,px.x,px.y,radius);
-    const rgb = scoreRgb(pt.score);
-    grad.addColorStop(0,   'rgba('+rgb+','+S.opacity+')');
-    grad.addColorStop(0.55,'rgba('+rgb+','+(S.opacity*0.3)+')');
-    grad.addColorStop(1,   'rgba('+rgb+',0)');
-    S.ctx.fillStyle = grad;
-    S.ctx.beginPath();
-    S.ctx.arc(px.x, px.y, radius, 0, Math.PI*2);
-    S.ctx.fill();
+    var px = S.map.latLngToContainerPoint([pt.lat, pt.lon]);
+    pts.push({ x: px.x, y: px.y, score: pt.score });
   });
+  if (pts.length === 0) return;
+
+  // IDW — Inverse Distance Weighting sur grille
+  // On dessine des rectangles colorés interpolés
+  for (var gx = 0; gx < W; gx += step) {
+    for (var gy = 0; gy < H; gy += step) {
+      var cx = gx + step/2, cy = gy + step/2;
+
+      // Trouver les N points les plus proches
+      var dists = pts.map(function(p) {
+        return { score: p.score, d2: (p.x-cx)*(p.x-cx) + (p.y-cy)*(p.y-cy) };
+      });
+      dists.sort(function(a,b){ return a.d2 - b.d2; });
+      var near = dists.slice(0, 8);
+
+      // Ignorer si le point le plus proche est trop loin (hors zone marine)
+      if (near[0].d2 > (step * 18) * (step * 18)) continue;
+
+      // IDW interpolation
+      var sumW = 0, sumScore = 0;
+      near.forEach(function(p) {
+        var w = p.d2 < 1 ? 1e6 : 1 / (p.d2);
+        sumW += w;
+        sumScore += w * p.score;
+      });
+      var score = sumScore / sumW;
+
+      var rgb = scoreRgb(score);
+      var alpha = S.opacity * 0.82;
+      S.ctx.fillStyle = 'rgba(' + rgb + ',' + alpha + ')';
+      S.ctx.fillRect(gx, gy, step + 1, step + 1);
+    }
+  }
+
+  // Passe de flou pour lisser les bords
+  S.ctx.filter = 'blur(' + Math.max(step * 0.8, 4) + 'px)';
+  var tmp = S.ctx.getImageData(0, 0, W, H);
+  S.ctx.clearRect(0, 0, W, H);
+  S.ctx.putImageData(tmp, 0, 0);
+  S.ctx.filter = 'none';
 }
 
 // ============================================================
@@ -1488,17 +1524,39 @@ function loadPredictions() {
   });
 }
 function mockTurbidité(day) {
-  const pts=[], base=10+day*6;
-  for(let lat=49.265;lat<49.342;lat+=0.003) {
-    for(let lon=-0.68;lon<-0.25;lon+=0.005) {
-      const dc=Math.max(0,49.335-lat);
-      const depth=Math.max(0.5,Math.round(dc*280));
-      const amp=depth<=1?5:depth<=2?4:depth<=5?3:depth<=10?2:depth<=15?1.5:1;
-      const noise=Math.sin(lat*200+lon*130)*7+Math.cos(lat*80+lon*200)*4;
-      const score=Math.min(Math.max((base+noise)*amp/3.5,0),100);
-      pts.push({lat:lat,lon:lon,score:Math.round(score),depth:Math.min(depth,30)});
+  var pts = [], base = 10 + day * 6;
+
+  // Grille Manche/Calvados — bande côtière 0-15m simulée
+  // Zone Calvados - Cotentin
+  var zones = [
+    // [latMin, latMax, lonMin, lonMax, profMoy, sedFactor]
+    [49.28, 49.40, -1.80, -1.50, 8,  1.2], // Carteret
+    [49.28, 49.40, -1.50, -1.20, 10, 1.1], // Granville
+    [49.30, 49.42, -1.20, -0.90, 7,  1.3], // Grandcamp
+    [49.32, 49.42, -0.90, -0.65, 6,  1.4], // Port-en-Bessin
+    [49.32, 49.42, -0.65, -0.40, 5,  1.5], // Courseulles (sable)
+    [49.28, 49.40, -0.40, -0.10, 8,  1.2], // Lion/Ouistreham
+    [49.25, 49.38,  0.00,  0.30, 9,  1.1], // Cabourg
+    [49.20, 49.35,  0.30,  0.70, 10, 1.0], // Deauville
+    [49.30, 49.46, -2.10, -1.80, 7,  1.2], // Saint-Malo
+    [49.40, 49.55, -2.00, -1.60, 9,  1.1], // Cancale
+    [50.60, 50.85, -0.10,  0.50, 8,  1.1], // Normandie est
+    [50.70, 50.90,  1.20,  1.80, 6,  1.3], // Boulogne
+  ];
+
+  zones.forEach(function(z) {
+    var latMin=z[0], latMax=z[1], lonMin=z[2], lonMax=z[3], depth=z[4], sedF=z[5];
+    for (var lat=latMin; lat<=latMax; lat+=0.008) {
+      for (var lon=lonMin; lon<=lonMax; lon+=0.012) {
+        var noise = Math.sin(lat*180+lon*120)*8 + Math.cos(lat*90+lon*200)*5;
+        var distCoast = Math.abs(lat - (latMin+latMax)/2) * 111;
+        var bathyFactor = depth<=5 ? 3.0 : depth<=10 ? 2.0 : 1.3;
+        var score = Math.min(Math.max((base + noise) * bathyFactor * sedF / 4, 0), 100);
+        pts.push({lat:lat, lon:lon, score:Math.round(score), depth:depth});
+      }
     }
-  }
+  });
+
   return pts;
 }
 
