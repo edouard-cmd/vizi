@@ -1426,7 +1426,7 @@ function initMap() {
     m.on('click', function(e) {
       L.DomEvent.stopPropagation(e);
       openSpotPopup(L.latLng(spot.lat, spot.lon), spot.name);
-      loadForecast(spot.lat, spot.lon, spot.name);
+      if (S_forecastOpen) loadForecast(spot.lat, spot.lon, spot.name);
     });
     S.spotMarkers[spot.id] = m;
   });
@@ -1435,7 +1435,7 @@ function initMap() {
     isOnSea(e.latlng.lat, e.latlng.lng, function(onSea) {
       if (!onSea) { showLandMessage(e.latlng); return; }
       openSpotPopup(e.latlng, null);
-      loadForecast(e.latlng.lat, e.latlng.lng, null);
+      if (S_forecastOpen) loadForecast(e.latlng.lat, e.latlng.lng, null);
     });
   });
 
@@ -2604,7 +2604,7 @@ function analyzeCenterPoint() {
       return;
     }
     openSpotPopup(center, null);
-    loadForecast(center.lat, center.lng, null);
+    if (S_forecastOpen) loadForecast(center.lat, center.lng, null);
   });
 }
 
