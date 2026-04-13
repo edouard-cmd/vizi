@@ -1514,28 +1514,27 @@ function createTurbLayer() {
 function showHexLayer() {
   if (S_hexLayer) return;
   var markers = [];
+  var S = 44; // diamètre fixe px
   TURB_PTS.forEach(function(pt) {
     var color = scoreToColor(pt[2]);
     var label = scoreToLabel(pt[2]);
     var textColor = pt[2] < 50 ? '#fff' : '#1A2535';
-    var m = L.circleMarker([pt[0], pt[1]], {
-      radius: 22,
-      fillColor: color,
-      fillOpacity: 1,
-      color: 'none',
-      weight: 0,
-      interactive: false
-    });
-    markers.push(m);
-
-    // Label centré
     var icon = L.divIcon({
       className: '',
-      html: '<div style="font-family:DM Mono,monospace;font-size:9px;font-weight:700;color:' + textColor + ';pointer-events:none;white-space:nowrap;transform:translate(-50%,-50%)">' + label + '</div>',
-      iconSize: [0, 0],
-      iconAnchor: [0, 0]
+      html: '<div style="'
+        + 'width:' + S + 'px;height:' + S + 'px;'
+        + 'border-radius:50%;'
+        + 'background:' + color + ';'
+        + 'display:flex;align-items:center;justify-content:center;'
+        + 'font-family:DM Mono,monospace;'
+        + 'font-size:10px;font-weight:700;'
+        + 'color:' + textColor + ';'
+        + 'pointer-events:none;'
+        + '">' + label + '</div>',
+      iconSize: [S, S],
+      iconAnchor: [S/2, S/2]
     });
-    markers.push(L.marker([pt[0], pt[1]], { icon: icon, interactive: false, zIndexOffset: 200 }));
+    markers.push(L.marker([pt[0], pt[1]], { icon: icon, interactive: false }));
   });
   S_hexLayer = L.featureGroup(markers).addTo(S.map);
 }
