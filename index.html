@@ -1672,7 +1672,7 @@ function loadTidesCache() {
 function toggleLayer(type) {
   if (type==='heatmap') {
     S.showHeatmap = !S.showHeatmap;
-    document.getElementById('btnTurbidité').classList.toggle('active', S.showHeatmap);
+    document.getElementById('btnHeatmap').classList.toggle('active', S.showHeatmap);
     drawHeatmap();
   } else if (type==='iso') {
     S.showIso = !S.showIso;
