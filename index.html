@@ -1462,21 +1462,44 @@ function drawHeatmap() {
   S.ctx.clearRect(0, 0, S.canvas.width, S.canvas.height);
 }
 
+function scoreToLabel(score) {
+  if (score < 20) return '+8m';
+  if (score < 35) return '4-8m';
+  if (score < 50) return '2-4m';
+  if (score < 65) return '1-2m';
+  if (score < 80) return '1m';
+  return '<1m';
+}
+
 function showHexLayer() {
   if (S_hexLayer) return;
-  var circles = [];
+  var markers = [];
   TURB_PTS.forEach(function(pt) {
-    var c = L.circle([pt[0], pt[1]], {
-      radius: 350,
-      fillColor: scoreToColor(pt[2]),
-      fillOpacity: 1,
-      color: 'none',
-      weight: 0,
-      interactive: false
+    var color = scoreToColor(pt[2]);
+    var label = scoreToLabel(pt[2]);
+    // Couleur texte : blanc sur fond foncé, noir sur fond clair
+    var textColor = (pt[2] < 50) ? '#fff' : '#1A2535';
+    var size = 64; // px diamètre
+    var icon = L.divIcon({
+      className: '',
+      html: '<div style="'
+        + 'width:' + size + 'px;height:' + size + 'px;'
+        + 'border-radius:50%;'
+        + 'background:' + color + ';'
+        + 'display:flex;align-items:center;justify-content:center;'
+        + 'font-family:DM Mono,monospace;'
+        + 'font-size:11px;font-weight:700;'
+        + 'color:' + textColor + ';'
+        + 'letter-spacing:-0.02em;'
+        + 'pointer-events:none;'
+        + '">' + label + '</div>',
+      iconSize: [size, size],
+      iconAnchor: [size/2, size/2]
     });
-    circles.push(c);
+    var m = L.marker([pt[0], pt[1]], { icon: icon, interactive: false });
+    markers.push(m);
   });
-  S_hexLayer = L.featureGroup(circles).addTo(S.map);
+  S_hexLayer = L.featureGroup(markers).addTo(S.map);
 }
 
 function hideHexLayer() {
@@ -1660,7 +1683,7 @@ function toggleLayer(type) {
   } else if (type==='iso') {
     S.showIso = !S.showIso;
     document.getElementById('btnIso').classList.toggle('active', S.showIso);
-    document.getElementById('isoLegend').style.display = S.showIso ? 'block' : 'none';
+    var isoLeg = document.getElementById('isoLegend'); if(isoLeg) isoLeg.style.display = S.showIso ? 'block' : 'none';
     if (S.showIso) { S.isoDeep.addTo(S.map); S.isoShom.addTo(S.map); S.map.fire('zoomend'); }
     else {
       if (S.map.hasLayer(S.isoDeep)) S.map.removeLayer(S.isoDeep);
