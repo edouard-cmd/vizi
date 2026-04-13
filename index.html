@@ -1468,23 +1468,25 @@ function showHexLayer() {
   var circles = [];
   HEX_GEOJSON.features.forEach(function(f) {
     var coords = f.geometry.coordinates[0];
-    // Centre = moyenne des coords
     var lat = 0, lon = 0;
     coords.forEach(function(c){ lon += c[0]; lat += c[1]; });
     lat /= coords.length; lon /= coords.length;
     var score = f.properties.score;
     var color = scoreToColor(score);
+    // L.circle en mètres — rayon fixe géographique
     var c = L.circle([lat, lon], {
-      radius: 2200,
+      radius: 900,
       fillColor: color,
-      fillOpacity: 0.85,
-      color: color,
-      weight: 0.5,
-      opacity: 0.3
+      fillOpacity: 1,
+      color: 'none',
+      weight: 0,
+      interactive: false
     });
     circles.push(c);
   });
   S_hexLayer = L.featureGroup(circles).addTo(S.map);
+  // S'assurer que la couche est sous les autres
+  S_hexLayer.setZIndex ? S_hexLayer.setZIndex(200) : null;
 }
 
 function hideHexLayer() {
