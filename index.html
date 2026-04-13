@@ -1064,7 +1064,7 @@
         <div class="spot-vis-seg" id="visSeg3"></div>
         <div class="spot-vis-seg" id="visSeg4"></div>
       </div>
-      <div class="spot-vis-ticks"><span>Nulle</span><span>Faible</span><span>Moyenne</span><span>Bonne</span><span>Excellente</span></div>
+      <div class="spot-vis-ticks"><span>1m</span><span>2m</span><span>4m</span><span>8m</span><span>+8m</span></div>
       <div id="spotMemoryNote" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--warn);margin-top:5px;min-height:12px;text-align:center;"></div>
     </div>
     <div class="spot-wind-block">
@@ -2176,7 +2176,7 @@ function renderSpotPopup() {
   else if(score>=60) visLabel='Bonne';
   else if(score>=40) visLabel='Moyenne';
   else if(score>=20) visLabel='Faible';
-  else visLabel='Mauvaise';
+  else visLabel='Nulle';
 
   var visM;
   if(score>=80) visM=Math.round(8+(score-80)/20*7)+'m+';
@@ -2186,11 +2186,11 @@ function renderSpotPopup() {
   else visM=score<5?'< 0.3m':'< 0.5m';
 
   var visRanges = {
-    'Mauvaise':   'Mauvaise · '+visM+' — fond non visible, chasse très difficile.',
-    'Faible':     'Faible · '+visM+' — fond visible par endroits, chasse compromise.',
-    'Moyenne':    'Moyenne · '+visM+' — visibilité acceptable, chasse possible avec expérience.',
+    'Nulle':      'Nulle · '+visM+' — fond invisible, chasse impossible.',
+    'Faible':     'Faible · '+visM+' — fond à peine visible, chasse très difficile.',
+    'Moyenne':    'Moyenne · '+visM+' — chasse possible pour les expérimentés.',
     'Bonne':      'Bonne · '+visM+' — bonnes conditions, chasse confortable.',
-    'Excellente': 'Excellente · '+visM+' — conditions idéales, eau claire.'
+    'Excellente': 'Excellente · '+visM+' — eau cristalline, conditions idéales.'
   };
   var detailEl = document.getElementById('visDetailText');
   if(detailEl) detailEl.textContent = visRanges[visLabel] || '';
@@ -2198,9 +2198,9 @@ function renderSpotPopup() {
   var memoryNote='';
   if(residualPenalty>instantPenalty && residualPenalty>10) memoryNote='· agitation passée';
 
-  var badgeColors={'Mauvaise':'#DC2626','Faible':'#EA580C','Moyenne':'#CA8A04','Bonne':'#16A34A','Excellente':'#0BA888'};
+  var badgeColors={'Nulle':'#DC2626','Faible':'#EA580C','Moyenne':'#CA8A04','Bonne':'#16A34A','Excellente':'#0BA888'};
   var segColors=['#DC2626','#EA580C','#CA8A04','#16A34A','#0BA888'];
-  var levelIdx=['Mauvaise','Faible','Moyenne','Bonne','Excellente'].indexOf(visLabel);
+  var levelIdx=['Nulle','Faible','Moyenne','Bonne','Excellente'].indexOf(visLabel);
 
   var badge=document.getElementById('spotVisBadge'), label=document.getElementById('spotVisLabel');
   if(badge) badge.style.background=badgeColors[visLabel]||'#CA8A04';
