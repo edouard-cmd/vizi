@@ -1561,32 +1561,7 @@ function renderTurbLayer(points) {
   });
   S_hexLayer = L.featureGroup(circles).addTo(S.map);
 }
-    var color = scoreToColor(pt[2]);
-    var label = scoreToLabel(pt[2]);
-    var circle = L.circle([pt[0], pt[1]], {
-      radius: TURB_RADIUS_M,
-      fillColor: color,
-      fillOpacity: 0.75,
-      color: color,
-      weight: 0,
-      interactive: false
-    });
-    circles.push(circle);
-    var textColor = pt[2] < 50 ? '#fff' : '#1A2535';
-    var lbl = L.marker([pt[0], pt[1]], {
-      icon: L.divIcon({
-        className: '',
-        html: '<div style="font-family:DM Mono,monospace;font-size:10px;font-weight:700;color:'
-          + textColor + ';white-space:nowrap;pointer-events:none;">' + label + '</div>',
-        iconSize: null,
-        iconAnchor: [12, 6]
-      }),
-      interactive: false
-    });
-    circles.push(lbl);
-  });
-  S_hexLayer = L.featureGroup(circles).addTo(S.map);
-}
+
 function hideHexLayer() {
   if (S_hexLayer) {
     S.map.removeLayer(S_hexLayer);
