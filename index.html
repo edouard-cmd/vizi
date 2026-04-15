@@ -1513,8 +1513,54 @@ function createTurbLayer() {
 
 function showHexLayer() {
   if (S_hexLayer) return;
+  // Affiche un layer vide pendant le chargement
+  S_hexLayer = L.featureGroup([]).addTo(S.map);
+
+  gasGet('turb_scores').then(function(data) {
+    if (data && data.scores && data.scores.length > 0) {
+      renderTurbLayer(data.scores);
+    } else {
+      // Fallback mock si GAS vide
+      renderTurbLayer(TURB_PTS.map(function(p){ return {lat:p[0], lon:p[1], score:p[2]}; }));
+    }
+  }).catch(function() {
+    renderTurbLayer(TURB_PTS.map(function(p){ return {lat:p[0], lon:p[1], score:p[2]}; }));
+  });
+}
+
+function renderTurbLayer(points) {
+  if (S_hexLayer) { S.map.removeLayer(S_hexLayer); S_hexLayer = null; }
   var circles = [];
-  TURB_PTS.forEach(function(pt) {
+  points.forEach(function(pt) {
+    var score = pt.score !== undefined ? pt.score : pt[2];
+    var lat   = pt.lat   !== undefined ? pt.lat   : pt[0];
+    var lon   = pt.lon   !== undefined ? pt.lon   : pt[1];
+    var color = scoreToColor(score);
+    var label = scoreToLabel(score);
+    var circle = L.circle([lat, lon], {
+      radius: TURB_RADIUS_M,
+      fillColor: color,
+      fillOpacity: 0.75,
+      color: color,
+      weight: 0,
+      interactive: false
+    });
+    circles.push(circle);
+    var textColor = score < 50 ? '#fff' : '#1A2535';
+    var lbl = L.marker([lat, lon], {
+      icon: L.divIcon({
+        className: '',
+        html: '<div style="font-family:DM Mono,monospace;font-size:10px;font-weight:700;color:'
+          + textColor + ';white-space:nowrap;pointer-events:none;">' + label + '</div>',
+        iconSize: null,
+        iconAnchor: [12, 6]
+      }),
+      interactive: false
+    });
+    circles.push(lbl);
+  });
+  S_hexLayer = L.featureGroup(circles).addTo(S.map);
+}
     var color = scoreToColor(pt[2]);
     var label = scoreToLabel(pt[2]);
     var circle = L.circle([pt[0], pt[1]], {
