@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VIZI - Lisez la mer avant d'y entrer</title>
+  <title>VISIMER - Lisez la mer avant d'y entrer</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 46 46' fill='none'%3E%3Ccircle cx='23' cy='23' r='21' fill='%231A2535'/%3E%3Ccircle cx='23' cy='23' r='21' stroke='%23A8E63D' stroke-width='2.2'/%3E%3Cpath d='M23 35 Q14 27 11 17 Q10 11 14 9 Q18 9 20 17 Q22 27 23 31' stroke='%23A8E63D' stroke-width='3.2' stroke-linecap='round'/%3E%3Cpath d='M23 35 Q32 27 35 17 Q36 11 32 9 Q28 9 26 17 Q24 27 23 31' stroke='%23A8E63D' stroke-width='3.2' stroke-linecap='round'/%3E%3Ccircle cx='23' cy='38' r='3.2' fill='%23A8E63D'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -43,7 +43,7 @@
       color:var(--text);
     }
 
-    /* ══ HEADER ══ */
+    /* == HEADER == */
     #header {
       position:absolute; top:0; left:0; right:0; z-index:1000;
       display:flex; align-items:center; justify-content:space-between; gap:12px;
@@ -87,7 +87,7 @@
     .ctrl-btn.active { border-color:#A8E63D; color:#A8E63D; background:rgba(168,230,61,0.08); }
     .ctrl-dot { width:6px; height:6px; border-radius:50%; background:currentColor; }
 
-    /* ══ MAP ══ */
+    /* == MAP == */
     #map { width:100%; height:100%; position:absolute; inset:0; }
     .leaflet-container { background:#C8D8E8; cursor:crosshair !important; }
     .leaflet-control-zoom { border:none !important; box-shadow:0 2px 8px rgba(0,0,0,0.12) !important; }
@@ -104,7 +104,6 @@
     .leaflet-control-attribution a { color:var(--text-3) !important; }
     #heatmapCanvas { position:absolute; inset:0; pointer-events:none; z-index:400; }
 
-    /* ══ LÉGENDE TURBIDITÉ ══ */
     #legend {
       position:absolute; bottom:26px; left:16px; z-index:900;
       background:var(--surface); border:1px solid var(--border);
@@ -133,7 +132,7 @@
     }
     .legend-iso-line { width:18px; height:2px; border-radius:1px; }
 
-    /* ══ FORECAST PANEL ══ */
+    /* == FORECAST PANEL == */
     #forecastPanel {
       position:absolute; bottom:0; left:0; right:0; z-index:1000;
       background:rgba(255,255,255,0.97);
@@ -190,7 +189,6 @@
     .ww-2{background:rgba(202,138,4,0.22)}  .ww-3{background:rgba(234,88,12,0.30)}
     .ww-4{background:rgba(220,38,38,0.38)}
 
-    /* ══ LÉGENDE SÉDIMENTS - positionnée dynamiquement via JS ══ */
     #sedLegend {
       position:absolute; left:16px; z-index:900;
       background:var(--surface); border:1px solid var(--border);
@@ -199,7 +197,6 @@
       display:none; overflow:hidden;
       min-width:200px; max-height:calc(100vh - 110px);
       overflow-y:auto;
-      /* top sera défini par JS après init du header */
     }
     .sed-legend-header {
       display:flex; align-items:center; justify-content:space-between;
@@ -223,7 +220,7 @@
       flex-shrink:0; border:1px solid rgba(0,0,0,0.08);
     }
 
-    /* ══ DRAWER LATÉRAL ══ */
+    /* == DRAWER == */
     #spotDrawer {
       position:fixed; top:73px; right:0; bottom:0; z-index:1100;
       width:340px; background:var(--surface);
@@ -330,7 +327,7 @@
     .tides-cell-val.coeff { color:var(--accent); font-size:22px; }
     .tides-cell-sub { font-family:'DM Mono', monospace; font-size:10px; color:var(--text-3); margin-top:3px; }
 
-    /* ══ OBS POPUP ══ */
+    /* == OBS POPUP == */
     #obsPopup {
       position:absolute; z-index:1100; width:308px;
       background:var(--surface); border:1px solid var(--border);
@@ -386,9 +383,8 @@
     .popup-success { display:none; text-align:center; padding:8px; color:var(--good); font-size:13px; font-family:'DM Mono', monospace; margin-top:8px; }
 
     .obs-badge { display:inline-flex; align-items:center; gap:5px; background:var(--accent-bg); border:1px solid rgba(11,168,136,0.3); border-radius:20px; padding:4px 11px; font-family:'DM Mono', monospace; font-size:10px; font-weight:500; color:var(--accent); margin-bottom:10px; }
-    .obs-badge-dot { width:6px; height:6px; border-radius:50%; background:var(--accent); animation:viziPulse 2s ease-out infinite; }
+    .obs-badge-dot { width:6px; height:6px; border-radius:50%; background:var(--accent); animation:visimPulse 2s ease-out infinite; }
 
-    /* ══ BOUTON FLOTTANT ══ */
     #obsFloatBtn {
       position:absolute; bottom:30px; left:50%; transform:translateX(-50%);
       z-index:950; display:flex; align-items:center; gap:8px;
@@ -399,18 +395,17 @@
     }
     #obsFloatBtn:hover { background:var(--accent); color:white; box-shadow:0 6px 28px rgba(11,168,136,0.35); }
 
-    /* ══ MARKER PULSANT ══ */
-    .vizi-pulse-marker { position:relative; width:40px; height:40px; }
-    .vizi-pulse-dot { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:10px; height:10px; border-radius:50%; background:#A8E63D; box-shadow:0 0 8px rgba(168,230,61,0.6); }
-    .vizi-pulse-ring { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:10px; height:10px; border-radius:50%; border:2px solid #A8E63D; animation:viziPulse 2s ease-out infinite; }
-    .vizi-pulse-ring2 { animation-delay:1s; }
-    @keyframes viziPulse {
+    .visim-pulse-marker { position:relative; width:40px; height:40px; }
+    .visim-pulse-dot { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:10px; height:10px; border-radius:50%; background:#A8E63D; box-shadow:0 0 8px rgba(168,230,61,0.6); }
+    .visim-pulse-ring { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:10px; height:10px; border-radius:50%; border:2px solid #A8E63D; animation:visimPulse 2s ease-out infinite; }
+    .visim-pulse-ring2 { animation-delay:1s; }
+    @keyframes visimPulse {
       0%   { width:10px; height:10px; opacity:0.9; }
       100% { width:42px; height:42px; opacity:0; }
     }
 
-    .vizi-tooltip { background:white !important; border:1px solid var(--border) !important; color:var(--text) !important; font-family:'DM Mono', monospace !important; font-size:12px !important; border-radius:8px !important; padding:6px 12px !important; box-shadow:0 4px 14px rgba(0,0,0,0.1) !important; }
-    .vizi-tooltip::before { display:none !important; }
+    .visim-tooltip { background:white !important; border:1px solid var(--border) !important; color:var(--text) !important; font-family:'DM Mono', monospace !important; font-size:12px !important; border-radius:8px !important; padding:6px 12px !important; box-shadow:0 4px 14px rgba(0,0,0,0.1) !important; }
+    .visim-tooltip::before { display:none !important; }
 
     #landToast {
       position:fixed; bottom:80px; left:50%; transform:translateX(-50%) translateY(20px);
@@ -424,208 +419,46 @@
     }
     #landToast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 
-    /* ══════════════════════════════════════════
-       RESPONSIVE MOBILE (iPhone / Samsung)
-    ══════════════════════════════════════════ */
     @media (max-width: 768px) {
-
-      /* Header compact */
-      #header {
-        padding:10px 12px;
-        flex-wrap:wrap;
-        gap:8px;
-      }
+      #header { padding:10px 12px; flex-wrap:wrap; gap:8px; }
       .logo-mark { width:38px; height:38px; }
       .logo-mark svg { width:38px; height:38px; }
       .logo-name { font-size:22px; }
       .logo-tagline { font-size:10px; }
-
-      /* Boutons contrôles : scrollable horizontalement */
-      .controls {
-        flex-wrap:nowrap;
-        overflow-x:auto;
-        -webkit-overflow-scrolling:touch;
-        gap:5px;
-        width:100%;
-        padding-bottom:2px;
-        scrollbar-width:none;
-      }
+      .controls { flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; gap:5px; width:100%; padding-bottom:2px; scrollbar-width:none; }
       .controls::-webkit-scrollbar { display:none; }
-      .ctrl-btn {
-        padding:6px 10px;
-        font-size:11px;
-        flex-shrink:0;
-      }
-      #windUnitToggle {
-        flex-shrink:0;
-        padding:6px 10px !important;
-        font-size:11px !important;
-      }
-
-      /* Drawer plein écran sur mobile */
-      #spotDrawer {
-        width:100% !important;
-        top:auto !important;
-        bottom:0; left:0; right:0;
-        height:85vh;
-        border-left:none;
-        border-top:1px solid var(--border);
-        border-radius:16px 16px 0 0;
-        box-shadow:0 -8px 40px rgba(0,0,0,0.18);
-        transform:translateY(100%);
-        transition:transform 0.3s cubic-bezier(.4,0,.2,1);
-      }
-      #spotDrawer.open {
-        transform:translateY(0);
-      }
-
-      /* Poignée drag visuelle */
-      .drawer-head::before {
-        content:'';
-        position:absolute;
-        top:8px; left:50%;
-        transform:translateX(-50%);
-        width:36px; height:4px;
-        background:var(--border2);
-        border-radius:2px;
-      }
+      .ctrl-btn { padding:6px 10px; font-size:11px; flex-shrink:0; }
+      #windUnitToggle { flex-shrink:0; padding:6px 10px !important; font-size:11px !important; }
+      #spotDrawer { width:100% !important; top:auto !important; bottom:0; left:0; right:0; height:85vh; border-left:none; border-top:1px solid var(--border); border-radius:16px 16px 0 0; box-shadow:0 -8px 40px rgba(0,0,0,0.18); transform:translateY(100%); transition:transform 0.3s cubic-bezier(.4,0,.2,1); }
+      #spotDrawer.open { transform:translateY(0); }
+      .drawer-head::before { content:''; position:absolute; top:8px; left:50%; transform:translateX(-50%); width:36px; height:4px; background:var(--border2); border-radius:2px; }
       .drawer-head { position:relative; padding-top:20px; }
-
-      /* Forecast panel plus grand sur mobile */
-      #forecastPanel {
-        max-height:55vh;
-      }
-
-      /* Légende sédiments */
-      #sedLegend {
-        left:8px !important;
-        max-width:calc(100vw - 16px);
-      }
-
-      /* Bouton observation centré et plus grand */
-      #obsFloatBtn {
-        bottom:20px;
-        padding:13px 20px;
-        font-size:14px;
-      }
-
-      /* Toast terre */
-      #landToast {
-        bottom:100px;
-        font-size:12px;
-        padding:12px 16px;
-        max-width:85vw;
-      }
-
-      /* OBS popup plein écran */
-      #obsPopup {
-        position:fixed !important;
-        left:0 !important; right:0 !important;
-        bottom:0 !important; top:auto !important;
-        width:100% !important;
-        border-radius:16px 16px 0 0;
-        border-left:none; border-right:none; border-bottom:none;
-        max-height:90vh;
-        overflow-y:auto;
-      }
+      #forecastPanel { max-height:55vh; }
+      #sedLegend { left:8px !important; max-width:calc(100vw - 16px); }
+      #obsFloatBtn { bottom:20px; padding:13px 20px; font-size:14px; }
+      #landToast { bottom:100px; font-size:12px; padding:12px 16px; max-width:85vw; }
+      #obsPopup { position:fixed !important; left:0 !important; right:0 !important; bottom:0 !important; top:auto !important; width:100% !important; border-radius:16px 16px 0 0; border-left:none; border-right:none; border-bottom:none; max-height:90vh; overflow-y:auto; }
       #obsPopup::after { display:none; }
-
-      /* Zoom Leaflet repositionné */
-      .leaflet-control-zoom {
-        margin-bottom:80px !important;
-      }
-
-      /* Table météo - colonnes plus étroites */
-      .wg-table td, .wg-table th {
-        padding:4px 7px;
-        font-size:11px;
-      }
-      .wg-table .row-label {
-        min-width:90px;
-        font-size:10px;
-        padding-left:10px;
-      }
+      .leaflet-control-zoom { margin-bottom:80px !important; }
+      .wg-table td, .wg-table th { padding:4px 7px; font-size:11px; }
+      .wg-table .row-label { min-width:90px; font-size:10px; padding-left:10px; }
     }
 
-    /* Très petit écran (iPhone SE, Galaxy A) */
     @media (max-width: 390px) {
       .logo-name { font-size:18px; }
       .logo-tagline { display:none; }
       #spotDrawer { height:90vh; }
     }
 
-    /* ══ CROSSHAIR MOBILE ══ */
-    #mobileCrosshair {
-      display:none;
-      position:fixed;
-      top:50%; left:50%;
-      transform:translate(-50%, -50%);
-      z-index:950;
-      pointer-events:none;
-    }
-    #mobileCrosshair .ch-ring {
-      width:48px; height:48px;
-      border:2px solid rgba(168,230,61,0.6);
-      border-radius:50%;
-      position:absolute;
-      top:50%; left:50%;
-      transform:translate(-50%,-50%);
-      animation:chPulse 2s ease-out infinite;
-    }
-    #mobileCrosshair .ch-dot {
-      width:8px; height:8px;
-      background:#A8E63D;
-      border-radius:50%;
-      position:absolute;
-      top:50%; left:50%;
-      transform:translate(-50%,-50%);
-      box-shadow:0 0 8px rgba(168,230,61,0.8);
-    }
-    #mobileCrosshair .ch-line-h {
-      width:28px; height:1.5px;
-      background:rgba(168,230,61,0.7);
-      position:absolute;
-      top:50%; left:50%;
-      transform:translate(-50%,-50%);
-    }
-    #mobileCrosshair .ch-line-v {
-      width:1.5px; height:28px;
-      background:rgba(168,230,61,0.7);
-      position:absolute;
-      top:50%; left:50%;
-      transform:translate(-50%,-50%);
-    }
-    @keyframes chPulse {
-      0%   { opacity:0.8; transform:translate(-50%,-50%) scale(1); }
-      100% { opacity:0; transform:translate(-50%,-50%) scale(2); }
-    }
+    #mobileCrosshair { display:none; position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); z-index:950; pointer-events:none; }
+    #mobileCrosshair .ch-ring { width:48px; height:48px; border:2px solid rgba(168,230,61,0.6); border-radius:50%; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); animation:chPulse 2s ease-out infinite; }
+    #mobileCrosshair .ch-dot { width:8px; height:8px; background:#A8E63D; border-radius:50%; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); box-shadow:0 0 8px rgba(168,230,61,0.8); }
+    #mobileCrosshair .ch-line-h { width:28px; height:1.5px; background:rgba(168,230,61,0.7); position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); }
+    #mobileCrosshair .ch-line-v { width:1.5px; height:28px; background:rgba(168,230,61,0.7); position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); }
+    @keyframes chPulse { 0% { opacity:0.8; transform:translate(-50%,-50%) scale(1); } 100% { opacity:0; transform:translate(-50%,-50%) scale(2); } }
 
-    /* ══ BOUTON ANALYSER MOBILE ══ */
-    #mobileAnalyzeBtn {
-      display:none;
-      position:fixed;
-      bottom:28px; left:50%;
-      transform:translateX(-50%);
-      z-index:960;
-      padding:14px 32px;
-      background:#1A2535;
-      border:2px solid #A8E63D;
-      border-radius:40px;
-      color:#A8E63D;
-      font-family:'Space Grotesk', sans-serif;
-      font-size:15px; font-weight:700;
-      letter-spacing:0.04em;
-      cursor:pointer;
-      box-shadow:0 4px 24px rgba(0,0,0,0.3);
-      white-space:nowrap;
-      transition:all 0.2s;
-      -webkit-tap-highlight-color:transparent;
-    }
-    #mobileAnalyzeBtn:active {
-      background:#A8E63D;
-      color:#1A2535;
-      transform:translateX(-50%) scale(0.97);
-    }
+    #mobileAnalyzeBtn { display:none; position:fixed; bottom:28px; left:50%; transform:translateX(-50%); z-index:960; padding:14px 32px; background:#1A2535; border:2px solid #A8E63D; border-radius:40px; color:#A8E63D; font-family:'Space Grotesk', sans-serif; font-size:15px; font-weight:700; letter-spacing:0.04em; cursor:pointer; box-shadow:0 4px 24px rgba(0,0,0,0.3); white-space:nowrap; transition:all 0.2s; -webkit-tap-highlight-color:transparent; }
+    #mobileAnalyzeBtn:active { background:#A8E63D; color:#1A2535; transform:translateX(-50%) scale(0.97); }
 
     @media (max-width: 768px) {
       #mobileCrosshair { display:block; }
@@ -634,54 +467,11 @@
       .leaflet-container { cursor:default !important; }
     }
 
+    #shareObsBtn { position:fixed; bottom:24px; right:24px; z-index:1050; display:flex; align-items:center; gap:7px; padding:11px 20px; background:#1A2535; border:2px solid #A8E63D; border-radius:30px; color:#A8E63D; font-family:'Space Grotesk', sans-serif; font-size:13px; font-weight:700; cursor:pointer; box-shadow:0 4px 20px rgba(0,0,0,0.35), 0 0 0 1px rgba(168,230,61,0.15); transition:all 0.2s; white-space:nowrap; letter-spacing:0.02em; -webkit-tap-highlight-color:transparent; }
+    #shareObsBtn:hover, #shareObsBtn:active { background:#A8E63D; color:#1A2535; box-shadow:0 6px 28px rgba(168,230,61,0.35); }
 
-    /* ══ BOUTON PARTAGER MON OBSERVATION (desktop) ══ */
-    /* ══ BOUTON PARTAGER DESKTOP ══ */
-    #shareObsBtn {
-      position:fixed; bottom:24px; right:24px; z-index:1050;
-      display:flex; align-items:center; gap:7px;
-      padding:11px 20px;
-      background:#1A2535;
-      border:2px solid #A8E63D;
-      border-radius:30px;
-      color:#A8E63D;
-      font-family:'Space Grotesk', sans-serif;
-      font-size:13px; font-weight:700;
-      cursor:pointer;
-      box-shadow:0 4px 20px rgba(0,0,0,0.35), 0 0 0 1px rgba(168,230,61,0.15);
-      transition:all 0.2s; white-space:nowrap;
-      letter-spacing:0.02em;
-      -webkit-tap-highlight-color:transparent;
-    }
-    #shareObsBtn:hover, #shareObsBtn:active {
-      background:#A8E63D; color:#1A2535;
-      box-shadow:0 6px 28px rgba(168,230,61,0.35);
-    }
-
-    /* ══ BOUTON PARTAGER MOBILE ══ */
-    #mobileShareBtn {
-      display:none;
-      position:fixed;
-      bottom:88px; left:50%;
-      transform:translateX(-50%);
-      z-index:960;
-      padding:13px 28px;
-      background:rgba(26,37,53,0.92);
-      border:1.5px solid rgba(168,230,61,0.5);
-      border-radius:40px;
-      color:rgba(168,230,61,0.85);
-      font-family:'Space Grotesk', sans-serif;
-      font-size:14px; font-weight:600;
-      cursor:pointer;
-      box-shadow:0 4px 20px rgba(0,0,0,0.2);
-      white-space:nowrap;
-      transition:all 0.2s;
-      -webkit-tap-highlight-color:transparent;
-    }
-    #mobileShareBtn:active {
-      background:#A8E63D; color:#1A2535;
-      transform:translateX(-50%) scale(0.97);
-    }
+    #mobileShareBtn { display:none; position:fixed; bottom:88px; left:50%; transform:translateX(-50%); z-index:960; padding:13px 28px; background:rgba(26,37,53,0.92); border:1.5px solid rgba(168,230,61,0.5); border-radius:40px; color:rgba(168,230,61,0.85); font-family:'Space Grotesk', sans-serif; font-size:14px; font-weight:600; cursor:pointer; box-shadow:0 4px 20px rgba(0,0,0,0.2); white-space:nowrap; transition:all 0.2s; -webkit-tap-highlight-color:transparent; }
+    #mobileShareBtn:active { background:#A8E63D; color:#1A2535; transform:translateX(-50%) scale(0.97); }
 
     @media (max-width: 768px) {
       #mobileShareBtn { display:block; }
@@ -689,169 +479,42 @@
       #mobileAnalyzeBtn { bottom:28px; }
     }
 
-    /* ══ BOTTOM SHEET OBSERVATION ══ */
-    #obsSheet {
-      position:fixed; bottom:0; left:0; right:0; z-index:1200;
-      background:var(--surface);
-      border-radius:20px 20px 0 0;
-      border-top:1px solid var(--border);
-      box-shadow:0 -8px 40px rgba(0,0,0,0.18);
-      transform:translateY(100%);
-      transition:transform 0.3s cubic-bezier(.4,0,.2,1);
-      max-height:92vh;
-      overflow-y:auto;
-      padding-bottom:env(safe-area-inset-bottom, 16px);
-    }
+    #obsSheet { position:fixed; bottom:0; left:0; right:0; z-index:1200; background:var(--surface); border-radius:20px 20px 0 0; border-top:1px solid var(--border); box-shadow:0 -8px 40px rgba(0,0,0,0.18); transform:translateY(100%); transition:transform 0.3s cubic-bezier(.4,0,.2,1); max-height:75vh; overflow-y:auto; padding-bottom:env(safe-area-inset-bottom, 16px); }
     #obsSheet.open { transform:translateY(0); }
-
-    .obs-sheet-handle {
-      width:36px; height:4px;
-      background:var(--border2);
-      border-radius:2px;
-      margin:12px auto 0;
-    }
-    .obs-sheet-head {
-      display:flex; align-items:center; justify-content:space-between;
-      padding:16px 20px 12px;
-      border-bottom:1px solid var(--border);
-    }
-    .obs-sheet-title {
-      font-family:'Space Grotesk', sans-serif;
-      font-size:17px; font-weight:700; color:var(--text);
-    }
-    .obs-sheet-coords {
-      font-family:'DM Mono', monospace;
-      font-size:11px; color:var(--accent); margin-top:2px;
-    }
-    .obs-sheet-close {
-      width:30px; height:30px;
-      background:var(--border); border:none; border-radius:50%;
-      color:var(--text-2); cursor:pointer; font-size:14px;
-      display:flex; align-items:center; justify-content:center;
-      flex-shrink:0;
-    }
-    /* ══ BOTTOM SHEET COMPACT ══ */
-    #obsSheet {
-      max-height:75vh; /* plus compact */
-    }
+    .obs-sheet-handle { width:36px; height:4px; background:var(--border2); border-radius:2px; margin:12px auto 0; }
+    .obs-sheet-head { display:flex; align-items:center; justify-content:space-between; padding:16px 20px 12px; border-bottom:1px solid var(--border); }
+    .obs-sheet-title { font-family:'Space Grotesk', sans-serif; font-size:17px; font-weight:700; color:var(--text); }
+    .obs-sheet-coords { font-family:'DM Mono', monospace; font-size:11px; color:var(--accent); margin-top:2px; }
+    .obs-sheet-close { width:30px; height:30px; background:var(--border); border:none; border-radius:50%; color:var(--text-2); cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
     .obs-sheet-body { padding:12px 16px 20px; display:flex; flex-direction:column; gap:12px; }
-
-    .obs-field-label {
-      font-family:'DM Mono', monospace;
-      font-size:10px; font-weight:600; color:var(--text-3);
-      text-transform:uppercase; letter-spacing:0.1em;
-      margin-bottom:5px; display:block;
-    }
+    .obs-field-label { font-family:'DM Mono', monospace; font-size:10px; font-weight:600; color:var(--text-3); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:5px; display:block; }
     .obs-datetime-row { display:flex; gap:8px; }
-    .obs-datetime-row input {
-      flex:1; padding:8px 10px;
-      background:var(--surface2);
-      border:1px solid var(--border);
-      border-radius:8px; color:var(--text);
-      font-family:'DM Mono', monospace; font-size:13px;
-      outline:none;
-    }
+    .obs-datetime-row input { flex:1; padding:8px 10px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:'DM Mono', monospace; font-size:13px; outline:none; }
     .obs-datetime-row input:focus { border-color:var(--accent); }
-
-    /* Slider visibilité compact */
     .obs-vis-row { display:flex; flex-direction:column; gap:6px; }
     .obs-vis-top { display:flex; justify-content:space-between; align-items:center; }
-    .obs-vis-val {
-      font-family:'DM Mono', monospace;
-      font-size:17px; font-weight:700;
-    }
-    input[type=range].obs-vis-slider {
-      width:100%; height:5px; border-radius:3px;
-      outline:none; cursor:pointer;
-      background:linear-gradient(to right, #DC2626, #CA8A04, #16A34A, #0BA888);
-      -webkit-appearance:none; appearance:none;
-    }
-    input[type=range].obs-vis-slider::-webkit-slider-thumb {
-      -webkit-appearance:none;
-      width:22px; height:22px; border-radius:50%;
-      background:white; cursor:pointer;
-      box-shadow:0 2px 8px rgba(0,0,0,0.2);
-      border:2px solid var(--accent);
-    }
-    .obs-vis-ticks {
-      display:flex; justify-content:space-between;
-      font-family:'DM Mono', monospace; font-size:9px; color:var(--text-3);
-    }
-
-    /* Fond visible toggle compact */
+    .obs-vis-val { font-family:'DM Mono', monospace; font-size:17px; font-weight:700; }
+    input[type=range].obs-vis-slider { width:100%; height:5px; border-radius:3px; outline:none; cursor:pointer; background:linear-gradient(to right, #DC2626, #CA8A04, #16A34A, #0BA888); -webkit-appearance:none; appearance:none; }
+    input[type=range].obs-vis-slider::-webkit-slider-thumb { -webkit-appearance:none; width:22px; height:22px; border-radius:50%; background:white; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.2); border:2px solid var(--accent); }
+    .obs-vis-ticks { display:flex; justify-content:space-between; font-family:'DM Mono', monospace; font-size:9px; color:var(--text-3); }
     .obs-toggle-row { display:flex; gap:8px; }
-    .obs-tog {
-      flex:1; padding:9px 8px;
-      border:1.5px solid var(--border);
-      border-radius:9px;
-      background:var(--surface); color:var(--text-2);
-      cursor:pointer;
-      font-family:'Space Grotesk', sans-serif;
-      font-size:13px; font-weight:600;
-      transition:all 0.15s; text-align:center;
-    }
+    .obs-tog { flex:1; padding:9px 8px; border:1.5px solid var(--border); border-radius:9px; background:var(--surface); color:var(--text-2); cursor:pointer; font-family:'Space Grotesk', sans-serif; font-size:13px; font-weight:600; transition:all 0.15s; text-align:center; }
     .obs-tog.on { border-color:var(--accent); color:var(--accent); background:var(--accent-bg); }
-
-    /* Espèces compact */
-    .obs-species-input {
-      width:100%; padding:9px 12px;
-      background:var(--surface2);
-      border:1px solid var(--border);
-      border-radius:9px; color:var(--text);
-      font-family:'Space Grotesk', sans-serif; font-size:13px;
-      outline:none; transition:border-color 0.15s;
-    }
+    .obs-species-input { width:100%; padding:9px 12px; background:var(--surface2); border:1px solid var(--border); border-radius:9px; color:var(--text); font-family:'Space Grotesk', sans-serif; font-size:13px; outline:none; transition:border-color 0.15s; }
     .obs-species-input:focus { border-color:var(--accent); }
     .obs-species-input::placeholder { color:var(--text-3); }
-
-    /* Bouton envoyer compact */
-    .obs-submit-btn {
-      width:100%; padding:13px;
-      background:var(--accent);
-      border:none; border-radius:12px;
-      color:white;
-      font-family:'Space Grotesk', sans-serif;
-      font-size:15px; font-weight:700;
-      cursor:pointer; transition:opacity 0.15s;
-      letter-spacing:0.02em;
-    }
+    .obs-submit-btn { width:100%; padding:13px; background:var(--accent); border:none; border-radius:12px; color:white; font-family:'Space Grotesk', sans-serif; font-size:15px; font-weight:700; cursor:pointer; transition:opacity 0.15s; letter-spacing:0.02em; }
     .obs-submit-btn:hover { opacity:0.88; }
     .obs-submit-btn:disabled { opacity:0.4; cursor:not-allowed; }
+    .obs-success-msg { display:none; text-align:center; padding:14px; font-family:'Space Grotesk', sans-serif; font-size:17px; font-weight:700; color:var(--accent); line-height:1.5; }
+    .obs-success-sub { font-size:12px; color:var(--text-3); font-family:'DM Mono', monospace; margin-top:5px; font-weight:400; }
 
-    /* Message succès */
-    .obs-success-msg {
-      display:none;
-      text-align:center; padding:14px;
-      font-family:'Space Grotesk', sans-serif;
-      font-size:17px; font-weight:700;
-      color:var(--accent); line-height:1.5;
-    }
-    .obs-success-sub {
-      font-size:12px; color:var(--text-3);
-      font-family:'DM Mono', monospace;
-      margin-top:5px; font-weight:400;
-    }
-
-    /* Desktop : formulaire centré et limité en largeur */
     @media (min-width: 769px) {
-      #obsSheet {
-        max-width:480px;
-        left:50%; right:auto;
-        transform:translateX(-50%) translateY(100%);
-        border-radius:16px 16px 0 0;
-      }
-      #obsSheet.open {
-        transform:translateX(-50%) translateY(0);
-      }
+      #obsSheet { max-width:480px; left:50%; right:auto; transform:translateX(-50%) translateY(100%); border-radius:16px 16px 0 0; }
+      #obsSheet.open { transform:translateX(-50%) translateY(0); }
     }
 
-    /* Overlay sombre derrière le sheet */
-    #obsSheetOverlay {
-      display:none;
-      position:fixed; inset:0; z-index:1199;
-      background:rgba(0,0,0,0.4);
-    }
-
+    #obsSheetOverlay { display:none; position:fixed; inset:0; z-index:1199; background:rgba(0,0,0,0.4); }
   </style>
 </head>
 <body>
@@ -860,7 +523,6 @@
 <canvas id="heatmapCanvas"></canvas>
 <div id="landToast"></div>
 
-<!-- CROSSHAIR MOBILE -->
 <div id="mobileCrosshair">
   <div class="ch-ring"></div>
   <div class="ch-line-h"></div>
@@ -868,12 +530,10 @@
   <div class="ch-dot"></div>
 </div>
 
-<!-- BOUTON ANALYSER CE POINT (mobile uniquement) -->
 <button id="mobileAnalyzeBtn" onclick="analyzeCenterPoint()">
-  ⊕ Analyser ce point
+  Analyser ce point
 </button>
 
-<!-- LÉGENDE SÉDIMENTS SHOM - top positionné par JS -->
 <div id="sedLegend">
   <div class="sed-legend-header" onclick="
     var b=document.getElementById('sedLegendBody');
@@ -882,11 +542,11 @@
     b.style.display=open?'none':'block';
     a.style.transform=open?'rotate(0deg)':'rotate(180deg)';
   ">
-    <div class="sed-legend-title">Natures de fond · SHOM</div>
+    <div class="sed-legend-title">Natures de fond</div>
     <div class="sed-legend-toggle" id="sedLegendArrow" style="transform:rotate(0deg)">▲</div>
   </div>
   <div class="sed-legend-body" id="sedLegendBody" style="display:none;">
-    <div class="sed-legend-row"><div class="sed-swatch" style="background:#CC2200"></div>Cailloutis · gravier</div>
+    <div class="sed-legend-row"><div class="sed-swatch" style="background:#CC2200"></div>Cailloutis / gravier</div>
     <div class="sed-legend-row"><div class="sed-swatch" style="background:#E86030"></div>Sable grossier</div>
     <div class="sed-legend-row"><div class="sed-swatch" style="background:#F0C060"></div>Sable fin</div>
     <div class="sed-legend-row"><div class="sed-swatch" style="background:#F5E8A0"></div>Sable vaseux</div>
@@ -896,7 +556,6 @@
   </div>
 </div>
 
-<!-- FORECAST PANEL -->
 <div id="forecastPanel">
   <div class="forecast-header">
     <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;">
@@ -907,7 +566,7 @@
   </div>
   <div id="forecastTable" class="forecast-scroll">
     <div style="padding:22px;text-align:center;color:var(--text-3);font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.04em;">
-      Cliquer sur la carte pour afficher les prévisions AROME
+      Cliquer sur la carte pour afficher les previsions AROME
     </div>
   </div>
 </div>
@@ -927,42 +586,25 @@
       </svg>
     </div>
     <div class="logo-text-wrap">
-      <div class="logo-name">VIZI</div>
+      <div class="logo-name">VISIMER</div>
       <div class="logo-tagline">Lisez la mer avant d'y entrer.</div>
     </div>
   </div>
 
   <div class="controls">
-    <button class="ctrl-btn" id="btnHeatmap" onclick="toggleLayer('heatmap')"><span class="ctrl-dot"></span>Turbidité</button>
-    <button class="ctrl-btn active" id="btnIso" onclick="toggleLayer('iso')"><span class="ctrl-dot"></span>Repères</button>
+    <button class="ctrl-btn" id="btnHeatmap" onclick="toggleLayer('heatmap')"><span class="ctrl-dot"></span>Turbidite</button>
+    <button class="ctrl-btn active" id="btnIso" onclick="toggleLayer('iso')"><span class="ctrl-dot"></span>Reperes</button>
     <button class="ctrl-btn" id="btnSed" onclick="toggleLayer('sed')"><span class="ctrl-dot"></span>Nature du fond</button>
-    <button class="ctrl-btn" id="btnWind" onclick="toggleForecastPanel()"><span class="ctrl-dot"></span>Météo</button>
-    <button id="windUnitToggle" onclick="toggleWindUnit()" style="
-      flex-shrink:0;
-      background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.18);
-      border-radius:8px; padding:7px 14px;
-      font-family:'DM Mono',monospace; font-size:12px; font-weight:700;
-      color:rgba(255,255,255,0.75); cursor:pointer; transition:all 0.15s;
-      letter-spacing:0.04em;
-    ">km/h</button>
-    <button onclick="openObsSheet()" style="flex-shrink:0;padding:7px 14px;background:#A8E63D;border:none;border-radius:8px;color:#1A2535;font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;pointer-events:all;"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="flex-shrink:0"><line x1="6" y1="1" x2="6" y2="11" stroke="#1A2535" stroke-width="2" stroke-linecap="round"/><line x1="1" y1="6" x2="11" y2="6" stroke="#1A2535" stroke-width="2" stroke-linecap="round"/></svg> Améliorer les prévisions</button>
-
+    <button class="ctrl-btn" id="btnWind" onclick="toggleForecastPanel()"><span class="ctrl-dot"></span>Meteo</button>
+    <button id="windUnitToggle" onclick="toggleWindUnit()" style="flex-shrink:0;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.18);border-radius:8px;padding:7px 14px;font-family:'DM Mono',monospace;font-size:12px;font-weight:700;color:rgba(255,255,255,0.75);cursor:pointer;transition:all 0.15s;letter-spacing:0.04em;">km/h</button>
+    <button onclick="openObsSheet()" style="flex-shrink:0;padding:7px 14px;background:#A8E63D;border:none;border-radius:8px;color:#1A2535;font-family:'Space Grotesk',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;pointer-events:all;"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="flex-shrink:0"><line x1="6" y1="1" x2="6" y2="11" stroke="#1A2535" stroke-width="2" stroke-linecap="round"/><line x1="1" y1="6" x2="11" y2="6" stroke="#1A2535" stroke-width="2" stroke-linecap="round"/></svg> Ameliorer les previsions</button>
   </div>
 </div>
 
+<button id="mobileShareBtn" onclick="openObsSheet()">Ameliorer les previsions</button>
 
-
-
-
-<!-- BOUTON PARTAGER MOBILE -->
-<button id="mobileShareBtn" onclick="openObsSheet()">
-  Améliorer les prévisions
-</button>
-
-<!-- OVERLAY -->
 <div id="obsSheetOverlay" onclick="closeObsSheet()"></div>
 
-<!-- BOTTOM SHEET OBSERVATION -->
 <div id="obsSheet">
   <div class="obs-sheet-handle"></div>
   <div class="obs-sheet-head">
@@ -974,13 +616,11 @@
   </div>
   <div style="padding:10px 20px;background:#F0FDF4;border-bottom:1px solid #BBF7D0;">
     <div style="font-family:'Space Grotesk',sans-serif;font-size:12px;color:#166534;line-height:1.6;">
-      <strong>Comment ça marche ?</strong><br>
-      Chaque condition que tu renseignes est comparée à nos prévisions météo et de marée. Plus on accumule de données terrain réelles, plus le modèle apprend à prédire avec précision - et meilleures sont les prévisions pour toi et tous les chasseurs de la zone.
+      <strong>Comment ca marche ?</strong><br>
+      Chaque condition que tu renseignes est comparee a nos previsions meteo et de maree. Plus on accumule de donnees terrain reelles, plus le modele apprend a predire avec precision.
     </div>
   </div>
   <div class="obs-sheet-body">
-
-    <!-- Date / Heure -->
     <div>
       <span class="obs-field-label">Date · Heure</span>
       <div class="obs-datetime-row">
@@ -988,51 +628,37 @@
         <input type="time" id="obsSheetTime" step="600">
       </div>
     </div>
-
-    <!-- Visibilité -->
     <div class="obs-vis-row">
       <div class="obs-vis-top">
-        <span class="obs-field-label" style="margin-bottom:0">Visibilité</span>
+        <span class="obs-field-label" style="margin-bottom:0">Visibilite</span>
         <span class="obs-vis-val" id="obsSheetVisVal" style="color:#0BA888">+10m</span>
       </div>
-      <input type="range" class="obs-vis-slider" id="obsSheetVisSlider"
-        min="0" max="8" step="1" value="8"
-        oninput="updateObsSheetVis(this.value)">
+      <input type="range" class="obs-vis-slider" id="obsSheetVisSlider" min="0" max="8" step="1" value="8" oninput="updateObsSheetVis(this.value)">
       <div class="obs-vis-ticks">
         <span>0m</span><span>0.5</span><span>1m</span><span>2m</span>
         <span>3m</span><span>4m</span><span>5m</span><span>8m</span><span>+10m</span>
       </div>
     </div>
-
-    <!-- Fond visible -->
     <div>
       <span class="obs-field-label">Fond visible ?</span>
       <div class="obs-toggle-row">
-        <button class="obs-tog on" id="obsSheetFondOui" onclick="setObsFond(true)">👍 Oui</button>
-        <button class="obs-tog" id="obsSheetFondNon" onclick="setObsFond(false)">👎 Non</button>
+        <button class="obs-tog on" id="obsSheetFondOui" onclick="setObsFond(true)">Oui</button>
+        <button class="obs-tog" id="obsSheetFondNon" onclick="setObsFond(false)">Non</button>
       </div>
     </div>
-
-    <!-- Espèces observées -->
     <div>
-      <span class="obs-field-label">Espèces observées <span style="font-weight:400;text-transform:none;letter-spacing:0">(optionnel)</span></span>
-      <input type="text" class="obs-species-input" id="obsSheetSpecies"
-        placeholder="bar, daurade, seiche, homard…">
+      <span class="obs-field-label">Especes observees <span style="font-weight:400;text-transform:none;letter-spacing:0">(optionnel)</span></span>
+      <input type="text" class="obs-species-input" id="obsSheetSpecies" placeholder="bar, daurade, seiche, homard...">
     </div>
-
-    <!-- Submit -->
-    <button class="obs-submit-btn" id="obsSheetSubmit" onclick="submitObsSheet()">
-      Partager 🤙
-    </button>
+    <button class="obs-submit-btn" id="obsSheetSubmit" onclick="submitObsSheet()">Partager</button>
     <div class="obs-success-msg" id="obsSheetSuccess">
-      <div id="obsSheetSuccessMsg">✅ Merci !</div>
+      <div id="obsSheetSuccessMsg">Merci !</div>
       <div class="obs-success-sub" id="obsSheetSuccessSub"></div>
     </div>
-
   </div>
 </div>
 
-<!-- DRAWER LATÉRAL -->
+<!-- DRAWER LATERAL -->
 <div id="spotDrawer">
   <div class="drawer-head">
     <div>
@@ -1048,7 +674,7 @@
   <div class="drawer-body">
     <div class="spot-vis-block">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-        <div class="spot-vis-label" style="margin-bottom:0">Visibilité estimée</div>
+        <div class="spot-vis-label" style="margin-bottom:0">Visibilite estimee</div>
         <button onclick="var d=document.getElementById('visDetail');d.style.display=d.style.display==='none'?'block':'none'" style="background:none;border:1px solid var(--border2);border-radius:50%;width:18px;height:18px;font-size:11px;color:var(--text-3);cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:serif;font-weight:bold;flex-shrink:0;">i</button>
       </div>
       <div id="visDetail" style="display:none;margin-bottom:10px;padding:9px 12px;background:#EFF6FF;border-left:2px solid #3B82F6;border-radius:0 7px 7px 0;">
@@ -1085,8 +711,6 @@
       </div>
     </div>
     <div id="spotFactors"></div>
-
-    <!-- TYPE DE SOL -->
     <div id="drawerSediment" style="padding:12px 16px;border-bottom:1px solid var(--border);background:var(--surface2);display:flex;align-items:center;gap:10px;">
       <div style="width:14px;height:14px;border-radius:3px;flex-shrink:0;border:1px solid rgba(0,0,0,0.1);" id="sedSwatchColor"></div>
       <div>
@@ -1094,9 +718,8 @@
         <div style="font-family:'DM Mono',monospace;font-size:13px;font-weight:600;color:var(--text);" id="sedimentType">-</div>
       </div>
     </div>
-
     <div id="drawerTides">
-      <div class="tides-label">Marées</div>
+      <div class="tides-label">Marees</div>
       <div class="tides-port-name" id="tidesPortName">-</div>
       <div class="tides-grid">
         <div class="tides-cell">
@@ -1118,7 +741,6 @@
   </div>
 </div>
 
-<!-- OBS POPUP -->
 <div id="obsPopup">
   <div class="popup-header">
     <div style="width:100%">
@@ -1143,7 +765,7 @@
   </div>
   <div class="vis-wrap">
     <div class="vis-header">
-      <span class="vis-header-label">Visibilité</span>
+      <span class="vis-header-label">Visibilite</span>
       <span class="vis-val" id="visVal" style="color:var(--good)">+10m</span>
     </div>
     <input type="range" class="vis-slider" id="visSlider" min="0" max="8" step="1" value="8" oninput="updateVis(this.value)">
@@ -1165,16 +787,13 @@
       </div>
     </div>
   </div>
-  <textarea class="popup-textarea" id="obsComment" placeholder="Espèces vues, visibilité latérale, type de fond..."></textarea>
-  <button class="popup-submit" id="obsSubmit" onclick="submitObs()"><svg width="12" height="12" viewBox="0 0 12 12" fill="none" style="flex-shrink:0"><line x1="6" y1="1" x2="6" y2="11" stroke="#1A2535" stroke-width="2" stroke-linecap="round"/><line x1="1" y1="6" x2="11" y2="6" stroke="#1A2535" stroke-width="2" stroke-linecap="round"/></svg> Améliorer les prévisions</button>
-  <div class="popup-success" id="obsSuccess">✅ Observation enregistrée !</div>
+  <textarea class="popup-textarea" id="obsComment" placeholder="Especes vues, visibilite laterale, type de fond..."></textarea>
+  <button class="popup-submit" id="obsSubmit" onclick="submitObs()">Ameliorer les previsions</button>
+  <div class="popup-success" id="obsSuccess">Observation enregistree !</div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
-// ============================================================
-// CONFIG
-// ============================================================
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbxyjkavoaEJ6AdhK1MKzph68IH3ZKL8QadDGuU_GyzruxqUsXRv6nP9dJqenTCf6u7Z/exec';
 
 const SPOTS = [
@@ -1202,7 +821,7 @@ const SPOTS = [
   { id:'audierne',       name:'Audierne',            lat:48.0167, lon:-4.5333, region:'Bretagne' },
   { id:'concarneau',     name:'Concarneau',          lat:47.8667, lon:-3.9167, region:'Bretagne' },
   { id:'lorient',        name:'Lorient',             lat:47.7500, lon:-3.3667, region:'Bretagne' },
-  { id:'belle_ile',      name:'Belle-Île-en-Mer',    lat:47.3167, lon:-3.1667, region:'Bretagne' },
+  { id:'belle_ile',      name:'Belle-Ile-en-Mer',    lat:47.3167, lon:-3.1667, region:'Bretagne' },
   { id:'vannes',         name:'Vannes',              lat:47.6667, lon:-2.7500, region:'Bretagne' },
   { id:'saint_nazaire',  name:'Saint-Nazaire',       lat:47.2667, lon:-2.2000, region:'Atlantique' },
   { id:'noirmoutier',    name:'Noirmoutier',         lat:47.0000, lon:-2.2500, region:'Atlantique' },
@@ -1214,28 +833,19 @@ const SPOTS = [
   { id:'arcachon',       name:'Arcachon',            lat:44.6500, lon:-1.1667, region:'Atlantique' },
   { id:'capbreton',      name:'Capbreton',           lat:43.6500, lon:-1.4333, region:'Atlantique' },
   { id:'bayonne',        name:'Bayonne',             lat:43.4833, lon:-1.4667, region:'Atlantique' },
-  { id:'port_vendres',   name:'Port-Vendres',        lat:42.5167, lon:3.1000,  region:'Méditerranée' },
-  { id:'sete',           name:'Sète',                lat:43.4000, lon:3.6833,  region:'Méditerranée' },
-  { id:'marseille',      name:'Marseille',           lat:43.2967, lon:5.3811,  region:'Méditerranée' },
-  { id:'toulon',         name:'Toulon',              lat:43.1167, lon:5.9333,  region:'Méditerranée' },
-  { id:'nice',           name:'Nice',                lat:43.7000, lon:7.2667,  region:'Méditerranée' },
-  { id:'ajaccio',        name:'Ajaccio',             lat:41.9167, lon:8.7333,  region:'Méditerranée' },
-  { id:'bastia',         name:'Bastia',              lat:42.7000, lon:9.4500,  region:'Méditerranée' },
+  { id:'port_vendres',   name:'Port-Vendres',        lat:42.5167, lon:3.1000,  region:'Mediterranee' },
+  { id:'sete',           name:'Sete',                lat:43.4000, lon:3.6833,  region:'Mediterranee' },
+  { id:'marseille',      name:'Marseille',           lat:43.2967, lon:5.3811,  region:'Mediterranee' },
+  { id:'toulon',         name:'Toulon',              lat:43.1167, lon:5.9333,  region:'Mediterranee' },
+  { id:'nice',           name:'Nice',                lat:43.7000, lon:7.2667,  region:'Mediterranee' },
+  { id:'ajaccio',        name:'Ajaccio',             lat:41.9167, lon:8.7333,  region:'Mediterranee' },
+  { id:'bastia',         name:'Bastia',              lat:42.7000, lon:9.4500,  region:'Mediterranee' },
 ];
 
 let tidesCache = { data: null, loadedAt: null };
-
-function getTidesCacheKey() { return 'vizi_tides_' + new Date().toISOString().split('T')[0]; }
-function saveTidesToStorage(data) {
-  try { localStorage.setItem(getTidesCacheKey(), JSON.stringify({ data: data, ts: Date.now() })); } catch(e){}
-}
-function loadTidesFromStorage() {
-  try {
-    var raw = localStorage.getItem(getTidesCacheKey());
-    if (raw) { var p = JSON.parse(raw); return p.data || null; }
-  } catch(e){}
-  return null;
-}
+function getTidesCacheKey() { return 'visimer_tides_' + new Date().toISOString().split('T')[0]; }
+function saveTidesToStorage(data) { try { localStorage.setItem(getTidesCacheKey(), JSON.stringify({ data: data, ts: Date.now() })); } catch(e){} }
+function loadTidesFromStorage() { try { var raw = localStorage.getItem(getTidesCacheKey()); if (raw) { var p = JSON.parse(raw); return p.data || null; } } catch(e){} return null; }
 
 const VIS = [
   {v:0,   l:'0m',   c:'#DC2626'},
@@ -1249,9 +859,6 @@ const VIS = [
   {v:10,  l:'+10m', c:'#0090E8'}
 ];
 
-// ============================================================
-// STATE
-// ============================================================
 let S = {
   map:null, day:0,
   heatmap:[], opacity:0.55,
@@ -1267,12 +874,13 @@ let S = {
 let S_forecastOpen = false;
 let S_windUnit = 'kmh';
 let S_lastForecastData = null;
+let S_gridScores = [];
 
 function toggleWindUnit() {
   S_windUnit = S_windUnit === 'kmh' ? 'kt' : 'kmh';
   var btn = document.getElementById('windUnitToggle');
   if (btn) {
-    btn.textContent = S_windUnit === 'kmh' ? 'km/h' : 'nœuds';
+    btn.textContent = S_windUnit === 'kmh' ? 'km/h' : 'noeuds';
     btn.style.color = S_windUnit === 'kt' ? '#A8E63D' : 'rgba(255,255,255,0.7)';
     btn.style.borderColor = S_windUnit === 'kt' ? '#A8E63D' : 'rgba(255,255,255,0.15)';
   }
@@ -1281,110 +889,71 @@ function toggleWindUnit() {
 }
 function toKt(kmh) { return Math.round(kmh * 0.539957); }
 
-// ============================================================
-// API
-// ============================================================
 function gasGet(action, params) {
   params = params || {};
   const url = new URL(GAS_URL);
   url.searchParams.set('action', action);
   Object.keys(params).forEach(function(k){ url.searchParams.set(k, params[k]); });
-  return fetch(url.toString())
-    .then(function(r){ return r.json(); })
-    .catch(function(e){ console.warn('GAS GET error:', e); return null; });
+  return fetch(url.toString()).then(function(r){ return r.json(); }).catch(function(e){ console.warn('GAS GET error:', e); return null; });
 }
 function gasPost(action, data) {
-  return fetch(GAS_URL, {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({action:action, data:data})
-  })
-  .then(function(r){ return r.json(); })
-  .catch(function(e){ console.warn('GAS POST error:', e); return null; });
+  return fetch(GAS_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:action, data:data}) })
+    .then(function(r){ return r.json(); }).catch(function(e){ console.warn('GAS POST error:', e); return null; });
 }
 
-// ============================================================
-// INIT
-// ============================================================
+function loadGridScores() {
+  gasGet('turb_scores').then(function(data) {
+    if (data && data.scores && data.scores.length > 0) {
+      S_gridScores = data.scores;
+    }
+  });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
   initCanvas();
   initMap();
 
-  // FIX : positionner la légende sédiments sous le header dynamiquement
   var headerH = document.getElementById('header').offsetHeight;
   document.getElementById('sedLegend').style.top = (headerH + 8) + 'px';
-
-  // FIX drawer top sur desktop uniquement
   if (window.innerWidth > 768) {
     document.getElementById('spotDrawer').style.top = headerH + 'px';
   }
 
-  // SWIPE DOWN pour fermer le drawer sur mobile
   var drawer = document.getElementById('spotDrawer');
   var swipeStartY = 0;
-  drawer.addEventListener('touchstart', function(e) {
-    swipeStartY = e.touches[0].clientY;
-  }, { passive: true });
-  drawer.addEventListener('touchend', function(e) {
-    var dy = e.changedTouches[0].clientY - swipeStartY;
-    if (dy > 80) closeSpotPopup();
-  }, { passive: true });
+  drawer.addEventListener('touchstart', function(e) { swipeStartY = e.touches[0].clientY; }, { passive: true });
+  drawer.addEventListener('touchend', function(e) { if (e.changedTouches[0].clientY - swipeStartY > 80) closeSpotPopup(); }, { passive: true });
 
   loadPredictions();
   loadHeatmap(0);
-
-  // Patch clic carte sur mobile
+  loadGridScores();
   setTimeout(patchMapForMobile, 500);
+
+  var sheet = document.getElementById('obsSheet');
+  if (sheet) {
+    var obsSwipeY = 0;
+    sheet.addEventListener('touchstart', function(e){ obsSwipeY = e.touches[0].clientY; }, {passive:true});
+    sheet.addEventListener('touchend', function(e){ if (e.changedTouches[0].clientY - obsSwipeY > 80) closeObsSheet(); }, {passive:true});
+  }
 });
 
-// ============================================================
-// CANVAS
-// ============================================================
 function initCanvas() {
   S.canvas = document.getElementById('heatmapCanvas');
   S.ctx = S.canvas.getContext('2d');
   resizeCanvas();
   window.addEventListener('resize', function(){ resizeCanvas(); drawHeatmap(); });
 }
-function resizeCanvas() {
-  S.canvas.width = window.innerWidth;
-  S.canvas.height = window.innerHeight;
-}
+function resizeCanvas() { S.canvas.width = window.innerWidth; S.canvas.height = window.innerHeight; }
 
-// ============================================================
-// MAP
-// ============================================================
 function initMap() {
-  S.map = L.map('map', {
-    center:[49.32, -0.55], zoom:11,
-    zoomControl:true, zoomSnap:1, zoomDelta:1,
-    wheelDebounceTime:20, wheelPxPerZoomLevel:40, zoomAnimationThreshold:4
-  });
+  S.map = L.map('map', { center:[49.32, -0.55], zoom:11, zoomControl:true, zoomSnap:1, zoomDelta:1, wheelDebounceTime:20, wheelPxPerZoomLevel:40, zoomAnimationThreshold:4 });
 
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-    attribution:'Imagery © Esri | SHOM | EMODnet', maxZoom:19
-  }).addTo(S.map);
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution:'Imagery Esri | SHOM | EMODnet', maxZoom:19 }).addTo(S.map);
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { attribution:'', maxZoom:19, opacity:0.45 }).addTo(S.map);
 
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
-    attribution:'', maxZoom:19, opacity:0.45
-  }).addTo(S.map);
-
-  S.isoDeep = L.tileLayer.wms('https://ows.emodnet-bathymetry.eu/wms', {
-    layers:'emodnet:contours', format:'image/png', transparent:true,
-    version:'1.3.0', attribution:'Isobathes © EMODnet', opacity:0.9, maxZoom:19
-  });
-  S.isoShom = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', {
-    attribution:'Signalisation © OpenSeaMap', opacity:0.95, maxZoom:19
-  });
-
-  // Nature du fond SHOM
-  S.sedLayer = L.tileLayer.wms('https://services.data.shom.fr/INSPIRE/wms/v', {
-    layers:'NDF_BDD_WLD_WGS84G_WMS',
-    format:'image/png', transparent:true,
-    version:'1.3.0',
-    attribution:'Nature du fond © SHOM - Natures de fond',
-    opacity:0.75, maxZoom:19
-  });
+  S.isoDeep = L.tileLayer.wms('https://ows.emodnet-bathymetry.eu/wms', { layers:'emodnet:contours', format:'image/png', transparent:true, version:'1.3.0', attribution:'Isobathes EMODnet', opacity:0.9, maxZoom:19 });
+  S.isoShom = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', { attribution:'Signalisation OpenSeaMap', opacity:0.95, maxZoom:19 });
+  S.sedLayer = L.tileLayer.wms('https://services.data.shom.fr/INSPIRE/wms/v', { layers:'NDF_BDD_WLD_WGS84G_WMS', format:'image/png', transparent:true, version:'1.3.0', attribution:'Nature du fond SHOM', opacity:0.75, maxZoom:19 });
 
   S.isoDeep.addTo(S.map);
   S.isoShom.addTo(S.map);
@@ -1399,30 +968,20 @@ function initMap() {
     } else if (zoom <= 11) {
       if (!S.map.hasLayer(S.isoDeep)) S.isoDeep.addTo(S.map);
       if (!S.map.hasLayer(S.isoShom)) S.isoShom.addTo(S.map);
-      S.isoDeep.setOpacity(0.7);
-      S.isoShom.setOpacity(0.9);
+      S.isoDeep.setOpacity(0.7); S.isoShom.setOpacity(0.9);
     } else {
       if (!S.map.hasLayer(S.isoDeep)) S.isoDeep.addTo(S.map);
       if (!S.map.hasLayer(S.isoShom)) S.isoShom.addTo(S.map);
-      S.isoDeep.setOpacity(0.3);
-      S.isoShom.setOpacity(1.0);
+      S.isoDeep.setOpacity(0.3); S.isoShom.setOpacity(1.0);
     }
   });
 
-  const regionColors = {
-    'Manche':'#0BA888', 'Bretagne':'#16A34A',
-    'Atlantique':'#E8A838', 'Méditerranée':'#DC2626'
-  };
+  const regionColors = { 'Manche':'#0BA888', 'Bretagne':'#16A34A', 'Atlantique':'#E8A838', 'Mediterranee':'#DC2626' };
 
   SPOTS.forEach(function(spot) {
     const color = regionColors[spot.region] || '#3A5A78';
-    const m = L.circleMarker([spot.lat, spot.lon], {
-      radius:7, fillColor:color, color:'rgba(0,0,0,0.45)',
-      weight:1.5, fillOpacity:0.88
-    }).addTo(S.map);
-    m.bindTooltip('<b>'+spot.name+'</b><br><span style="color:'+color+';font-size:11px">'+spot.region+'</span>', {
-      permanent:false, direction:'top', className:'vizi-tooltip', offset:[0,-8]
-    });
+    const m = L.circleMarker([spot.lat, spot.lon], { radius:7, fillColor:color, color:'rgba(0,0,0,0.45)', weight:1.5, fillOpacity:0.88 }).addTo(S.map);
+    m.bindTooltip('<b>'+spot.name+'</b><br><span style="color:'+color+';font-size:11px">'+spot.region+'</span>', { permanent:false, direction:'top', className:'visim-tooltip', offset:[0,-8] });
     m.on('click', function(e) {
       L.DomEvent.stopPropagation(e);
       openSpotPopup(L.latLng(spot.lat, spot.lon), spot.name);
@@ -1442,11 +1001,7 @@ function initMap() {
   S.map.on('moveend zoomend', function() { drawHeatmap(); });
 }
 
-// ============================================================
-// COUCHE TURBIDITÉ — Cercles Leaflet (~12kb, léger)
-// ============================================================
-// Format: [lat, lon, score]
-var TURB_PTS = [[49.29,-0.71,25],[49.29,-0.697,25],[49.29,-0.684,25],[49.29,-0.671,25],[49.29,-0.658,25],[49.29,-0.645,25],[49.29,-0.632,25],[49.29,-0.619,25],[49.29,-0.606,25],[49.29,-0.593,25],[49.29,-0.58,25],[49.29,-0.567,25],[49.29,-0.554,43],[49.29,-0.541,43],[49.29,-0.528,43],[49.29,-0.515,43],[49.29,-0.502,63],[49.29,-0.489,63],[49.29,-0.476,63],[49.29,-0.463,63],[49.29,-0.45,63],[49.29,-0.437,63],[49.29,-0.424,63],[49.29,-0.411,63],[49.29,-0.398,43],[49.29,-0.385,43],[49.29,-0.372,65],[49.29,-0.359,65],[49.29,-0.346,47],[49.29,-0.333,47],[49.29,-0.32,25],[49.29,-0.307,25],[49.29,-0.294,25],[49.29,-0.281,25],[49.29675,-0.7035,25],[49.29675,-0.6905,25],[49.29675,-0.6775,25],[49.29675,-0.6645,25],[49.29675,-0.6515,25],[49.29675,-0.6385,25],[49.29675,-0.6255,25],[49.29675,-0.6125,25],[49.29675,-0.5995,25],[49.29675,-0.5865,43],[49.29675,-0.5735,43],[49.29675,-0.5605,61],[49.29675,-0.5475,43],[49.29675,-0.5345,43],[49.29675,-0.5215,43],[49.29675,-0.5085,63],[49.29675,-0.4955,63],[49.29675,-0.4825,63],[49.29675,-0.4695,63],[49.29675,-0.4565,63],[49.29675,-0.4435,63],[49.29675,-0.4305,63],[49.29675,-0.4175,63],[49.29675,-0.4045,63],[49.29675,-0.3915,43],[49.29675,-0.3785,65],[49.29675,-0.3655,65],[49.29675,-0.3525,65],[49.29675,-0.3395,47],[49.29675,-0.3265,47],[49.29675,-0.3135,25],[49.29675,-0.3005,25],[49.29675,-0.2875,25],[49.29675,-0.2745,25],[49.3035,-0.71,25],[49.3035,-0.697,25],[49.3035,-0.684,25],[49.3035,-0.671,25],[49.3035,-0.658,25],[49.3035,-0.645,25],[49.3035,-0.632,25],[49.3035,-0.619,25],[49.3035,-0.606,25],[49.3035,-0.593,43],[49.3035,-0.58,43],[49.3035,-0.567,61],[49.3035,-0.554,61],[49.3035,-0.541,61],[49.3035,-0.528,43],[49.3035,-0.515,63],[49.3035,-0.502,63],[49.3035,-0.489,63],[49.3035,-0.476,63],[49.3035,-0.463,63],[49.3035,-0.45,63],[49.3035,-0.437,63],[49.3035,-0.424,63],[49.3035,-0.411,63],[49.3035,-0.398,63],[49.3035,-0.385,65],[49.3035,-0.372,65],[49.3035,-0.359,65],[49.3035,-0.346,65],[49.3035,-0.333,47],[49.3035,-0.32,25],[49.3035,-0.307,25],[49.3035,-0.294,25],[49.3035,-0.281,25],[49.31025,-0.7035,25],[49.31025,-0.6905,25],[49.31025,-0.6775,25],[49.31025,-0.6645,25],[49.31025,-0.6515,25],[49.31025,-0.6385,25],[49.31025,-0.6255,25],[49.31025,-0.6125,25],[49.31025,-0.5995,43],[49.31025,-0.5865,43],[49.31025,-0.5735,61],[49.31025,-0.5605,61],[49.31025,-0.5475,61],[49.31025,-0.5345,61],[49.31025,-0.5215,43],[49.31025,-0.5085,63],[49.31025,-0.4955,63],[49.31025,-0.4825,63],[49.31025,-0.4695,63],[49.31025,-0.4565,85],[49.31025,-0.4435,63],[49.31025,-0.4305,63],[49.31025,-0.4175,63],[49.31025,-0.4045,63],[49.31025,-0.3915,65],[49.31025,-0.3785,65],[49.31025,-0.3655,65],[49.31025,-0.3525,65],[49.31025,-0.3395,47],[49.31025,-0.3265,47],[49.31025,-0.3135,25],[49.31025,-0.3005,25],[49.31025,-0.2875,25],[49.31025,-0.2745,25],[49.317,-0.71,25],[49.317,-0.697,25],[49.317,-0.684,25],[49.317,-0.671,25],[49.317,-0.658,25],[49.317,-0.645,13],[49.317,-0.632,13],[49.317,-0.619,25],[49.317,-0.606,43],[49.317,-0.593,43],[49.317,-0.58,43],[49.317,-0.567,61],[49.317,-0.554,61],[49.317,-0.541,61],[49.317,-0.528,43],[49.317,-0.515,63],[49.317,-0.502,63],[49.317,-0.489,63],[49.317,-0.476,85],[49.317,-0.463,85],[49.317,-0.45,85],[49.317,-0.437,85],[49.317,-0.424,63],[49.317,-0.411,63],[49.317,-0.398,63],[49.317,-0.385,65],[49.317,-0.372,65],[49.317,-0.359,65],[49.317,-0.346,65],[49.317,-0.333,47],[49.317,-0.32,47],[49.317,-0.307,25],[49.317,-0.294,25],[49.317,-0.281,25],[49.32375,-0.7035,25],[49.32375,-0.6905,25],[49.32375,-0.6775,25],[49.32375,-0.6645,25],[49.32375,-0.6515,13],[49.32375,-0.6385,13],[49.32375,-0.6255,13],[49.32375,-0.6125,43],[49.32375,-0.5995,43],[49.32375,-0.5865,60],[49.32375,-0.5735,78],[49.32375,-0.5605,78],[49.32375,-0.5475,61],[49.32375,-0.5345,61],[49.32375,-0.5215,63],[49.32375,-0.5085,63],[49.32375,-0.4955,63],[49.32375,-0.4825,85],[49.32375,-0.4695,85],[49.32375,-0.4565,85],[49.32375,-0.4435,85],[49.32375,-0.4305,63],[49.32375,-0.4175,63],[49.32375,-0.4045,63],[49.32375,-0.3915,85],[49.32375,-0.3785,65],[49.32375,-0.3655,65],[49.32375,-0.3525,65],[49.32375,-0.3395,65],[49.32375,-0.3265,47],[49.32375,-0.3135,25],[49.32375,-0.3005,25],[49.32375,-0.2875,25],[49.32375,-0.2745,25],[49.3305,-0.71,25],[49.3305,-0.697,25],[49.3305,-0.684,25],[49.3305,-0.671,25],[49.3305,-0.658,13],[49.3305,-0.645,13],[49.3305,-0.632,13],[49.3305,-0.619,31],[49.3305,-0.606,43],[49.3305,-0.593,60],[49.3305,-0.58,60],[49.3305,-0.567,78],[49.3305,-0.554,78],[49.3305,-0.541,61],[49.3305,-0.528,61],[49.3305,-0.515,63],[49.3305,-0.502,63],[49.3305,-0.489,63],[49.3305,-0.476,85],[49.3305,-0.463,85],[49.3305,-0.45,85],[49.3305,-0.437,85],[49.3305,-0.424,63],[49.3305,-0.411,63],[49.3305,-0.398,63],[49.3305,-0.385,65],[49.3305,-0.372,65],[49.3305,-0.359,65],[49.3305,-0.346,65],[49.3305,-0.333,47],[49.3305,-0.32,47],[49.3305,-0.307,25],[49.3305,-0.294,25],[49.3305,-0.281,25],[49.33725,-0.7035,27],[49.33725,-0.6905,27],[49.33725,-0.6775,27],[49.33725,-0.6645,15],[49.33725,-0.6515,15],[49.33725,-0.6385,15],[49.33725,-0.6255,15],[49.33725,-0.6125,33],[49.33725,-0.5995,45],[49.33725,-0.5865,62],[49.33725,-0.5735,80],[49.33725,-0.5605,80],[49.33725,-0.5475,80],[49.33725,-0.5345,63],[49.33725,-0.5215,65],[49.33725,-0.5085,65],[49.33725,-0.4955,65],[49.33725,-0.4825,87],[49.33725,-0.4695,87],[49.33725,-0.4565,87],[49.33725,-0.4435,87],[49.33725,-0.4305,87],[49.33725,-0.4175,65],[49.33725,-0.4045,65],[49.33725,-0.3915,87],[49.33725,-0.3785,67],[49.33725,-0.3655,67],[49.33725,-0.3525,67],[49.33725,-0.3395,67],[49.33725,-0.3265,49],[49.33725,-0.3135,27],[49.33725,-0.3005,27],[49.33725,-0.2875,27],[49.33725,-0.2745,27],[49.344,-0.71,35],[49.344,-0.697,35],[49.344,-0.684,35],[49.344,-0.671,35],[49.344,-0.658,23],[49.344,-0.645,23],[49.344,-0.632,23],[49.344,-0.619,41],[49.344,-0.606,53],[49.344,-0.593,70],[49.344,-0.58,70],[49.344,-0.567,88],[49.344,-0.554,88],[49.344,-0.541,71],[49.344,-0.528,71],[49.344,-0.515,73],[49.344,-0.502,73],[49.344,-0.489,73],[49.344,-0.476,95],[49.344,-0.463,95],[49.344,-0.45,95],[49.344,-0.437,95],[49.344,-0.424,73],[49.344,-0.411,73],[49.344,-0.398,73],[49.344,-0.385,75],[49.344,-0.372,75],[49.344,-0.359,75],[49.344,-0.346,75],[49.344,-0.333,57],[49.344,-0.32,35],[49.344,-0.307,35],[49.344,-0.294,35],[49.344,-0.281,35],[49.35075,-0.7035,42],[49.35075,-0.6905,42],[49.35075,-0.6775,42],[49.35075,-0.6645,30],[49.35075,-0.6515,30],[49.35075,-0.6385,30],[49.35075,-0.6255,30],[49.35075,-0.6125,48],[49.35075,-0.5995,60],[49.35075,-0.5865,77],[49.35075,-0.5735,95],[49.35075,-0.5605,95],[49.35075,-0.5475,78],[49.35075,-0.5345,78],[49.35075,-0.5215,80],[49.35075,-0.5085,80],[49.35075,-0.4955,80],[49.35075,-0.4825,100],[49.35075,-0.4695,100],[49.35075,-0.4565,100],[49.35075,-0.4435,100],[49.35075,-0.4305,100],[49.35075,-0.4175,80],[49.35075,-0.4045,80],[49.35075,-0.3915,80],[49.35075,-0.3785,82],[49.35075,-0.3655,82],[49.35075,-0.3525,82],[49.35075,-0.3395,82],[49.35075,-0.3265,42],[49.35075,-0.3135,42],[49.35075,-0.3005,42],[49.35075,-0.2875,42],[49.35075,-0.2745,42],[49.3575,-0.71,50],[49.3575,-0.697,50],[49.3575,-0.684,50],[49.3575,-0.671,50],[49.3575,-0.658,38],[49.3575,-0.645,38],[49.3575,-0.632,38],[49.3575,-0.619,56],[49.3575,-0.606,68],[49.3575,-0.593,68],[49.3575,-0.58,85],[49.3575,-0.567,100],[49.3575,-0.554,100],[49.3575,-0.541,86],[49.3575,-0.528,86],[49.3575,-0.515,88],[49.3575,-0.502,88],[49.3575,-0.489,88],[49.3575,-0.476,100],[49.3575,-0.463,100],[49.3575,-0.45,100],[49.3575,-0.437,100],[49.3575,-0.424,88],[49.3575,-0.411,88],[49.3575,-0.398,88],[49.3575,-0.385,68],[49.3575,-0.372,90],[49.3575,-0.359,90],[49.3575,-0.346,90],[49.3575,-0.333,50],[49.3575,-0.32,50],[49.3575,-0.307,50],[49.3575,-0.294,50],[49.3575,-0.281,50],[49.36425,-0.7035,57],[49.36425,-0.6905,57],[49.36425,-0.6775,57],[49.36425,-0.6645,57],[49.36425,-0.6515,45],[49.36425,-0.6385,45],[49.36425,-0.6255,45],[49.36425,-0.6125,75],[49.36425,-0.5995,75],[49.36425,-0.5865,75],[49.36425,-0.5735,100],[49.36425,-0.5605,93],[49.36425,-0.5475,93],[49.36425,-0.5345,93],[49.36425,-0.5215,95],[49.36425,-0.5085,95],[49.36425,-0.4955,95],[49.36425,-0.4825,95],[49.36425,-0.4695,100],[49.36425,-0.4565,100],[49.36425,-0.4435,100],[49.36425,-0.4305,95],[49.36425,-0.4175,95],[49.36425,-0.4045,95],[49.36425,-0.3915,75],[49.36425,-0.3785,75],[49.36425,-0.3655,75],[49.36425,-0.3525,75],[49.36425,-0.3395,57],[49.36425,-0.3265,57],[49.36425,-0.3135,57],[49.36425,-0.3005,57],[49.36425,-0.2875,57],[49.36425,-0.2745,57],[49.371,-0.71,65],[49.371,-0.697,65],[49.371,-0.684,65],[49.371,-0.671,65],[49.371,-0.658,65],[49.371,-0.645,65],[49.371,-0.632,53],[49.371,-0.619,65],[49.371,-0.606,83],[49.371,-0.593,83],[49.371,-0.58,83],[49.371,-0.567,100],[49.371,-0.554,100],[49.371,-0.541,100],[49.371,-0.528,83],[49.371,-0.515,100],[49.371,-0.502,100],[49.371,-0.489,100],[49.371,-0.476,100],[49.371,-0.463,100],[49.371,-0.45,100],[49.371,-0.437,100],[49.371,-0.424,100],[49.371,-0.411,100],[49.371,-0.398,100],[49.371,-0.385,83],[49.371,-0.372,83],[49.371,-0.359,83],[49.371,-0.346,83],[49.371,-0.333,65],[49.371,-0.32,65],[49.371,-0.307,65],[49.371,-0.294,65],[49.371,-0.281,65],[49.37775,-0.7035,72],[49.37775,-0.6905,72],[49.37775,-0.6775,72],[49.37775,-0.6645,72],[49.37775,-0.6515,72],[49.37775,-0.6385,72],[49.37775,-0.6255,72],[49.37775,-0.6125,72],[49.37775,-0.5995,90],[49.37775,-0.5865,90],[49.37775,-0.5735,90],[49.37775,-0.5605,100],[49.37775,-0.5475,100],[49.37775,-0.5345,90],[49.37775,-0.5215,90],[49.37775,-0.5085,100],[49.37775,-0.4955,100],[49.37775,-0.4825,100],[49.37775,-0.4695,100],[49.37775,-0.4565,100],[49.37775,-0.4435,100],[49.37775,-0.4305,100],[49.37775,-0.4175,100],[49.37775,-0.4045,100],[49.37775,-0.3915,90],[49.37775,-0.3785,90],[49.37775,-0.3655,90],[49.37775,-0.3525,90],[49.37775,-0.3395,72],[49.37775,-0.3265,72],[49.37775,-0.3135,72],[49.37775,-0.3005,72],[49.37775,-0.2875,72],[49.37775,-0.2745,72],[49.3845,-0.71,80],[49.3845,-0.697,80],[49.3845,-0.684,80],[49.3845,-0.671,80],[49.3845,-0.658,80],[49.3845,-0.645,80],[49.3845,-0.632,80],[49.3845,-0.619,80],[49.3845,-0.606,80],[49.3845,-0.593,98],[49.3845,-0.58,98],[49.3845,-0.567,100],[49.3845,-0.554,100],[49.3845,-0.541,98],[49.3845,-0.528,98],[49.3845,-0.515,98],[49.3845,-0.502,100],[49.3845,-0.489,100],[49.3845,-0.476,100],[49.3845,-0.463,100],[49.3845,-0.45,100],[49.3845,-0.437,100],[49.3845,-0.424,100],[49.3845,-0.411,100],[49.3845,-0.398,98],[49.3845,-0.385,98],[49.3845,-0.372,98],[49.3845,-0.359,98],[49.3845,-0.346,80],[49.3845,-0.333,80],[49.3845,-0.32,80],[49.3845,-0.307,80],[49.3845,-0.294,80],[49.3845,-0.281,80],[49.39125,-0.7035,87],[49.39125,-0.6905,87],[49.39125,-0.6775,87],[49.39125,-0.6645,87],[49.39125,-0.6515,87],[49.39125,-0.6385,87],[49.39125,-0.6255,87],[49.39125,-0.6125,87],[49.39125,-0.5995,87],[49.39125,-0.5865,87],[49.39125,-0.5735,100],[49.39125,-0.5605,100],[49.39125,-0.5475,100],[49.39125,-0.5345,100],[49.39125,-0.5215,100],[49.39125,-0.5085,100],[49.39125,-0.4955,100],[49.39125,-0.4825,100],[49.39125,-0.4695,100],[49.39125,-0.4565,100],[49.39125,-0.4435,100],[49.39125,-0.4305,100],[49.39125,-0.4175,100],[49.39125,-0.4045,100],[49.39125,-0.3915,100],[49.39125,-0.3785,100],[49.39125,-0.3655,100],[49.39125,-0.3525,100],[49.39125,-0.3395,87],[49.39125,-0.3265,87],[49.39125,-0.3135,87],[49.39125,-0.3005,87],[49.39125,-0.2875,87],[49.39125,-0.2745,87],[49.398,-0.71,95],[49.398,-0.697,95],[49.398,-0.684,95],[49.398,-0.671,95],[49.398,-0.658,95],[49.398,-0.645,95],[49.398,-0.632,95],[49.398,-0.619,95],[49.398,-0.606,95],[49.398,-0.593,95],[49.398,-0.58,95],[49.398,-0.567,95],[49.398,-0.554,100],[49.398,-0.541,100],[49.398,-0.528,100],[49.398,-0.515,100],[49.398,-0.502,100],[49.398,-0.489,100],[49.398,-0.476,100],[49.398,-0.463,100],[49.398,-0.45,100],[49.398,-0.437,100],[49.398,-0.424,100],[49.398,-0.411,100],[49.398,-0.398,100],[49.398,-0.385,100],[49.398,-0.372,100],[49.398,-0.359,100],[49.398,-0.346,95],[49.398,-0.333,95],[49.398,-0.32,95],[49.398,-0.307,95],[49.398,-0.294,95],[49.398,-0.281,95],[49.40475,-0.7035,100],[49.40475,-0.6905,100],[49.40475,-0.6775,100],[49.40475,-0.6645,100],[49.40475,-0.6515,100],[49.40475,-0.6385,100],[49.40475,-0.6255,100],[49.40475,-0.6125,100],[49.40475,-0.5995,100],[49.40475,-0.5865,100],[49.40475,-0.5735,100],[49.40475,-0.5605,100],[49.40475,-0.5475,100],[49.40475,-0.5345,100],[49.40475,-0.5215,100],[49.40475,-0.5085,100],[49.40475,-0.4955,100],[49.40475,-0.4825,100],[49.40475,-0.4695,100],[49.40475,-0.4565,100],[49.40475,-0.4435,100],[49.40475,-0.4305,100],[49.40475,-0.4175,100],[49.40475,-0.4045,100],[49.40475,-0.3915,100],[49.40475,-0.3785,100],[49.40475,-0.3655,100],[49.40475,-0.3525,100],[49.40475,-0.3395,100],[49.40475,-0.3265,100],[49.40475,-0.3135,100],[49.40475,-0.3005,100],[49.40475,-0.2875,100],[49.40475,-0.2745,100]];
+var TURB_PTS = [[49.29,-0.71,25],[49.29,-0.697,25],[49.29,-0.684,25],[49.29,-0.671,25],[49.29,-0.658,25],[49.29,-0.645,25],[49.29,-0.632,25],[49.29,-0.619,25],[49.29,-0.606,25],[49.29,-0.593,25],[49.29,-0.58,25],[49.29,-0.567,25],[49.29,-0.554,43],[49.29,-0.541,43],[49.29,-0.528,43],[49.29,-0.515,43],[49.29,-0.502,63],[49.29,-0.489,63],[49.29,-0.476,63],[49.29,-0.463,63],[49.29,-0.45,63],[49.29,-0.437,63],[49.29,-0.424,63],[49.29,-0.411,63],[49.29,-0.398,43],[49.29,-0.385,43],[49.29,-0.372,65],[49.29,-0.359,65],[49.29,-0.346,47],[49.29,-0.333,47],[49.29,-0.32,25],[49.29,-0.307,25],[49.29,-0.294,25],[49.29,-0.281,25]];
 var S_hexLayer = null;
 
 function scoreToColor(score) {
@@ -1457,11 +1012,7 @@ function scoreToColor(score) {
   if (score < 80) return '#EA580C';
   return '#DC2626';
 }
-
-function drawHeatmap() {
-  S.ctx.clearRect(0, 0, S.canvas.width, S.canvas.height);
-}
-
+function drawHeatmap() { S.ctx.clearRect(0, 0, S.canvas.width, S.canvas.height); }
 function scoreToLabel(score) {
   if (score < 20) return '+8m';
   if (score < 35) return '4-8m';
@@ -1471,56 +1022,16 @@ function scoreToLabel(score) {
   return '<1m';
 }
 
-// Rayon géographique de la maille = ~500m
 var TURB_RADIUS_M = 375;
-var S_turbMarkers = []; // garder ref pour redessiner au zoom
-
-function createTurbLayer() {
-  var markers = [];
-  TURB_PTS.forEach(function(pt) {
-    var color = scoreToColor(pt[2]);
-    var label = scoreToLabel(pt[2]);
-    var textColor = pt[2] < 50 ? '#fff' : '#1A2535';
-    // L.circle = rayon en mètres, s'adapte au zoom automatiquement
-    var circle = L.circle([pt[0], pt[1]], {
-      radius: TURB_RADIUS_M,
-      fillColor: color,
-      fillOpacity: 1,
-      color: 'none',
-      weight: 0,
-      interactive: false
-    });
-    markers.push(circle);
-
-    // Marker texte séparé — se repositionne avec la carte
-    var textIcon = L.divIcon({
-      className: '',
-      html: '<div id="tl_' + markers.length + '" style="'
-        + 'font-family:DM Mono,monospace;font-size:10px;font-weight:700;'
-        + 'color:' + textColor + ';background:' + color + ';'
-        + 'border-radius:50%;text-align:center;line-height:1;'
-        + 'display:flex;align-items:center;justify-content:center;'
-        + 'pointer-events:none;white-space:nowrap;'
-        + 'padding:2px 3px;">' + label + '</div>',
-      iconSize: null,
-      iconAnchor: [0, 0]
-    });
-    var tm = L.marker([pt[0], pt[1]], { icon: textIcon, interactive: false, zIndexOffset: 100 });
-    markers.push(tm);
-  });
-  return markers;
-}
 
 function showHexLayer() {
   if (S_hexLayer) return;
-  // Affiche un layer vide pendant le chargement
   S_hexLayer = L.featureGroup([]).addTo(S.map);
-
   gasGet('turb_scores').then(function(data) {
     if (data && data.scores && data.scores.length > 0) {
+      S_gridScores = data.scores;
       renderTurbLayer(data.scores);
     } else {
-      // Fallback mock si GAS vide
       renderTurbLayer(TURB_PTS.map(function(p){ return {lat:p[0], lon:p[1], score:p[2]}; }));
     }
   }).catch(function() {
@@ -1537,44 +1048,20 @@ function renderTurbLayer(points) {
     var lon   = pt.lon   !== undefined ? pt.lon   : pt[1];
     var color = scoreToColor(score);
     var label = scoreToLabel(score);
-    var circle = L.circle([lat, lon], {
-      radius: TURB_RADIUS_M,
-      fillColor: color,
-      fillOpacity: 0.75,
-      color: color,
-      weight: 0,
-      interactive: false
-    });
+    var circle = L.circle([lat, lon], { radius:TURB_RADIUS_M, fillColor:color, fillOpacity:0.75, color:color, weight:0, interactive:false });
     circles.push(circle);
     var textColor = score < 50 ? '#fff' : '#1A2535';
-    var lbl = L.marker([lat, lon], {
-      icon: L.divIcon({
-        className: '',
-        html: '<div style="font-family:DM Mono,monospace;font-size:10px;font-weight:700;color:'
-          + textColor + ';white-space:nowrap;pointer-events:none;">' + label + '</div>',
-        iconSize: null,
-        iconAnchor: [12, 6]
-      }),
-      interactive: false
-    });
+    var lbl = L.marker([lat, lon], { icon: L.divIcon({ className:'', html:'<div style="font-family:DM Mono,monospace;font-size:10px;font-weight:700;color:'+textColor+';white-space:nowrap;pointer-events:none;">'+label+'</div>', iconSize:null, iconAnchor:[12,6] }), interactive:false });
     circles.push(lbl);
   });
   S_hexLayer = L.featureGroup(circles).addTo(S.map);
 }
 
-function hideHexLayer() {
-  if (S_hexLayer) {
-    S.map.removeLayer(S_hexLayer);
-    S_hexLayer = null;
-  }
-}
-// ============================================================
-// DATA
-// ============================================================
+function hideHexLayer() { if (S_hexLayer) { S.map.removeLayer(S_hexLayer); S_hexLayer = null; } }
+
 function loadHeatmap(day) {
   gasGet('heatmap', {day_offset:day}).then(function(data) {
-    S.heatmap = (data && data.heatmap && data.heatmap.length > 0)
-      ? data.heatmap : mockTurbidité(day);
+    S.heatmap = (data && data.heatmap && data.heatmap.length > 0) ? data.heatmap : [];
     drawHeatmap();
   });
 }
@@ -1589,62 +1076,16 @@ function loadPredictions() {
     updateMarkerColors();
   });
 }
-function mockTurbidité(day) {
-  var pts = [], base = 10 + day * 6;
 
-  // Grille Manche/Calvados — bande côtière 0-15m simulée
-  // Zone Calvados - Cotentin
-  var zones = [
-    // [latMin, latMax, lonMin, lonMax, profMoy, sedFactor]
-    [49.28, 49.40, -1.80, -1.50, 8,  1.2], // Carteret
-    [49.28, 49.40, -1.50, -1.20, 10, 1.1], // Granville
-    [49.30, 49.42, -1.20, -0.90, 7,  1.3], // Grandcamp
-    [49.32, 49.42, -0.90, -0.65, 6,  1.4], // Port-en-Bessin
-    [49.32, 49.42, -0.65, -0.40, 5,  1.5], // Courseulles (sable)
-    [49.28, 49.40, -0.40, -0.10, 8,  1.2], // Lion/Ouistreham
-    [49.25, 49.38,  0.00,  0.30, 9,  1.1], // Cabourg
-    [49.20, 49.35,  0.30,  0.70, 10, 1.0], // Deauville
-    [49.30, 49.46, -2.10, -1.80, 7,  1.2], // Saint-Malo
-    [49.40, 49.55, -2.00, -1.60, 9,  1.1], // Cancale
-    [50.60, 50.85, -0.10,  0.50, 8,  1.1], // Normandie est
-    [50.70, 50.90,  1.20,  1.80, 6,  1.3], // Boulogne
-  ];
-
-  zones.forEach(function(z) {
-    var latMin=z[0], latMax=z[1], lonMin=z[2], lonMax=z[3], depth=z[4], sedF=z[5];
-    for (var lat=latMin; lat<=latMax; lat+=0.008) {
-      for (var lon=lonMin; lon<=lonMax; lon+=0.012) {
-        var noise = Math.sin(lat*180+lon*120)*8 + Math.cos(lat*90+lon*200)*5;
-        var distCoast = Math.abs(lat - (latMin+latMax)/2) * 111;
-        var bathyFactor = depth<=5 ? 3.0 : depth<=10 ? 2.0 : 1.3;
-        var score = Math.min(Math.max((base + noise) * bathyFactor * sedF / 4, 0), 100);
-        pts.push({lat:lat, lon:lon, score:Math.round(score), depth:depth});
-      }
-    }
-  });
-
-  return pts;
-}
-
-// ============================================================
-// POPUP OBS
-// ============================================================
 function openPopup(latlng, spotName) {
   S.clickLatLng = latlng;
   const now = new Date();
   document.getElementById('obsDate').value = now.toISOString().split('T')[0];
   document.getElementById('obsTime').value = now.toTimeString().slice(0,5);
-  document.getElementById('popupCoords').textContent =
-    latlng.lat.toFixed(5)+'°N · '+Math.abs(latlng.lng).toFixed(5)+'°O'+(spotName?' - '+spotName:'');
-
-  const near = S.heatmap.length ? S.heatmap.reduce(function(a,b) {
-    return Math.hypot(a.lat-latlng.lat,a.lon-latlng.lng) < Math.hypot(b.lat-latlng.lat,b.lon-latlng.lng) ? a : b;
-  }) : null;
-  S.clickDepth = near ? near.depth : null;
-  document.getElementById('popupDepth').textContent = near ? '⚓ ~'+near.depth+'m' : '';
+  document.getElementById('popupCoords').textContent = latlng.lat.toFixed(5)+'N · '+Math.abs(latlng.lng).toFixed(5)+'O'+(spotName?' - '+spotName:'');
+  document.getElementById('popupDepth').textContent = '';
   document.getElementById('popupSediment').textContent = '';
   fetchSedimentPopup(latlng.lat, latlng.lng);
-
   document.getElementById('visSlider').value = 8;
   updateVis(8);
   setTog('bottom',true); setTog('current',false);
@@ -1652,8 +1093,7 @@ function openPopup(latlng, spotName) {
   document.getElementById('obsSuccess').style.display = 'none';
   document.getElementById('obsSubmit').style.display = 'block';
   document.getElementById('obsSubmit').disabled = false;
-  document.getElementById('obsSubmit').textContent = 'Améliorer les prévisions';
-
+  document.getElementById('obsSubmit').textContent = 'Ameliorer les previsions';
   positionPopup(latlng);
   document.getElementById('obsPopup').style.display = 'block';
 }
@@ -1667,25 +1107,17 @@ function positionPopup(latlng) {
 }
 function closePopup() { document.getElementById('obsPopup').style.display = 'none'; }
 
-// Popup obs - sédiment via proxy GAS
 function fetchSedimentPopup(lat, lon) {
   gasGet('sediment', {lat:lat, lon:lon}).then(function(data) {
     var text = data && data.text ? data.text : '';
     if (!text || text.trim() === '' || text.indexOf('no features') !== -1) return;
     S.clickSediment = text.trim();
     var lower = text.toLowerCase();
-    var sedMap = {
-      'gravier':{'fr':'Graviers / cailloutis'},'cailloutis':{'fr':'Cailloutis'},
-      'sables grossiers':{'fr':'Sable grossier'},'sable grossier':{'fr':'Sable grossier'},
-      'sables fins':{'fr':'Sable fin'},'sable fin':{'fr':'Sable fin'},
-      'sable vaseux':{'fr':'Sable vaseux'},'vase sableuse':{'fr':'Vase sableuse'},
-      'sables':{'fr':'Sable'},'sable':{'fr':'Sable'},
-      'vase':{'fr':'Vase'},'roche':{'fr':'Roche'}
-    };
+    var sedMap = { 'gravier':{'fr':'Graviers / cailloutis'},'cailloutis':{'fr':'Cailloutis'},'sables grossiers':{'fr':'Sable grossier'},'sable grossier':{'fr':'Sable grossier'},'sables fins':{'fr':'Sable fin'},'sable fin':{'fr':'Sable fin'},'sable vaseux':{'fr':'Sable vaseux'},'vase sableuse':{'fr':'Vase sableuse'},'sables':{'fr':'Sable'},'sable':{'fr':'Sable'},'vase':{'fr':'Vase'},'roche':{'fr':'Roche'} };
     var keys = Object.keys(sedMap).sort(function(a,b){ return b.length-a.length; });
     var found = null;
     for(var k=0;k<keys.length;k++) { if(lower.indexOf(keys[k])!==-1){ found=sedMap[keys[k]]; break; } }
-    if(found) document.getElementById('popupSediment').textContent = '🪨 '+found.fr;
+    if(found) document.getElementById('popupSediment').textContent = found.fr;
   }).catch(function(){});
 }
 
@@ -1695,46 +1127,21 @@ function submitObs() {
   const btn = document.getElementById('obsSubmit');
   btn.disabled = true; btn.textContent = 'Envoi...';
   const level = VIS[S.form.visIdx];
-  const data = {
-    lat:S.clickLatLng.lat, lon:S.clickLatLng.lng,
-    date:document.getElementById('obsDate').value,
-    time:document.getElementById('obsTime').value,
-    visibility_m:level.v, visibility_label:level.l,
-    bottom_visible:S.form.bottom, current_felt:S.form.current,
-    comment:document.getElementById('obsComment').value,
-    depth_m:S.clickDepth, sediment:S.clickSediment
-  };
+  const data = { lat:S.clickLatLng.lat, lon:S.clickLatLng.lng, date:document.getElementById('obsDate').value, time:document.getElementById('obsTime').value, visibility_m:level.v, visibility_label:level.l, bottom_visible:S.form.bottom, current_felt:S.form.current, comment:document.getElementById('obsComment').value, depth_m:S.clickDepth, sediment:S.clickSediment };
   gasPost('submit_observation', data).then(function(result) {
     S.submitting = false;
-    if (result && result.success) {
-      btn.style.display = 'none';
-      document.getElementById('obsSuccess').style.display = 'block';
-      setTimeout(closePopup, 1800);
-    } else {
-      btn.disabled = false; btn.textContent = 'Enregistrer →';
-      alert('Erreur envoi. Vérifie ta connexion.');
-    }
+    if (result && result.success) { btn.style.display = 'none'; document.getElementById('obsSuccess').style.display = 'block'; setTimeout(closePopup, 1800); }
+    else { btn.disabled = false; btn.textContent = 'Enregistrer'; alert('Erreur envoi.'); }
   });
 }
 
-// ============================================================
-// MARÉES
-// ============================================================
 function loadTidesCache() {
   if (tidesCache.data) return Promise.resolve();
   var stored = loadTidesFromStorage();
   if (stored) { tidesCache.data = stored; return Promise.resolve(); }
-  return gasGet('tides').then(function(data) {
-    if (data && data.tides) {
-      tidesCache.data = data.tides;
-      saveTidesToStorage(data.tides);
-    }
-  });
+  return gasGet('tides').then(function(data) { if (data && data.tides) { tidesCache.data = data.tides; saveTidesToStorage(data.tides); } });
 }
 
-// ============================================================
-// LAYERS
-// ============================================================
 function toggleLayer(type) {
   if (type==='heatmap') {
     S.showHeatmap = !S.showHeatmap;
@@ -1743,21 +1150,13 @@ function toggleLayer(type) {
   } else if (type==='iso') {
     S.showIso = !S.showIso;
     document.getElementById('btnIso').classList.toggle('active', S.showIso);
-    var isoLeg = document.getElementById('isoLegend'); if(isoLeg) isoLeg.style.display = S.showIso ? 'block' : 'none';
     if (S.showIso) { S.isoDeep.addTo(S.map); S.isoShom.addTo(S.map); S.map.fire('zoomend'); }
-    else {
-      if (S.map.hasLayer(S.isoDeep)) S.map.removeLayer(S.isoDeep);
-      if (S.map.hasLayer(S.isoShom)) S.map.removeLayer(S.isoShom);
-    }
+    else { if (S.map.hasLayer(S.isoDeep)) S.map.removeLayer(S.isoDeep); if (S.map.hasLayer(S.isoShom)) S.map.removeLayer(S.isoShom); }
   } else if (type==='sed') {
     S.showSed = !S.showSed;
     document.getElementById('btnSed').classList.toggle('active', S.showSed);
     document.getElementById('sedLegend').style.display = S.showSed ? 'block' : 'none';
-    if (S.showSed) {
-      S.sedLayer.addTo(S.map);
-    } else {
-      if (S.map.hasLayer(S.sedLayer)) S.map.removeLayer(S.sedLayer);
-    }
+    if (S.showSed) { S.sedLayer.addTo(S.map); } else { if (S.map.hasLayer(S.sedLayer)) S.map.removeLayer(S.sedLayer); }
   }
 }
 
@@ -1770,201 +1169,101 @@ function updateMarkerColors() {
   });
 }
 
-// ============================================================
-// MÉTÉO SPOT - Windguru-style
-// ============================================================
 function toggleForecastPanel() {
   S_forecastOpen = !S_forecastOpen;
   document.getElementById('btnWind').classList.toggle('active', S_forecastOpen);
   document.getElementById('forecastPanel').style.display = S_forecastOpen ? 'block' : 'none';
 }
-function closeForecast() {
-  S_forecastOpen = false;
-  document.getElementById('btnWind').classList.remove('active');
-  document.getElementById('forecastPanel').style.display = 'none';
-}
+function closeForecast() { S_forecastOpen = false; document.getElementById('btnWind').classList.remove('active'); document.getElementById('forecastPanel').style.display = 'none'; }
+
 function loadForecast(lat, lon, locationName) {
   S_forecastOpen = true;
   document.getElementById('btnWind').classList.add('active');
   document.getElementById('forecastPanel').style.display = 'block';
   document.getElementById('forecastLocation').textContent = locationName || (lat.toFixed(4)+', '+lon.toFixed(4));
-  document.getElementById('forecastCoords').textContent = lat.toFixed(4)+'°N '+lon.toFixed(4)+'°E · AROME';
-  document.getElementById('forecastTable').innerHTML = '<div style="padding:18px;text-align:center;color:var(--text-3);font-family:DM Mono,monospace;font-size:10px;letter-spacing:0.04em;">Chargement AROME...</div>';
+  document.getElementById('forecastCoords').textContent = lat.toFixed(4)+'N '+lon.toFixed(4)+'E · AROME';
+  document.getElementById('forecastTable').innerHTML = '<div style="padding:18px;text-align:center;color:var(--text-3);font-family:DM Mono,monospace;font-size:10px;">Chargement AROME...</div>';
 
   const now = new Date();
   const start = new Date(now); start.setHours(0,0,0,0);
   const end = new Date(now); end.setDate(end.getDate()+4); end.setHours(23,0,0,0);
   const fmt = function(d){ return d.toISOString().split('T')[0]; };
 
-  const url = 'https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+
-    '&hourly=windspeed_10m,winddirection_10m,windgusts_10m,wave_height,wave_period,wave_direction,temperature_2m,precipitation'+
-    '&wind_speed_unit=kmh&timezone=Europe/Paris'+
-    '&start_date='+fmt(start)+'&end_date='+fmt(end)+
-    '&models=meteofrance_arome_france';
+  const url = 'https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+'&hourly=windspeed_10m,winddirection_10m,windgusts_10m,wave_height,wave_period,wave_direction,temperature_2m,precipitation&wind_speed_unit=kmh&timezone=Europe/Paris&start_date='+fmt(start)+'&end_date='+fmt(end)+'&models=meteofrance_arome_france';
 
-  fetch(url)
-    .then(function(r){ return r.json(); })
-    .then(function(d) {
-      if (!d.hourly) throw new Error('Pas de données');
-      S_lastForecastData = {h:d.hourly, now:now};
-      renderForecastTable(d.hourly, now);
-    })
-    .catch(function(e) {
-      document.getElementById('forecastTable').innerHTML = '<div style="padding:18px;color:var(--bad);font-family:DM Mono,monospace;font-size:10px;">Erreur : '+e.message+'</div>';
-    });
+  fetch(url).then(function(r){ return r.json(); }).then(function(d) {
+    if (!d.hourly) throw new Error('Pas de donnees');
+    S_lastForecastData = {h:d.hourly, now:now};
+    renderForecastTable(d.hourly, now);
+  }).catch(function(e) {
+    document.getElementById('forecastTable').innerHTML = '<div style="padding:18px;color:var(--bad);font-family:DM Mono,monospace;font-size:10px;">Erreur : '+e.message+'</div>';
+  });
 }
 
 function renderForecastTable(h, now) {
   const times = h.time;
   const nowHour = now.toISOString().slice(0,13);
   const cols = [];
-  times.forEach(function(t, i) {
-    const hour = parseInt(t.slice(11,13));
-    if (hour % 3 === 0) cols.push({i:i, t:t, isNow: t.slice(0,13) === nowHour});
-  });
+  times.forEach(function(t, i) { if (parseInt(t.slice(11,13)) % 3 === 0) cols.push({i:i, t:t, isNow: t.slice(0,13) === nowHour}); });
   const days = {};
-  cols.forEach(function(c) {
-    const day = c.t.slice(0,10);
-    if (!days[day]) days[day] = [];
-    days[day].push(c);
-  });
+  cols.forEach(function(c) { const day = c.t.slice(0,10); if (!days[day]) days[day] = []; days[day].push(c); });
 
-  function windColor(v) {
-    if(!v) return 'wc-0';
-    if(v<5) return 'wc-0'; if(v<10) return 'wc-1'; if(v<15) return 'wc-2';
-    if(v<20) return 'wc-3'; if(v<30) return 'wc-4'; if(v<40) return 'wc-5';
-    if(v<50) return 'wc-6'; return 'wc-7';
-  }
-  function waveColor(v) {
-    if(!v) return 'ww-0';
-    if(v<0.5) return 'ww-0'; if(v<1) return 'ww-1'; if(v<2) return 'ww-2';
-    if(v<3) return 'ww-3'; return 'ww-4';
-  }
+  function windColor(v) { if(!v) return 'wc-0'; if(v<5) return 'wc-0'; if(v<10) return 'wc-1'; if(v<15) return 'wc-2'; if(v<20) return 'wc-3'; if(v<30) return 'wc-4'; if(v<40) return 'wc-5'; if(v<50) return 'wc-6'; return 'wc-7'; }
+  function waveColor(v) { if(!v) return 'ww-0'; if(v<0.5) return 'ww-0'; if(v<1) return 'ww-1'; if(v<2) return 'ww-2'; if(v<3) return 'ww-3'; return 'ww-4'; }
   function dirArrow(deg) {
     if(deg===null||deg===undefined) return '<span style="color:#CBD5E0">-</span>';
-    var c = '#1A2535';
-    var s = 'width:14px;height:14px;display:inline-block;vertical-align:middle;';
-    var idx = (Math.round(deg/45) + 4) % 8;
-    var svgs = [
-      '<svg style="'+s+'" viewBox="0 0 16 16" fill="none"><line x1="8" y1="13" x2="8" y2="4" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round"/><path d="M5 7 L8 4 L11 7" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-      '<svg style="'+s+'" viewBox="0 0 16 16" fill="none"><line x1="5" y1="12" x2="11" y2="5" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round"/><path d="M7 5 L11 5 L11 9" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-      '<svg style="'+s+'" viewBox="0 0 16 16" fill="none"><line x1="3" y1="8" x2="12" y2="8" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round"/><path d="M9 5 L12 8 L9 11" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-      '<svg style="'+s+'" viewBox="0 0 16 16" fill="none"><line x1="5" y1="5" x2="11" y2="11" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round"/><path d="M7 11 L11 11 L11 7" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-      '<svg style="'+s+'" viewBox="0 0 16 16" fill="none"><line x1="8" y1="3" x2="8" y2="12" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round"/><path d="M5 9 L8 12 L11 9" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-      '<svg style="'+s+'" viewBox="0 0 16 16" fill="none"><line x1="11" y1="5" x2="5" y2="11" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round"/><path d="M5 7 L5 11 L9 11" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-      '<svg style="'+s+'" viewBox="0 0 16 16" fill="none"><line x1="13" y1="8" x2="4" y2="8" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round"/><path d="M7 5 L4 8 L7 11" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-      '<svg style="'+s+'" viewBox="0 0 16 16" fill="none"><line x1="11" y1="11" x2="5" y2="5" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round"/><path d="M5 9 L5 5 L9 5" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
-    ];
+    var c='#1A2535', s='width:14px;height:14px;display:inline-block;vertical-align:middle;';
+    var idx=(Math.round(deg/45)+4)%8;
+    var svgs=['<svg style="'+s+'" viewBox="0 0 16 16" fill="none"><line x1="8" y1="13" x2="8" y2="4" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round"/><path d="M5 7 L8 4 L11 7" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>','<svg style="'+s+'" viewBox="0 0 16 16" fill="none"><line x1="5" y1="12" x2="11" y2="5" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round"/><path d="M7 5 L11 5 L11 9" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>','<svg style="'+s+'" viewBox="0 0 16 16" fill="none"><line x1="3" y1="8" x2="12" y2="8" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round"/><path d="M9 5 L12 8 L9 11" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>','<svg style="'+s+'" viewBox="0 0 16 16" fill="none"><line x1="5" y1="5" x2="11" y2="11" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round"/><path d="M7 11 L11 11 L11 7" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>','<svg style="'+s+'" viewBox="0 0 16 16" fill="none"><line x1="8" y1="3" x2="8" y2="12" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round"/><path d="M5 9 L8 12 L11 9" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>','<svg style="'+s+'" viewBox="0 0 16 16" fill="none"><line x1="11" y1="5" x2="5" y2="11" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round"/><path d="M5 7 L5 11 L9 11" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>','<svg style="'+s+'" viewBox="0 0 16 16" fill="none"><line x1="13" y1="8" x2="4" y2="8" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round"/><path d="M7 5 L4 8 L7 11" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>','<svg style="'+s+'" viewBox="0 0 16 16" fill="none"><line x1="11" y1="11" x2="5" y2="5" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round"/><path d="M5 9 L5 5 L9 5" stroke="'+c+'" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'];
     return svgs[idx];
   }
 
-  var unitLabel = S_windUnit === 'kt' ? 'nœuds' : 'km/h';
+  var unitLabel = S_windUnit === 'kt' ? 'noeuds' : 'km/h';
   var conv = S_windUnit === 'kt' ? function(v){ return toKt(v); } : function(v){ return Math.round(v); };
 
-  let html = '<table class="wg-table"><thead>';
-  html += '<tr><td class="row-label day-header"></td>';
+  let html = '<table class="wg-table"><thead><tr><td class="row-label day-header"></td>';
   Object.keys(days).forEach(function(day) {
     const dcols = days[day];
     const date = new Date(day);
     const label = date.toLocaleDateString('fr',{weekday:'short',day:'numeric',month:'short'});
     html += '<td colspan="'+dcols.length+'" class="day-header" style="border-left:1px solid rgba(255,255,255,0.08)">'+label+'</td>';
   });
-  html += '</tr>';
-  html += '<tr><td class="row-label hour-row">Heure</td>';
-  cols.forEach(function(c) {
-    html += '<td class="hour-row'+(c.isNow?' wg-now wg-now-header':'')+'">'+c.t.slice(11,16)+'</td>';
-  });
+  html += '</tr><tr><td class="row-label hour-row">Heure</td>';
+  cols.forEach(function(c) { html += '<td class="hour-row'+(c.isNow?' wg-now wg-now-header':'')+'">'+c.t.slice(11,16)+'</td>'; });
   html += '</tr></thead><tbody>';
 
   html += '<tr><td class="row-label">Vent ('+unitLabel+')</td>';
-  cols.forEach(function(c) {
-    const raw = h.windspeed_10m[c.i]||0;
-    const v = conv(raw);
-    html += '<td class="'+windColor(raw)+(c.isNow?' wg-now':'')+'" style="font-weight:600">'+v+'</td>';
-  });
-  html += '</tr>';
-
-  html += '<tr><td class="row-label">Rafales ('+unitLabel+')</td>';
-  cols.forEach(function(c) {
-    const raw = h.windgusts_10m[c.i]||0;
-    const v = conv(raw);
-    html += '<td class="'+windColor(raw)+(c.isNow?' wg-now':'')+'">'+v+'</td>';
-  });
-  html += '</tr>';
-
-  html += '<tr><td class="row-label">Direction</td>';
-  cols.forEach(function(c) {
-    html += '<td class="'+(c.isNow?'wg-now':'')+'">'+dirArrow(h.winddirection_10m[c.i])+'</td>';
-  });
+  cols.forEach(function(c) { const raw=h.windspeed_10m[c.i]||0; html += '<td class="'+windColor(raw)+(c.isNow?' wg-now':'')+'" style="font-weight:600">'+conv(raw)+'</td>'; });
+  html += '</tr><tr><td class="row-label">Rafales ('+unitLabel+')</td>';
+  cols.forEach(function(c) { const raw=h.windgusts_10m[c.i]||0; html += '<td class="'+windColor(raw)+(c.isNow?' wg-now':'')+'">'+conv(raw)+'</td>'; });
+  html += '</tr><tr><td class="row-label">Direction</td>';
+  cols.forEach(function(c) { html += '<td class="'+(c.isNow?'wg-now':'')+'">'+dirArrow(h.winddirection_10m[c.i])+'</td>'; });
   html += '</tr>';
 
   const hasWaves = h.wave_height && h.wave_height.some(function(v){ return v > 0; });
   if (hasWaves) {
     html += '<tr><td class="row-label">Vagues (m)</td>';
-    cols.forEach(function(c) {
-      const v = h.wave_height[c.i];
-      html += '<td class="'+waveColor(v)+(c.isNow?' wg-now':'')+'">'+( v ? v.toFixed(1) : '-')+'</td>';
-    });
-    html += '</tr>';
-    html += '<tr><td class="row-label">Vagues dir.</td>';
-    cols.forEach(function(c) {
-      html += '<td class="'+(c.isNow?'wg-now':'')+'">'+dirArrow(h.wave_direction[c.i])+'</td>';
-    });
+    cols.forEach(function(c) { const v=h.wave_height[c.i]; html += '<td class="'+waveColor(v)+(c.isNow?' wg-now':'')+'">'+( v ? v.toFixed(1) : '-')+'</td>'; });
+    html += '</tr><tr><td class="row-label">Vagues dir.</td>';
+    cols.forEach(function(c) { html += '<td class="'+(c.isNow?'wg-now':'')+'">'+dirArrow(h.wave_direction[c.i])+'</td>'; });
     html += '</tr>';
   }
 
-  html += '<tr><td class="row-label">Temp. (°C)</td>';
-  cols.forEach(function(c) {
-    html += '<td class="'+(c.isNow?'wg-now':'')+'">'+Math.round(h.temperature_2m[c.i]||0)+'</td>';
-  });
-  html += '</tr>';
-
-  html += '<tr><td class="row-label">Pluie (mm/h)</td>';
-  cols.forEach(function(c) {
-    const v = h.precipitation[c.i];
-    const bg = v > 2 ? 'background:rgba(37,99,235,0.25)' : v > 0.5 ? 'background:rgba(37,99,235,0.12)' : '';
-    html += '<td class="'+(c.isNow?'wg-now':'')+'" style="'+bg+'">'+( v && v > 0 ? v.toFixed(1) : '')+'</td>';
-  });
-  html += '</tr>';
-
-  html += '</tbody></table>';
-  html += '<div style="padding:4px 12px 6px;font-family:DM Mono,monospace;font-size:11px;color:var(--text-3);letter-spacing:0.04em;">Source : Météo-France AROME 2.5km · ▏= heure actuelle</div>';
+  html += '<tr><td class="row-label">Temp. (C)</td>';
+  cols.forEach(function(c) { html += '<td class="'+(c.isNow?'wg-now':'')+'">'+Math.round(h.temperature_2m[c.i]||0)+'</td>'; });
+  html += '</tr><tr><td class="row-label">Pluie (mm/h)</td>';
+  cols.forEach(function(c) { const v=h.precipitation[c.i]; const bg=v>2?'background:rgba(37,99,235,0.25)':v>0.5?'background:rgba(37,99,235,0.12)':''; html += '<td class="'+(c.isNow?'wg-now':'')+'" style="'+bg+'">'+( v && v > 0 ? v.toFixed(1) : '')+'</td>'; });
+  html += '</tr></tbody></table>';
+  html += '<div style="padding:4px 12px 6px;font-family:DM Mono,monospace;font-size:11px;color:var(--text-3);letter-spacing:0.04em;">Source : Meteo-France AROME 2.5km</div>';
 
   document.getElementById('forecastTable').innerHTML = html;
-  setTimeout(function() {
-    const nowCell = document.querySelector('.wg-now');
-    if (nowCell) nowCell.scrollIntoView({inline:'center', block:'nearest'});
-  }, 100);
+  setTimeout(function() { const nowCell = document.querySelector('.wg-now'); if (nowCell) nowCell.scrollIntoView({inline:'center', block:'nearest'}); }, 100);
 }
 
-// ============================================================
-// HELPERS
-// ============================================================
-function updateVis(idx) {
-  idx = parseInt(idx); S.form.visIdx = idx;
-  const v = VIS[idx];
-  document.getElementById('visVal').textContent = v.l;
-  document.getElementById('visVal').style.color = v.c;
-}
-function setTog(f,val) {
-  S.form[f] = val;
-  document.getElementById('tog-'+f+'-yes').classList.toggle('on', val);
-  document.getElementById('tog-'+f+'-no').classList.toggle('on', !val);
-}
-function scoreRgb(s) {
-  if(s<20)return'11,168,136'; if(s<40)return'80,216,112';
-  if(s<60)return'202,138,4'; if(s<80)return'234,88,12';
-  return'220,38,38';
-}
-function scoreColor(s) {
-  if(s<20)return'#0BA888'; if(s<40)return'#16A34A';
-  if(s<60)return'#CA8A04'; if(s<80)return'#EA580C';
-  return'#DC2626';
-}
+function updateVis(idx) { idx = parseInt(idx); S.form.visIdx = idx; const v = VIS[idx]; document.getElementById('visVal').textContent = v.l; document.getElementById('visVal').style.color = v.c; }
+function setTog(f,val) { S.form[f] = val; document.getElementById('tog-'+f+'-yes').classList.toggle('on', val); document.getElementById('tog-'+f+'-no').classList.toggle('on', !val); }
+function scoreColor(s) { if(s<20)return'#0BA888'; if(s<40)return'#16A34A'; if(s<60)return'#CA8A04'; if(s<80)return'#EA580C'; return'#DC2626'; }
 
-// ============================================================
-// SPOT POPUP (DRAWER)
-// ============================================================
 let S_spotLat = null, S_spotLon = null, S_spotWeatherCache = null;
 
 function openSpotPopup(latlng, name) {
@@ -1973,150 +1272,78 @@ function openSpotPopup(latlng, name) {
   S.clickLatLng = latlng;
 
   if (S.clickMarker) S.map.removeLayer(S.clickMarker);
-  var pulseIcon = L.divIcon({
-    className:'',
-    html:'<div class="vizi-pulse-marker"><div class="vizi-pulse-ring"></div><div class="vizi-pulse-ring vizi-pulse-ring2"></div><div class="vizi-pulse-dot"></div></div>',
-    iconSize:[40,40], iconAnchor:[20,20]
-  });
+  var pulseIcon = L.divIcon({ className:'', html:'<div class="visim-pulse-marker"><div class="visim-pulse-ring"></div><div class="visim-pulse-ring visim-pulse-ring2"></div><div class="visim-pulse-dot"></div></div>', iconSize:[40,40], iconAnchor:[20,20] });
   S.clickMarker = L.marker([latlng.lat, latlng.lng], {icon:pulseIcon, interactive:false}).addTo(S.map);
 
-  document.getElementById('spotCoords').textContent =
-    latlng.lat.toFixed(4)+'°N · '+Math.abs(latlng.lng).toFixed(4)+'°O'+(name?' - '+name:'');
+  document.getElementById('spotCoords').textContent = latlng.lat.toFixed(4)+'N · '+Math.abs(latlng.lng).toFixed(4)+'O'+(name?' - '+name:'');
 
-  var near = S.heatmap.length ? S.heatmap.reduce(function(a,b){
-    return Math.hypot(a.lat-latlng.lat,a.lon-latlng.lng) < Math.hypot(b.lat-latlng.lat,b.lon-latlng.lng) ? a : b;
-  }) : null;
-  var distToNear = near ? Math.hypot(near.lat-latlng.lat, near.lon-latlng.lng) * 111 : 999;
-  var depth;
-  if (near && distToNear < 0.05) {
-    depth = near.depth;
+  // FIX : utiliser la profondeur depuis grid_scores
+  var depth = 5;
+  if (S_gridScores.length > 0) {
+    var nearest = S_gridScores.reduce(function(best, p) {
+      var d = Math.hypot(p.lat - latlng.lat, p.lon - latlng.lng);
+      return d < best.d ? {p:p, d:d} : best;
+    }, {p:S_gridScores[0], d:Infinity});
+    if (nearest.d < 0.05 && nearest.p.depth) {
+      depth = nearest.p.depth;
+    } else {
+      var distCoastDeg = Math.abs(latlng.lat - 49.34);
+      depth = Math.max(2.5, Math.min(50, distCoastDeg * 111 * 10));
+    }
   } else {
     var distCoastDeg = Math.abs(latlng.lat - 49.34);
-    depth = Math.max(1, Math.min(50, distCoastDeg * 111 * 10));
+    depth = Math.max(2.5, Math.min(50, distCoastDeg * 111 * 10));
   }
+
   S._spotDepth = depth;
-  document.getElementById('spotMeta').textContent = '⚓ ~'+Math.round(depth)+'m · AROME 2.5km';
+  document.getElementById('spotMeta').textContent = '~'+Math.round(depth)+'m · AROME 2.5km';
 
   var now = new Date();
   document.getElementById('spotDate').value = now.toISOString().split('T')[0];
   document.getElementById('spotTime').value = now.getHours().toString().padStart(2,'0')+':00';
 
   document.getElementById('spotDrawer').classList.add('open');
-
   S_spotWeatherCache = null;
   fetchSpotWeather(latlng.lat, latlng.lng);
   loadDrawerTides(latlng.lat, latlng.lng);
-
-  // FIX CORS : nature du fond via proxy GAS
   fetchSedimentType(latlng.lat, latlng.lng);
 }
 
-// ============================================================
-// NATURE DU FOND - via proxy GAS (fix CORS)
-// ============================================================
-const SED_MAP = {
-  'gravier':         { fr:'Graviers / cailloutis', c:'#CC2200' },
-  'cailloutis':      { fr:'Cailloutis',            c:'#CC2200' },
-  'sables grossiers':{ fr:'Sable grossier',        c:'#E86030' },
-  'sable grossier':  { fr:'Sable grossier',        c:'#E86030' },
-  'sables fins':     { fr:'Sable fin',             c:'#F5E8A0' },
-  'sable fin':       { fr:'Sable fin',             c:'#F5E8A0' },
-  'sable vaseux':    { fr:'Sable vaseux',          c:'#D4B890' },
-  'vase sableuse':   { fr:'Vase sableuse',         c:'#C8A878' },
-  'sables':          { fr:'Sable',                 c:'#F0C060' },
-  'sable':           { fr:'Sable',                 c:'#F0C060' },
-  'vase':            { fr:'Vase',                  c:'#8B6A40' },
-  'roche':           { fr:'Roche',                 c:'#909090' },
-};
+const SED_MAP = { 'gravier':{ fr:'Graviers / cailloutis', c:'#CC2200' },'cailloutis':{ fr:'Cailloutis', c:'#CC2200' },'sables grossiers':{ fr:'Sable grossier', c:'#E86030' },'sable grossier':{ fr:'Sable grossier', c:'#E86030' },'sables fins':{ fr:'Sable fin', c:'#F5E8A0' },'sable fin':{ fr:'Sable fin', c:'#F5E8A0' },'sable vaseux':{ fr:'Sable vaseux', c:'#D4B890' },'vase sableuse':{ fr:'Vase sableuse', c:'#C8A878' },'sables':{ fr:'Sable', c:'#F0C060' },'sable':{ fr:'Sable', c:'#F0C060' },'vase':{ fr:'Vase', c:'#8B6A40' },'roche':{ fr:'Roche', c:'#909090' } };
 
 function fetchSedimentType(lat, lon) {
   document.getElementById('sedimentType').textContent = '…';
   document.getElementById('sedSwatchColor').style.background = '#E2E8F0';
-
-  gasGet('sediment', {lat:lat, lon:lon})
-    .then(function(data) {
-      if (!data) { fallbackSediment(); return; }
-      var text = data.text || '';
-      if (!text) { fallbackSediment(); return; }
-      parseSedimentText(text);
-    })
-    .catch(function() { fallbackSediment(); });
+  gasGet('sediment', {lat:lat, lon:lon}).then(function(data) {
+    if (!data) { fallbackSediment(); return; }
+    var text = data.text || '';
+    if (!text) { fallbackSediment(); return; }
+    parseSedimentText(text);
+  }).catch(function() { fallbackSediment(); });
 }
 
 function parseSedimentText(text) {
   try {
     var json = JSON.parse(text);
-    // Erreur WFS
-    if (json['ows:ExceptionReport'] || text.indexOf('ExceptionReport') !== -1) {
-      fallbackSediment(); return;
-    }
+    if (json['ows:ExceptionReport'] || text.indexOf('ExceptionReport') !== -1) { fallbackSediment(); return; }
     var features = json.features;
-    if (!features || features.length === 0) {
-      document.getElementById('sedimentType').textContent = 'Hors couverture';
-      document.getElementById('sedSwatchColor').style.background = '#E2E8F0';
-      return;
-    }
+    if (!features || features.length === 0) { document.getElementById('sedimentType').textContent = 'Hors couverture'; document.getElementById('sedSwatchColor').style.background = '#E2E8F0'; return; }
     var props = features[0].properties;
-
-    // Priorité : original_substrate (souvent déjà en français), sinon folk_5cl_txt
-    var raw = (props.original_substrate && props.original_substrate.trim() !== '')
-      ? props.original_substrate
-      : (props.folk_5cl_txt || '?');
-
-    // Couleur depuis folk_5cl_txt
-    var folk5colors = {
-      '1. Mud or Sandy mud':             '#8B6A40',
-      '2. Sand':                         '#F0C060',
-      '3. Coarse-grained sediment':      '#E86030',
-      '4. Mixed sediment':               '#C8A878',
-      '5. Rock or other hard substrate': '#909090',
-    };
-
-    // Couleur depuis mots-clés dans original_substrate
+    var raw = (props.original_substrate && props.original_substrate.trim() !== '') ? props.original_substrate : (props.folk_5cl_txt || '?');
     var lower = raw.toLowerCase();
-    var sedColors = [
-      { k:'gravier',    c:'#CC2200' },
-      { k:'caillou',    c:'#CC2200' },
-      { k:'sable gros', c:'#E86030' },
-      { k:'sable fin',  c:'#F5E8A0' },
-      { k:'sable vas',  c:'#D4B890' },
-      { k:'vase sabl',  c:'#C8A878' },
-      { k:'sable',      c:'#F0C060' },
-      { k:'vase',       c:'#8B6A40' },
-      { k:'roche',      c:'#909090' },
-      { k:'rock',       c:'#909090' },
-      { k:'gravel',     c:'#CC2200' },
-      { k:'coarse',     c:'#E86030' },
-      { k:'mud',        c:'#8B6A40' },
-    ];
+    var sedColors = [{ k:'gravier', c:'#CC2200' },{ k:'caillou', c:'#CC2200' },{ k:'sable gros', c:'#E86030' },{ k:'sable fin', c:'#F5E8A0' },{ k:'sable vas', c:'#D4B890' },{ k:'vase sabl', c:'#C8A878' },{ k:'sable', c:'#F0C060' },{ k:'vase', c:'#8B6A40' },{ k:'roche', c:'#909090' },{ k:'rock', c:'#909090' },{ k:'gravel', c:'#CC2200' },{ k:'coarse', c:'#E86030' },{ k:'mud', c:'#8B6A40' }];
     var color = null;
-    for (var i=0; i<sedColors.length; i++) {
-      if (lower.indexOf(sedColors[i].k) !== -1) { color = sedColors[i].c; break; }
-    }
-    if (!color) color = folk5colors[props.folk_5cl_txt] || '#CBD5E0';
-
+    for (var i=0; i<sedColors.length; i++) { if (lower.indexOf(sedColors[i].k) !== -1) { color = sedColors[i].c; break; } }
+    if (!color) color = '#CBD5E0';
     document.getElementById('sedimentType').textContent = raw.slice(0, 60);
     document.getElementById('sedSwatchColor').style.background = color;
-
-  } catch(e) {
-    fallbackSediment();
-  }
+  } catch(e) { fallbackSediment(); }
 }
 
-function fallbackSediment() {
-  document.getElementById('sedimentType').textContent = 'Non disponible';
-  document.getElementById('sedSwatchColor').style.background = '#E2E8F0';
-}
+function fallbackSediment() { document.getElementById('sedimentType').textContent = 'Non disponible'; document.getElementById('sedSwatchColor').style.background = '#E2E8F0'; }
 
-// ============================================================
-// MARÉES - DRAWER
-// ============================================================
 function loadDrawerTides(lat, lon) {
-  var nearest = SPOTS.reduce(function(best, s) {
-    var d = Math.hypot(s.lat-lat, s.lon-lon);
-    return d < best.d ? {spot:s, d:d} : best;
-  }, {spot:SPOTS[0], d:Infinity}).spot;
-
+  var nearest = SPOTS.reduce(function(best, s) { var d = Math.hypot(s.lat-lat, s.lon-lon); return d < best.d ? {spot:s, d:d} : best; }, {spot:SPOTS[0], d:Infinity}).spot;
   document.getElementById('tidesPortName').textContent = nearest.name;
   document.getElementById('tidesCoeff').textContent = '…';
   document.getElementById('tidesPM').textContent = '…';
@@ -2126,39 +1353,22 @@ function loadDrawerTides(lat, lon) {
 
   loadTidesCache().then(function() {
     var today = new Date().toISOString().split('T')[0];
-    var portTides = tidesCache.data
-      ? tidesCache.data.filter(function(t){ return t.port_id === nearest.id && t.date === today; })
-      : [];
-
+    var portTides = tidesCache.data ? tidesCache.data.filter(function(t){ return t.port_id === nearest.id && t.date === today; }) : [];
     if (portTides.length > 0) { renderDrawerTides(portTides); return; }
 
-    // Fallback WorldTides direct
     var apiKey = '17d84504-31e5-4520-90fc-537883a0492e';
     var now = new Date();
     var start = Math.floor(new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() / 1000);
     var end = start + 86400;
-    var url = 'https://www.worldtides.info/api/v3?extremes'
-      + '&lat='+nearest.lat+'&lon='+nearest.lon
-      + '&start='+start+'&end='+end
-      + '&datum=LAT&key='+apiKey;
-
-    fetch(url)
-      .then(function(r){ return r.json(); })
-      .then(function(data) {
-        if (!data.extremes || data.extremes.length === 0) { renderDrawerTidesFallback(); return; }
-        var converted = data.extremes.map(function(e) {
-          var d = new Date(e.date);
-          return {
-            port_id:nearest.id, date:today,
-            type:e.type==='High'?'high':'low',
-            time:d.toLocaleTimeString('fr',{hour:'2-digit',minute:'2-digit',hour12:false}),
-            height_m:e.height.toFixed(2),
-            coefficient:estimateCoeff(data.extremes)
-          };
-        });
-        renderDrawerTides(converted);
-      })
-      .catch(function() { renderDrawerTidesFallback(); });
+    var url = 'https://www.worldtides.info/api/v3?extremes&lat='+nearest.lat+'&lon='+nearest.lon+'&start='+start+'&end='+end+'&datum=LAT&key='+apiKey;
+    fetch(url).then(function(r){ return r.json(); }).then(function(data) {
+      if (!data.extremes || data.extremes.length === 0) { renderDrawerTidesFallback(); return; }
+      var converted = data.extremes.map(function(e) {
+        var d = new Date(e.date);
+        return { port_id:nearest.id, date:today, type:e.type==='High'?'high':'low', time:d.toLocaleTimeString('fr',{hour:'2-digit',minute:'2-digit',hour12:false}), height_m:e.height.toFixed(2), coefficient:estimateCoeff(data.extremes) };
+      });
+      renderDrawerTides(converted);
+    }).catch(function() { renderDrawerTidesFallback(); });
   });
 }
 
@@ -2173,31 +1383,16 @@ function estimateCoeff(extremes) {
 function renderDrawerTides(tides) {
   var now = new Date();
   var nowStr = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
-
   var highs = tides.filter(function(t){ return t.type==='high'; }).sort(function(a,b){ return a.time.localeCompare(b.time); });
   var lows  = tides.filter(function(t){ return t.type==='low';  }).sort(function(a,b){ return a.time.localeCompare(b.time); });
-
-  // Trouver la prochaine PM après maintenant, sinon la première du jour
   var nextHigh = highs.find(function(t){ return t.time >= nowStr; }) || highs[0];
   var nextLow  = lows.find(function(t){  return t.time >= nowStr; }) || lows[0];
-
-  var coeff = (highs.length>0 && highs[0].coefficient) ? highs[0].coefficient : estimateCoeff(
-    highs.concat(lows).map(function(t){ return {type:t.type==='high'?'High':'Low', height:parseFloat(t.height_m)}; })
-  );
+  var coeff = (highs.length>0 && highs[0].coefficient) ? highs[0].coefficient : '-';
   document.getElementById('tidesCoeff').textContent = coeff;
-
-  if (nextHigh) {
-    // Indiquer si c'est passé (afficher tout de même avec label)
-    var pmLabel = nextHigh.time >= nowStr ? nextHigh.time : nextHigh.time + ' ✓';
-    document.getElementById('tidesPM').textContent = pmLabel;
-    document.getElementById('tidesPMh').textContent = nextHigh.height_m + 'm';
-  } else { document.getElementById('tidesPM').textContent = '-'; }
-
-  if (nextLow) {
-    var bmLabel = nextLow.time >= nowStr ? nextLow.time : nextLow.time + ' ✓';
-    document.getElementById('tidesBM').textContent = bmLabel;
-    document.getElementById('tidesBMh').textContent = nextLow.height_m + 'm';
-  } else { document.getElementById('tidesBM').textContent = '-'; }
+  if (nextHigh) { document.getElementById('tidesPM').textContent = nextHigh.time >= nowStr ? nextHigh.time : nextHigh.time+' ✓'; document.getElementById('tidesPMh').textContent = nextHigh.height_m+'m'; }
+  else { document.getElementById('tidesPM').textContent = '-'; }
+  if (nextLow) { document.getElementById('tidesBM').textContent = nextLow.time >= nowStr ? nextLow.time : nextLow.time+' ✓'; document.getElementById('tidesBMh').textContent = nextLow.height_m+'m'; }
+  else { document.getElementById('tidesBM').textContent = '-'; }
 }
 
 function renderDrawerTidesFallback() {
@@ -2205,56 +1400,30 @@ function renderDrawerTidesFallback() {
   var dayOfYear = Math.floor((now - new Date(now.getFullYear(),0,0)) / 86400000);
   var coeff = Math.round(70 + 50 * Math.sin(dayOfYear / 14.77 * Math.PI));
   document.getElementById('tidesCoeff').textContent = coeff;
-  document.getElementById('tidesPM').textContent = '-';
-  document.getElementById('tidesPMh').textContent = 'non dispo';
-  document.getElementById('tidesBM').textContent = '-';
-  document.getElementById('tidesBMh').textContent = 'non dispo';
+  document.getElementById('tidesPM').textContent = '-'; document.getElementById('tidesPMh').textContent = 'non dispo';
+  document.getElementById('tidesBM').textContent = '-'; document.getElementById('tidesBMh').textContent = 'non dispo';
 }
 
-function closeSpotPopup() {
-  document.getElementById('spotDrawer').classList.remove('open');
-  if (S.clickMarker) { S.map.removeLayer(S.clickMarker); S.clickMarker = null; }
-}
+function closeSpotPopup() { document.getElementById('spotDrawer').classList.remove('open'); if (S.clickMarker) { S.map.removeLayer(S.clickMarker); S.clickMarker = null; } }
 
-// ============================================================
-// MÉTÉO SPOT - DRAWER
-// ============================================================
 function fetchSpotWeather(lat, lon) {
   var now = new Date();
   var start = new Date(now); start.setHours(0,0,0,0);
   var end = new Date(now); end.setDate(end.getDate()+4);
   var fmt = function(d){ return d.toISOString().split('T')[0]; };
-
-  var url = 'https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+
-    '&hourly=windspeed_10m,windgusts_10m,winddirection_10m,wave_height,precipitation'+
-    '&wind_speed_unit=kmh&timezone=Europe/Paris'+
-    '&start_date='+fmt(start)+'&end_date='+fmt(end)+'&models=meteofrance_arome_france';
-
-  fetch(url)
-    .then(function(r){ return r.json(); })
-    .then(function(d) {
-      if (!d.hourly) return;
-      S_spotWeatherCache = d.hourly;
-      renderSpotPopup();
-    })
-    .catch(function(){});
+  var url = 'https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+'&hourly=windspeed_10m,windgusts_10m,winddirection_10m,wave_height,precipitation&wind_speed_unit=kmh&timezone=Europe/Paris&start_date='+fmt(start)+'&end_date='+fmt(end)+'&models=meteofrance_arome_france';
+  fetch(url).then(function(r){ return r.json(); }).then(function(d) { if (!d.hourly) return; S_spotWeatherCache = d.hourly; renderSpotPopup(); }).catch(function(){});
 }
 
-function refreshSpotPopup() {
-  if (S_spotWeatherCache) renderSpotPopup();
-}
+function refreshSpotPopup() { if (S_spotWeatherCache) renderSpotPopup(); }
 
 function renderSpotPopup() {
   var h = S_spotWeatherCache;
   var dateVal = document.getElementById('spotDate').value;
   var timeVal = document.getElementById('spotTime').value;
   var targetStr = dateVal+'T'+timeVal;
-
   var idx = 0, best = Infinity;
-  h.time.forEach(function(t, i) {
-    var d = Math.abs(new Date(t) - new Date(targetStr));
-    if (d < best) { best = d; idx = i; }
-  });
+  h.time.forEach(function(t, i) { var d = Math.abs(new Date(t) - new Date(targetStr)); if (d < best) { best = d; idx = i; } });
 
   var wind  = Math.round(h.windspeed_10m[idx]  || 0);
   var gusts = Math.round(h.windgusts_10m[idx]  || 0);
@@ -2266,12 +1435,7 @@ function renderSpotPopup() {
   var bathyFactor = depth<=2 ? 4.0 : depth<=5 ? 3.0 : depth<=10 ? 2.0 : depth<=20 ? 1.3 : 1.0;
   var decayHours  = depth<=3 ? 72  : depth<=8  ? 48  : depth<=15 ? 24  : 12;
 
-  function getDirFactor(d) {
-    if (d===null||d===undefined) return 1.0;
-    if (d>=135 && d<=225) return 0.15;
-    if ((d>45 && d<135)||(d>225 && d<315)) return 0.7;
-    return 1.4;
-  }
+  function getDirFactor(d) { if (d===null||d===undefined) return 1.0; if (d>=135 && d<=225) return 0.15; if ((d>45 && d<135)||(d>225 && d<315)) return 0.7; return 1.4; }
   var dirFactor = getDirFactor(dir);
 
   var residualPenalty=0, peakWind=0, peakGusts=0, peakDir=null, peakHoursAgo=0, peakTime=null, peakRawImpact=0;
@@ -2295,33 +1459,19 @@ function renderSpotPopup() {
   var totalPenalty=Math.min(combinedPenalty*bathyFactor,100);
   var score=Math.max(0,Math.min(100,100-totalPenalty));
 
-  var visLabel;
-  if(score>=80) visLabel='Excellente';
-  else if(score>=60) visLabel='Bonne';
-  else if(score>=40) visLabel='Moyenne';
-  else if(score>=20) visLabel='Faible';
-  else visLabel='Nulle';
-
+  var visLabel = score>=80?'Excellente':score>=60?'Bonne':score>=40?'Moyenne':score>=20?'Faible':'Nulle';
   var visM;
   if(score>=80) visM=Math.round(8+(score-80)/20*7)+'m+';
-  else if(score>=60) visM=(4+Math.round((score-60)/20*4))+' – '+(8+Math.round((score-60)/20*2))+'m';
-  else if(score>=40) visM=(2+Math.round((score-40)/20*2))+' – '+(4+Math.round((score-40)/20*3))+'m';
-  else if(score>=20) visM='0.5 – '+(1+Math.round((score-20)/20))+'m';
+  else if(score>=60) visM=(4+Math.round((score-60)/20*4))+' - '+(8+Math.round((score-60)/20*2))+'m';
+  else if(score>=40) visM=(2+Math.round((score-40)/20*2))+' - '+(4+Math.round((score-40)/20*3))+'m';
+  else if(score>=20) visM='0.5 - '+(1+Math.round((score-20)/20))+'m';
   else visM=score<5?'< 0.3m':'< 0.5m';
 
-  var visRanges = {
-    'Nulle':      'Nulle · '+visM+' - fond invisible, chasse impossible.',
-    'Faible':     'Faible · '+visM+' - fond à peine visible, chasse très difficile.',
-    'Moyenne':    'Moyenne · '+visM+' - chasse possible pour les expérimentés.',
-    'Bonne':      'Bonne · '+visM+' - bonnes conditions, chasse confortable.',
-    'Excellente': 'Excellente · '+visM+' - eau cristalline, conditions idéales.'
-  };
+  var visRanges = { 'Nulle':'Nulle · '+visM+' - fond invisible, chasse impossible.','Faible':'Faible · '+visM+' - fond a peine visible, chasse tres difficile.','Moyenne':'Moyenne · '+visM+' - chasse possible pour les experimentes.','Bonne':'Bonne · '+visM+' - bonnes conditions, chasse confortable.','Excellente':'Excellente · '+visM+' - eau cristalline, conditions ideales.' };
   var detailEl = document.getElementById('visDetailText');
   if(detailEl) detailEl.textContent = visRanges[visLabel] || '';
 
-  var memoryNote='';
-  if(residualPenalty>instantPenalty && residualPenalty>10) memoryNote='· agitation passée';
-
+  var memoryNote = residualPenalty>instantPenalty && residualPenalty>10 ? '· agitation passee' : '';
   var badgeColors={'Nulle':'#DC2626','Faible':'#EA580C','Moyenne':'#CA8A04','Bonne':'#16A34A','Excellente':'#0BA888'};
   var segColors=['#DC2626','#EA580C','#CA8A04','#16A34A','#0BA888'];
   var levelIdx=['Nulle','Faible','Moyenne','Bonne','Excellente'].indexOf(visLabel);
@@ -2329,132 +1479,69 @@ function renderSpotPopup() {
   var badge=document.getElementById('spotVisBadge'), label=document.getElementById('spotVisLabel');
   if(badge) badge.style.background=badgeColors[visLabel]||'#CA8A04';
   if(label) label.textContent=visLabel;
-
-  for(var si=0;si<5;si++){
-    var seg=document.getElementById('visSeg'+si);
-    if(seg) seg.style.background=si<=levelIdx?segColors[si]:'var(--border)';
-  }
-
-  var noteEl=document.getElementById('spotMemoryNote');
-  if(noteEl) noteEl.textContent=memoryNote;
+  for(var si=0;si<5;si++){ var seg=document.getElementById('visSeg'+si); if(seg) seg.style.background=si<=levelIdx?segColors[si]:'var(--border)'; }
+  var noteEl=document.getElementById('spotMemoryNote'); if(noteEl) noteEl.textContent=memoryNote;
 
   var windColor=wind<10?'#0BA888':wind<20?'#CA8A04':wind<35?'#EA580C':'#DC2626';
   var gustColor=gusts<15?'#0BA888':gusts<25?'#CA8A04':gusts<45?'#EA580C':'#DC2626';
   var windDisp=S_windUnit==='kt'?toKt(wind):wind;
   var gustDisp=S_windUnit==='kt'?toKt(gusts):gusts;
-  var unitDisp=S_windUnit==='kt'?'nœuds':'km/h';
+  var unitDisp=S_windUnit==='kt'?'noeuds':'km/h';
 
-  document.getElementById('spotWindSpeed').textContent=windDisp;
-  document.getElementById('spotWindSpeed').style.color=windColor;
-  document.getElementById('spotWindGusts').textContent=gustDisp;
-  document.getElementById('spotWindGusts').style.color=gustColor;
+  document.getElementById('spotWindSpeed').textContent=windDisp; document.getElementById('spotWindSpeed').style.color=windColor;
+  document.getElementById('spotWindGusts').textContent=gustDisp; document.getElementById('spotWindGusts').style.color=gustColor;
   document.querySelectorAll('.spot-wind-unit').forEach(function(el,i){ if(i<2) el.textContent=unitDisp; });
 
   var fromNames=['N','NE','E','SE','S','SO','O','NO'];
   var aidx=Math.round(dir/45)%8;
   var dirName=(dir!==null&&dir!==undefined)?fromNames[aidx]:'-';
-
   var dc='#1A2535';
-  var drawerArrows=[
-    '<svg width="22" height="22" viewBox="0 0 16 16" fill="none"><line x1="8" y1="13" x2="8" y2="4" stroke="'+dc+'" stroke-width="2" stroke-linecap="round"/><path d="M5 7 L8 4 L11 7" stroke="'+dc+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    '<svg width="22" height="22" viewBox="0 0 16 16" fill="none"><line x1="5" y1="12" x2="11" y2="5" stroke="'+dc+'" stroke-width="2" stroke-linecap="round"/><path d="M7 5 L11 5 L11 9" stroke="'+dc+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    '<svg width="22" height="22" viewBox="0 0 16 16" fill="none"><line x1="3" y1="8" x2="12" y2="8" stroke="'+dc+'" stroke-width="2" stroke-linecap="round"/><path d="M9 5 L12 8 L9 11" stroke="'+dc+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    '<svg width="22" height="22" viewBox="0 0 16 16" fill="none"><line x1="5" y1="5" x2="11" y2="11" stroke="'+dc+'" stroke-width="2" stroke-linecap="round"/><path d="M7 11 L11 11 L11 7" stroke="'+dc+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    '<svg width="22" height="22" viewBox="0 0 16 16" fill="none"><line x1="8" y1="3" x2="8" y2="12" stroke="'+dc+'" stroke-width="2" stroke-linecap="round"/><path d="M5 9 L8 12 L11 9" stroke="'+dc+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    '<svg width="22" height="22" viewBox="0 0 16 16" fill="none"><line x1="11" y1="5" x2="5" y2="11" stroke="'+dc+'" stroke-width="2" stroke-linecap="round"/><path d="M5 7 L5 11 L9 11" stroke="'+dc+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    '<svg width="22" height="22" viewBox="0 0 16 16" fill="none"><line x1="13" y1="8" x2="4" y2="8" stroke="'+dc+'" stroke-width="2" stroke-linecap="round"/><path d="M7 5 L4 8 L7 11" stroke="'+dc+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    '<svg width="22" height="22" viewBox="0 0 16 16" fill="none"><line x1="11" y1="11" x2="5" y2="5" stroke="'+dc+'" stroke-width="2" stroke-linecap="round"/><path d="M5 9 L5 5 L9 5" stroke="'+dc+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
-  ];
+  var drawerArrows=['<svg width="22" height="22" viewBox="0 0 16 16" fill="none"><line x1="8" y1="13" x2="8" y2="4" stroke="'+dc+'" stroke-width="2" stroke-linecap="round"/><path d="M5 7 L8 4 L11 7" stroke="'+dc+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>','<svg width="22" height="22" viewBox="0 0 16 16" fill="none"><line x1="5" y1="12" x2="11" y2="5" stroke="'+dc+'" stroke-width="2" stroke-linecap="round"/><path d="M7 5 L11 5 L11 9" stroke="'+dc+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>','<svg width="22" height="22" viewBox="0 0 16 16" fill="none"><line x1="3" y1="8" x2="12" y2="8" stroke="'+dc+'" stroke-width="2" stroke-linecap="round"/><path d="M9 5 L12 8 L9 11" stroke="'+dc+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>','<svg width="22" height="22" viewBox="0 0 16 16" fill="none"><line x1="5" y1="5" x2="11" y2="11" stroke="'+dc+'" stroke-width="2" stroke-linecap="round"/><path d="M7 11 L11 11 L11 7" stroke="'+dc+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>','<svg width="22" height="22" viewBox="0 0 16 16" fill="none"><line x1="8" y1="3" x2="8" y2="12" stroke="'+dc+'" stroke-width="2" stroke-linecap="round"/><path d="M5 9 L8 12 L11 9" stroke="'+dc+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>','<svg width="22" height="22" viewBox="0 0 16 16" fill="none"><line x1="11" y1="5" x2="5" y2="11" stroke="'+dc+'" stroke-width="2" stroke-linecap="round"/><path d="M5 7 L5 11 L9 11" stroke="'+dc+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>','<svg width="22" height="22" viewBox="0 0 16 16" fill="none"><line x1="13" y1="8" x2="4" y2="8" stroke="'+dc+'" stroke-width="2" stroke-linecap="round"/><path d="M7 5 L4 8 L7 11" stroke="'+dc+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>','<svg width="22" height="22" viewBox="0 0 16 16" fill="none"><line x1="11" y1="11" x2="5" y2="5" stroke="'+dc+'" stroke-width="2" stroke-linecap="round"/><path d="M5 9 L5 5 L9 5" stroke="'+dc+'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'];
   var arrow=(dir!==null&&dir!==undefined)?drawerArrows[(aidx+4)%8]:'-';
   document.getElementById('spotWindDir').innerHTML=arrow;
-  document.getElementById('spotWindDeg').textContent=dirName+(dir!==null?' '+Math.round(dir)+'°':'');
+  document.getElementById('spotWindDeg').textContent=dirName+(dir!==null?' '+Math.round(dir)+'':' ');
 
   var factors=[];
   var windImpact=Math.round(windPenalty);
   var windDispLabel=windDisp+' '+unitDisp;
-  if(windImpact>2){
-    var windType=dirFactor<=0.2?'offshore · mer plate':dirFactor>=1.3?'onshore · agite le fond':'latéral';
-    factors.push({icon:'💨',label:'Vent '+windDispLabel+' ('+dirName+' - '+windType+')',impact:windImpact,max:55});
-  } else {
-    factors.push({icon:'💨',label:'Vent '+windDispLabel+' ('+dirName+' - offshore · mer plate)',impact:0,max:55});
-  }
-  if(residualPenalty>5){
-    var peakFromNames=['N','NE','E','SE','S','SO','O','NO'];
-    var peakDirName=(peakDir!==null&&peakDir!==undefined)?peakFromNames[Math.round(peakDir/45)%8]:'-';
-    var peakDirType=getDirFactor(peakDir)<=0.2?'offshore':getDirFactor(peakDir)>=1.3?'onshore ⚠':'latéral';
-    var quand=peakHoursAgo>=24?'il y a '+peakHoursAgo+'h (hier vers '+peakTime+')':'il y a '+peakHoursAgo+'h (vers '+peakTime+')';
-    factors.push({icon:'⏱',label:'Agitation passée - '+Math.round(decayHours)+'h de décantation',impact:Math.round(residualPenalty),max:55,
-      detail:'Pic '+quand+' · '+peakWind+' km/h rafales '+peakGusts+' km/h · '+peakDirName+' '+Math.round(peakDir||0)+'° - '+peakDirType});
-  }
+  if(windImpact>2){ var windType=dirFactor<=0.2?'offshore - mer plate':dirFactor>=1.3?'onshore - agite le fond':'lateral'; factors.push({icon:'💨',label:'Vent '+windDispLabel+' ('+dirName+' - '+windType+')',impact:windImpact,max:55}); }
+  else { factors.push({icon:'💨',label:'Vent '+windDispLabel+' ('+dirName+' - offshore - mer plate)',impact:0,max:55}); }
+  if(residualPenalty>5){ var peakFromNames=['N','NE','E','SE','S','SO','O','NO']; var peakDirName=(peakDir!==null&&peakDir!==undefined)?peakFromNames[Math.round(peakDir/45)%8]:'-'; var peakDirType=getDirFactor(peakDir)<=0.2?'offshore':getDirFactor(peakDir)>=1.3?'onshore':'lateral'; var quand=peakHoursAgo>=24?'il y a '+peakHoursAgo+'h (hier vers '+peakTime+')':'il y a '+peakHoursAgo+'h (vers '+peakTime+')'; factors.push({icon:'⏱',label:'Agitation passee - '+Math.round(decayHours)+'h de decantation',impact:Math.round(residualPenalty),max:55,detail:'Pic '+quand+' · '+peakWind+' km/h rafales '+peakGusts+' km/h · '+peakDirName+' '+Math.round(peakDir||0)+' - '+peakDirType}); }
   if(wavePenalty>3) factors.push({icon:'🌊',label:'Vagues '+wave.toFixed(1)+'m',impact:Math.round(wavePenalty),max:35});
-  factors.push({icon:'⚓',label:'Fond ~'+Math.round(depth)+'m (×'+bathyFactor.toFixed(1)+' amplification)',impact:null,max:null});
+  factors.push({icon:'⚓',label:'Fond ~'+Math.round(depth)+'m (x'+bathyFactor.toFixed(1)+' amplification)',impact:null,max:null});
 
   var factorsEl=document.getElementById('spotFactors');
   factorsEl.innerHTML=factors.map(function(f,fi){
     var barHtml='';
-    if(f.impact!==null&&f.max!==null){
-      var pct=Math.min(100,Math.round(f.impact/f.max*100));
-      var barColor=pct<20?'#0BA888':pct<50?'#CA8A04':pct<80?'#EA580C':'#DC2626';
-      barHtml='<div style="flex:1;height:3px;background:#E2E8F0;border-radius:2px;overflow:hidden;">'
-        +'<div style="height:100%;width:'+pct+'%;background:'+barColor+';border-radius:2px;transition:width 0.4s"></div>'
-        +'</div>'
-        +'<div style="font-size:12px;color:'+barColor+';min-width:28px;text-align:right;font-family:DM Mono,monospace;font-weight:600">'+(pct>0?'−'+Math.round(f.impact):'✓')+'</div>';
-    } else {
-      barHtml='<div style="flex:1"></div><div style="font-size:12px;color:#94A3B8;font-family:DM Mono,monospace">×'+bathyFactor.toFixed(1)+'</div>';
-    }
+    if(f.impact!==null&&f.max!==null){ var pct=Math.min(100,Math.round(f.impact/f.max*100)); var barColor=pct<20?'#0BA888':pct<50?'#CA8A04':pct<80?'#EA580C':'#DC2626'; barHtml='<div style="flex:1;height:3px;background:#E2E8F0;border-radius:2px;overflow:hidden;"><div style="height:100%;width:'+pct+'%;background:'+barColor+';border-radius:2px;transition:width 0.4s"></div></div><div style="font-size:12px;color:'+barColor+';min-width:28px;text-align:right;font-family:DM Mono,monospace;font-weight:600">'+(pct>0?'-'+Math.round(f.impact):'✓')+'</div>'; }
+    else { barHtml='<div style="flex:1"></div><div style="font-size:12px;color:#94A3B8;font-family:DM Mono,monospace">x'+bathyFactor.toFixed(1)+'</div>'; }
     var detailHtml='';
-    if(f.detail){
-      var detailId='fdetail_'+fi;
-      detailHtml='<div id="'+detailId+'" style="display:none;margin-top:6px;padding:8px 10px;background:#EFF6FF;border-left:2px solid #3B82F6;border-radius:0 6px 6px 0;">'
-        +'<div style="font-family:DM Mono,monospace;font-size:11px;color:#1E40AF;line-height:1.6">'+f.detail+'</div>'
-        +'</div>';
-    }
-    var infoBtn=f.detail
-      ?'<button onclick="var d=document.getElementById(\'fdetail_'+fi+'\');d.style.display=d.style.display===\'none\'?\'block\':\'none\'" '
-        +'style="background:none;border:1px solid #CBD5E0;border-radius:50%;width:18px;height:18px;font-size:10px;color:#64748B;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:serif;font-weight:bold">i</button>'
-      :'';
-    return '<div style="display:flex;flex-direction:column;gap:0">'
-      +'<div style="display:flex;align-items:center;gap:8px;">'
-      +'<span style="font-size:13px;width:16px;text-align:center;flex-shrink:0">'+f.icon+'</span>'
-      +'<span style="font-family:DM Mono,monospace;font-size:11px;color:#4A6080;flex:1;line-height:1.4">'+f.label+'</span>'
-      +'<div style="display:flex;align-items:center;gap:6px;min-width:90px">'+barHtml+'</div>'
-      +infoBtn
-      +'</div>'
-      +detailHtml
-      +'</div>';
+    if(f.detail){ var detailId='fdetail_'+fi; detailHtml='<div id="'+detailId+'" style="display:none;margin-top:6px;padding:8px 10px;background:#EFF6FF;border-left:2px solid #3B82F6;border-radius:0 6px 6px 0;"><div style="font-family:DM Mono,monospace;font-size:11px;color:#1E40AF;line-height:1.6">'+f.detail+'</div></div>'; }
+    var infoBtn=f.detail?'<button onclick="var d=document.getElementById(\'fdetail_'+fi+'\');d.style.display=d.style.display===\'none\'?\'block\':\'none\'" style="background:none;border:1px solid #CBD5E0;border-radius:50%;width:18px;height:18px;font-size:10px;color:#64748B;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:serif;font-weight:bold">i</button>':'';
+    return '<div style="display:flex;flex-direction:column;gap:0"><div style="display:flex;align-items:center;gap:8px;"><span style="font-size:13px;width:16px;text-align:center;flex-shrink:0">'+f.icon+'</span><span style="font-family:DM Mono,monospace;font-size:11px;color:#4A6080;flex:1;line-height:1.4">'+f.label+'</span><div style="display:flex;align-items:center;gap:6px;min-width:90px">'+barHtml+'</div>'+infoBtn+'</div>'+detailHtml+'</div>';
   }).join('');
 }
 
-// ============================================================
-// DÉTECTION TERRE / MER
-// ============================================================
 var LAND_MESSAGES = [
-  '🏕️ Ça va être compliqué la chasse sous-marine ici…',
-  '🌾 Belle profondeur de 0m. Les poissons sont en vacances.',
-  '🚜 Visibilité excellente - mais il n\'y a pas d\'eau.',
-  '🐄 Spotted : un banc de vaches. Turbidité nulle.',
-  '⛰️ Fond détecté à -0m. Technique de chasse : la marche.',
-  '🌳 Zone boisée. Les bars préfèrent l\'eau salée.',
-  '🏠 Ce spot est sur la terre ferme. Essaie 50m plus à gauche.',
-  '🧭 Bon, t\'as raté la mer. C\'est juste en bas.',
+  'Ca va etre complique la chasse sous-marine ici…',
+  'Belle profondeur de 0m. Les poissons sont en vacances.',
+  'Visibilite excellente - mais il n\'y a pas d\'eau.',
+  'Spotted : un banc de vaches. Turbidite nulle.',
+  'Fond detecte a -0m. Technique de chasse : la marche.',
+  'Zone boisee. Les bars preferent l\'eau salee.',
+  'Ce spot est sur la terre ferme. Essaie 50m plus a gauche.',
+  'Bon, t\'as rate la mer. C\'est juste en bas.',
 ];
 var _landToastTimer = null;
 
 function isOnSea(lat, lon, callback) {
   var url = 'https://nominatim.openstreetmap.org/reverse?lat='+lat+'&lon='+lon+'&format=json&zoom=10';
-  fetch(url, {headers:{'Accept-Language':'fr'}})
-    .then(function(r){ return r.json(); })
-    .then(function(data) {
-      var type=(data.type||'').toLowerCase();
-      var cls=(data.class||'').toLowerCase();
-      var waterTypes=['sea','bay','strait','ocean','water','coastline','harbour','inlet','river','lake'];
-      var isWater=cls==='waterway'||cls==='natural'&&type==='water'
-        ||waterTypes.indexOf(type)!==-1
-        ||!data.address
-        ||(!data.address.road&&!data.address.city&&!data.address.town&&!data.address.village&&!data.address.hamlet&&!data.address.municipality&&!data.address.county);
-      callback(isWater);
-    })
-    .catch(function(){ callback(true); });
+  fetch(url, {headers:{'Accept-Language':'fr'}}).then(function(r){ return r.json(); }).then(function(data) {
+    var type=(data.type||'').toLowerCase(), cls=(data.class||'').toLowerCase();
+    var waterTypes=['sea','bay','strait','ocean','water','coastline','harbour','inlet','river','lake'];
+    var isWater=cls==='waterway'||cls==='natural'&&type==='water'||waterTypes.indexOf(type)!==-1||!data.address||(!data.address.road&&!data.address.city&&!data.address.town&&!data.address.village&&!data.address.hamlet&&!data.address.municipality&&!data.address.county);
+    callback(isWater);
+  }).catch(function(){ callback(true); });
 }
 
 function showLandMessage(latlng) {
@@ -2466,46 +1553,29 @@ function showLandMessage(latlng) {
   _landToastTimer = setTimeout(function(){ toast.classList.remove('show'); }, 3200);
 }
 
-function openObsPanel() {
-  var latlng = S.clickLatLng || S.map.getCenter();
-  openPopup(latlng, null);
-}
-// ============================================================
-// BOTTOM SHEET OBSERVATION
-// ============================================================
 var OBS_VIS = [
-  {v:0,   l:'0m',   c:'#DC2626'},
-  {v:0.5, l:'0.5m', c:'#EA580C'},
-  {v:1,   l:'1m',   c:'#E89038'},
-  {v:2,   l:'2m',   c:'#CA8A04'},
-  {v:3,   l:'3m',   c:'#A0D840'},
-  {v:4,   l:'4m',   c:'#16A34A'},
-  {v:5,   l:'5m',   c:'#0BA888'},
-  {v:8,   l:'8m',   c:'#00B8E8'},
-  {v:10,  l:'+10m', c:'#0090E8'}
+  {v:0,   l:'0m',   c:'#DC2626'},{v:0.5, l:'0.5m', c:'#EA580C'},{v:1,   l:'1m',   c:'#E89038'},
+  {v:2,   l:'2m',   c:'#CA8A04'},{v:3,   l:'3m',   c:'#A0D840'},{v:4,   l:'4m',   c:'#16A34A'},
+  {v:5,   l:'5m',   c:'#0BA888'},{v:8,   l:'8m',   c:'#00B8E8'},{v:10,  l:'+10m', c:'#0090E8'}
 ];
-
-var OBS_FOND = true;
-var OBS_SUBMITTING = false;
-
+var OBS_FOND = true, OBS_SUBMITTING = false;
 var OBS_SUCCESS_MSGS = [
-  { msg:'Reçu. Ton spot reste ton spot.', sub:'On note la turbidité, pas les coordonnées.' },
-  { msg:'Transmis anonymement.', sub:'Les bars sont en sécurité, promis.' },
-  { msg:'Merci. On partage la visi, pas le spot.', sub:'Observation enregistrée avec succès.' },
-  { msg:'Noté ! Ton coin secret est bien gardé.', sub:'La communauté VIZI te remercie.' },
-  { msg:'Parfait. Ton spot reste secret.', sub:'On retient juste la visibilité et les espèces.' },
-  { msg:'Même la seiche ne parlera pas.', sub:'Observation bien reçue.' },
-  { msg:'Coordonnées reçues, bouche cousue.', sub:'Merci pour la communauté.' },
+  { msg:'Recu. Ton spot reste ton spot.', sub:'On note la turbidite, pas les coordonnees.' },
+  { msg:'Transmis anonymement.', sub:'Les bars sont en securite, promis.' },
+  { msg:'Merci. On partage la visi, pas le spot.', sub:'Observation enregistree avec succes.' },
+  { msg:'Note ! Ton coin secret est bien garde.', sub:'La communaute Visimer te remercie.' },
+  { msg:'Parfait. Ton spot reste secret.', sub:'On retient juste la visibilite et les especes.' },
+  { msg:'Meme la seiche ne parlera pas.', sub:'Observation bien recue.' },
+  { msg:'Coordonnees recues, bouche cousue.', sub:'Merci pour la communaute.' },
   { msg:'Top ! Le secret de ton spot est safe.', sub:'Tu viens aider les chasseurs du coin.' },
 ];
 
 function openObsSheet() {
   var now = new Date();
   var latlng = isMobile() ? S.map.getCenter() : (S.clickLatLng || S.map.getCenter());
-
   document.getElementById('obsSheetDate').value = now.toISOString().split('T')[0];
   document.getElementById('obsSheetTime').value = now.getHours().toString().padStart(2,'0') + ':' + Math.floor(now.getMinutes()/10)*10 + '0';
-  document.getElementById('obsSheetCoords').textContent = latlng.lat.toFixed(4) + '°N · ' + Math.abs(latlng.lng).toFixed(4) + '°O';
+  document.getElementById('obsSheetCoords').textContent = latlng.lat.toFixed(4) + 'N · ' + Math.abs(latlng.lng).toFixed(4) + 'O';
   document.getElementById('obsSheetVisSlider').value = 8;
   updateObsSheetVis(8);
   setObsFond(true);
@@ -2514,67 +1584,23 @@ function openObsSheet() {
   document.getElementById('obsSheetSubmit').disabled = false;
   document.getElementById('obsSheetSubmit').textContent = 'Envoyer mes conditions';
   document.getElementById('obsSheetSuccess').style.display = 'none';
-
   document.getElementById('obsSheet').classList.add('open');
   document.getElementById('obsSheetOverlay').style.display = 'block';
 }
 
-function closeObsSheet() {
-  document.getElementById('obsSheet').classList.remove('open');
-  document.getElementById('obsSheetOverlay').style.display = 'none';
-  OBS_SUBMITTING = false;
-}
-
-function updateObsSheetVis(idx) {
-  idx = parseInt(idx);
-  var v = OBS_VIS[idx];
-  var el = document.getElementById('obsSheetVisVal');
-  el.textContent = v.l;
-  el.style.color = v.c;
-}
-
-function setObsFond(val) {
-  OBS_FOND = val;
-  document.getElementById('obsSheetFondOui').classList.toggle('on', val);
-  document.getElementById('obsSheetFondNon').classList.toggle('on', !val);
-}
+function closeObsSheet() { document.getElementById('obsSheet').classList.remove('open'); document.getElementById('obsSheetOverlay').style.display = 'none'; OBS_SUBMITTING = false; }
+function updateObsSheetVis(idx) { idx=parseInt(idx); var v=OBS_VIS[idx]; var el=document.getElementById('obsSheetVisVal'); el.textContent=v.l; el.style.color=v.c; }
+function setObsFond(val) { OBS_FOND=val; document.getElementById('obsSheetFondOui').classList.toggle('on',val); document.getElementById('obsSheetFondNon').classList.toggle('on',!val); }
 
 function submitObsSheet() {
   if (OBS_SUBMITTING) return;
   OBS_SUBMITTING = true;
   var btn = document.getElementById('obsSheetSubmit');
-  btn.disabled = true;
-  btn.textContent = 'Envoi en cours…';
-
+  btn.disabled = true; btn.textContent = 'Envoi en cours…';
   var latlng = isMobile() ? S.map.getCenter() : (S.clickLatLng || S.map.getCenter());
   var idx = parseInt(document.getElementById('obsSheetVisSlider').value);
   var visLevel = OBS_VIS[idx];
-
-  var data = {
-    lat: latlng.lat,
-    lon: latlng.lng,
-    date: document.getElementById('obsSheetDate').value,
-    time: document.getElementById('obsSheetTime').value,
-    visibility_m: visLevel.v,
-    visibility_label: visLevel.l,
-    bottom_visible: OBS_FOND,
-    current_felt: false,
-    comment: document.getElementById('obsSheetSpecies').value,
-    depth_m: null,
-    sediment: null
-  };
-
-  // Envoi via GET pour éviter les problèmes CORS avec gasPost
-  gasGet('submit_observation', {
-    lat: data.lat,
-    lon: data.lon,
-    date: data.date,
-    time: data.time,
-    visibility_m: data.visibility_m,
-    visibility_label: data.visibility_label,
-    bottom_visible: data.bottom_visible,
-    comment: data.comment
-  }).then(function(result) {
+  gasGet('submit_observation', { lat:latlng.lat, lon:latlng.lng, date:document.getElementById('obsSheetDate').value, time:document.getElementById('obsSheetTime').value, visibility_m:visLevel.v, visibility_label:visLevel.l, bottom_visible:OBS_FOND, comment:document.getElementById('obsSheetSpecies').value }).then(function(result) {
     OBS_SUBMITTING = false;
     if (result && result.success) {
       btn.style.display = 'none';
@@ -2583,61 +1609,28 @@ function submitObsSheet() {
       document.getElementById('obsSheetSuccessSub').textContent = rand.sub;
       document.getElementById('obsSheetSuccess').style.display = 'block';
       setTimeout(closeObsSheet, 3000);
-    } else {
-      btn.disabled = false;
-      btn.textContent = 'Envoyer mes conditions';
-      alert('Erreur envoi. Vérifie ta connexion.');
-    }
+    } else { btn.disabled = false; btn.textContent = 'Envoyer mes conditions'; alert('Erreur envoi. Verifie ta connexion.'); }
   });
 }
 
-// Swipe down pour fermer le sheet
-var obsSheetSwipeY = 0;
-document.addEventListener('DOMContentLoaded', function() {
-  var sheet = document.getElementById('obsSheet');
-  if (sheet) {
-    sheet.addEventListener('touchstart', function(e){ obsSheetSwipeY = e.touches[0].clientY; }, {passive:true});
-    sheet.addEventListener('touchend', function(e){
-      if (e.changedTouches[0].clientY - obsSheetSwipeY > 80) closeObsSheet();
-    }, {passive:true});
-  }
-});
-
-
-// ============================================================
-// MOBILE - ANALYSER LE CENTRE DE LA CARTE
-// ============================================================
-function isMobile() {
-  return window.innerWidth <= 768;
-}
+function isMobile() { return window.innerWidth <= 768; }
 
 function analyzeCenterPoint() {
   var center = S.map.getCenter();
   var btn = document.getElementById('mobileAnalyzeBtn');
-
-  // Feedback visuel
-  btn.textContent = '⟳ Analyse...';
-  btn.style.opacity = '0.7';
-
+  btn.textContent = 'Analyse...'; btn.style.opacity = '0.7';
   isOnSea(center.lat, center.lng, function(onSea) {
-    btn.textContent = '⊕ Analyser ce point';
-    btn.style.opacity = '1';
-    if (!onSea) {
-      showLandMessage(center);
-      return;
-    }
+    btn.textContent = 'Analyser ce point'; btn.style.opacity = '1';
+    if (!onSea) { showLandMessage(center); return; }
     openSpotPopup(center, null);
     if (S_forecastOpen) loadForecast(center.lat, center.lng, null);
   });
 }
 
-// Sur mobile, désactiver le clic libre sur la carte
-// (on utilise le crosshair + bouton analyser à la place)
-var _origMapClick = null;
 function patchMapForMobile() {
   if (!isMobile()) return;
   S.map.off('click');
-  S.map.on('click', function() {}); // no-op
+  S.map.on('click', function() {});
 }
 </script>
 </body>
