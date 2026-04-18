@@ -1031,6 +1031,16 @@ function showHexLayer() {
     if (data && data.scores && data.scores.length > 0) {
       S_gridScores = data.scores;
       renderTurbLayer(data.scores);
+      if (data.updated_at) {
+        var d = new Date(data.updated_at);
+        var h = d.getHours().toString().padStart(2,'0');
+        var m = d.getMinutes().toString().padStart(2,'0');
+        var badge = document.getElementById('turbBadge');
+        if (badge) {
+          badge.textContent = 'Photo prise a ' + h + 'h' + m + ' - la mer a pu changer d\'avis depuis';
+          badge.style.display = 'block';
+        }
+      }
     } else {
       renderTurbLayer(TURB_PTS.map(function(p){ return {lat:p[0], lon:p[1], score:p[2]}; }));
     }
