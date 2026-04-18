@@ -104,6 +104,32 @@
     .leaflet-control-attribution a { color:var(--text-3) !important; }
     #heatmapCanvas { position:absolute; inset:0; pointer-events:none; z-index:400; }
 
+    /* == BADGE TURBIDITE == */
+    #turbBadge {
+      position:absolute; z-index:900;
+      background:rgba(26,37,53,0.92);
+      backdrop-filter:blur(8px);
+      border:1px solid rgba(168,230,61,0.3);
+      border-radius:10px;
+      padding:8px 14px;
+      display:none; align-items:center; gap:8px;
+      box-shadow:0 4px 16px rgba(0,0,0,0.18);
+      max-width:calc(100vw - 32px);
+    }
+    #turbBadge .tb-dot {
+      width:7px; height:7px; border-radius:50%;
+      background:#A8E63D;
+      box-shadow:0 0 6px rgba(168,230,61,0.6);
+      flex-shrink:0;
+    }
+    #turbBadge .tb-text {
+      font-family:'DM Mono', monospace;
+      font-size:11px; font-weight:500;
+      color:rgba(255,255,255,0.88);
+      letter-spacing:0.02em; line-height:1.4;
+    }
+    #turbBadge .tb-text strong { color:#A8E63D; font-weight:600; }
+
     #legend {
       position:absolute; bottom:26px; left:16px; z-index:900;
       background:var(--surface); border:1px solid var(--border);
@@ -442,6 +468,8 @@
       .leaflet-control-zoom { margin-bottom:80px !important; }
       .wg-table td, .wg-table th { padding:4px 7px; font-size:11px; }
       .wg-table .row-label { min-width:90px; font-size:10px; padding-left:10px; }
+      #turbBadge { padding:7px 11px; }
+      #turbBadge .tb-text { font-size:10px; }
     }
 
     @media (max-width: 390px) {
@@ -522,6 +550,12 @@
 <div id="map"></div>
 <canvas id="heatmapCanvas"></canvas>
 <div id="landToast"></div>
+
+<!-- BADGE MISE A JOUR GRILLE TURBIDITE -->
+<div id="turbBadge">
+  <div class="tb-dot"></div>
+  <div class="tb-text" id="turbBadgeText">-</div>
+</div>
 
 <div id="mobileCrosshair">
   <div class="ch-ring"></div>
@@ -875,6 +909,7 @@ let S_forecastOpen = false;
 let S_windUnit = 'kmh';
 let S_lastForecastData = null;
 let S_gridScores = [];
+let S_gridUpdatedAt = null;
 
 function toggleWindUnit() {
   S_windUnit = S_windUnit === 'kmh' ? 'kt' : 'kmh';
@@ -905,8 +940,80 @@ function loadGridScores() {
   gasGet('turb_scores').then(function(data) {
     if (data && data.scores && data.scores.length > 0) {
       S_gridScores = data.scores;
+      S_gridUpdatedAt = data.updated_at || null;
     }
   });
+}
+
+// ============================================================
+// BADGE MISE A JOUR TURBIDITE
+// ============================================================
+function formatUpdatedAt(isoString) {
+  if (!isoString) return null;
+  var d = new Date(isoString);
+  if (isNaN(d.getTime())) return null;
+  var now = new Date();
+  var diffMs = now - d;
+  var diffMin = Math.floor(diffMs / 60000);
+  var diffH = Math.floor(diffMs / 3600000);
+
+  var hh = d.getHours().toString().padStart(2, '0');
+  var mm = d.getMinutes().toString().padStart(2, '0');
+  var sameDay = d.toDateString() === now.toDateString();
+
+  var yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  var isYesterday = d.toDateString() === yesterday.toDateString();
+
+  var relative;
+  if (diffMin < 1) relative = "a l'instant";
+  else if (diffMin < 60) relative = 'il y a ' + diffMin + ' min';
+  else if (sameDay) relative = "aujourd'hui a " + hh + 'h' + mm;
+  else if (isYesterday) relative = 'hier a ' + hh + 'h' + mm;
+  else {
+    var dd = d.getDate().toString().padStart(2, '0');
+    var mo = (d.getMonth() + 1).toString().padStart(2, '0');
+    relative = 'le ' + dd + '/' + mo + ' a ' + hh + 'h' + mm;
+  }
+  return relative;
+}
+
+function showTurbBadge(isoString) {
+  var badge = document.getElementById('turbBadge');
+  var txt = document.getElementById('turbBadgeText');
+  if (!badge || !txt) return;
+
+  var rel = formatUpdatedAt(isoString);
+  if (!rel) {
+    badge.style.display = 'none';
+    return;
+  }
+  txt.innerHTML = 'Grille turbidite &middot; maj <strong>' + rel + '</strong>';
+  badge.style.display = 'flex';
+  positionTurbBadge();
+}
+
+function hideTurbBadge() {
+  var badge = document.getElementById('turbBadge');
+  if (badge) badge.style.display = 'none';
+}
+
+function positionTurbBadge() {
+  var badge = document.getElementById('turbBadge');
+  if (!badge) return;
+  var header = document.getElementById('header');
+  var headerH = header ? header.offsetHeight : 80;
+  badge.style.top = (headerH + 12) + 'px';
+  badge.style.right = '16px';
+  // Sur mobile, centrer
+  if (window.innerWidth <= 768) {
+    badge.style.right = 'auto';
+    badge.style.left = '50%';
+    badge.style.transform = 'translateX(-50%)';
+  } else {
+    badge.style.left = 'auto';
+    badge.style.transform = 'none';
+  }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -928,6 +1035,7 @@ document.addEventListener('DOMContentLoaded', function() {
   loadHeatmap(0);
   loadGridScores();
   setTimeout(patchMapForMobile, 500);
+  window.addEventListener('resize', positionTurbBadge);
 
   var sheet = document.getElementById('obsSheet');
   if (sheet) {
@@ -1030,22 +1138,16 @@ function showHexLayer() {
   gasGet('turb_scores').then(function(data) {
     if (data && data.scores && data.scores.length > 0) {
       S_gridScores = data.scores;
+      S_gridUpdatedAt = data.updated_at || null;
       renderTurbLayer(data.scores);
-      if (data.updated_at) {
-        var d = new Date(data.updated_at);
-        var h = d.getHours().toString().padStart(2,'0');
-        var m = d.getMinutes().toString().padStart(2,'0');
-        var badge = document.getElementById('turbBadge');
-        if (badge) {
-          badge.textContent = 'Photo prise a ' + h + 'h' + m + ' - la mer a pu changer d\'avis depuis';
-          badge.style.display = 'block';
-        }
-      }
+      showTurbBadge(S_gridUpdatedAt);
     } else {
       renderTurbLayer(TURB_PTS.map(function(p){ return {lat:p[0], lon:p[1], score:p[2]}; }));
+      hideTurbBadge();
     }
   }).catch(function() {
     renderTurbLayer(TURB_PTS.map(function(p){ return {lat:p[0], lon:p[1], score:p[2]}; }));
+    hideTurbBadge();
   });
 }
 
@@ -1067,7 +1169,10 @@ function renderTurbLayer(points) {
   S_hexLayer = L.featureGroup(circles).addTo(S.map);
 }
 
-function hideHexLayer() { if (S_hexLayer) { S.map.removeLayer(S_hexLayer); S_hexLayer = null; } }
+function hideHexLayer() {
+  if (S_hexLayer) { S.map.removeLayer(S_hexLayer); S_hexLayer = null; }
+  hideTurbBadge();
+}
 
 function loadHeatmap(day) {
   gasGet('heatmap', {day_offset:day}).then(function(data) {
@@ -1287,7 +1392,6 @@ function openSpotPopup(latlng, name) {
 
   document.getElementById('spotCoords').textContent = latlng.lat.toFixed(4)+'N · '+Math.abs(latlng.lng).toFixed(4)+'O'+(name?' - '+name:'');
 
-  // FIX : utiliser la profondeur depuis grid_scores
   var depth = 5;
   if (S_gridScores.length > 0) {
     var nearest = S_gridScores.reduce(function(best, p) {
