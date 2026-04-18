@@ -326,6 +326,29 @@
     .spot-wind-unit { font-family:'DM Mono', monospace; font-size:11px; color:var(--text-3); margin-top:4px; }
     .spot-wind-dir { font-size:24px; margin-top:2px; }
 
+    /* == LIGNE MER / SOLEIL == */
+    .spot-sea-block {
+      display:flex;
+      border-bottom:1px solid var(--border);
+      background:var(--surface2);
+    }
+    .spot-sea-cell {
+      flex:1; padding:11px 0; text-align:center;
+      border-right:1px solid var(--border);
+      display:flex; flex-direction:column; align-items:center; gap:3px;
+    }
+    .spot-sea-cell:last-child { border-right:none; }
+    .spot-sea-icon { width:16px; height:16px; display:flex; align-items:center; justify-content:center; }
+    .spot-sea-lbl {
+      font-family:'DM Mono', monospace;
+      font-size:9px; font-weight:500; color:var(--text-3);
+      text-transform:uppercase; letter-spacing:0.08em;
+    }
+    .spot-sea-val {
+      font-family:'DM Mono', monospace;
+      font-size:15px; font-weight:600; color:var(--text); line-height:1;
+    }
+
     #spotFactors {
       padding:12px 16px 14px; border-bottom:1px solid var(--border);
       display:flex; flex-direction:column; gap:8px; background:var(--surface2);
@@ -338,20 +361,61 @@
       text-transform:uppercase; letter-spacing:0.1em; margin-bottom:10px;
     }
     .tides-port-name { font-family:'DM Mono', monospace; font-size:13px; font-weight:600; color:var(--text); margin-bottom:10px; }
-    .tides-grid {
-      display:grid; grid-template-columns:1fr 1fr 1fr;
-      border:1px solid var(--border); border-radius:9px; overflow:hidden;
+
+    /* == MAREES 2x2 + COEFFICIENT == */
+    .tides-coeff-row {
+      display:flex; align-items:center; justify-content:space-between;
+      padding:10px 14px; margin-bottom:10px;
+      background:var(--surface2); border:1px solid var(--border);
+      border-radius:9px;
     }
-    .tides-cell { padding:11px 0; text-align:center; border-right:1px solid var(--border); }
-    .tides-cell:last-child { border-right:none; }
-    .tides-cell-lbl {
+    .tides-coeff-lbl {
       font-family:'DM Mono', monospace;
-      font-size:9px; font-weight:500; color:var(--text-3);
-      text-transform:uppercase; letter-spacing:0.08em; margin-bottom:5px;
+      font-size:10px; font-weight:500; color:var(--text-3);
+      text-transform:uppercase; letter-spacing:0.08em;
     }
-    .tides-cell-val { font-family:'DM Mono', monospace; font-size:16px; font-weight:600; color:var(--text); line-height:1; }
-    .tides-cell-val.coeff { color:var(--accent); font-size:22px; }
-    .tides-cell-sub { font-family:'DM Mono', monospace; font-size:10px; color:var(--text-3); margin-top:3px; }
+    .tides-coeff-val {
+      font-family:'DM Mono', monospace;
+      font-size:24px; font-weight:700; color:var(--accent); line-height:1;
+    }
+    .tides-grid-2x2 { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+    .tides-cell-2 {
+      padding:10px 8px;
+      border:1px solid var(--border); border-radius:8px;
+      background:var(--surface);
+      position:relative; transition:all 0.2s;
+    }
+    .tides-cell-2.past { opacity:0.55; }
+    .tides-cell-2.next {
+      border-color:var(--accent);
+      background:var(--accent-bg);
+      box-shadow:0 0 0 1px var(--accent-mid);
+    }
+    .tides-cell-2-lbl {
+      font-family:'DM Mono', monospace;
+      font-size:9px; font-weight:600; color:var(--text-3);
+      text-transform:uppercase; letter-spacing:0.08em;
+      margin-bottom:4px;
+      display:flex; align-items:center; gap:4px;
+    }
+    .tides-cell-2-lbl.high { color:var(--accent); }
+    .tides-cell-2-lbl.low  { color:var(--warn); }
+    .tides-cell-2-time {
+      font-family:'DM Mono', monospace;
+      font-size:15px; font-weight:600; color:var(--text); line-height:1;
+    }
+    .tides-cell-2-height {
+      font-family:'DM Mono', monospace;
+      font-size:10px; color:var(--text-3); margin-top:3px;
+    }
+    .tides-cell-2-badge {
+      position:absolute; top:6px; right:8px;
+      font-family:'DM Mono', monospace;
+      font-size:8px; font-weight:600; color:var(--accent);
+      background:white; border:1px solid var(--accent);
+      border-radius:4px; padding:1px 4px;
+      letter-spacing:0.05em;
+    }
 
     /* == OBS POPUP == */
     #obsPopup {
@@ -744,6 +808,49 @@
         <div class="spot-wind-unit" id="spotWindDeg">-</div>
       </div>
     </div>
+    <!-- LIGNE MER / SOLEIL -->
+    <div class="spot-sea-block">
+      <div class="spot-sea-cell">
+        <div class="spot-sea-icon">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M8 1 C6 4 6 6 8 8 C10 10 10 12 8 15" stroke="#0BA888" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+            <circle cx="8" cy="8" r="6.5" stroke="#0BA888" stroke-width="1.2" fill="none" opacity="0.3"/>
+          </svg>
+        </div>
+        <div class="spot-sea-lbl">Temp. mer</div>
+        <div class="spot-sea-val" id="spotSeaTemp">-</div>
+      </div>
+      <div class="spot-sea-cell">
+        <div class="spot-sea-icon">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <circle cx="8" cy="11" r="3" stroke="#CA8A04" stroke-width="1.3" fill="none"/>
+            <line x1="8" y1="2" x2="8" y2="5" stroke="#CA8A04" stroke-width="1.3" stroke-linecap="round"/>
+            <line x1="3" y1="11" x2="1" y2="11" stroke="#CA8A04" stroke-width="1.3" stroke-linecap="round"/>
+            <line x1="15" y1="11" x2="13" y2="11" stroke="#CA8A04" stroke-width="1.3" stroke-linecap="round"/>
+            <line x1="4.5" y1="7" x2="3" y2="5.5" stroke="#CA8A04" stroke-width="1.3" stroke-linecap="round"/>
+            <line x1="11.5" y1="7" x2="13" y2="5.5" stroke="#CA8A04" stroke-width="1.3" stroke-linecap="round"/>
+            <path d="M2 14 L14 14" stroke="#CA8A04" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="spot-sea-lbl">Lever</div>
+        <div class="spot-sea-val" id="spotSunrise">-</div>
+      </div>
+      <div class="spot-sea-cell">
+        <div class="spot-sea-icon">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <circle cx="8" cy="11" r="3" stroke="#EA580C" stroke-width="1.3" fill="none"/>
+            <line x1="8" y1="2" x2="8" y2="5" stroke="#EA580C" stroke-width="1.3" stroke-linecap="round"/>
+            <line x1="3" y1="11" x2="1" y2="11" stroke="#EA580C" stroke-width="1.3" stroke-linecap="round"/>
+            <line x1="15" y1="11" x2="13" y2="11" stroke="#EA580C" stroke-width="1.3" stroke-linecap="round"/>
+            <line x1="4.5" y1="7" x2="3" y2="5.5" stroke="#EA580C" stroke-width="1.3" stroke-linecap="round"/>
+            <line x1="11.5" y1="7" x2="13" y2="5.5" stroke="#EA580C" stroke-width="1.3" stroke-linecap="round"/>
+            <path d="M2 14 L14 14" stroke="#EA580C" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="spot-sea-lbl">Coucher</div>
+        <div class="spot-sea-val" id="spotSunset">-</div>
+      </div>
+    </div>
     <div id="spotFactors"></div>
     <div id="drawerSediment" style="padding:12px 16px;border-bottom:1px solid var(--border);background:var(--surface2);display:flex;align-items:center;gap:10px;">
       <div style="width:14px;height:14px;border-radius:3px;flex-shrink:0;border:1px solid rgba(0,0,0,0.1);" id="sedSwatchColor"></div>
@@ -752,23 +859,34 @@
         <div style="font-family:'DM Mono',monospace;font-size:13px;font-weight:600;color:var(--text);" id="sedimentType">-</div>
       </div>
     </div>
+    <!-- MAREES 2x2 + COEFFICIENT -->
     <div id="drawerTides">
       <div class="tides-label">Marees</div>
       <div class="tides-port-name" id="tidesPortName">-</div>
-      <div class="tides-grid">
-        <div class="tides-cell">
-          <div class="tides-cell-lbl">Coeff.</div>
-          <div class="tides-cell-val coeff" id="tidesCoeff">-</div>
+      <div class="tides-coeff-row">
+        <div class="tides-coeff-lbl">Coefficient du jour</div>
+        <div class="tides-coeff-val" id="tidesCoeff">-</div>
+      </div>
+      <div class="tides-grid-2x2">
+        <div class="tides-cell-2" id="tideCell0">
+          <div class="tides-cell-2-lbl high"><span>▲</span><span id="tideCell0Label">1ere PM</span></div>
+          <div class="tides-cell-2-time" id="tideCell0Time">-</div>
+          <div class="tides-cell-2-height" id="tideCell0Height">-</div>
         </div>
-        <div class="tides-cell">
-          <div class="tides-cell-lbl">Pleine mer</div>
-          <div class="tides-cell-val" id="tidesPM">-</div>
-          <div class="tides-cell-sub" id="tidesPMh">-</div>
+        <div class="tides-cell-2" id="tideCell1">
+          <div class="tides-cell-2-lbl low"><span>▼</span><span id="tideCell1Label">1ere BM</span></div>
+          <div class="tides-cell-2-time" id="tideCell1Time">-</div>
+          <div class="tides-cell-2-height" id="tideCell1Height">-</div>
         </div>
-        <div class="tides-cell">
-          <div class="tides-cell-lbl">Basse mer</div>
-          <div class="tides-cell-val" id="tidesBM">-</div>
-          <div class="tides-cell-sub" id="tidesBMh">-</div>
+        <div class="tides-cell-2" id="tideCell2">
+          <div class="tides-cell-2-lbl high"><span>▲</span><span id="tideCell2Label">2eme PM</span></div>
+          <div class="tides-cell-2-time" id="tideCell2Time">-</div>
+          <div class="tides-cell-2-height" id="tideCell2Height">-</div>
+        </div>
+        <div class="tides-cell-2" id="tideCell3">
+          <div class="tides-cell-2-lbl low"><span>▼</span><span id="tideCell3Label">2eme BM</span></div>
+          <div class="tides-cell-2-time" id="tideCell3Time">-</div>
+          <div class="tides-cell-2-height" id="tideCell3Height">-</div>
         </div>
       </div>
     </div>
@@ -955,7 +1073,6 @@ function formatUpdatedAt(isoString) {
   var now = new Date();
   var diffMs = now - d;
   var diffMin = Math.floor(diffMs / 60000);
-  var diffH = Math.floor(diffMs / 3600000);
 
   var hh = d.getHours().toString().padStart(2, '0');
   var mm = d.getMinutes().toString().padStart(2, '0');
@@ -982,12 +1099,8 @@ function showTurbBadge(isoString) {
   var badge = document.getElementById('turbBadge');
   var txt = document.getElementById('turbBadgeText');
   if (!badge || !txt) return;
-
   var rel = formatUpdatedAt(isoString);
-  if (!rel) {
-    badge.style.display = 'none';
-    return;
-  }
+  if (!rel) { badge.style.display = 'none'; return; }
   txt.innerHTML = 'Grille turbidite &middot; maj <strong>' + rel + '</strong>';
   badge.style.display = 'flex';
   positionTurbBadge();
@@ -1005,7 +1118,6 @@ function positionTurbBadge() {
   var headerH = header ? header.offsetHeight : 80;
   badge.style.top = (headerH + 12) + 'px';
   badge.style.right = '16px';
-  // Sur mobile, centrer
   if (window.innerWidth <= 768) {
     badge.style.right = 'auto';
     badge.style.left = '50%';
@@ -1380,6 +1492,8 @@ function setTog(f,val) { S.form[f] = val; document.getElementById('tog-'+f+'-yes
 function scoreColor(s) { if(s<20)return'#0BA888'; if(s<40)return'#16A34A'; if(s<60)return'#CA8A04'; if(s<80)return'#EA580C'; return'#DC2626'; }
 
 let S_spotLat = null, S_spotLon = null, S_spotWeatherCache = null;
+let S_spotMarineCache = null;
+let S_spotSunCache = null;
 
 function openSpotPopup(latlng, name) {
   S_spotLat = latlng.lat;
@@ -1416,9 +1530,17 @@ function openSpotPopup(latlng, name) {
   document.getElementById('spotDate').value = now.toISOString().split('T')[0];
   document.getElementById('spotTime').value = now.getHours().toString().padStart(2,'0')+':00';
 
+  // Reset mer/soleil
+  document.getElementById('spotSeaTemp').textContent = '-';
+  document.getElementById('spotSunrise').textContent = '-';
+  document.getElementById('spotSunset').textContent = '-';
+
   document.getElementById('spotDrawer').classList.add('open');
   S_spotWeatherCache = null;
+  S_spotMarineCache = null;
+  S_spotSunCache = null;
   fetchSpotWeather(latlng.lat, latlng.lng);
+  fetchSpotMarineAndSun(latlng.lat, latlng.lng);
   loadDrawerTides(latlng.lat, latlng.lng);
   fetchSedimentType(latlng.lat, latlng.lng);
 }
@@ -1456,57 +1578,95 @@ function parseSedimentText(text) {
 
 function fallbackSediment() { document.getElementById('sedimentType').textContent = 'Non disponible'; document.getElementById('sedSwatchColor').style.background = '#E2E8F0'; }
 
+// ============================================================
+// MAREES - 2x2 + COEFFICIENT
+// ============================================================
 function loadDrawerTides(lat, lon) {
-  var nearest = SPOTS.reduce(function(best, s) { var d = Math.hypot(s.lat-lat, s.lon-lon); return d < best.d ? {spot:s, d:d} : best; }, {spot:SPOTS[0], d:Infinity}).spot;
+  var nearest = SPOTS.reduce(function(best, s) {
+    var d = Math.hypot(s.lat-lat, s.lon-lon);
+    return d < best.d ? {spot:s, d:d} : best;
+  }, {spot:SPOTS[0], d:Infinity}).spot;
   document.getElementById('tidesPortName').textContent = nearest.name;
   document.getElementById('tidesCoeff').textContent = '…';
-  document.getElementById('tidesPM').textContent = '…';
-  document.getElementById('tidesPMh').textContent = '';
-  document.getElementById('tidesBM').textContent = '…';
-  document.getElementById('tidesBMh').textContent = '';
+  for (var i=0; i<4; i++) {
+    document.getElementById('tideCell'+i+'Time').textContent = '…';
+    document.getElementById('tideCell'+i+'Height').textContent = '';
+    var cell = document.getElementById('tideCell'+i);
+    cell.classList.remove('past','next');
+    var oldBadge = cell.querySelector('.tides-cell-2-badge');
+    if (oldBadge) oldBadge.remove();
+  }
 
-  loadTidesCache().then(function() {
-    var today = new Date().toISOString().split('T')[0];
-    var portTides = tidesCache.data ? tidesCache.data.filter(function(t){ return t.port_id === nearest.id && t.date === today; }) : [];
-    if (portTides.length > 0) { renderDrawerTides(portTides); return; }
+  var apiKey = '17d84504-31e5-4520-90fc-537883a0492e';
+  var now = new Date();
+  var start = Math.floor(new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() / 1000);
+  var end = start + 86400;
+  var url = 'https://www.worldtides.info/api/v3?extremes&lat='+nearest.lat+'&lon='+nearest.lon+'&start='+start+'&end='+end+'&datum=LAT&key='+apiKey;
 
-    var apiKey = '17d84504-31e5-4520-90fc-537883a0492e';
-    var now = new Date();
-    var start = Math.floor(new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() / 1000);
-    var end = start + 86400;
-    var url = 'https://www.worldtides.info/api/v3?extremes&lat='+nearest.lat+'&lon='+nearest.lon+'&start='+start+'&end='+end+'&datum=LAT&key='+apiKey;
-    fetch(url).then(function(r){ return r.json(); }).then(function(data) {
-      if (!data.extremes || data.extremes.length === 0) { renderDrawerTidesFallback(); return; }
-      var converted = data.extremes.map(function(e) {
-        var d = new Date(e.date);
-        return { port_id:nearest.id, date:today, type:e.type==='High'?'high':'low', time:d.toLocaleTimeString('fr',{hour:'2-digit',minute:'2-digit',hour12:false}), height_m:e.height.toFixed(2), coefficient:estimateCoeff(data.extremes) };
-      });
-      renderDrawerTides(converted);
-    }).catch(function() { renderDrawerTidesFallback(); });
-  });
+  fetch(url).then(function(r){ return r.json(); }).then(function(data) {
+    if (!data.extremes || data.extremes.length === 0) { renderDrawerTidesFallback(); return; }
+    var extremes = data.extremes.map(function(e) {
+      var d = new Date(e.date);
+      return {
+        type: e.type === 'High' ? 'high' : 'low',
+        time: d.toLocaleTimeString('fr', {hour:'2-digit', minute:'2-digit', hour12:false}),
+        timeObj: d,
+        height: e.height.toFixed(2)
+      };
+    }).sort(function(a,b){ return a.timeObj - b.timeObj; });
+    var coeff = estimateCoeff(data.extremes);
+    renderDrawerTides2x2(extremes, coeff, now);
+  }).catch(function() { renderDrawerTidesFallback(); });
 }
 
 function estimateCoeff(extremes) {
-  var highs = extremes.filter(function(e){ return e.type==='High'; });
-  var lows  = extremes.filter(function(e){ return e.type==='Low'; });
-  if (highs.length===0 || lows.length===0) return '-';
+  var highs = extremes.filter(function(e){ return e.type === 'High'; });
+  var lows  = extremes.filter(function(e){ return e.type === 'Low';  });
+  if (highs.length === 0 || lows.length === 0) return '-';
   var marnage = highs[0].height - lows[0].height;
-  return Math.min(120, Math.max(20, Math.round((marnage-1.2)/5.8*100+20)));
+  return Math.min(120, Math.max(20, Math.round((marnage - 1.2) / 5.8 * 100 + 20)));
 }
 
-function renderDrawerTides(tides) {
-  var now = new Date();
-  var nowStr = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
-  var highs = tides.filter(function(t){ return t.type==='high'; }).sort(function(a,b){ return a.time.localeCompare(b.time); });
-  var lows  = tides.filter(function(t){ return t.type==='low';  }).sort(function(a,b){ return a.time.localeCompare(b.time); });
-  var nextHigh = highs.find(function(t){ return t.time >= nowStr; }) || highs[0];
-  var nextLow  = lows.find(function(t){  return t.time >= nowStr; }) || lows[0];
-  var coeff = (highs.length>0 && highs[0].coefficient) ? highs[0].coefficient : '-';
+function renderDrawerTides2x2(extremes, coeff, now) {
   document.getElementById('tidesCoeff').textContent = coeff;
-  if (nextHigh) { document.getElementById('tidesPM').textContent = nextHigh.time >= nowStr ? nextHigh.time : nextHigh.time+' ✓'; document.getElementById('tidesPMh').textContent = nextHigh.height_m+'m'; }
-  else { document.getElementById('tidesPM').textContent = '-'; }
-  if (nextLow) { document.getElementById('tidesBM').textContent = nextLow.time >= nowStr ? nextLow.time : nextLow.time+' ✓'; document.getElementById('tidesBMh').textContent = nextLow.height_m+'m'; }
-  else { document.getElementById('tidesBM').textContent = '-'; }
+  var highs = extremes.filter(function(e){ return e.type === 'high'; });
+  var lows  = extremes.filter(function(e){ return e.type === 'low';  });
+  var cells = [
+    { el: 0, data: highs[0], label: '1ere PM' },
+    { el: 1, data: lows[0],  label: '1ere BM' },
+    { el: 2, data: highs[1], label: '2eme PM' },
+    { el: 3, data: lows[1],  label: '2eme BM' }
+  ];
+  var nextIdx = -1, nextTime = Infinity;
+  cells.forEach(function(c, i) {
+    if (c.data && c.data.timeObj > now) {
+      var diff = c.data.timeObj - now;
+      if (diff < nextTime) { nextTime = diff; nextIdx = i; }
+    }
+  });
+  cells.forEach(function(c, i) {
+    var cell = document.getElementById('tideCell'+c.el);
+    document.getElementById('tideCell'+c.el+'Label').textContent = c.label;
+    var oldBadge = cell.querySelector('.tides-cell-2-badge');
+    if (oldBadge) oldBadge.remove();
+    cell.classList.remove('past', 'next');
+    if (!c.data) {
+      document.getElementById('tideCell'+c.el+'Time').textContent = '-';
+      document.getElementById('tideCell'+c.el+'Height').textContent = '';
+      return;
+    }
+    document.getElementById('tideCell'+c.el+'Time').textContent = c.data.time;
+    document.getElementById('tideCell'+c.el+'Height').textContent = c.data.height + 'm';
+    if (c.data.timeObj < now) {
+      cell.classList.add('past');
+    } else if (i === nextIdx) {
+      cell.classList.add('next');
+      var badge = document.createElement('div');
+      badge.className = 'tides-cell-2-badge';
+      badge.textContent = 'PROCHAINE';
+      cell.appendChild(badge);
+    }
+  });
 }
 
 function renderDrawerTidesFallback() {
@@ -1514,8 +1674,61 @@ function renderDrawerTidesFallback() {
   var dayOfYear = Math.floor((now - new Date(now.getFullYear(),0,0)) / 86400000);
   var coeff = Math.round(70 + 50 * Math.sin(dayOfYear / 14.77 * Math.PI));
   document.getElementById('tidesCoeff').textContent = coeff;
-  document.getElementById('tidesPM').textContent = '-'; document.getElementById('tidesPMh').textContent = 'non dispo';
-  document.getElementById('tidesBM').textContent = '-'; document.getElementById('tidesBMh').textContent = 'non dispo';
+  for (var i=0; i<4; i++) {
+    document.getElementById('tideCell'+i+'Time').textContent = '-';
+    document.getElementById('tideCell'+i+'Height').textContent = 'non dispo';
+  }
+}
+
+// ============================================================
+// TEMP MER + LEVER / COUCHER (Open-Meteo)
+// ============================================================
+function fetchSpotMarineAndSun(lat, lon) {
+  var now = new Date();
+  var start = new Date(now); start.setHours(0,0,0,0);
+  var end = new Date(now); end.setDate(end.getDate()+1);
+  var fmt = function(d){ return d.toISOString().split('T')[0]; };
+
+  var marineUrl = 'https://marine-api.open-meteo.com/v1/marine?latitude='+lat+'&longitude='+lon+'&hourly=sea_surface_temperature&timezone=Europe/Paris&start_date='+fmt(start)+'&end_date='+fmt(end);
+  fetch(marineUrl).then(function(r){ return r.json(); }).then(function(d) {
+    if (!d.hourly || !d.hourly.sea_surface_temperature) return;
+    S_spotMarineCache = d.hourly;
+    renderSeaTempAndSun();
+  }).catch(function(){});
+
+  var sunUrl = 'https://api.open-meteo.com/v1/forecast?latitude='+lat+'&longitude='+lon+'&daily=sunrise,sunset&timezone=Europe/Paris&start_date='+fmt(start)+'&end_date='+fmt(end);
+  fetch(sunUrl).then(function(r){ return r.json(); }).then(function(d) {
+    if (!d.daily) return;
+    S_spotSunCache = d.daily;
+    renderSeaTempAndSun();
+  }).catch(function(){});
+}
+
+function renderSeaTempAndSun() {
+  var dateVal = document.getElementById('spotDate').value;
+  var timeVal = document.getElementById('spotTime').value;
+
+  if (S_spotMarineCache && S_spotMarineCache.sea_surface_temperature) {
+    var targetStr = dateVal + 'T' + timeVal;
+    var idx = 0, best = Infinity;
+    S_spotMarineCache.time.forEach(function(t, i) {
+      var d = Math.abs(new Date(t) - new Date(targetStr));
+      if (d < best) { best = d; idx = i; }
+    });
+    var temp = S_spotMarineCache.sea_surface_temperature[idx];
+    if (temp !== null && temp !== undefined) {
+      document.getElementById('spotSeaTemp').textContent = temp.toFixed(1) + '°C';
+    }
+  }
+
+  if (S_spotSunCache && S_spotSunCache.sunrise && S_spotSunCache.sunset) {
+    var idx = S_spotSunCache.time.indexOf(dateVal);
+    if (idx === -1) idx = 0;
+    var sunrise = S_spotSunCache.sunrise[idx];
+    var sunset  = S_spotSunCache.sunset[idx];
+    if (sunrise) document.getElementById('spotSunrise').textContent = sunrise.slice(11, 16);
+    if (sunset)  document.getElementById('spotSunset').textContent  = sunset.slice(11, 16);
+  }
 }
 
 function closeSpotPopup() { document.getElementById('spotDrawer').classList.remove('open'); if (S.clickMarker) { S.map.removeLayer(S.clickMarker); S.clickMarker = null; } }
@@ -1529,7 +1742,10 @@ function fetchSpotWeather(lat, lon) {
   fetch(url).then(function(r){ return r.json(); }).then(function(d) { if (!d.hourly) return; S_spotWeatherCache = d.hourly; renderSpotPopup(); }).catch(function(){});
 }
 
-function refreshSpotPopup() { if (S_spotWeatherCache) renderSpotPopup(); }
+function refreshSpotPopup() {
+  if (S_spotWeatherCache) renderSpotPopup();
+  renderSeaTempAndSun();
+}
 
 function renderSpotPopup() {
   var h = S_spotWeatherCache;
