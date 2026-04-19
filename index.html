@@ -205,7 +205,7 @@
     .login-toggle span { color:var(--accent); text-decoration:underline; }
     .login-error { display:none; background:#FEE2E2; border:1px solid #FCA5A5; color:#991B1B; padding:8px 12px; border-radius:8px; margin-bottom:10px; font-family:'DM Mono', monospace; font-size:11px; text-align:center; }
     .login-close { position:absolute; top:14px; right:14px; background:none; border:none; cursor:pointer; color:var(--text-3); font-size:20px; }
-    #carnetDrawer { position:fixed; top:73px; right:0; bottom:0; z-index:1100; width:460px; background:var(--surface); border-left:1px solid var(--border); box-shadow:-8px 0 40px rgba(0,0,0,0.12); display:flex; flex-direction:column; transform:translateX(100%); transition:transform 0.28s cubic-bezier(.4,0,.2,1); overflow:hidden; }
+    #carnetDrawer { position:fixed; top:73px; right:0; bottom:0; z-index:1100; width:560px; background:var(--surface); border-left:1px solid var(--border); box-shadow:-8px 0 40px rgba(0,0,0,0.12); display:flex; flex-direction:column; transform:translateX(100%); transition:transform 0.28s cubic-bezier(.4,0,.2,1); overflow:hidden; }
     #carnetDrawer.open { transform:translateX(0); }
     .carnet-head { padding:16px 18px; background:var(--surface2); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
     .carnet-title { font-family:'Space Grotesk', sans-serif; font-size:16px; font-weight:700; color:var(--text); }
@@ -221,6 +221,14 @@
     .carnet-map-btn.active { background:var(--accent); color:white; }
     .carnet-sessions-wrap { padding:14px; }
     .carnet-sessions-title { font-family:'DM Mono', monospace; font-size:10px; font-weight:600; color:var(--text-3); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:10px; }
+    .carnet-filters { display:flex; gap:8px; padding:10px 14px; border-bottom:1px solid var(--border); background:var(--surface); }
+    .carnet-search { flex:1; padding:8px 12px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; font-family:'DM Mono', monospace; font-size:12px; color:var(--text); outline:none; }
+    .carnet-search:focus { border-color:var(--accent); }
+    .carnet-year-select { padding:8px 10px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; font-family:'DM Mono', monospace; font-size:12px; color:var(--text); outline:none; cursor:pointer; min-width:90px; }
+    .carnet-year-select:focus { border-color:var(--accent); }
+    .month-group-header { font-family:'Space Grotesk', sans-serif; font-size:13px; font-weight:700; color:var(--accent); text-transform:capitalize; margin:14px 0 8px; padding-bottom:6px; border-bottom:1px solid var(--border); letter-spacing:0.02em; display:flex; justify-content:space-between; align-items:baseline; }
+    .month-group-count { font-family:'DM Mono', monospace; font-size:10px; font-weight:500; color:var(--text-3); text-transform:none; letter-spacing:0.05em; }
+    .month-group-header:first-of-type { margin-top:0; }
     .session-card { background:var(--surface); border:1px solid var(--border); border-left:3px solid var(--border2); border-radius:10px; padding:12px 14px; margin-bottom:10px; transition:all 0.15s; cursor:pointer; }
     .session-card:hover { border-color:var(--accent); box-shadow:0 2px 8px rgba(0,0,0,0.05); }
     .session-card.mood-1 { border-left-color:#DC2626; }
@@ -1542,7 +1550,14 @@ function loadSessions() {
 }
 
 function renderCarnetDashboard(sessions) {
+  window.S_carnetAllSessions = sessions;
+  window.S_carnetFilter = { search: '', year: 'all' };
+  buildCarnetUI();
+}
+
+function buildCarnetUI() {
   var body = document.getElementById('carnetBody');
+  var sessions = window.S_carnetAllSessions || [];
   var now = new Date();
   var yearStart = new Date(now.getFullYear(), 0, 1);
 
@@ -1561,6 +1576,12 @@ function renderCarnetDashboard(sessions) {
     else daysSince = 'il y a ' + d + 'j';
   }
 
+  var years = {};
+  sessions.forEach(function(s) {
+    if (s.date) years[new Date(s.date).getFullYear()] = true;
+  });
+  var yearList = Object.keys(years).sort(function(a, b) { return b - a; });
+
   var html = '';
 
   html += '<div class="carnet-stats-row">';
@@ -1571,72 +1592,133 @@ function renderCarnetDashboard(sessions) {
 
   html += '<div class="carnet-map-btn" id="carnetMapToggle" onclick="toggleCarnetSessionsOnMap()">Afficher mes sessions sur la carte</div>';
 
-  html += '<div class="carnet-sessions-wrap">';
-  html += '<div class="carnet-sessions-title">Historique (' + sessions.length + ' session' + (sessions.length > 1 ? 's' : '') + ')</div>';
+  html += '<div class="carnet-filters">';
+  html += '<input type="text" class="carnet-search" id="carnetSearch" placeholder="Rechercher un spot, une prise..." oninput="filterCarnet()">';
+  html += '<select class="carnet-year-select" id="carnetYear" onchange="filterCarnet()">';
+  html += '<option value="all">Toutes annees</option>';
+  yearList.forEach(function(y) {
+    html += '<option value="' + y + '">' + y + '</option>';
+  });
+  html += '</select>';
+  html += '</div>';
+
+  html += '<div class="carnet-sessions-wrap" id="carnetSessionsWrap"></div>';
+
+  body.innerHTML = html;
+  renderSessionsList();
+}
+
+function filterCarnet() {
+  window.S_carnetFilter = {
+    search: document.getElementById('carnetSearch').value.trim().toLowerCase(),
+    year: document.getElementById('carnetYear').value
+  };
+  renderSessionsList();
+}
+
+function renderSessionsList() {
+  var wrap = document.getElementById('carnetSessionsWrap');
+  if (!wrap) return;
+  var sessions = window.S_carnetAllSessions || [];
+  var filter = window.S_carnetFilter || { search: '', year: 'all' };
+
+  var filtered = sessions.filter(function(s) {
+    if (filter.year !== 'all' && s.date) {
+      if (new Date(s.date).getFullYear().toString() !== filter.year) return false;
+    }
+    if (filter.search) {
+      var haystack = [s.spotName || '', s.catch_ || '', s.notes || ''].join(' ').toLowerCase();
+      if (haystack.indexOf(filter.search) === -1) return false;
+    }
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    wrap.innerHTML = '<div class="carnet-empty" style="padding:30px 10px">Aucune session ne correspond a ta recherche.</div>';
+    return;
+  }
+
+  var groups = {};
+  var groupOrder = [];
+  filtered.forEach(function(s) {
+    if (!s.date) return;
+    var d = new Date(s.date);
+    var key = d.getFullYear() + '-' + (d.getMonth() + 1).toString().padStart(2, '0');
+    if (!groups[key]) {
+      groups[key] = { label: d.toLocaleDateString('fr', { month: 'long', year: 'numeric' }), sessions: [] };
+      groupOrder.push(key);
+    }
+    groups[key].sessions.push(s);
+  });
 
   var moodLabels = ['', 'Chiante', 'Bof', 'Normale', 'Bien', 'Top'];
   var moodBgColors = ['', '#FEE2E2', '#FED7AA', '#FEF3C7', '#DCFCE7', '#D1FAE5'];
   var moodTxtColors = ['', '#991B1B', '#9A3412', '#854D0E', '#166534', '#065F46'];
 
-  sessions.forEach(function(s, idx) {
-    var mood = s.mood || 3;
-    var dateObj = s.date ? new Date(s.date) : null;
-    var dateStr = dateObj ? dateObj.toLocaleDateString('fr', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : '-';
-    if (s.time) dateStr += ' - ' + s.time;
-    var spotName = s.spotName || (s.lat ? s.lat.toFixed(3) + 'N ' + Math.abs(s.lon).toFixed(3) + 'O' : 'Spot inconnu');
+  var html = '<div class="carnet-sessions-title">' + filtered.length + ' session' + (filtered.length > 1 ? 's' : '') + '</div>';
 
-    html += '<div class="session-card mood-' + mood + '" onclick="focusSessionOnMap(' + (s.lat || 0) + ',' + (s.lon || 0) + ')">';
-    html += '<div class="session-card-top">';
-    html += '<div><div class="session-date">' + dateStr + '</div><div class="session-spot">' + spotName + '</div></div>';
-    html += '<div class="session-mood-badge" style="background:' + moodBgColors[mood] + ';color:' + moodTxtColors[mood] + '">' + moodLabels[mood] + '</div>';
-    html += '</div>';
+  groupOrder.forEach(function(key) {
+    var group = groups[key];
+    html += '<div class="month-group-header"><span>' + group.label + '</span><span class="month-group-count">' + group.sessions.length + ' sortie' + (group.sessions.length > 1 ? 's' : '') + '</span></div>';
 
-    html += '<div class="session-grid">';
-    html += '<div class="session-field-mini"><span class="session-field-lbl">Visibilite</span><span class="session-field-val">' + (s.visibilityLabel || '-') + '</span></div>';
-    if (s.leadKg !== undefined && s.leadKg !== null) {
-      html += '<div class="session-field-mini"><span class="session-field-lbl">Plomb</span><span class="session-field-val">' + s.leadKg + ' kg</span></div>';
-    }
-    if (s.windKmh !== undefined) {
-      html += '<div class="session-field-mini"><span class="session-field-lbl">Vent</span><span class="session-field-val">' + s.windKmh + ' km/h ' + (s.windDirName || '') + '</span></div>';
-    }
-    if (s.tideCoef) {
-      html += '<div class="session-field-mini"><span class="session-field-lbl">Coef maree</span><span class="session-field-val">' + s.tideCoef + '</span></div>';
-    }
-    if (s.catch_) {
-      html += '<div class="session-field-mini" style="grid-column:span 2"><span class="session-field-lbl">Prises</span><span class="session-field-val">' + s.catch_ + '</span></div>';
-    }
-    html += '</div>';
+    group.sessions.forEach(function(s) {
+      var mood = s.mood || 3;
+      var dateObj = s.date ? new Date(s.date) : null;
+      var dateStr = dateObj ? dateObj.toLocaleDateString('fr', { weekday: 'short', day: 'numeric', month: 'short' }) : '-';
+      if (s.time) dateStr += ' - ' + s.time;
+      var spotName = s.spotName || (s.lat ? s.lat.toFixed(3) + 'N ' + Math.abs(s.lon).toFixed(3) + 'O' : 'Spot inconnu');
 
-    if (s.fbVis !== undefined || s.fbCurrent !== undefined || s.fbTemp !== undefined) {
-      var fbParts = [];
-      if (s.fbVis !== undefined && s.fbVis !== 0) {
-        var visLabels = { '-2': 'visi bien pire', '-1': 'visi pire', '1': 'visi mieux', '2': 'visi bien mieux' };
-        fbParts.push(visLabels[s.fbVis]);
+      html += '<div class="session-card mood-' + mood + '" onclick="focusSessionOnMap(' + (s.lat || 0) + ',' + (s.lon || 0) + ')">';
+      html += '<div class="session-card-top">';
+      html += '<div><div class="session-date">' + dateStr + '</div><div class="session-spot">' + spotName + '</div></div>';
+      html += '<div class="session-mood-badge" style="background:' + moodBgColors[mood] + ';color:' + moodTxtColors[mood] + '">' + moodLabels[mood] + '</div>';
+      html += '</div>';
+
+      html += '<div class="session-grid">';
+      html += '<div class="session-field-mini"><span class="session-field-lbl">Visibilite</span><span class="session-field-val">' + (s.visibilityLabel || '-') + '</span></div>';
+      if (s.leadKg !== undefined && s.leadKg !== null) {
+        html += '<div class="session-field-mini"><span class="session-field-lbl">Plomb</span><span class="session-field-val">' + s.leadKg + ' kg</span></div>';
       }
-      if (s.fbCurrent !== undefined && s.fbCurrent !== 2) {
-        var currLabels = { '0': 'pas de courant', '1': 'courant faible', '3': 'courant fort', '4': 'courant tres fort' };
-        fbParts.push(currLabels[s.fbCurrent]);
+      if (s.windKmh !== undefined) {
+        html += '<div class="session-field-mini"><span class="session-field-lbl">Vent</span><span class="session-field-val">' + s.windKmh + ' km/h ' + (s.windDirName || '') + '</span></div>';
       }
-      if (s.fbTemp !== undefined && s.fbTemp !== 0) {
-        var tempLabels = { '-2': 'eau glaciale', '-1': 'eau froide', '1': 'eau tiede', '2': 'eau chaude' };
-        fbParts.push(tempLabels[s.fbTemp]);
+      if (s.tideCoef) {
+        html += '<div class="session-field-mini"><span class="session-field-lbl">Coef maree</span><span class="session-field-val">' + s.tideCoef + '</span></div>';
       }
-      if (fbParts.length > 0) {
-        html += '<div class="session-notes" style="font-style:normal;color:var(--text-3);font-size:11px">' + fbParts.join(' - ') + '</div>';
+      if (s.catch_) {
+        html += '<div class="session-field-mini" style="grid-column:span 2"><span class="session-field-lbl">Prises</span><span class="session-field-val">' + s.catch_ + '</span></div>';
       }
-    }
+      html += '</div>';
 
-    if (s.notes) {
-      html += '<div class="session-notes">' + s.notes + '</div>';
-    }
+      if (s.fbVis !== undefined || s.fbCurrent !== undefined || s.fbTemp !== undefined) {
+        var fbParts = [];
+        if (s.fbVis !== undefined && s.fbVis !== 0) {
+          var visLabels = { '-2': 'visi bien pire', '-1': 'visi pire', '1': 'visi mieux', '2': 'visi bien mieux' };
+          fbParts.push(visLabels[s.fbVis]);
+        }
+        if (s.fbCurrent !== undefined && s.fbCurrent !== 2) {
+          var currLabels = { '0': 'pas de courant', '1': 'courant faible', '3': 'courant fort', '4': 'courant tres fort' };
+          fbParts.push(currLabels[s.fbCurrent]);
+        }
+        if (s.fbTemp !== undefined && s.fbTemp !== 0) {
+          var tempLabels = { '-2': 'eau glaciale', '-1': 'eau froide', '1': 'eau tiede', '2': 'eau chaude' };
+          fbParts.push(tempLabels[s.fbTemp]);
+        }
+        if (fbParts.length > 0) {
+          html += '<div class="session-notes" style="font-style:normal;color:var(--text-3);font-size:11px">' + fbParts.join(' - ') + '</div>';
+        }
+      }
 
-    html += '</div>';
+      if (s.notes) {
+        html += '<div class="session-notes">' + s.notes + '</div>';
+      }
+
+      html += '</div>';
+    });
   });
 
-  html += '</div>';
-  body.innerHTML = html;
-
-  window.S_carnetSessions = sessions;
+  wrap.innerHTML = html;
+  window.S_carnetSessions = filtered;
 }
 
 var S_carnetMapLayer = null;
