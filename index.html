@@ -205,18 +205,39 @@
     .login-toggle span { color:var(--accent); text-decoration:underline; }
     .login-error { display:none; background:#FEE2E2; border:1px solid #FCA5A5; color:#991B1B; padding:8px 12px; border-radius:8px; margin-bottom:10px; font-family:'DM Mono', monospace; font-size:11px; text-align:center; }
     .login-close { position:absolute; top:14px; right:14px; background:none; border:none; cursor:pointer; color:var(--text-3); font-size:20px; }
-    #carnetDrawer { position:fixed; top:73px; right:0; bottom:0; z-index:1100; width:380px; background:var(--surface); border-left:1px solid var(--border); box-shadow:-8px 0 40px rgba(0,0,0,0.12); display:flex; flex-direction:column; transform:translateX(100%); transition:transform 0.28s cubic-bezier(.4,0,.2,1); overflow:hidden; }
+    #carnetDrawer { position:fixed; top:73px; right:0; bottom:0; z-index:1100; width:460px; background:var(--surface); border-left:1px solid var(--border); box-shadow:-8px 0 40px rgba(0,0,0,0.12); display:flex; flex-direction:column; transform:translateX(100%); transition:transform 0.28s cubic-bezier(.4,0,.2,1); overflow:hidden; }
     #carnetDrawer.open { transform:translateX(0); }
-    .carnet-head { padding:16px 18px; background:var(--surface2); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+    .carnet-head { padding:16px 18px; background:var(--surface2); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
     .carnet-title { font-family:'Space Grotesk', sans-serif; font-size:16px; font-weight:700; color:var(--text); }
     .carnet-user { font-family:'DM Mono', monospace; font-size:10px; color:var(--text-3); margin-top:2px; }
-    .carnet-body { overflow-y:auto; flex:1; padding:16px; }
+    .carnet-body { overflow-y:auto; flex:1; }
     .carnet-empty { text-align:center; padding:40px 20px; color:var(--text-3); font-family:'DM Mono', monospace; font-size:12px; line-height:1.6; }
-    .session-card { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:12px; margin-bottom:10px; }
-    .session-date { font-family:'DM Mono', monospace; font-size:11px; font-weight:600; color:var(--accent); margin-bottom:6px; }
-    .session-spot { font-family:'Space Grotesk', sans-serif; font-size:13px; font-weight:600; color:var(--text); margin-bottom:8px; }
-    .session-row { display:flex; gap:10px; align-items:center; font-family:'DM Mono', monospace; font-size:11px; color:var(--text-2); margin-bottom:3px; }
-    .carnet-logout { padding:14px 18px; border-top:1px solid var(--border); background:var(--surface2); }
+    .carnet-stats-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:1px; background:var(--border); border-bottom:1px solid var(--border); }
+    .carnet-stat { background:#1A2535; padding:16px 10px; display:flex; flex-direction:column; align-items:center; gap:4px; }
+    .carnet-stat-val { font-family:'DM Mono', monospace; font-size:26px; font-weight:700; color:#A8E63D; line-height:1; }
+    .carnet-stat-lbl { font-family:'DM Mono', monospace; font-size:9px; font-weight:600; color:rgba(255,255,255,0.6); text-transform:uppercase; letter-spacing:0.08em; text-align:center; }
+    .carnet-map-btn { display:flex; align-items:center; justify-content:center; gap:8px; padding:10px; background:var(--surface2); border-bottom:1px solid var(--border); cursor:pointer; font-family:'DM Mono', monospace; font-size:11px; font-weight:600; color:var(--accent); text-transform:uppercase; letter-spacing:0.06em; transition:background 0.15s; }
+    .carnet-map-btn:hover { background:var(--accent-bg); }
+    .carnet-map-btn.active { background:var(--accent); color:white; }
+    .carnet-sessions-wrap { padding:14px; }
+    .carnet-sessions-title { font-family:'DM Mono', monospace; font-size:10px; font-weight:600; color:var(--text-3); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:10px; }
+    .session-card { background:var(--surface); border:1px solid var(--border); border-left:3px solid var(--border2); border-radius:10px; padding:12px 14px; margin-bottom:10px; transition:all 0.15s; cursor:pointer; }
+    .session-card:hover { border-color:var(--accent); box-shadow:0 2px 8px rgba(0,0,0,0.05); }
+    .session-card.mood-1 { border-left-color:#DC2626; }
+    .session-card.mood-2 { border-left-color:#EA580C; }
+    .session-card.mood-3 { border-left-color:#CA8A04; }
+    .session-card.mood-4 { border-left-color:#16A34A; }
+    .session-card.mood-5 { border-left-color:#0BA888; }
+    .session-card-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px; }
+    .session-date { font-family:'DM Mono', monospace; font-size:11px; font-weight:600; color:var(--accent); margin-bottom:2px; }
+    .session-spot { font-family:'Space Grotesk', sans-serif; font-size:14px; font-weight:700; color:var(--text); }
+    .session-mood-badge { font-family:'DM Mono', monospace; font-size:9px; font-weight:700; padding:3px 8px; border-radius:10px; text-transform:uppercase; letter-spacing:0.05em; }
+    .session-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; margin-top:8px; }
+    .session-field-mini { display:flex; flex-direction:column; gap:1px; }
+    .session-field-lbl { font-family:'DM Mono', monospace; font-size:9px; color:var(--text-3); text-transform:uppercase; letter-spacing:0.08em; }
+    .session-field-val { font-family:'DM Mono', monospace; font-size:12px; color:var(--text); font-weight:600; }
+    .session-notes { margin-top:8px; padding-top:8px; border-top:1px dashed var(--border); font-family:'Space Grotesk', sans-serif; font-size:12px; color:var(--text-2); font-style:italic; line-height:1.5; }
+    .carnet-logout { padding:14px 18px; border-top:1px solid var(--border); background:var(--surface2); flex-shrink:0; }
     .carnet-logout button { width:100%; padding:10px; background:none; border:1px solid var(--border2); border-radius:8px; color:var(--text-2); font-family:'DM Mono', monospace; font-size:12px; cursor:pointer; }
     #sessionOverlay { display:none; position:fixed; inset:0; z-index:2000; background:rgba(0,0,0,0.55); backdrop-filter:blur(4px); align-items:center; justify-content:center; padding:16px; }
     #sessionOverlay.open { display:flex; }
@@ -236,6 +257,17 @@
     .session-conditions { background:var(--accent-bg); border:1px solid var(--accent-mid); border-radius:8px; padding:10px 12px; margin-bottom:14px; }
     .session-cond-lbl { font-family:'DM Mono', monospace; font-size:9px; font-weight:600; color:var(--accent); text-transform:uppercase; margin-bottom:4px; }
     .session-cond-val { font-family:'DM Mono', monospace; font-size:11px; color:var(--text-2); line-height:1.6; }
+    .lead-row { display:flex; align-items:center; gap:10px; }
+    .lead-btn { width:32px; height:32px; border:1.5px solid var(--border2); background:var(--surface); color:var(--text-2); border-radius:8px; font-size:18px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+    .lead-btn:hover { border-color:var(--accent); color:var(--accent); }
+    .lead-val { flex:1; text-align:center; font-family:'DM Mono', monospace; font-size:18px; font-weight:700; color:var(--text); padding:7px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; }
+    .feedback-slider-wrap { margin-bottom:10px; }
+    .feedback-slider-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:4px; }
+    .feedback-slider-lbl { font-family:'DM Mono', monospace; font-size:10px; font-weight:600; color:var(--text-3); text-transform:uppercase; letter-spacing:0.06em; }
+    .feedback-slider-val { font-family:'DM Mono', monospace; font-size:11px; font-weight:700; color:var(--accent); }
+    input[type=range].feedback-slider { width:100%; height:4px; border-radius:2px; outline:none; cursor:pointer; background:linear-gradient(to right, #DC2626, #CA8A04, #0BA888, #CA8A04, #DC2626); -webkit-appearance:none; appearance:none; }
+    input[type=range].feedback-slider::-webkit-slider-thumb { -webkit-appearance:none; width:18px; height:18px; border-radius:50%; background:white; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,0.2); border:2px solid var(--accent); }
+    .feedback-slider-ticks { display:flex; justify-content:space-between; margin-top:3px; font-family:'DM Mono', monospace; font-size:9px; color:var(--text-3); }
     input[type=range].vis-slider { width:100%; height:5px; border-radius:3px; outline:none; cursor:pointer; background:linear-gradient(to right, #DC2626, #EA580C, #CA8A04, #16A34A, #0BA888); -webkit-appearance:none; appearance:none; }
     input[type=range].vis-slider::-webkit-slider-thumb { -webkit-appearance:none; width:20px; height:20px; border-radius:50%; background:white; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.2); border:2px solid var(--accent); }
     @media (max-width: 768px) {
@@ -492,7 +524,7 @@
 <div id="carnetDrawer">
   <div class="carnet-head">
     <div>
-      <div class="carnet-title">Mon carnet</div>
+      <div class="carnet-title">Mon carnet de chasse</div>
       <div class="carnet-user" id="carnetUser">-</div>
     </div>
     <button class="spot-close" onclick="closeCarnet()">x</button>
@@ -528,6 +560,41 @@
     <div class="session-field">
       <label class="session-label">Prises</label>
       <input type="text" class="session-input" id="sessionCatch" placeholder="2 bars 45cm, 1 daurade...">
+    </div>
+    <div class="session-field">
+      <label class="session-label">Plomb utilise (kg)</label>
+      <div class="lead-row">
+        <button class="lead-btn" onclick="adjustLead(-0.5)">-</button>
+        <div class="lead-val" id="sessionLeadVal">7.0</div>
+        <button class="lead-btn" onclick="adjustLead(0.5)">+</button>
+      </div>
+    </div>
+    <div class="session-field">
+      <label class="session-label">Feedback conditions</label>
+      <div class="feedback-slider-wrap">
+        <div class="feedback-slider-top">
+          <span class="feedback-slider-lbl">Visi reelle vs prevue</span>
+          <span class="feedback-slider-val" id="fbVisVal">Conforme</span>
+        </div>
+        <input type="range" class="feedback-slider" id="fbVisSlider" min="-2" max="2" step="1" value="0" oninput="updateFbVis(this.value)">
+        <div class="feedback-slider-ticks"><span>Bien pire</span><span>Pire</span><span>OK</span><span>Mieux</span><span>Bien mieux</span></div>
+      </div>
+      <div class="feedback-slider-wrap">
+        <div class="feedback-slider-top">
+          <span class="feedback-slider-lbl">Courant ressenti</span>
+          <span class="feedback-slider-val" id="fbCurrentVal">Moyen</span>
+        </div>
+        <input type="range" class="feedback-slider" id="fbCurrentSlider" min="0" max="4" step="1" value="2" oninput="updateFbCurrent(this.value)">
+        <div class="feedback-slider-ticks"><span>Nul</span><span>Faible</span><span>Moyen</span><span>Fort</span><span>Tres fort</span></div>
+      </div>
+      <div class="feedback-slider-wrap">
+        <div class="feedback-slider-top">
+          <span class="feedback-slider-lbl">Temperature eau</span>
+          <span class="feedback-slider-val" id="fbTempVal">Normale</span>
+        </div>
+        <input type="range" class="feedback-slider" id="fbTempSlider" min="-2" max="2" step="1" value="0" oninput="updateFbTemp(this.value)">
+        <div class="feedback-slider-ticks"><span>Glaciale</span><span>Froide</span><span>Normale</span><span>Tiede</span><span>Chaude</span></div>
+      </div>
     </div>
     <div class="session-field">
       <label class="session-label">Ressenti general</label>
@@ -1450,6 +1517,10 @@ function openCarnet() {
 
 function closeCarnet() {
   document.getElementById('carnetDrawer').classList.remove('open');
+  if (S_carnetMapLayer) {
+    S.map.removeLayer(S_carnetMapLayer);
+    S_carnetMapLayer = null;
+  }
 }
 
 function loadSessions() {
@@ -1459,26 +1530,180 @@ function loadSessions() {
   var q = window.fbQuery(window.fbCollection(window.fbDb, 'sessions'), window.fbWhere('userId', '==', S_currentUser.uid), window.fbOrderBy('date', 'desc'));
   window.fbGetDocs(q).then(function(snapshot) {
     if (snapshot.empty) {
-      body.innerHTML = '<div class="carnet-empty">Aucune session enregistree.<br><br>Clique sur la carte sur ton spot, puis sur "Enregistrer ma session".</div>';
+      body.innerHTML = '<div class="carnet-empty">Aucune session enregistree.<br><br>Clique sur ton spot sur la carte, puis sur "Enregistrer ma session".</div>';
       return;
     }
-    var html = '';
-    snapshot.forEach(function(d) {
-      var s = d.data();
-      html += '<div class="session-card">';
-      html += '<div class="session-date">' + (s.date || '-') + (s.time ? ' - ' + s.time : '') + '</div>';
-      html += '<div class="session-spot">' + (s.spotName || (s.lat.toFixed(3) + 'N ' + Math.abs(s.lon).toFixed(3) + 'O')) + '</div>';
-      html += '<div class="session-row"><strong>Visi : ' + s.visibilityLabel + '</strong></div>';
-      if (s.windKmh !== undefined) html += '<div class="session-row">Vent ' + s.windKmh + ' km/h ' + (s.windDirName || '') + '</div>';
-      if (s.tideCoef) html += '<div class="session-row">Coef ' + s.tideCoef + '</div>';
-      if (s.catch_) html += '<div class="session-row">Prises : ' + s.catch_ + '</div>';
-      if (s.notes) html += '<div class="session-row" style="font-style:italic">' + s.notes + '</div>';
-      html += '</div>';
-    });
-    body.innerHTML = html;
+    var sessions = [];
+    snapshot.forEach(function(d) { sessions.push(d.data()); });
+    renderCarnetDashboard(sessions);
   }).catch(function(err) {
     body.innerHTML = '<div class="carnet-empty" style="color:var(--bad)">Erreur : ' + err.message + '</div>';
   });
+}
+
+function renderCarnetDashboard(sessions) {
+  var body = document.getElementById('carnetBody');
+  var now = new Date();
+  var yearStart = new Date(now.getFullYear(), 0, 1);
+
+  var sessionsYear = sessions.filter(function(s) {
+    if (!s.date) return false;
+    return new Date(s.date) >= yearStart;
+  }).length;
+
+  var lastSession = sessions[0];
+  var daysSince = '-';
+  if (lastSession && lastSession.date) {
+    var diffMs = now - new Date(lastSession.date);
+    var d = Math.floor(diffMs / 86400000);
+    if (d === 0) daysSince = "Aujourd'hui";
+    else if (d === 1) daysSince = 'Hier';
+    else daysSince = 'il y a ' + d + 'j';
+  }
+
+  var html = '';
+
+  html += '<div class="carnet-stats-row">';
+  html += '<div class="carnet-stat"><div class="carnet-stat-val">' + sessionsYear + '</div><div class="carnet-stat-lbl">En ' + now.getFullYear() + '</div></div>';
+  html += '<div class="carnet-stat"><div class="carnet-stat-val">' + sessions.length + '</div><div class="carnet-stat-lbl">Total</div></div>';
+  html += '<div class="carnet-stat"><div class="carnet-stat-val" style="font-size:14px;line-height:1.2">' + daysSince + '</div><div class="carnet-stat-lbl">Derniere</div></div>';
+  html += '</div>';
+
+  html += '<div class="carnet-map-btn" id="carnetMapToggle" onclick="toggleCarnetSessionsOnMap()">Afficher mes sessions sur la carte</div>';
+
+  html += '<div class="carnet-sessions-wrap">';
+  html += '<div class="carnet-sessions-title">Historique (' + sessions.length + ' session' + (sessions.length > 1 ? 's' : '') + ')</div>';
+
+  var moodLabels = ['', 'Chiante', 'Bof', 'Normale', 'Bien', 'Top'];
+  var moodBgColors = ['', '#FEE2E2', '#FED7AA', '#FEF3C7', '#DCFCE7', '#D1FAE5'];
+  var moodTxtColors = ['', '#991B1B', '#9A3412', '#854D0E', '#166534', '#065F46'];
+
+  sessions.forEach(function(s, idx) {
+    var mood = s.mood || 3;
+    var dateObj = s.date ? new Date(s.date) : null;
+    var dateStr = dateObj ? dateObj.toLocaleDateString('fr', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : '-';
+    if (s.time) dateStr += ' - ' + s.time;
+    var spotName = s.spotName || (s.lat ? s.lat.toFixed(3) + 'N ' + Math.abs(s.lon).toFixed(3) + 'O' : 'Spot inconnu');
+
+    html += '<div class="session-card mood-' + mood + '" onclick="focusSessionOnMap(' + (s.lat || 0) + ',' + (s.lon || 0) + ')">';
+    html += '<div class="session-card-top">';
+    html += '<div><div class="session-date">' + dateStr + '</div><div class="session-spot">' + spotName + '</div></div>';
+    html += '<div class="session-mood-badge" style="background:' + moodBgColors[mood] + ';color:' + moodTxtColors[mood] + '">' + moodLabels[mood] + '</div>';
+    html += '</div>';
+
+    html += '<div class="session-grid">';
+    html += '<div class="session-field-mini"><span class="session-field-lbl">Visibilite</span><span class="session-field-val">' + (s.visibilityLabel || '-') + '</span></div>';
+    if (s.leadKg !== undefined && s.leadKg !== null) {
+      html += '<div class="session-field-mini"><span class="session-field-lbl">Plomb</span><span class="session-field-val">' + s.leadKg + ' kg</span></div>';
+    }
+    if (s.windKmh !== undefined) {
+      html += '<div class="session-field-mini"><span class="session-field-lbl">Vent</span><span class="session-field-val">' + s.windKmh + ' km/h ' + (s.windDirName || '') + '</span></div>';
+    }
+    if (s.tideCoef) {
+      html += '<div class="session-field-mini"><span class="session-field-lbl">Coef maree</span><span class="session-field-val">' + s.tideCoef + '</span></div>';
+    }
+    if (s.catch_) {
+      html += '<div class="session-field-mini" style="grid-column:span 2"><span class="session-field-lbl">Prises</span><span class="session-field-val">' + s.catch_ + '</span></div>';
+    }
+    html += '</div>';
+
+    if (s.fbVis !== undefined || s.fbCurrent !== undefined || s.fbTemp !== undefined) {
+      var fbParts = [];
+      if (s.fbVis !== undefined && s.fbVis !== 0) {
+        var visLabels = { '-2': 'visi bien pire', '-1': 'visi pire', '1': 'visi mieux', '2': 'visi bien mieux' };
+        fbParts.push(visLabels[s.fbVis]);
+      }
+      if (s.fbCurrent !== undefined && s.fbCurrent !== 2) {
+        var currLabels = { '0': 'pas de courant', '1': 'courant faible', '3': 'courant fort', '4': 'courant tres fort' };
+        fbParts.push(currLabels[s.fbCurrent]);
+      }
+      if (s.fbTemp !== undefined && s.fbTemp !== 0) {
+        var tempLabels = { '-2': 'eau glaciale', '-1': 'eau froide', '1': 'eau tiede', '2': 'eau chaude' };
+        fbParts.push(tempLabels[s.fbTemp]);
+      }
+      if (fbParts.length > 0) {
+        html += '<div class="session-notes" style="font-style:normal;color:var(--text-3);font-size:11px">' + fbParts.join(' - ') + '</div>';
+      }
+    }
+
+    if (s.notes) {
+      html += '<div class="session-notes">' + s.notes + '</div>';
+    }
+
+    html += '</div>';
+  });
+
+  html += '</div>';
+  body.innerHTML = html;
+
+  window.S_carnetSessions = sessions;
+}
+
+var S_carnetMapLayer = null;
+function toggleCarnetSessionsOnMap() {
+  var btn = document.getElementById('carnetMapToggle');
+  if (S_carnetMapLayer) {
+    S.map.removeLayer(S_carnetMapLayer);
+    S_carnetMapLayer = null;
+    btn.classList.remove('active');
+    btn.textContent = 'Afficher mes sessions sur la carte';
+    return;
+  }
+  var sessions = window.S_carnetSessions || [];
+  if (sessions.length === 0) return;
+  var markers = [];
+  var moodColors = ['', '#DC2626', '#EA580C', '#CA8A04', '#16A34A', '#0BA888'];
+  sessions.forEach(function(s) {
+    if (!s.lat || !s.lon) return;
+    var mood = s.mood || 3;
+    var color = moodColors[mood];
+    var dateStr = s.date ? new Date(s.date).toLocaleDateString('fr', { day: 'numeric', month: 'short', year: 'numeric' }) : '-';
+    var m = L.circleMarker([s.lat, s.lon], {
+      radius: 8, fillColor: color, color: '#fff', weight: 2, fillOpacity: 0.9
+    });
+    var popup = '<div style="font-family:DM Mono,monospace;font-size:11px;line-height:1.6;"><strong>' + dateStr + '</strong><br>' + (s.spotName || '-') + '<br>Visi : ' + (s.visibilityLabel || '-');
+    if (s.catch_) popup += '<br>Prises : ' + s.catch_;
+    popup += '</div>';
+    m.bindPopup(popup);
+    markers.push(m);
+  });
+  S_carnetMapLayer = L.featureGroup(markers).addTo(S.map);
+  btn.classList.add('active');
+  btn.textContent = 'Masquer mes sessions';
+  if (markers.length > 0) S.map.fitBounds(S_carnetMapLayer.getBounds(), { padding: [80, 80], maxZoom: 13 });
+}
+
+function focusSessionOnMap(lat, lon) {
+  if (!lat || !lon) return;
+  S.map.setView([lat, lon], 13);
+}
+
+var S_leadKg = 7.0;
+var S_fbVis = 0;
+var S_fbCurrent = 2;
+var S_fbTemp = 0;
+
+function adjustLead(delta) {
+  S_leadKg = Math.max(0, Math.min(20, S_leadKg + delta));
+  document.getElementById('sessionLeadVal').textContent = S_leadKg.toFixed(1);
+}
+
+function updateFbVis(val) {
+  S_fbVis = parseInt(val);
+  var labels = { '-2': 'Bien pire', '-1': 'Pire', '0': 'Conforme', '1': 'Mieux', '2': 'Bien mieux' };
+  document.getElementById('fbVisVal').textContent = labels[val];
+}
+
+function updateFbCurrent(val) {
+  S_fbCurrent = parseInt(val);
+  var labels = { '0': 'Nul', '1': 'Faible', '2': 'Moyen', '3': 'Fort', '4': 'Tres fort' };
+  document.getElementById('fbCurrentVal').textContent = labels[val];
+}
+
+function updateFbTemp(val) {
+  S_fbTemp = parseInt(val);
+  var labels = { '-2': 'Glaciale', '-1': 'Froide', '0': 'Normale', '1': 'Tiede', '2': 'Chaude' };
+  document.getElementById('fbTempVal').textContent = labels[val];
 }
 
 function openSessionModal() {
@@ -1496,6 +1721,13 @@ function openSessionModal() {
   document.getElementById('sessionCatch').value = '';
   document.getElementById('sessionNotes').value = '';
   setMood(3);
+
+  S_leadKg = 7.0;
+  document.getElementById('sessionLeadVal').textContent = S_leadKg.toFixed(1);
+  document.getElementById('fbVisSlider').value = 0; updateFbVis(0);
+  document.getElementById('fbCurrentSlider').value = 2; updateFbCurrent(2);
+  document.getElementById('fbTempSlider').value = 0; updateFbTemp(0);
+
   var condText = '-';
   if (S_spotWeatherCache && S_spotWeatherCache.time) {
     var w = Math.round(S_spotWeatherCache.windspeed_10m[0] || 0);
@@ -1557,6 +1789,10 @@ function saveSession() {
     catch_: document.getElementById('sessionCatch').value.trim() || null,
     mood: S_currentMood,
     notes: document.getElementById('sessionNotes').value.trim() || null,
+    leadKg: S_leadKg,
+    fbVis: S_fbVis,
+    fbCurrent: S_fbCurrent,
+    fbTemp: S_fbTemp,
     windKmh: w,
     gustsKmh: g,
     windDirName: dirName,
