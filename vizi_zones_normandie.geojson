@@ -1,0 +1,2176 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VISIMER - Lisez la mer avant d'y entrer</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 46 46' fill='none'%3E%3Ccircle cx='23' cy='23' r='21' fill='%231A2535'/%3E%3Ccircle cx='23' cy='23' r='21' stroke='%23A8E63D' stroke-width='2.2'/%3E%3Cpath d='M23 35 Q14 27 11 17 Q10 11 14 9 Q18 9 20 17 Q22 27 23 31' stroke='%23A8E63D' stroke-width='3.2' stroke-linecap='round'/%3E%3Cpath d='M23 35 Q32 27 35 17 Q36 11 32 9 Q28 9 26 17 Q24 27 23 31' stroke='%23A8E63D' stroke-width='3.2' stroke-linecap='round'/%3E%3Ccircle cx='23' cy='38' r='3.2' fill='%23A8E63D'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css"/>
+  <style>
+    :root {
+      --bg: #F0F4F8; --surface: #FFFFFF; --surface2: #F7FAFC;
+      --border: #E2E8F0; --border2: #CBD5E0;
+      --accent: #0BA888; --accent-bg: rgba(11,168,136,0.08); --accent-mid: rgba(11,168,136,0.18);
+      --citron: #A8E63D; --citron-dark: #7AB828;
+      --text: #1A2535; --text-2: #4A6080; --text-3: #94A3B8;
+      --good: #0BA888; --warn: #D97706; --bad: #DC2626; --mid: #CA8A04;
+      --vis-null: #DC2626; --vis-bad: #EA580C; --vis-mid: #CA8A04; --vis-good: #16A34A; --vis-exc: #0BA888;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html, body { width:100%; height:100%; overflow:hidden; font-family:'Inter', system-ui, sans-serif; background:var(--bg); color:var(--text); }
+    #header { position:absolute; top:0; left:0; right:0; z-index:1000; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 24px; background:#1A2535; border-bottom:1px solid rgba(255,255,255,0.06); pointer-events:none; }
+    #header > * { pointer-events:all; }
+    .logo { display:flex; align-items:center; gap:10px; text-decoration:none; }
+    .logo-mark { width:64px; height:64px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .logo-mark svg { width:64px; height:64px; }
+    .logo-text-wrap { display:flex; flex-direction:column; gap:4px; }
+    .logo-name { font-family:'Inter', sans-serif; font-size:36px; font-weight:800; letter-spacing:0.16em; color:#FFFFFF; text-transform:uppercase; line-height:1; }
+    .logo-tagline { font-family:'IBM Plex Mono', 'Courier New', monospace; font-size:13px; font-weight:500; color:#A8E63D; letter-spacing:0.03em; line-height:1; }
+    .controls { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+    .ctrl-btn { display:flex; align-items:center; gap:6px; padding:9px 15px; border:1px solid rgba(255,255,255,0.12); background:rgba(255,255,255,0.07); color:rgba(255,255,255,0.7); border-radius:8px; cursor:pointer; font-family:'IBM Plex Mono', monospace; font-size:14px; font-weight:500; transition:all 0.15s; white-space:nowrap; }
+    .ctrl-btn:hover { border-color:rgba(168,230,61,0.5); color:#A8E63D; }
+    .ctrl-btn.active { border-color:#A8E63D; color:#A8E63D; background:rgba(168,230,61,0.08); }
+    .ctrl-dot { width:6px; height:6px; border-radius:50%; background:currentColor; }
+    #map { width:100%; height:100%; position:absolute; inset:0; }
+    .leaflet-container { background:#C8D8E8; cursor:crosshair !important; }
+    .leaflet-control-zoom { border:none !important; box-shadow:0 2px 8px rgba(0,0,0,0.12) !important; }
+    .leaflet-control-zoom a { background:white !important; color:var(--accent) !important; border:1px solid var(--border) !important; margin-bottom:2px !important; border-radius:6px !important; font-weight:600 !important; }
+    .leaflet-control-zoom a:hover { background:var(--accent-bg) !important; }
+    .leaflet-control-attribution { background:rgba(255,255,255,0.75) !important; color:var(--text-3) !important; font-size:9px !important; }
+    .leaflet-control-attribution a { color:var(--text-3) !important; }
+    #heatmapCanvas { position:absolute; inset:0; pointer-events:none; z-index:400; }
+    #turbBadge { position:absolute; z-index:900; background:rgba(26,37,53,0.92); backdrop-filter:blur(8px); border:1px solid rgba(168,230,61,0.3); border-radius:10px; padding:8px 14px; display:none; align-items:center; gap:8px; box-shadow:0 4px 16px rgba(0,0,0,0.18); max-width:calc(100vw - 32px); }
+    #turbBadge .tb-dot { width:7px; height:7px; border-radius:50%; background:#A8E63D; box-shadow:0 0 6px rgba(168,230,61,0.6); flex-shrink:0; }
+    #turbBadge .tb-text { font-family:'IBM Plex Mono', monospace; font-size:11px; font-weight:500; color:rgba(255,255,255,0.88); letter-spacing:0.02em; line-height:1.4; }
+    #turbBadge .tb-text strong { color:#A8E63D; font-weight:600; }
+    #legend { position:absolute; bottom:26px; left:16px; z-index:900; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px 16px; box-shadow:0 4px 20px rgba(0,0,0,0.08); min-width:172px; }
+    #forecastPanel { position:absolute; bottom:0; left:0; right:0; z-index:1000; background:rgba(255,255,255,0.97); border-top:1px solid var(--border); backdrop-filter:blur(12px); display:none; max-height:240px; }
+    .forecast-header { display:flex; align-items:center; gap:10px; padding:8px 16px; border-bottom:1px solid var(--border); min-height:44px; }
+    .forecast-location { font-size:15px; font-weight:600; color:var(--text); }
+    .forecast-coords { font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--text-3); }
+    .forecast-close { margin-left:auto; background:none; border:none; color:var(--text-3); cursor:pointer; font-size:18px; line-height:1; transition:color 0.15s; }
+    .forecast-close:hover { color:var(--text); }
+    .forecast-scroll { overflow-x:auto; overflow-y:hidden; }
+    .wg-table { border-collapse:collapse; font-family:'IBM Plex Mono', monospace; font-size:12px; white-space:nowrap; }
+    .wg-table td, .wg-table th { padding:5px 10px; border-right:1px solid var(--border); text-align:center; height:28px; }
+    .wg-table .row-label { color:var(--text-2); font-size:11px; font-weight:500; text-align:left; padding-left:14px; min-width:115px; position:sticky; left:0; background:white; z-index:2; border-right:2px solid var(--border); }
+    .wg-table .day-header { background:var(--surface2); color:var(--text-2); font-size:11px; font-weight:600; border-bottom:1px solid var(--border); letter-spacing:0.04em; }
+    .wg-table .hour-row { color:var(--text-3); font-size:10px; background:var(--surface2); }
+    .wg-now { border-left:3px solid #A8E63D !important; background:rgba(168,230,61,0.06) !important; }
+    .wg-now-header { border-left:3px solid #A8E63D !important; background:rgba(168,230,61,0.1) !important; color:#A8E63D !important; font-weight:700 !important; }
+    .wc-0{background:rgba(11,168,136,0.10)} .wc-1{background:rgba(11,168,136,0.22)}
+    .wc-2{background:rgba(22,163,74,0.22)} .wc-3{background:rgba(202,138,4,0.25)}
+    .wc-4{background:rgba(234,88,12,0.30)} .wc-5{background:rgba(220,38,38,0.35)}
+    .wc-6{background:rgba(185,28,28,0.45)} .wc-7{background:rgba(153,27,27,0.55)}
+    .ww-0{background:rgba(11,168,136,0.08)} .ww-1{background:rgba(11,168,136,0.18)}
+    .ww-2{background:rgba(202,138,4,0.22)} .ww-3{background:rgba(234,88,12,0.30)}
+    .ww-4{background:rgba(220,38,38,0.38)}
+    #sedLegend { position:absolute; left:16px; z-index:900; background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:0 4px 20px rgba(0,0,0,0.08); display:none; overflow:hidden; min-width:200px; max-height:calc(100vh - 110px); overflow-y:auto; }
+    .sed-legend-header { display:flex; align-items:center; justify-content:space-between; padding:10px 14px 8px; cursor:pointer; border-bottom:1px solid var(--border); background:var(--surface2); }
+    .sed-legend-title { font-family:'IBM Plex Mono', monospace; font-size:10px; font-weight:600; color:var(--text-3); text-transform:uppercase; letter-spacing:0.1em; }
+    .sed-legend-toggle { font-size:10px; color:var(--text-3); transition:transform 0.2s; }
+    .sed-legend-body { padding:10px 14px 12px; }
+    .sed-legend-row { display:flex; align-items:center; gap:9px; margin-bottom:6px; font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--text-2); }
+    .sed-legend-row:last-child { margin-bottom:0; }
+    .sed-swatch { width:16px; height:16px; border-radius:3px; flex-shrink:0; border:1px solid rgba(0,0,0,0.08); }
+    #spotDrawer { position:fixed; top:73px; right:0; bottom:0; z-index:1100; width:340px; background:var(--surface); border-left:1px solid var(--border); box-shadow:-8px 0 40px rgba(0,0,0,0.12); display:flex; flex-direction:column; transform:translateX(100%); transition:transform 0.28s cubic-bezier(.4,0,.2,1); overflow:hidden; }
+    #spotDrawer.open { transform:translateX(0); }
+    .drawer-head { padding:14px 16px 12px; background:var(--surface2); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:flex-start; flex-shrink:0; }
+    .spot-coords { font-family:'IBM Plex Mono', monospace; font-size:14px; font-weight:500; color:var(--accent); letter-spacing:0.02em; }
+    .spot-meta { font-family:'IBM Plex Mono', monospace; font-size:13px; color:var(--text-3); margin-top:4px; }
+    .spot-close { width:32px; height:32px; background:var(--border); border:none; border-radius:50%; color:var(--text-2); cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center; transition:background 0.15s; flex-shrink:0; }
+    .spot-close:hover { background:var(--border2); color:var(--text); }
+    .drawer-datetime { display:flex; gap:8px; padding:10px 16px; border-bottom:1px solid var(--border); background:var(--surface2); flex-shrink:0; }
+    .drawer-datetime input { flex:1; padding:10px 12px; background:var(--surface); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:'IBM Plex Mono', monospace; font-size:15px; outline:none; cursor:pointer; transition:border-color 0.15s; }
+    .drawer-datetime input:focus { border-color:var(--accent); }
+    .drawer-body { overflow-y:auto; flex:1; }
+    .spot-vis-block { padding:16px 16px 12px; border-bottom:1px solid var(--border); }
+    .spot-vis-label { font-family:'IBM Plex Mono', monospace; font-size:13px; font-weight:500; color:var(--text-3); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:12px; }
+    .spot-vis-badge { width:100%; padding:16px 0; border-radius:10px; display:flex; align-items:center; justify-content:center; margin-bottom:12px; transition:background 0.35s; }
+    .spot-vis-badge-text { font-family:'Inter', system-ui, sans-serif; font-size:26px; font-weight:700; color:white; }
+    .spot-vis-segments { display:flex; gap:5px; margin-bottom:10px; }
+    .spot-vis-seg { flex:1; height:10px; border-radius:4px; background:var(--border); }
+    .spot-vis-ticks { display:flex; justify-content:space-between; font-family:'IBM Plex Mono', monospace; font-size:15px; font-weight:600; color:var(--text-2); padding:0 1px; }
+    .spot-wind-block { display:flex; border-bottom:1px solid var(--border); }
+    .spot-wind-cell { flex:1; padding:14px 0; text-align:center; border-right:1px solid var(--border); }
+    .spot-wind-cell:last-child { border-right:none; }
+    .spot-wind-lbl { font-family:'IBM Plex Mono', monospace; font-size:13px; font-weight:500; color:var(--text-3); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px; }
+    .spot-wind-val { font-family:'IBM Plex Mono', monospace; font-size:36px; font-weight:500; line-height:1; }
+    .spot-wind-unit { font-family:'IBM Plex Mono', monospace; font-size:14px; color:var(--text-3); margin-top:5px; }
+    .spot-wind-dir { font-size:30px; margin-top:2px; font-weight:700; }
+    .spot-sea-block { display:flex; border-bottom:1px solid var(--border); background:var(--surface2); }
+    .spot-sea-cell { flex:1; padding:11px 0; text-align:center; border-right:1px solid var(--border); display:flex; flex-direction:column; align-items:center; gap:3px; }
+    .spot-sea-cell:last-child { border-right:none; }
+    .spot-sea-icon { width:16px; height:16px; display:flex; align-items:center; justify-content:center; }
+    .spot-sea-lbl { font-family:'IBM Plex Mono', monospace; font-size:12px; font-weight:500; color:var(--text-3); text-transform:uppercase; letter-spacing:0.08em; }
+    .spot-sea-val { font-family:'IBM Plex Mono', monospace; font-size:18px; font-weight:600; color:var(--text); line-height:1; }
+    #spotFactors { padding:12px 16px 14px; border-bottom:1px solid var(--border); display:flex; flex-direction:column; gap:8px; background:var(--surface2); }
+    #drawerTides { padding:14px 16px 16px; background:var(--surface); }
+    .tides-label { font-family:'IBM Plex Mono', monospace; font-size:13px; font-weight:500; color:var(--text-3); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:12px; }
+    .tides-port-name { font-family:'IBM Plex Mono', monospace; font-size:16px; font-weight:600; color:var(--text); margin-bottom:12px; }
+    .tides-coeff-row { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; margin-bottom:12px; background:var(--surface2); border:1px solid var(--border); border-radius:9px; }
+    .tides-coeff-lbl { font-family:'IBM Plex Mono', monospace; font-size:13px; font-weight:500; color:var(--text-3); text-transform:uppercase; letter-spacing:0.08em; }
+    .tides-coeff-val { font-family:'IBM Plex Mono', monospace; font-size:30px; font-weight:700; color:var(--accent); line-height:1; }
+    .tides-grid-2x2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .tides-cell-2 { padding:12px 10px; border:1px solid var(--border); border-radius:8px; background:var(--surface); position:relative; transition:all 0.2s; }
+    .tides-cell-2.past { opacity:0.55; }
+    .tides-cell-2.next { border-color:var(--accent); background:var(--accent-bg); box-shadow:0 0 0 1px var(--accent-mid); }
+    .tides-cell-2-lbl { font-family:'IBM Plex Mono', monospace; font-size:12px; font-weight:600; color:var(--text-3); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:5px; display:flex; align-items:center; gap:4px; }
+    .tides-cell-2-lbl.high { color:var(--accent); }
+    .tides-cell-2-lbl.low { color:var(--warn); }
+    .tides-cell-2-time { font-family:'IBM Plex Mono', monospace; font-size:20px; font-weight:600; color:var(--text); line-height:1; }
+    .tides-cell-2-height { font-family:'IBM Plex Mono', monospace; font-size:13px; color:var(--text-3); margin-top:4px; }
+    .tides-cell-2-badge { position:absolute; top:6px; right:8px; font-family:'IBM Plex Mono', monospace; font-size:10px; font-weight:600; color:var(--accent); background:white; border:1px solid var(--accent); border-radius:4px; padding:2px 5px; letter-spacing:0.05em; }
+    .visim-pulse-marker { position:relative; width:40px; height:40px; }
+    .visim-pulse-dot { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:10px; height:10px; border-radius:50%; background:#A8E63D; box-shadow:0 0 8px rgba(168,230,61,0.6); }
+    .visim-pulse-ring { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:10px; height:10px; border-radius:50%; border:2px solid #A8E63D; animation:visimPulse 2s ease-out infinite; }
+    .visim-pulse-ring2 { animation-delay:1s; }
+    @keyframes visimPulse { 0% { width:10px; height:10px; opacity:0.9; } 100% { width:42px; height:42px; opacity:0; } }
+    .visim-tooltip { background:white !important; border:1px solid var(--border) !important; color:var(--text) !important; font-family:'IBM Plex Mono', monospace !important; font-size:12px !important; border-radius:8px !important; padding:6px 12px !important; box-shadow:0 4px 14px rgba(0,0,0,0.1) !important; }
+    .visim-tooltip::before { display:none !important; }
+    #landToast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%) translateY(20px); z-index:1200; background:#1A2535; color:white; padding:14px 22px; border-radius:12px; font-family:'IBM Plex Mono', monospace; font-size:13px; box-shadow:0 8px 30px rgba(0,0,0,0.2); opacity:0; pointer-events:none; transition:opacity 0.2s, transform 0.2s; white-space:nowrap; max-width:90vw; text-align:center; }
+    #landToast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+    #obsSheet { position:fixed; bottom:0; left:0; right:0; z-index:1200; background:var(--surface); border-radius:20px 20px 0 0; border-top:1px solid var(--border); box-shadow:0 -8px 40px rgba(0,0,0,0.18); transform:translateY(100%); transition:transform 0.3s cubic-bezier(.4,0,.2,1); max-height:75vh; overflow-y:auto; padding-bottom:env(safe-area-inset-bottom, 16px); }
+    #obsSheet.open { transform:translateY(0); }
+    .obs-sheet-handle { width:36px; height:4px; background:var(--border2); border-radius:2px; margin:12px auto 0; }
+    .obs-sheet-head { display:flex; align-items:center; justify-content:space-between; padding:16px 20px 12px; border-bottom:1px solid var(--border); }
+    .obs-sheet-title { font-family:'Inter', sans-serif; font-size:17px; font-weight:700; color:var(--text); }
+    .obs-sheet-coords { font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--accent); margin-top:2px; }
+    .obs-sheet-close { width:30px; height:30px; background:var(--border); border:none; border-radius:50%; color:var(--text-2); cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .obs-sheet-body { padding:12px 16px 20px; display:flex; flex-direction:column; gap:12px; }
+    .obs-field-label { font-family:'IBM Plex Mono', monospace; font-size:10px; font-weight:600; color:var(--text-3); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:5px; display:block; }
+    .obs-datetime-row { display:flex; gap:8px; }
+    .obs-datetime-row input { flex:1; padding:8px 10px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:'IBM Plex Mono', monospace; font-size:13px; outline:none; }
+    .obs-vis-row { display:flex; flex-direction:column; gap:6px; }
+    .obs-vis-top { display:flex; justify-content:space-between; align-items:center; }
+    .obs-vis-val { font-family:'IBM Plex Mono', monospace; font-size:17px; font-weight:700; }
+    input[type=range].obs-vis-slider { width:100%; height:5px; border-radius:3px; outline:none; cursor:pointer; background:linear-gradient(to right, #DC2626, #CA8A04, #16A34A, #0BA888); -webkit-appearance:none; appearance:none; }
+    input[type=range].obs-vis-slider::-webkit-slider-thumb { -webkit-appearance:none; width:22px; height:22px; border-radius:50%; background:white; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.2); border:2px solid var(--accent); }
+    .obs-vis-ticks { display:flex; justify-content:space-between; font-family:'IBM Plex Mono', monospace; font-size:9px; color:var(--text-3); }
+    .obs-toggle-row { display:flex; gap:8px; }
+    .obs-tog { flex:1; padding:9px 8px; border:1.5px solid var(--border); border-radius:9px; background:var(--surface); color:var(--text-2); cursor:pointer; font-family:'Inter', sans-serif; font-size:13px; font-weight:600; transition:all 0.15s; text-align:center; }
+    .obs-tog.on { border-color:var(--accent); color:var(--accent); background:var(--accent-bg); }
+    .obs-species-input { width:100%; padding:9px 12px; background:var(--surface2); border:1px solid var(--border); border-radius:9px; color:var(--text); font-family:'Inter', sans-serif; font-size:13px; outline:none; transition:border-color 0.15s; }
+    .obs-submit-btn { width:100%; padding:13px; background:var(--accent); border:none; border-radius:12px; color:white; font-family:'Inter', sans-serif; font-size:15px; font-weight:700; cursor:pointer; transition:opacity 0.15s; letter-spacing:0.02em; }
+    .obs-submit-btn:hover { opacity:0.88; }
+    .obs-success-msg { display:none; text-align:center; padding:14px; font-family:'Inter', sans-serif; font-size:17px; font-weight:700; color:var(--accent); line-height:1.5; }
+    .obs-success-sub { font-size:12px; color:var(--text-3); font-family:'IBM Plex Mono', monospace; margin-top:5px; font-weight:400; }
+    @media (min-width: 769px) {
+      #obsSheet { max-width:480px; left:50%; right:auto; transform:translateX(-50%) translateY(100%); border-radius:16px 16px 0 0; }
+      #obsSheet.open { transform:translateX(-50%) translateY(0); }
+    }
+    #obsSheetOverlay { display:none; position:fixed; inset:0; z-index:1199; background:rgba(0,0,0,0.4); }
+    #mobileCrosshair { display:none; position:fixed; top:50%; left:50%; transform:translate(-50%, -50%); z-index:950; pointer-events:none; }
+    #mobileCrosshair .ch-ring { width:48px; height:48px; border:2px solid rgba(168,230,61,0.6); border-radius:50%; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); animation:chPulse 2s ease-out infinite; }
+    #mobileCrosshair .ch-dot { width:8px; height:8px; background:#A8E63D; border-radius:50%; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); box-shadow:0 0 8px rgba(168,230,61,0.8); }
+    #mobileCrosshair .ch-line-h { width:28px; height:1.5px; background:rgba(168,230,61,0.7); position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); }
+    #mobileCrosshair .ch-line-v { width:1.5px; height:28px; background:rgba(168,230,61,0.7); position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); }
+    @keyframes chPulse { 0% { opacity:0.8; transform:translate(-50%,-50%) scale(1); } 100% { opacity:0; transform:translate(-50%,-50%) scale(2); } }
+    #mobileAnalyzeBtn { display:none; position:fixed; bottom:28px; left:50%; transform:translateX(-50%); z-index:960; padding:14px 32px; background:#1A2535; border:2px solid #A8E63D; border-radius:40px; color:#A8E63D; font-family:'Inter', sans-serif; font-size:15px; font-weight:700; letter-spacing:0.04em; cursor:pointer; box-shadow:0 4px 24px rgba(0,0,0,0.3); white-space:nowrap; transition:all 0.2s; }
+    #mobileShareBtn { display:none; position:fixed; bottom:88px; left:50%; transform:translateX(-50%); z-index:960; padding:13px 28px; background:rgba(26,37,53,0.92); border:1.5px solid rgba(168,230,61,0.5); border-radius:40px; color:rgba(168,230,61,0.85); font-family:'Inter', sans-serif; font-size:14px; font-weight:600; cursor:pointer; box-shadow:0 4px 20px rgba(0,0,0,0.2); white-space:nowrap; }
+    @media (max-width: 768px) {
+      #header { padding:10px 12px; flex-wrap:wrap; gap:8px; }
+      .logo-mark { width:38px; height:38px; }
+      .logo-mark svg { width:38px; height:38px; }
+      .logo-name { font-size:22px; }
+      .logo-tagline { font-size:10px; }
+      .controls { flex-wrap:nowrap; overflow-x:auto; gap:5px; width:100%; padding-bottom:2px; scrollbar-width:none; }
+      .controls::-webkit-scrollbar { display:none; }
+      .ctrl-btn { padding:6px 10px; font-size:11px; flex-shrink:0; }
+      #spotDrawer { width:100% !important; top:auto !important; bottom:0; left:0; right:0; height:85vh; border-left:none; border-top:1px solid var(--border); border-radius:16px 16px 0 0; transform:translateY(100%); }
+      #spotDrawer.open { transform:translateY(0); }
+      #mobileCrosshair { display:block; }
+      #mobileAnalyzeBtn { display:block; }
+      #mobileShareBtn { display:block; }
+      .leaflet-container { cursor:default !important; }
+      .leaflet-control-zoom { margin-bottom:80px !important; }
+    }
+    #authBtn { flex-shrink:0; padding:7px 14px; background:rgba(255,255,255,0.07); border:1px solid rgba(168,230,61,0.4); border-radius:8px; color:#A8E63D; font-family:'Inter', sans-serif; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap; pointer-events:all; display:flex; align-items:center; gap:6px; }
+    #authBtn:hover { background:rgba(168,230,61,0.15); }
+    #authBtn.logged { background:#A8E63D; color:#1A2535; border-color:#A8E63D; }
+    #loginOverlay { display:none; position:fixed; inset:0; z-index:2000; background:rgba(0,0,0,0.55); backdrop-filter:blur(4px); align-items:center; justify-content:center; }
+    #loginOverlay.open { display:flex; }
+    #loginModal { background:var(--surface); border-radius:16px; padding:28px; width:90%; max-width:380px; position:relative; box-shadow:0 20px 60px rgba(0,0,0,0.3); }
+    .login-title { font-family:'Inter', sans-serif; font-size:20px; font-weight:700; color:var(--text); margin-bottom:6px; text-align:center; }
+    .login-sub { font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--text-3); text-align:center; margin-bottom:20px; line-height:1.5; }
+    .login-google-btn { width:100%; padding:12px; background:white; border:1px solid var(--border2); border-radius:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:10px; font-family:'Inter', sans-serif; font-size:14px; font-weight:600; color:#1A2535; margin-bottom:14px; }
+    .login-divider { display:flex; align-items:center; gap:10px; margin:14px 0; font-family:'IBM Plex Mono', monospace; font-size:10px; color:var(--text-3); text-transform:uppercase; }
+    .login-divider::before, .login-divider::after { content:''; flex:1; height:1px; background:var(--border); }
+    .login-input { width:100%; padding:10px 12px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; font-family:'IBM Plex Mono', monospace; font-size:13px; color:var(--text); outline:none; margin-bottom:10px; }
+    .login-submit { width:100%; padding:12px; background:var(--accent); border:none; border-radius:10px; color:white; font-family:'Inter', sans-serif; font-size:14px; font-weight:600; cursor:pointer; margin-top:6px; }
+    .login-toggle { text-align:center; margin-top:14px; font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--text-3); cursor:pointer; }
+    .login-toggle span { color:var(--accent); text-decoration:underline; }
+    .login-error { display:none; background:#FEE2E2; border:1px solid #FCA5A5; color:#991B1B; padding:8px 12px; border-radius:8px; margin-bottom:10px; font-family:'IBM Plex Mono', monospace; font-size:11px; text-align:center; }
+    .login-close { position:absolute; top:14px; right:14px; background:none; border:none; cursor:pointer; color:var(--text-3); font-size:20px; }
+    #carnetDrawer { position:fixed; top:73px; right:0; bottom:0; z-index:1100; width:560px; background:var(--surface); border-left:1px solid var(--border); box-shadow:-8px 0 40px rgba(0,0,0,0.12); display:flex; flex-direction:column; transform:translateX(100%); transition:transform 0.28s cubic-bezier(.4,0,.2,1); overflow:hidden; }
+    #carnetDrawer.open { transform:translateX(0); }
+    .carnet-head { padding:18px 20px; background:var(--surface2); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
+    .carnet-title { font-family:'Inter', sans-serif; font-size:20px; font-weight:700; color:var(--text); }
+    .carnet-user { font-family:'IBM Plex Mono', monospace; font-size:13px; color:var(--text-3); margin-top:3px; }
+    .carnet-body { overflow-y:auto; flex:1; }
+    .carnet-empty { text-align:center; padding:40px 24px; color:var(--text-3); font-family:'Inter', sans-serif; font-size:15px; line-height:1.7; }
+    .carnet-stats-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:1px; background:var(--border); border-bottom:1px solid var(--border); }
+    .carnet-stat { background:#1A2535; padding:20px 10px; display:flex; flex-direction:column; align-items:center; gap:6px; }
+    .carnet-stat-val { font-family:'IBM Plex Mono', monospace; font-size:34px; font-weight:700; color:#A8E63D; line-height:1; }
+    .carnet-stat-lbl { font-family:'IBM Plex Mono', monospace; font-size:12px; font-weight:600; color:rgba(255,255,255,0.7); text-transform:uppercase; letter-spacing:0.08em; text-align:center; }
+    .carnet-map-btn { display:flex; align-items:center; justify-content:center; gap:8px; padding:14px; background:var(--surface2); border-bottom:1px solid var(--border); cursor:pointer; font-family:'IBM Plex Mono', monospace; font-size:14px; font-weight:600; color:var(--accent); text-transform:uppercase; letter-spacing:0.06em; transition:background 0.15s; }
+    .carnet-map-btn:hover { background:var(--accent-bg); }
+    .carnet-map-btn.active { background:var(--accent); color:white; }
+    .carnet-new-btn { display:flex; align-items:center; justify-content:center; gap:10px; padding:16px; background:#A8E63D; border:none; border-bottom:1px solid var(--border); cursor:pointer; font-family:'Inter', sans-serif; font-size:16px; font-weight:700; color:#1A2535; letter-spacing:0.02em; width:100%; transition:background 0.15s; }
+    .carnet-new-btn:hover { background:#7AB828; }
+    .carnet-sessions-wrap { padding:16px; }
+    .carnet-sessions-title { font-family:'IBM Plex Mono', monospace; font-size:13px; font-weight:600; color:var(--text-3); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:12px; }
+    .carnet-filters { display:flex; gap:8px; padding:12px 16px; border-bottom:1px solid var(--border); background:var(--surface); }
+    .carnet-search { flex:1; padding:10px 14px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; font-family:'Inter', sans-serif; font-size:14px; color:var(--text); outline:none; }
+    .carnet-search:focus { border-color:var(--accent); }
+    .carnet-year-select { padding:10px 12px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; font-family:'IBM Plex Mono', monospace; font-size:14px; color:var(--text); outline:none; cursor:pointer; min-width:110px; }
+    .carnet-year-select:focus { border-color:var(--accent); }
+    .month-group-header { font-family:'Inter', sans-serif; font-size:16px; font-weight:700; color:var(--accent); text-transform:capitalize; margin:18px 0 10px; padding-bottom:8px; border-bottom:1px solid var(--border); letter-spacing:0.02em; display:flex; justify-content:space-between; align-items:baseline; }
+    .month-group-count { font-family:'IBM Plex Mono', monospace; font-size:12px; font-weight:500; color:var(--text-3); text-transform:none; letter-spacing:0.05em; }
+    .month-group-header:first-of-type { margin-top:0; }
+    .session-card { background:var(--surface); border:1px solid var(--border); border-left:4px solid var(--border2); border-radius:10px; padding:14px 16px; margin-bottom:12px; transition:all 0.15s; cursor:pointer; }
+    .session-card:hover { border-color:var(--accent); box-shadow:0 2px 8px rgba(0,0,0,0.05); }
+    .session-card.mood-1 { border-left-color:#DC2626; }
+    .session-card.mood-2 { border-left-color:#EA580C; }
+    .session-card.mood-3 { border-left-color:#CA8A04; }
+    .session-card.mood-4 { border-left-color:#16A34A; }
+    .session-card.mood-5 { border-left-color:#0BA888; }
+    .session-card-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; gap:10px; }
+    .session-date { font-family:'IBM Plex Mono', monospace; font-size:13px; font-weight:600; color:var(--accent); margin-bottom:3px; }
+    .session-spot { font-family:'Inter', sans-serif; font-size:17px; font-weight:700; color:var(--text); }
+    .session-mood-badge { font-family:'IBM Plex Mono', monospace; font-size:11px; font-weight:700; padding:5px 10px; border-radius:12px; text-transform:uppercase; letter-spacing:0.05em; white-space:nowrap; }
+    .session-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px 16px; margin-top:10px; }
+    .session-field-mini { display:flex; flex-direction:column; gap:2px; }
+    .session-field-lbl { font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--text-3); text-transform:uppercase; letter-spacing:0.08em; }
+    .session-field-val { font-family:'IBM Plex Mono', monospace; font-size:15px; color:var(--text); font-weight:600; }
+    .session-notes { margin-top:10px; padding-top:10px; border-top:1px dashed var(--border); font-family:'Inter', sans-serif; font-size:14px; color:var(--text-2); font-style:italic; line-height:1.5; }
+    .carnet-logout { padding:16px 20px; border-top:1px solid var(--border); background:var(--surface2); flex-shrink:0; }
+    .carnet-logout button { width:100%; padding:12px; background:none; border:1px solid var(--border2); border-radius:8px; color:var(--text-2); font-family:'IBM Plex Mono', monospace; font-size:14px; cursor:pointer; }
+    #sessionOverlay { display:none; position:fixed; inset:0; z-index:2000; background:rgba(0,0,0,0.55); backdrop-filter:blur(4px); align-items:center; justify-content:center; padding:16px; }
+    #sessionOverlay.open { display:flex; }
+    #sessionModal { background:var(--surface); border-radius:16px; padding:24px; width:100%; max-width:420px; max-height:90vh; overflow-y:auto; }
+    .session-modal-title { font-family:'Inter', sans-serif; font-size:22px; font-weight:700; color:var(--text); margin-bottom:6px; }
+    .session-modal-sub { font-family:'IBM Plex Mono', monospace; font-size:14px; color:var(--text-3); margin-bottom:20px; }
+    .session-field { margin-bottom:16px; }
+    .session-label { display:block; font-family:'IBM Plex Mono', monospace; font-size:13px; font-weight:600; color:var(--text-3); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px; }
+    .session-input { width:100%; padding:11px 14px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; font-family:'Inter', sans-serif; font-size:15px; color:var(--text); outline:none; }
+    .session-textarea { width:100%; padding:11px 14px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; font-family:'Inter', sans-serif; font-size:15px; color:var(--text); outline:none; resize:none; height:75px; }
+    .mood-row { display:flex; justify-content:space-between; gap:6px; }
+    .mood-btn { flex:1; padding:12px 4px; background:var(--surface2); border:1.5px solid var(--border); border-radius:10px; cursor:pointer; font-size:22px; display:flex; flex-direction:column; align-items:center; gap:5px; }
+    .mood-btn .mood-lbl { font-family:'IBM Plex Mono', monospace; font-size:10px; color:var(--text-3); text-transform:uppercase; font-weight:600; }
+    .mood-btn.on { background:var(--accent-bg); border-color:var(--accent); }
+    .mood-btn.on .mood-lbl { color:var(--accent); }
+    .session-submit { width:100%; padding:16px; background:var(--accent); border:none; border-radius:10px; color:white; font-family:'Inter', sans-serif; font-size:17px; font-weight:700; cursor:pointer; margin-top:10px; letter-spacing:0.02em; }
+    .session-conditions { background:var(--accent-bg); border:1px solid var(--accent-mid); border-radius:8px; padding:12px 14px; margin-bottom:16px; }
+    .session-cond-lbl { font-family:'IBM Plex Mono', monospace; font-size:12px; font-weight:600; color:var(--accent); text-transform:uppercase; margin-bottom:5px; }
+    .session-cond-val { font-family:'IBM Plex Mono', monospace; font-size:13px; color:var(--text-2); line-height:1.6; }
+    .lead-row { display:flex; align-items:center; gap:10px; }
+    .lead-btn { width:44px; height:44px; border:1.5px solid var(--border2); background:var(--surface); color:var(--text-2); border-radius:10px; font-size:22px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+    .lead-btn:hover { border-color:var(--accent); color:var(--accent); }
+    .lead-val { flex:1; text-align:center; font-family:'IBM Plex Mono', monospace; font-size:22px; font-weight:700; color:var(--text); padding:10px; background:var(--surface2); border:1px solid var(--border); border-radius:10px; }
+    .feedback-slider-wrap { margin-bottom:14px; }
+    .feedback-slider-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
+    .feedback-slider-lbl { font-family:'IBM Plex Mono', monospace; font-size:12px; font-weight:600; color:var(--text-3); text-transform:uppercase; letter-spacing:0.06em; }
+    .feedback-slider-val { font-family:'IBM Plex Mono', monospace; font-size:14px; font-weight:700; color:var(--accent); }
+    input[type=range].feedback-slider { width:100%; height:6px; border-radius:3px; outline:none; cursor:pointer; background:linear-gradient(to right, #DC2626, #CA8A04, #0BA888, #CA8A04, #DC2626); -webkit-appearance:none; appearance:none; }
+    input[type=range].feedback-slider::-webkit-slider-thumb { -webkit-appearance:none; width:24px; height:24px; border-radius:50%; background:white; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,0.2); border:2px solid var(--accent); }
+    .feedback-slider-ticks { display:flex; justify-content:space-between; margin-top:4px; font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--text-3); font-weight:500; }
+    input[type=range].vis-slider { width:100%; height:5px; border-radius:3px; outline:none; cursor:pointer; background:linear-gradient(to right, #DC2626, #EA580C, #CA8A04, #16A34A, #0BA888); -webkit-appearance:none; appearance:none; }
+    input[type=range].vis-slider::-webkit-slider-thumb { -webkit-appearance:none; width:20px; height:20px; border-radius:50%; background:white; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.2); border:2px solid var(--accent); }
+    @media (max-width: 768px) {
+      #carnetDrawer { width:100% !important; top:auto !important; bottom:0; left:0; right:0; height:85vh; border-left:none; border-top:1px solid var(--border); border-radius:16px 16px 0 0; transform:translateY(100%); }
+      #carnetDrawer.open { transform:translateY(0); }
+      #authBtn { font-size:11px; padding:6px 10px; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+<canvas id="heatmapCanvas"></canvas>
+<div id="landToast"></div>
+
+<div id="turbBadge">
+  <div class="tb-dot"></div>
+  <div class="tb-text" id="turbBadgeText">-</div>
+</div>
+
+<div id="mobileCrosshair">
+  <div class="ch-ring"></div>
+  <div class="ch-line-h"></div>
+  <div class="ch-line-v"></div>
+  <div class="ch-dot"></div>
+</div>
+
+<button id="mobileAnalyzeBtn" onclick="analyzeCenterPoint()">Analyser ce point</button>
+
+<div id="sedLegend">
+  <div class="sed-legend-header" onclick="toggleSedLegend()">
+    <div class="sed-legend-title">Natures de fond</div>
+    <div class="sed-legend-toggle" id="sedLegendArrow">&#9650;</div>
+  </div>
+  <div class="sed-legend-body" id="sedLegendBody" style="display:none;">
+    <div class="sed-legend-row"><div class="sed-swatch" style="background:#CC2200"></div>Cailloutis / gravier</div>
+    <div class="sed-legend-row"><div class="sed-swatch" style="background:#E86030"></div>Sable grossier</div>
+    <div class="sed-legend-row"><div class="sed-swatch" style="background:#F0C060"></div>Sable fin</div>
+    <div class="sed-legend-row"><div class="sed-swatch" style="background:#F5E8A0"></div>Sable vaseux</div>
+    <div class="sed-legend-row"><div class="sed-swatch" style="background:#C8A878"></div>Vase sableuse</div>
+    <div class="sed-legend-row"><div class="sed-swatch" style="background:#8B6A40"></div>Vase</div>
+    <div class="sed-legend-row"><div class="sed-swatch" style="background:#B0B0B0"></div>Roche</div>
+  </div>
+</div>
+
+<div id="forecastPanel">
+  <div class="forecast-header">
+    <div style="display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;">
+      <div class="forecast-location" id="forecastLocation">- Cliquer sur la carte -</div>
+      <div class="forecast-coords" id="forecastCoords"></div>
+    </div>
+    <button class="forecast-close" onclick="closeForecast()">&#10005;</button>
+  </div>
+  <div id="forecastTable" class="forecast-scroll">
+    <div style="padding:22px;text-align:center;color:var(--text-3);font-family:'IBM Plex Mono',monospace;font-size:11px;">Cliquer sur la carte pour afficher les previsions AROME</div>
+  </div>
+</div>
+
+<div id="header">
+  <div class="logo">
+    <div class="logo-mark">
+      <svg width="64" height="64" viewBox="0 0 46 46" fill="none">
+        <circle cx="23" cy="23" r="21" fill="#0F1923"/>
+        <circle cx="23" cy="23" r="21" stroke="#A8E63D" stroke-width="1.8"/>
+        <path d="M23 35 Q14 27 11 17 Q10 11 14 9 Q18 9 20 17 Q22 27 23 31" stroke="#A8E63D" stroke-width="2.8" stroke-linecap="round" fill="none"/>
+        <path d="M23 35 Q32 27 35 17 Q36 11 32 9 Q28 9 26 17 Q24 27 23 31" stroke="#A8E63D" stroke-width="2.8" stroke-linecap="round" fill="none"/>
+        <circle cx="23" cy="38" r="2.8" fill="#A8E63D"/>
+      </svg>
+    </div>
+    <div class="logo-text-wrap">
+      <div class="logo-name">VISIMER</div>
+      <div class="logo-tagline">Lisez la mer avant d'y entrer.</div>
+    </div>
+  </div>
+  <div class="controls">
+    <button class="ctrl-btn" id="btnHeatmap" onclick="toggleLayer('heatmap')"><span class="ctrl-dot"></span>Turbidite</button>
+    <button class="ctrl-btn active" id="btnIso" onclick="toggleLayer('iso')"><span class="ctrl-dot"></span>Reperes</button>
+    <button class="ctrl-btn" id="btnSed" onclick="toggleLayer('sed')"><span class="ctrl-dot"></span>Nature du fond</button>
+    <button class="ctrl-btn" id="btnWind" onclick="toggleForecastPanel()"><span class="ctrl-dot"></span>Meteo</button>
+    <button id="windUnitToggle" onclick="toggleWindUnit()" style="flex-shrink:0;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.18);border-radius:8px;padding:7px 14px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;color:rgba(255,255,255,0.75);cursor:pointer;letter-spacing:0.04em;">km/h</button>
+    <button onclick="openObsSheet()" style="flex-shrink:0;padding:7px 14px;background:#A8E63D;border:none;border-radius:8px;color:#1A2535;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">+ Ameliorer les previsions</button>
+    <button id="authBtn" onclick="handleAuthClick()"><span id="authBtnText">Se connecter</span></button>
+  </div>
+</div>
+
+<button id="mobileShareBtn" onclick="openObsSheet()">Ameliorer les previsions</button>
+
+<div id="obsSheetOverlay" onclick="closeObsSheet()"></div>
+
+<div id="obsSheet">
+  <div class="obs-sheet-handle"></div>
+  <div class="obs-sheet-head">
+    <div>
+      <div class="obs-sheet-title">Mon observation</div>
+      <div class="obs-sheet-coords" id="obsSheetCoords">-</div>
+    </div>
+    <button class="obs-sheet-close" onclick="closeObsSheet()">&#10005;</button>
+  </div>
+  <div class="obs-sheet-body">
+    <div>
+      <span class="obs-field-label">Date - Heure</span>
+      <div class="obs-datetime-row">
+        <input type="date" id="obsSheetDate">
+        <input type="time" id="obsSheetTime" step="600">
+      </div>
+    </div>
+    <div class="obs-vis-row">
+      <div class="obs-vis-top">
+        <span class="obs-field-label" style="margin-bottom:0">Visibilite</span>
+        <span class="obs-vis-val" id="obsSheetVisVal" style="color:#0BA888">+10m</span>
+      </div>
+      <input type="range" class="obs-vis-slider" id="obsSheetVisSlider" min="0" max="8" step="1" value="8" oninput="updateObsSheetVis(this.value)">
+      <div class="obs-vis-ticks">
+        <span>0m</span><span>0.5</span><span>1m</span><span>2m</span>
+        <span>3m</span><span>4m</span><span>5m</span><span>8m</span><span>+10m</span>
+      </div>
+    </div>
+    <div>
+      <span class="obs-field-label">Fond visible ?</span>
+      <div class="obs-toggle-row">
+        <button class="obs-tog on" id="obsSheetFondOui" onclick="setObsFond(true)">Oui</button>
+        <button class="obs-tog" id="obsSheetFondNon" onclick="setObsFond(false)">Non</button>
+      </div>
+    </div>
+    <div>
+      <span class="obs-field-label">Especes observees</span>
+      <input type="text" class="obs-species-input" id="obsSheetSpecies" placeholder="bar, daurade, seiche, homard...">
+    </div>
+    <button class="obs-submit-btn" id="obsSheetSubmit" onclick="submitObsSheet()">Partager</button>
+    <div class="obs-success-msg" id="obsSheetSuccess">
+      <div id="obsSheetSuccessMsg">Merci !</div>
+      <div class="obs-success-sub" id="obsSheetSuccessSub"></div>
+    </div>
+  </div>
+</div>
+
+<div id="spotDrawer">
+  <div class="drawer-head">
+    <div>
+      <div class="spot-coords" id="spotCoords">-</div>
+      <div class="spot-meta" id="spotMeta">-</div>
+    </div>
+    <button class="spot-close" onclick="closeSpotPopup()">&#10005;</button>
+  </div>
+  <div class="drawer-datetime">
+    <input type="date" id="spotDate" onchange="refreshSpotPopup()">
+    <input type="time" id="spotTime" step="3600" onchange="refreshSpotPopup()">
+  </div>
+  <div class="drawer-body">
+    <div class="spot-vis-block">
+      <div class="spot-vis-label">Visibilite estimee</div>
+      <div class="spot-vis-badge" id="spotVisBadge">
+        <span class="spot-vis-badge-text" id="spotVisLabel">-</span>
+      </div>
+      <div class="spot-vis-segments">
+        <div class="spot-vis-seg" id="visSeg0"></div>
+        <div class="spot-vis-seg" id="visSeg1"></div>
+        <div class="spot-vis-seg" id="visSeg2"></div>
+        <div class="spot-vis-seg" id="visSeg3"></div>
+        <div class="spot-vis-seg" id="visSeg4"></div>
+      </div>
+      <div class="spot-vis-ticks"><span>1m</span><span>2m</span><span>4m</span><span>8m</span><span>+8m</span></div>
+    </div>
+    <div class="spot-wind-block">
+      <div class="spot-wind-cell">
+        <div class="spot-wind-lbl">Vent</div>
+        <div class="spot-wind-val" id="spotWindSpeed">-</div>
+        <div class="spot-wind-unit">km/h</div>
+      </div>
+      <div class="spot-wind-cell">
+        <div class="spot-wind-lbl">Rafales</div>
+        <div class="spot-wind-val" id="spotWindGusts">-</div>
+        <div class="spot-wind-unit">km/h</div>
+      </div>
+      <div class="spot-wind-cell">
+        <div class="spot-wind-lbl">Direction</div>
+        <div class="spot-wind-dir" id="spotWindDir">-</div>
+        <div class="spot-wind-unit" id="spotWindDeg">-</div>
+      </div>
+    </div>
+    <div class="spot-sea-block">
+      <div class="spot-sea-cell">
+        <div class="spot-sea-lbl">Temp. mer</div>
+        <div class="spot-sea-val" id="spotSeaTemp">-</div>
+      </div>
+      <div class="spot-sea-cell">
+        <div class="spot-sea-lbl">Lever</div>
+        <div class="spot-sea-val" id="spotSunrise">-</div>
+      </div>
+      <div class="spot-sea-cell">
+        <div class="spot-sea-lbl">Coucher</div>
+        <div class="spot-sea-val" id="spotSunset">-</div>
+      </div>
+    </div>
+    <div id="spotFactors"></div>
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);background:var(--surface2);display:flex;align-items:center;gap:10px;">
+      <div style="width:14px;height:14px;border-radius:3px;flex-shrink:0;border:1px solid rgba(0,0,0,0.1);" id="sedSwatchColor"></div>
+      <div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:2px;">Nature du fond</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--text);" id="sedimentType">-</div>
+      </div>
+    </div>
+    <div style="padding:12px 16px; border-bottom:1px solid var(--border); background:var(--surface);">
+      <button onclick="openSessionModal()" style="width:100%; padding:11px; background:#1A2535; border:1.5px solid #A8E63D; border-radius:10px; color:#A8E63D; font-family:'Inter',sans-serif; font-size:13px; font-weight:700; cursor:pointer;">Enregistrer ma session</button>
+    </div>
+    <div id="drawerTides">
+      <div class="tides-label">Marees</div>
+      <div class="tides-port-name" id="tidesPortName">-</div>
+      <div class="tides-coeff-row">
+        <div class="tides-coeff-lbl">Coefficient du jour</div>
+        <div class="tides-coeff-val" id="tidesCoeff">-</div>
+      </div>
+      <div class="tides-grid-2x2">
+        <div class="tides-cell-2" id="tideCell0">
+          <div class="tides-cell-2-lbl high"><span>&#9650;</span><span id="tideCell0Label">1ere PM</span></div>
+          <div class="tides-cell-2-time" id="tideCell0Time">-</div>
+          <div class="tides-cell-2-height" id="tideCell0Height">-</div>
+        </div>
+        <div class="tides-cell-2" id="tideCell1">
+          <div class="tides-cell-2-lbl low"><span>&#9660;</span><span id="tideCell1Label">1ere BM</span></div>
+          <div class="tides-cell-2-time" id="tideCell1Time">-</div>
+          <div class="tides-cell-2-height" id="tideCell1Height">-</div>
+        </div>
+        <div class="tides-cell-2" id="tideCell2">
+          <div class="tides-cell-2-lbl high"><span>&#9650;</span><span id="tideCell2Label">2eme PM</span></div>
+          <div class="tides-cell-2-time" id="tideCell2Time">-</div>
+          <div class="tides-cell-2-height" id="tideCell2Height">-</div>
+        </div>
+        <div class="tides-cell-2" id="tideCell3">
+          <div class="tides-cell-2-lbl low"><span>&#9660;</span><span id="tideCell3Label">2eme BM</span></div>
+          <div class="tides-cell-2-time" id="tideCell3Time">-</div>
+          <div class="tides-cell-2-height" id="tideCell3Height">-</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="loginOverlay" onclick="if(event.target===this) closeLogin()">
+  <div id="loginModal">
+    <button class="login-close" onclick="closeLogin()">x</button>
+    <div class="login-title">Mon carnet de chasse</div>
+    <div class="login-sub">Connecte-toi pour garder ton historique.<br><strong style="color:#0BA888">Tes donnees restent privees.</strong></div>
+    <div class="login-error" id="loginError"></div>
+    <button class="login-google-btn" onclick="loginGoogle()">Continuer avec Google</button>
+    <div class="login-divider">ou avec un email</div>
+    <input type="email" class="login-input" id="loginEmail" placeholder="ton@email.fr">
+    <input type="password" class="login-input" id="loginPwd" placeholder="Mot de passe (min 6 car.)">
+    <button class="login-submit" id="loginSubmit" onclick="loginEmail()">Se connecter</button>
+    <div class="login-toggle" id="loginToggle" onclick="toggleLoginMode()">Pas encore de compte ? <span>Cree un compte</span></div>
+  </div>
+</div>
+
+<div id="carnetDrawer">
+  <div class="carnet-head">
+    <div>
+      <div class="carnet-title">Mon carnet de chasse</div>
+      <div class="carnet-user" id="carnetUser">-</div>
+    </div>
+    <button class="spot-close" onclick="closeCarnet()">x</button>
+  </div>
+  <div class="carnet-body" id="carnetBody">
+    <div class="carnet-empty">Chargement...</div>
+  </div>
+  <div class="carnet-logout">
+    <button onclick="logout()">Se deconnecter</button>
+  </div>
+</div>
+
+<div id="sessionOverlay" onclick="if(event.target===this) closeSessionModal()">
+  <div id="sessionModal">
+    <div class="session-modal-title">Enregistrer ma session</div>
+    <div class="session-modal-sub" id="sessionModalCoords">-</div>
+    <div class="session-conditions">
+      <div class="session-cond-lbl">Conditions capturees</div>
+      <div class="session-cond-val" id="sessionCondVal">-</div>
+    </div>
+    <div class="session-field">
+      <label class="session-label">Date / Heure</label>
+      <div style="display:flex; gap:8px;">
+        <input type="date" class="session-input" id="sessionDate">
+        <input type="time" class="session-input" id="sessionTime">
+      </div>
+    </div>
+    <div class="session-field">
+      <label class="session-label">Visibilite observee</label>
+      <input type="range" class="vis-slider" id="sessionVisSlider" min="0" max="8" step="1" value="8" oninput="updateSessionVis(this.value)">
+      <div style="text-align:right; font-family:'IBM Plex Mono', monospace; font-size:13px; font-weight:700; margin-top:4px;" id="sessionVisVal">+10m</div>
+    </div>
+    <div class="session-field">
+      <label class="session-label">Prises</label>
+      <input type="text" class="session-input" id="sessionCatch" placeholder="2 bars 45cm, 1 daurade...">
+    </div>
+    <div class="session-field">
+      <label class="session-label">Plomb utilise (kg)</label>
+      <div class="lead-row">
+        <button class="lead-btn" onclick="adjustLead(-0.5)">-</button>
+        <div class="lead-val" id="sessionLeadVal">7.0</div>
+        <button class="lead-btn" onclick="adjustLead(0.5)">+</button>
+      </div>
+    </div>
+    <div class="session-field">
+      <label class="session-label">Feedback conditions</label>
+      <div class="feedback-slider-wrap">
+        <div class="feedback-slider-top">
+          <span class="feedback-slider-lbl">Visi reelle vs prevue</span>
+          <span class="feedback-slider-val" id="fbVisVal">Conforme</span>
+        </div>
+        <input type="range" class="feedback-slider" id="fbVisSlider" min="-2" max="2" step="1" value="0" oninput="updateFbVis(this.value)">
+        <div class="feedback-slider-ticks"><span>Bien pire</span><span>Pire</span><span>OK</span><span>Mieux</span><span>Bien mieux</span></div>
+      </div>
+      <div class="feedback-slider-wrap">
+        <div class="feedback-slider-top">
+          <span class="feedback-slider-lbl">Courant ressenti</span>
+          <span class="feedback-slider-val" id="fbCurrentVal">Moyen</span>
+        </div>
+        <input type="range" class="feedback-slider" id="fbCurrentSlider" min="0" max="4" step="1" value="2" oninput="updateFbCurrent(this.value)">
+        <div class="feedback-slider-ticks"><span>Nul</span><span>Faible</span><span>Moyen</span><span>Fort</span><span>Tres fort</span></div>
+      </div>
+      <div class="feedback-slider-wrap">
+        <div class="feedback-slider-top">
+          <span class="feedback-slider-lbl">Temperature eau</span>
+          <span class="feedback-slider-val" id="fbTempVal">Normale</span>
+        </div>
+        <input type="range" class="feedback-slider" id="fbTempSlider" min="-2" max="2" step="1" value="0" oninput="updateFbTemp(this.value)">
+        <div class="feedback-slider-ticks"><span>Glaciale</span><span>Froide</span><span>Normale</span><span>Tiede</span><span>Chaude</span></div>
+      </div>
+    </div>
+    <div class="session-field">
+      <label class="session-label">Ressenti general</label>
+      <div class="mood-row">
+        <button class="mood-btn" data-mood="1" onclick="setMood(1)">:(<span class="mood-lbl">Chiante</span></button>
+        <button class="mood-btn" data-mood="2" onclick="setMood(2)">:/<span class="mood-lbl">Bof</span></button>
+        <button class="mood-btn on" data-mood="3" onclick="setMood(3)">:|<span class="mood-lbl">Normale</span></button>
+        <button class="mood-btn" data-mood="4" onclick="setMood(4)">:)<span class="mood-lbl">Bien</span></button>
+        <button class="mood-btn" data-mood="5" onclick="setMood(5)">:D<span class="mood-lbl">Top</span></button>
+      </div>
+    </div>
+    <div class="session-field">
+      <label class="session-label">Notes (optionnel)</label>
+      <textarea class="session-textarea" id="sessionNotes" placeholder="courant fort, eau froide..."></textarea>
+    </div>
+    <button class="session-submit" id="sessionSubmitBtn" onclick="saveSession()">Enregistrer dans mon carnet</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
+
+<script>
+"use strict";
+
+var GAS_URL = 'https://script.google.com/macros/s/AKfycbxyjkavoaEJ6AdhK1MKzph68IH3ZKL8QadDGuU_GyzruxqUsXRv6nP9dJqenTCf6u7Z/exec';
+
+var SPOTS = [
+  { id:'dunkerque', name:'Dunkerque', lat:51.0500, lon:2.3667, region:'Manche' },
+  { id:'calais', name:'Calais', lat:50.9667, lon:1.8500, region:'Manche' },
+  { id:'boulogne', name:'Boulogne-sur-Mer', lat:50.7333, lon:1.6000, region:'Manche' },
+  { id:'dieppe', name:'Dieppe', lat:49.9333, lon:1.0833, region:'Manche' },
+  { id:'le_havre', name:'Le Havre', lat:49.4833, lon:0.1000, region:'Manche' },
+  { id:'ouistreham', name:'Ouistreham', lat:49.2836, lon:-0.2492, region:'Manche' },
+  { id:'courseulles', name:'Courseulles-sur-Mer', lat:49.3367, lon:-0.4600, region:'Manche' },
+  { id:'port_bessin', name:'Port-en-Bessin', lat:49.3456, lon:-0.7547, region:'Manche' },
+  { id:'grandcamp', name:'Grandcamp-Maisy', lat:49.3878, lon:-1.0428, region:'Manche' },
+  { id:'isigny', name:'Isigny-sur-Mer', lat:49.3217, lon:-1.1003, region:'Manche' },
+  { id:'cherbourg', name:'Cherbourg', lat:49.6500, lon:-1.6167, region:'Manche' },
+  { id:'carteret', name:'Carteret', lat:49.3667, lon:-1.7833, region:'Manche' },
+  { id:'granville', name:'Granville', lat:48.8333, lon:-1.5833, region:'Manche' },
+  { id:'saint_malo', name:'Saint-Malo', lat:48.6500, lon:-2.0167, region:'Manche' },
+  { id:'cancale', name:'Cancale', lat:48.6750, lon:-1.8533, region:'Manche' },
+  { id:'saint_brieuc', name:'Saint-Brieuc', lat:48.5500, lon:-2.7333, region:'Bretagne' },
+  { id:'paimpol', name:'Paimpol', lat:48.7833, lon:-3.0500, region:'Bretagne' },
+  { id:'morlaix', name:'Morlaix', lat:48.5833, lon:-3.8333, region:'Bretagne' },
+  { id:'brest', name:'Brest', lat:48.3833, lon:-4.4833, region:'Bretagne' },
+  { id:'camaret', name:'Camaret-sur-Mer', lat:48.2833, lon:-4.5833, region:'Bretagne' },
+  { id:'douarnenez', name:'Douarnenez', lat:48.0833, lon:-4.3333, region:'Bretagne' },
+  { id:'audierne', name:'Audierne', lat:48.0167, lon:-4.5333, region:'Bretagne' },
+  { id:'concarneau', name:'Concarneau', lat:47.8667, lon:-3.9167, region:'Bretagne' },
+  { id:'lorient', name:'Lorient', lat:47.7500, lon:-3.3667, region:'Bretagne' },
+  { id:'belle_ile', name:'Belle-Ile-en-Mer', lat:47.3167, lon:-3.1667, region:'Bretagne' },
+  { id:'vannes', name:'Vannes', lat:47.6667, lon:-2.7500, region:'Bretagne' },
+  { id:'saint_nazaire', name:'Saint-Nazaire', lat:47.2667, lon:-2.2000, region:'Atlantique' },
+  { id:'noirmoutier', name:'Noirmoutier', lat:47.0000, lon:-2.2500, region:'Atlantique' },
+  { id:'les_sables', name:"Les Sables-d Olonne", lat:46.4833, lon:-1.7833, region:'Atlantique' },
+  { id:'la_rochelle', name:'La Rochelle', lat:46.1500, lon:-1.1500, region:'Atlantique' },
+  { id:'rochefort', name:'Rochefort', lat:45.9500, lon:-0.9500, region:'Atlantique' },
+  { id:'royan', name:'Royan', lat:45.6167, lon:-1.0333, region:'Atlantique' },
+  { id:'bordeaux', name:'Bordeaux', lat:44.8500, lon:-0.5667, region:'Atlantique' },
+  { id:'arcachon', name:'Arcachon', lat:44.6500, lon:-1.1667, region:'Atlantique' },
+  { id:'capbreton', name:'Capbreton', lat:43.6500, lon:-1.4333, region:'Atlantique' },
+  { id:'bayonne', name:'Bayonne', lat:43.4833, lon:-1.4667, region:'Atlantique' },
+  { id:'port_vendres', name:'Port-Vendres', lat:42.5167, lon:3.1000, region:'Mediterranee' },
+  { id:'sete', name:'Sete', lat:43.4000, lon:3.6833, region:'Mediterranee' },
+  { id:'marseille', name:'Marseille', lat:43.2967, lon:5.3811, region:'Mediterranee' },
+  { id:'toulon', name:'Toulon', lat:43.1167, lon:5.9333, region:'Mediterranee' },
+  { id:'nice', name:'Nice', lat:43.7000, lon:7.2667, region:'Mediterranee' },
+  { id:'ajaccio', name:'Ajaccio', lat:41.9167, lon:8.7333, region:'Mediterranee' },
+  { id:'bastia', name:'Bastia', lat:42.7000, lon:9.4500, region:'Mediterranee' }
+];
+
+var VIS = [
+  {v:0, l:'0m', c:'#DC2626'},
+  {v:0.5, l:'0.5m', c:'#EA580C'},
+  {v:1, l:'1m', c:'#E89038'},
+  {v:2, l:'2m', c:'#CA8A04'},
+  {v:3, l:'3m', c:'#A0D840'},
+  {v:4, l:'4m', c:'#16A34A'},
+  {v:5, l:'5m', c:'#0BA888'},
+  {v:8, l:'8m', c:'#00B8E8'},
+  {v:10, l:'+10m', c:'#0090E8'}
+];
+
+var S = {
+  map: null, day: 0,
+  showHeatmap: false, showIso: true, showSed: false,
+  isoDeep: null, isoShom: null, sedLayer: null,
+  spotMarkers: {}, clickMarker: null, clickLatLng: null,
+  canvas: null, ctx: null, _spotDepth: 5
+};
+
+var S_forecastOpen = false;
+var S_windUnit = 'kmh';
+var S_lastForecastData = null;
+var S_gridScores = [];
+var S_gridUpdatedAt = null;
+var S_spotWeatherCache = null;
+var S_spotMarineCache = null;
+var S_spotSunCache = null;
+var S_hexLayer = null;
+var S_zones = [];
+var S_zoneScores = {};
+var S_zoneLayer = null;
+
+// ============================================================
+// UTILS
+// ============================================================
+function gasGet(action, params) {
+  params = params || {};
+  var url = new URL(GAS_URL);
+  url.searchParams.set('action', action);
+  Object.keys(params).forEach(function(k){ url.searchParams.set(k, params[k]); });
+  return fetch(url.toString()).then(function(r){ return r.json(); }).catch(function(e){ return null; });
+}
+
+function toKt(kmh) { return Math.round(kmh * 0.539957); }
+
+function isMobile() { return window.innerWidth <= 768; }
+
+function toggleSedLegend() {
+  var b = document.getElementById('sedLegendBody');
+  var a = document.getElementById('sedLegendArrow');
+  var open = b.style.display !== 'none';
+  b.style.display = open ? 'none' : 'block';
+  a.style.transform = open ? 'rotate(0deg)' : 'rotate(180deg)';
+}
+
+function toggleWindUnit() {
+  S_windUnit = S_windUnit === 'kmh' ? 'kt' : 'kmh';
+  var btn = document.getElementById('windUnitToggle');
+  if (btn) {
+    btn.textContent = S_windUnit === 'kmh' ? 'km/h' : 'noeuds';
+    btn.style.color = S_windUnit === 'kt' ? '#A8E63D' : 'rgba(255,255,255,0.7)';
+    btn.style.borderColor = S_windUnit === 'kt' ? '#A8E63D' : 'rgba(255,255,255,0.15)';
+  }
+  if (S_lastForecastData) renderForecastTable(S_lastForecastData.h, S_lastForecastData.now);
+  if (S_spotWeatherCache) renderSpotPopup();
+}
+
+// ============================================================
+// INIT
+// ============================================================
+function initCanvas() {
+  S.canvas = document.getElementById('heatmapCanvas');
+  S.ctx = S.canvas.getContext('2d');
+  S.canvas.width = window.innerWidth;
+  S.canvas.height = window.innerHeight;
+  window.addEventListener('resize', function(){
+    S.canvas.width = window.innerWidth;
+    S.canvas.height = window.innerHeight;
+  });
+}
+
+function initMap() {
+  S.map = L.map('map', { center:[49.32, -0.55], zoom:11, zoomControl:true });
+
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution: 'Imagery Esri | SHOM | EMODnet', maxZoom: 19
+  }).addTo(S.map);
+
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+    attribution: '', maxZoom: 19, opacity: 0.45
+  }).addTo(S.map);
+
+  S.isoDeep = L.tileLayer.wms('https://ows.emodnet-bathymetry.eu/wms', {
+    layers: 'emodnet:contours', format: 'image/png', transparent: true,
+    version: '1.3.0', attribution: 'Isobathes EMODnet', opacity: 0.9, maxZoom: 19
+  });
+  S.isoShom = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', {
+    attribution: 'Signalisation OpenSeaMap', opacity: 0.95, maxZoom: 19
+  });
+  S.sedLayer = L.tileLayer.wms('https://services.data.shom.fr/INSPIRE/wms/v', {
+    layers: 'NDF_BDD_WLD_WGS84G_WMS', format: 'image/png', transparent: true,
+    version: '1.3.0', attribution: 'Nature du fond SHOM', opacity: 0.75, maxZoom: 19
+  });
+
+  S.isoDeep.addTo(S.map);
+  S.isoShom.addTo(S.map);
+
+  S.map.on('zoomend', function() {
+    var zoom = S.map.getZoom();
+    if (!S.showIso) return;
+    if (zoom <= 9) {
+      if (!S.map.hasLayer(S.isoDeep)) S.isoDeep.addTo(S.map);
+      if (S.map.hasLayer(S.isoShom)) S.map.removeLayer(S.isoShom);
+      S.isoDeep.setOpacity(0.9);
+    } else if (zoom <= 11) {
+      if (!S.map.hasLayer(S.isoDeep)) S.isoDeep.addTo(S.map);
+      if (!S.map.hasLayer(S.isoShom)) S.isoShom.addTo(S.map);
+      S.isoDeep.setOpacity(0.7);
+      S.isoShom.setOpacity(0.9);
+    } else {
+      if (!S.map.hasLayer(S.isoDeep)) S.isoDeep.addTo(S.map);
+      if (!S.map.hasLayer(S.isoShom)) S.isoShom.addTo(S.map);
+      S.isoDeep.setOpacity(0.3);
+      S.isoShom.setOpacity(1.0);
+    }
+  });
+
+  var regionColors = { 'Manche':'#0BA888', 'Bretagne':'#16A34A', 'Atlantique':'#E8A838', 'Mediterranee':'#DC2626' };
+
+  SPOTS.forEach(function(spot) {
+    var color = regionColors[spot.region] || '#3A5A78';
+    var m = L.circleMarker([spot.lat, spot.lon], {
+      radius: 7, fillColor: color, color: 'rgba(0,0,0,0.45)', weight: 1.5, fillOpacity: 0.88
+    }).addTo(S.map);
+    m.bindTooltip('<b>' + spot.name + '</b><br><span style="color:' + color + ';font-size:11px">' + spot.region + '</span>', {
+      permanent: false, direction: 'top', className: 'visim-tooltip', offset: [0, -8]
+    });
+    m.on('click', function(e) {
+      L.DomEvent.stopPropagation(e);
+      openSpotPopup(L.latLng(spot.lat, spot.lon), spot.name);
+      if (S_forecastOpen) loadForecast(spot.lat, spot.lon, spot.name);
+    });
+    S.spotMarkers[spot.id] = m;
+  });
+
+  S.map.on('click', function(e) {
+    isOnSea(e.latlng.lat, e.latlng.lng, function(onSea) {
+      if (!onSea) { showLandMessage(e.latlng); return; }
+      openSpotPopup(e.latlng, null);
+      if (S_forecastOpen) loadForecast(e.latlng.lat, e.latlng.lng, null);
+    });
+  });
+}
+
+// ============================================================
+// LAYERS
+// ============================================================
+function toggleLayer(type) {
+  if (type === 'heatmap') {
+    S.showHeatmap = !S.showHeatmap;
+    document.getElementById('btnHeatmap').classList.toggle('active', S.showHeatmap);
+    if (S.showHeatmap) showHexLayer(); else hideHexLayer();
+  } else if (type === 'iso') {
+    S.showIso = !S.showIso;
+    document.getElementById('btnIso').classList.toggle('active', S.showIso);
+    if (S.showIso) {
+      S.isoDeep.addTo(S.map);
+      S.isoShom.addTo(S.map);
+      S.map.fire('zoomend');
+    } else {
+      if (S.map.hasLayer(S.isoDeep)) S.map.removeLayer(S.isoDeep);
+      if (S.map.hasLayer(S.isoShom)) S.map.removeLayer(S.isoShom);
+    }
+  } else if (type === 'sed') {
+    S.showSed = !S.showSed;
+    document.getElementById('btnSed').classList.toggle('active', S.showSed);
+    document.getElementById('sedLegend').style.display = S.showSed ? 'block' : 'none';
+    if (S.showSed) { S.sedLayer.addTo(S.map); }
+    else { if (S.map.hasLayer(S.sedLayer)) S.map.removeLayer(S.sedLayer); }
+  }
+}
+
+function scoreToColor(score) {
+  if (score < 20) return '#0BA888';
+  if (score < 35) return '#16A34A';
+  if (score < 50) return '#A0D840';
+  if (score < 65) return '#CA8A04';
+  if (score < 80) return '#EA580C';
+  return '#DC2626';
+}
+
+function scoreToLabel(score) {
+  if (score < 20) return '+8m';
+  if (score < 35) return '4-8m';
+  if (score < 50) return '2-4m';
+  if (score < 65) return '1-2m';
+  if (score < 80) return '1m';
+  return '<1m';
+}
+
+function showHexLayer() {
+  if (S_zoneLayer) return;
+  loadZonesAndCompute();
+}
+
+function loadZonesAndCompute() {
+  // 1. Charger le GeoJSON des zones
+  fetch('./vizi_zones_normandie.geojson')
+    .then(function(r) { return r.json(); })
+    .then(function(geojson) {
+      S_zones = geojson.features;
+      // 2. Afficher d'abord les zones en gris (en attendant les scores)
+      renderZonesPending();
+      // 3. Calculer les scores pour chaque zone (un appel API par zone)
+      computeZoneScores();
+    })
+    .catch(function(err) {
+      console.error('Erreur chargement zones:', err);
+    });
+}
+
+function renderZonesPending() {
+  if (S_zoneLayer) { S.map.removeLayer(S_zoneLayer); S_zoneLayer = null; }
+  var layers = [];
+  S_zones.forEach(function(zone) {
+    var poly = L.geoJSON(zone, {
+      style: {
+        fillColor: '#888',
+        fillOpacity: 0.3,
+        color: '#aaa',
+        weight: 1.5,
+        interactive: false
+      }
+    });
+    layers.push(poly);
+  });
+  S_zoneLayer = L.featureGroup(layers).addTo(S.map);
+}
+
+// Cache localStorage 1h pour éviter trop d'appels Open-Meteo
+function getCachedWeather(key) {
+  try {
+    var raw = localStorage.getItem('vizi_weather_' + key);
+    if (!raw) return null;
+    var obj = JSON.parse(raw);
+    if (Date.now() - obj.ts > 3600000) return null;
+    return obj.data;
+  } catch(e) { return null; }
+}
+
+function setCachedWeather(key, data) {
+  try {
+    localStorage.setItem('vizi_weather_' + key, JSON.stringify({ ts: Date.now(), data: data }));
+  } catch(e) {}
+}
+
+function computeZoneScores() {
+  S_zoneScores = {};
+  var promises = S_zones.map(function(zone, i) {
+    return computeOneZone(zone).then(function(result) {
+      S_zoneScores[zone.properties.id] = result;
+      // Re-render au fur et à mesure que chaque zone finit
+      renderZonesColored();
+    });
+  });
+  Promise.all(promises).then(function() {
+    renderZonesColored();
+  });
+}
+
+function computeOneZone(zone) {
+  var props = zone.properties;
+  var lat = props.sample_lat;
+  var lon = props.sample_lon;
+  var cacheKey = 'z_' + props.id;
+  var cached = getCachedWeather(cacheKey);
+  if (cached) {
+    return Promise.resolve(cached);
+  }
+  // Appel Open-Meteo : 1 seul point par zone
+  var url = 'https://api.open-meteo.com/v1/forecast'
+    + '?latitude=' + lat + '&longitude=' + lon
+    + '&hourly=windspeed_10m,windgusts_10m,winddirection_10m,wave_height,precipitation'
+    + '&wind_speed_unit=kmh&timezone=Europe/Paris&forecast_days=1&past_days=2'
+    + '&models=meteofrance_arome_france';
+  return fetch(url).then(function(r) { return r.json(); }).then(function(data) {
+    var now = new Date();
+    var h = data.hourly;
+    var idx = 0;
+    if (h && h.time) {
+      var nowStr = now.toISOString().slice(0, 13);
+      for (var t = 0; t < h.time.length; t++) {
+        if (h.time[t].slice(0, 13) === nowStr) { idx = t; break; }
+      }
+    }
+    var wind = h.windspeed_10m ? (h.windspeed_10m[idx] || 0) : 0;
+    var gusts = h.windgusts_10m ? (h.windgusts_10m[idx] || 0) : 0;
+    var dir = h.winddirection_10m ? (h.winddirection_10m[idx] || 0) : 0;
+    var wave = h.wave_height ? (h.wave_height[idx] || 0) : 0;
+    var rain = h.precipitation ? (h.precipitation[idx] || 0) : 0;
+    var score = computeZoneScore(wind, gusts, dir, wave, rain, props, h, idx);
+    var result = {
+      score: score,
+      wind: Math.round(wind),
+      gusts: Math.round(gusts),
+      dir: Math.round(dir),
+      wave: wave,
+      label: scoreToLabel(score)
+    };
+    setCachedWeather(cacheKey, result);
+    return result;
+  }).catch(function() {
+    return { score: 50, wind: 0, gusts: 0, dir: 0, wave: 0, label: 'N/A' };
+  });
+}
+
+// Formule de score adaptée aux zones avec prise en compte de l'orientation
+function computeZoneScore(wind, gusts, dir, wave, rain, props, h, idx) {
+  var depth = props.avg_depth_coastal || 8;
+  var orientation = props.coast_orientation || 0;
+  var turbBase = props.turbidity_base || 0.4;
+  
+  // Facteur bathy
+  var bathyFactor = depth <= 3 ? 3.5 : depth <= 6 ? 2.5 : depth <= 10 ? 1.8 : depth <= 15 ? 1.3 : 1.0;
+  
+  // Facteur direction : angle entre vent et perpendiculaire à la côte
+  // Si le vent vient de la mer vers la terre = onshore = pénalité max
+  // Si le vent va de la terre vers la mer = offshore = pénalité faible
+  var perpCoast = (orientation + 180) % 360; // direction "vers le large"
+  var diff = Math.abs(((dir - perpCoast + 540) % 360) - 180);
+  // diff proche de 0 = vent offshore parfait (0.15)
+  // diff proche de 180 = vent onshore frontal (1.4)
+  // diff 90 = latéral (0.7)
+  var dirFactor;
+  if (diff < 45) dirFactor = 0.15;          // offshore
+  else if (diff < 90) dirFactor = 0.4;       // offshore oblique
+  else if (diff < 135) dirFactor = 0.9;      // latéral + léger onshore
+  else dirFactor = 1.4;                      // onshore
+  
+  // Mémoire 72h : on regarde les rafales des dernières heures
+  var decayHours = depth <= 5 ? 72 : depth <= 10 ? 48 : 24;
+  var residualPenalty = 0;
+  if (h && h.windspeed_10m && idx > 0) {
+    var start = Math.max(0, idx - decayHours);
+    for (var i = start; i < idx; i++) {
+      var pw = h.windspeed_10m[i] || 0;
+      var pg = h.windgusts_10m[i] || 0;
+      var pd = h.winddirection_10m ? (h.winddirection_10m[i] || 0) : dir;
+      var pDiff = Math.abs(((pd - perpCoast + 540) % 360) - 180);
+      var pDirF = pDiff < 45 ? 0.15 : pDiff < 90 ? 0.4 : pDiff < 135 ? 0.9 : 1.4;
+      var pImpact = (Math.max(pw - 5, 0) / 20 * 55 + Math.max(pg - 10, 0) / 25 * 30) * pDirF;
+      var hoursAgo = idx - i;
+      var decay = Math.exp(-hoursAgo / (decayHours / 3));
+      residualPenalty = Math.max(residualPenalty, pImpact * decay);
+    }
+  }
+  
+  // Pénalités instantanées
+  var windPenalty = Math.min(Math.max(wind - 5, 0) / 20, 1) * 55 * dirFactor;
+  var gustPenalty = Math.min(Math.max(gusts - 10, 0) / 25, 1) * 30 * dirFactor;
+  var wavePenalty = Math.min(wave / 1.2, 1) * 35;
+  var rainPenalty = Math.min(rain / 3, 1) * 10;
+  
+  var instantPenalty = windPenalty + gustPenalty;
+  var combined = Math.max(instantPenalty, residualPenalty) + wavePenalty + rainPenalty;
+  var total = Math.min(combined * bathyFactor * (0.7 + turbBase), 100);
+  // Score = turbidité (0 = eau claire, 100 = eau totalement brouillée)
+  // Cohérent avec scoreToColor/scoreToLabel existants
+  var score = Math.max(0, Math.min(100, total));
+  
+  return Math.round(score);
+}
+
+function renderZonesColored() {
+  if (S_zoneLayer) { S.map.removeLayer(S_zoneLayer); S_zoneLayer = null; }
+  var layers = [];
+  S_zones.forEach(function(zone) {
+    var props = zone.properties;
+    var zs = S_zoneScores[props.id];
+    var fillColor, fillOp;
+    if (zs) {
+      fillColor = scoreToColor(zs.score);
+      fillOp = 0.55;
+    } else {
+      fillColor = '#888';
+      fillOp = 0.3;
+    }
+    var poly = L.geoJSON(zone, {
+      style: {
+        fillColor: fillColor,
+        fillOpacity: fillOp,
+        color: fillColor,
+        weight: 2,
+        interactive: true
+      }
+    });
+    if (zs) {
+      poly.bindTooltip(
+        '<b>' + props.name + '</b><br>' +
+        '<span style="font-family:IBM Plex Mono,monospace;font-size:11px">' +
+        props.subtitle + '</span><br>' +
+        '<span style="color:' + fillColor + ';font-weight:700">' + zs.label + '</span> - ' +
+        'vent ' + zs.wind + ' km/h',
+        { sticky: true, direction: 'top' }
+      );
+    } else {
+      poly.bindTooltip('<b>' + props.name + '</b><br>Chargement...', { sticky: true });
+    }
+    layers.push(poly);
+  });
+  S_zoneLayer = L.featureGroup(layers).addTo(S.map);
+}
+
+function hideHexLayer() {
+  if (S_zoneLayer) { S.map.removeLayer(S_zoneLayer); S_zoneLayer = null; }
+  if (S_hexLayer) { S.map.removeLayer(S_hexLayer); S_hexLayer = null; }
+}
+
+// ============================================================
+// FORECAST PANEL
+// ============================================================
+function toggleForecastPanel() {
+  S_forecastOpen = !S_forecastOpen;
+  document.getElementById('btnWind').classList.toggle('active', S_forecastOpen);
+  document.getElementById('forecastPanel').style.display = S_forecastOpen ? 'block' : 'none';
+}
+
+function closeForecast() {
+  S_forecastOpen = false;
+  document.getElementById('btnWind').classList.remove('active');
+  document.getElementById('forecastPanel').style.display = 'none';
+}
+
+function loadForecast(lat, lon, locationName) {
+  S_forecastOpen = true;
+  document.getElementById('btnWind').classList.add('active');
+  document.getElementById('forecastPanel').style.display = 'block';
+  document.getElementById('forecastLocation').textContent = locationName || (lat.toFixed(4) + ', ' + lon.toFixed(4));
+  document.getElementById('forecastCoords').textContent = lat.toFixed(4) + 'N ' + lon.toFixed(4) + 'E - AROME';
+  document.getElementById('forecastTable').innerHTML = '<div style="padding:18px;text-align:center;color:#94A3B8;font-family:IBM Plex Mono,monospace;font-size:10px;">Chargement AROME...</div>';
+
+  var now = new Date();
+  var start = new Date(now); start.setHours(0,0,0,0);
+  var end = new Date(now); end.setDate(end.getDate()+4); end.setHours(23,0,0,0);
+  var fmt = function(d){ return d.toISOString().split('T')[0]; };
+
+  var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&hourly=windspeed_10m,winddirection_10m,windgusts_10m,wave_height,wave_period,wave_direction,temperature_2m,precipitation&wind_speed_unit=kmh&timezone=Europe/Paris&start_date=' + fmt(start) + '&end_date=' + fmt(end) + '&models=meteofrance_arome_france';
+
+  fetch(url).then(function(r){ return r.json(); }).then(function(d) {
+    if (!d.hourly) throw new Error('Pas de donnees');
+    S_lastForecastData = { h: d.hourly, now: now };
+    renderForecastTable(d.hourly, now);
+  }).catch(function(e) {
+    document.getElementById('forecastTable').innerHTML = '<div style="padding:18px;color:#DC2626;font-family:IBM Plex Mono,monospace;font-size:10px;">Erreur : ' + e.message + '</div>';
+  });
+}
+
+function renderForecastTable(h, now) {
+  var times = h.time;
+  var nowHour = now.toISOString().slice(0, 13);
+  var cols = [];
+  times.forEach(function(t, i) {
+    if (parseInt(t.slice(11, 13)) % 3 === 0) {
+      cols.push({ i: i, t: t, isNow: t.slice(0, 13) === nowHour });
+    }
+  });
+  var days = {};
+  cols.forEach(function(c) {
+    var day = c.t.slice(0, 10);
+    if (!days[day]) days[day] = [];
+    days[day].push(c);
+  });
+
+  function windColor(v) {
+    if (!v) return 'wc-0'; if (v < 5) return 'wc-0'; if (v < 10) return 'wc-1';
+    if (v < 15) return 'wc-2'; if (v < 20) return 'wc-3'; if (v < 30) return 'wc-4';
+    if (v < 40) return 'wc-5'; if (v < 50) return 'wc-6'; return 'wc-7';
+  }
+  function waveColor(v) {
+    if (!v) return 'ww-0'; if (v < 0.5) return 'ww-0'; if (v < 1) return 'ww-1';
+    if (v < 2) return 'ww-2'; if (v < 3) return 'ww-3'; return 'ww-4';
+  }
+  function dirArrow(deg) {
+    if (deg === null || deg === undefined) return '-';
+    var arrows = ['N','NE','E','SE','S','SO','O','NO'];
+    var idx = Math.round(deg / 45) % 8;
+    return arrows[idx];
+  }
+
+  var unitLabel = S_windUnit === 'kt' ? 'noeuds' : 'km/h';
+  var conv = S_windUnit === 'kt' ? function(v) { return toKt(v); } : function(v) { return Math.round(v); };
+
+  var html = '<table class="wg-table"><thead><tr><td class="row-label day-header"></td>';
+  Object.keys(days).forEach(function(day) {
+    var dcols = days[day];
+    var date = new Date(day);
+    var label = date.toLocaleDateString('fr', { weekday: 'short', day: 'numeric', month: 'short' });
+    html += '<td colspan="' + dcols.length + '" class="day-header">' + label + '</td>';
+  });
+  html += '</tr><tr><td class="row-label hour-row">Heure</td>';
+  cols.forEach(function(c) {
+    html += '<td class="hour-row' + (c.isNow ? ' wg-now wg-now-header' : '') + '">' + c.t.slice(11, 16) + '</td>';
+  });
+  html += '</tr></thead><tbody>';
+
+  html += '<tr><td class="row-label">Vent (' + unitLabel + ')</td>';
+  cols.forEach(function(c) {
+    var raw = h.windspeed_10m[c.i] || 0;
+    html += '<td class="' + windColor(raw) + (c.isNow ? ' wg-now' : '') + '" style="font-weight:600">' + conv(raw) + '</td>';
+  });
+  html += '</tr><tr><td class="row-label">Rafales (' + unitLabel + ')</td>';
+  cols.forEach(function(c) {
+    var raw = h.windgusts_10m[c.i] || 0;
+    html += '<td class="' + windColor(raw) + (c.isNow ? ' wg-now' : '') + '">' + conv(raw) + '</td>';
+  });
+  html += '</tr><tr><td class="row-label">Direction</td>';
+  cols.forEach(function(c) {
+    html += '<td class="' + (c.isNow ? 'wg-now' : '') + '">' + dirArrow(h.winddirection_10m[c.i]) + '</td>';
+  });
+  html += '</tr>';
+
+  var hasWaves = h.wave_height && h.wave_height.some(function(v) { return v > 0; });
+  if (hasWaves) {
+    html += '<tr><td class="row-label">Vagues (m)</td>';
+    cols.forEach(function(c) {
+      var v = h.wave_height[c.i];
+      html += '<td class="' + waveColor(v) + (c.isNow ? ' wg-now' : '') + '">' + (v ? v.toFixed(1) : '-') + '</td>';
+    });
+    html += '</tr>';
+  }
+
+  html += '<tr><td class="row-label">Temp. (C)</td>';
+  cols.forEach(function(c) {
+    html += '<td class="' + (c.isNow ? 'wg-now' : '') + '">' + Math.round(h.temperature_2m[c.i] || 0) + '</td>';
+  });
+  html += '</tr><tr><td class="row-label">Pluie (mm/h)</td>';
+  cols.forEach(function(c) {
+    var v = h.precipitation[c.i];
+    var bg = v > 2 ? 'background:rgba(37,99,235,0.25)' : v > 0.5 ? 'background:rgba(37,99,235,0.12)' : '';
+    html += '<td class="' + (c.isNow ? 'wg-now' : '') + '" style="' + bg + '">' + (v && v > 0 ? v.toFixed(1) : '') + '</td>';
+  });
+  html += '</tr></tbody></table>';
+  html += '<div style="padding:4px 12px 6px;font-family:IBM Plex Mono,monospace;font-size:11px;color:#94A3B8;">Source : Meteo-France AROME 2.5km</div>';
+
+  document.getElementById('forecastTable').innerHTML = html;
+}
+
+// ============================================================
+// SPOT POPUP
+// ============================================================
+function openSpotPopup(latlng, name) {
+  S.clickLatLng = latlng;
+
+  if (S.clickMarker) S.map.removeLayer(S.clickMarker);
+  var pulseIcon = L.divIcon({
+    className: '',
+    html: '<div class="visim-pulse-marker"><div class="visim-pulse-ring"></div><div class="visim-pulse-ring visim-pulse-ring2"></div><div class="visim-pulse-dot"></div></div>',
+    iconSize: [40, 40], iconAnchor: [20, 20]
+  });
+  S.clickMarker = L.marker([latlng.lat, latlng.lng], { icon: pulseIcon, interactive: false }).addTo(S.map);
+
+  document.getElementById('spotCoords').textContent = latlng.lat.toFixed(4) + 'N - ' + Math.abs(latlng.lng).toFixed(4) + 'O' + (name ? ' - ' + name : '');
+
+  var distCoastDeg = Math.abs(latlng.lat - 49.34);
+  var depth = Math.max(2.5, Math.min(50, distCoastDeg * 111 * 10));
+  S._spotDepth = depth;
+  document.getElementById('spotMeta').textContent = '~' + Math.round(depth) + 'm - AROME 2.5km';
+
+  var now = new Date();
+  document.getElementById('spotDate').value = now.toISOString().split('T')[0];
+  document.getElementById('spotTime').value = now.getHours().toString().padStart(2, '0') + ':00';
+
+  document.getElementById('spotSeaTemp').textContent = '-';
+  document.getElementById('spotSunrise').textContent = '-';
+  document.getElementById('spotSunset').textContent = '-';
+
+  document.getElementById('spotDrawer').classList.add('open');
+  S_spotWeatherCache = null;
+  S_spotMarineCache = null;
+  S_spotSunCache = null;
+  fetchSpotWeather(latlng.lat, latlng.lng);
+  fetchSpotMarineAndSun(latlng.lat, latlng.lng);
+  loadDrawerTides(latlng.lat, latlng.lng);
+  fetchSedimentType(latlng.lat, latlng.lng);
+}
+
+function closeSpotPopup() {
+  document.getElementById('spotDrawer').classList.remove('open');
+  if (S.clickMarker) { S.map.removeLayer(S.clickMarker); S.clickMarker = null; }
+}
+
+function fetchSpotWeather(lat, lon) {
+  var now = new Date();
+  var start = new Date(now); start.setHours(0, 0, 0, 0);
+  var end = new Date(now); end.setDate(end.getDate() + 4);
+  var fmt = function(d) { return d.toISOString().split('T')[0]; };
+  var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&hourly=windspeed_10m,windgusts_10m,winddirection_10m,wave_height,precipitation&wind_speed_unit=kmh&timezone=Europe/Paris&start_date=' + fmt(start) + '&end_date=' + fmt(end) + '&models=meteofrance_arome_france';
+  fetch(url).then(function(r) { return r.json(); }).then(function(d) {
+    if (!d.hourly) return;
+    S_spotWeatherCache = d.hourly;
+    renderSpotPopup();
+  }).catch(function() {});
+}
+
+function refreshSpotPopup() {
+  if (S_spotWeatherCache) renderSpotPopup();
+}
+
+function renderSpotPopup() {
+  var h = S_spotWeatherCache;
+  if (!h) return;
+  var dateVal = document.getElementById('spotDate').value;
+  var timeVal = document.getElementById('spotTime').value;
+  var targetStr = dateVal + 'T' + timeVal;
+  var idx = 0, best = Infinity;
+  h.time.forEach(function(t, i) {
+    var d = Math.abs(new Date(t) - new Date(targetStr));
+    if (d < best) { best = d; idx = i; }
+  });
+
+  var wind = Math.round(h.windspeed_10m[idx] || 0);
+  var gusts = Math.round(h.windgusts_10m[idx] || 0);
+  var dir = h.winddirection_10m[idx];
+  var wave = h.wave_height ? (h.wave_height[idx] || 0) : 0;
+  var depth = S._spotDepth || 5;
+
+  var bathyFactor = depth <= 2 ? 4.0 : depth <= 5 ? 3.0 : depth <= 10 ? 2.0 : depth <= 20 ? 1.3 : 1.0;
+
+  function getDirFactor(d) {
+    if (d === null || d === undefined) return 1.0;
+    if (d >= 135 && d <= 225) return 0.15;
+    if ((d > 45 && d < 135) || (d > 225 && d < 315)) return 0.7;
+    return 1.4;
+  }
+  var dirFactor = getDirFactor(dir);
+
+  var windPenalty = Math.min(Math.max(wind - 5, 0) / 20, 1) * 55 * dirFactor;
+  var gustPenalty = Math.min(Math.max(gusts - 10, 0) / 25, 1) * 30 * dirFactor;
+  var wavePenalty = Math.min(wave / 1.2, 1) * 35;
+  var totalPenalty = Math.min((windPenalty + gustPenalty + wavePenalty) * bathyFactor, 100);
+  var score = Math.max(0, Math.min(100, 100 - totalPenalty));
+
+  var visLabel = score >= 80 ? 'Excellente' : score >= 60 ? 'Bonne' : score >= 40 ? 'Moyenne' : score >= 20 ? 'Faible' : 'Nulle';
+  var badgeColors = { 'Nulle': '#DC2626', 'Faible': '#EA580C', 'Moyenne': '#CA8A04', 'Bonne': '#16A34A', 'Excellente': '#0BA888' };
+  var segColors = ['#DC2626', '#EA580C', '#CA8A04', '#16A34A', '#0BA888'];
+  var levelIdx = ['Nulle', 'Faible', 'Moyenne', 'Bonne', 'Excellente'].indexOf(visLabel);
+
+  document.getElementById('spotVisBadge').style.background = badgeColors[visLabel] || '#CA8A04';
+  document.getElementById('spotVisLabel').textContent = visLabel;
+  for (var si = 0; si < 5; si++) {
+    var seg = document.getElementById('visSeg' + si);
+    if (seg) seg.style.background = si <= levelIdx ? segColors[si] : 'var(--border)';
+  }
+
+  var windDisp = S_windUnit === 'kt' ? toKt(wind) : wind;
+  var gustDisp = S_windUnit === 'kt' ? toKt(gusts) : gusts;
+  var unitDisp = S_windUnit === 'kt' ? 'noeuds' : 'km/h';
+
+  document.getElementById('spotWindSpeed').textContent = windDisp;
+  document.getElementById('spotWindGusts').textContent = gustDisp;
+  document.querySelectorAll('.spot-wind-unit').forEach(function(el, i) {
+    if (i < 2) el.textContent = unitDisp;
+  });
+
+  var fromNames = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
+  var aidx = Math.round(dir / 45) % 8;
+  var dirName = (dir !== null && dir !== undefined) ? fromNames[aidx] : '-';
+  document.getElementById('spotWindDir').textContent = dirName;
+  document.getElementById('spotWindDeg').textContent = dir !== null ? Math.round(dir) + ' deg' : '-';
+
+  var factors = [];
+  factors.push({ label: 'Vent ' + windDisp + ' ' + unitDisp + ' (' + dirName + ')', impact: Math.round(windPenalty) });
+  if (wavePenalty > 3) factors.push({ label: 'Vagues ' + wave.toFixed(1) + 'm', impact: Math.round(wavePenalty) });
+  factors.push({ label: 'Fond ~' + Math.round(depth) + 'm (x' + bathyFactor.toFixed(1) + ')', impact: null });
+
+  var factorsEl = document.getElementById('spotFactors');
+  factorsEl.innerHTML = factors.map(function(f) {
+    var impactStr = f.impact !== null ? (f.impact > 0 ? '-' + f.impact : 'ok') : '';
+    return '<div style="display:flex;align-items:center;gap:8px;font-family:IBM Plex Mono,monospace;font-size:11px;color:#4A6080;"><span style="flex:1">' + f.label + '</span><span style="font-weight:600">' + impactStr + '</span></div>';
+  }).join('');
+}
+
+function fetchSpotMarineAndSun(lat, lon) {
+  var now = new Date();
+  var fmt = function(d) { return d.toISOString().split('T')[0]; };
+  var start = new Date(now);
+  var end = new Date(now); end.setDate(end.getDate() + 1);
+
+  var marineUrl = 'https://marine-api.open-meteo.com/v1/marine?latitude=' + lat + '&longitude=' + lon + '&hourly=sea_surface_temperature&timezone=Europe/Paris&start_date=' + fmt(start) + '&end_date=' + fmt(end);
+  fetch(marineUrl).then(function(r) { return r.json(); }).then(function(d) {
+    if (!d.hourly) return;
+    var temp = d.hourly.sea_surface_temperature[0];
+    if (temp !== null && temp !== undefined) {
+      document.getElementById('spotSeaTemp').textContent = temp.toFixed(1) + ' C';
+    }
+  }).catch(function() {});
+
+  var sunUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&daily=sunrise,sunset&timezone=Europe/Paris&start_date=' + fmt(start) + '&end_date=' + fmt(start);
+  fetch(sunUrl).then(function(r) { return r.json(); }).then(function(d) {
+    if (!d.daily) return;
+    if (d.daily.sunrise && d.daily.sunrise[0]) document.getElementById('spotSunrise').textContent = d.daily.sunrise[0].slice(11, 16);
+    if (d.daily.sunset && d.daily.sunset[0]) document.getElementById('spotSunset').textContent = d.daily.sunset[0].slice(11, 16);
+  }).catch(function() {});
+}
+
+function fetchSedimentType(lat, lon) {
+  document.getElementById('sedimentType').textContent = '...';
+  document.getElementById('sedSwatchColor').style.background = '#E2E8F0';
+  gasGet('sediment', { lat: lat, lon: lon }).then(function(data) {
+    if (!data || !data.text) { fallbackSediment(); return; }
+    try {
+      var json = JSON.parse(data.text);
+      if (!json.features || json.features.length === 0) {
+        document.getElementById('sedimentType').textContent = 'Hors couverture';
+        return;
+      }
+      var props = json.features[0].properties;
+      var raw = props.original_substrate || props.folk_5cl_txt || '?';
+      var lower = raw.toLowerCase();
+      var color = '#CBD5E0';
+      if (lower.indexOf('gravier') !== -1 || lower.indexOf('caillou') !== -1) color = '#CC2200';
+      else if (lower.indexOf('sable gros') !== -1) color = '#E86030';
+      else if (lower.indexOf('sable fin') !== -1) color = '#F5E8A0';
+      else if (lower.indexOf('sable') !== -1) color = '#F0C060';
+      else if (lower.indexOf('vase') !== -1) color = '#8B6A40';
+      else if (lower.indexOf('roche') !== -1) color = '#909090';
+      document.getElementById('sedimentType').textContent = raw.slice(0, 60);
+      document.getElementById('sedSwatchColor').style.background = color;
+    } catch (e) { fallbackSediment(); }
+  }).catch(function() { fallbackSediment(); });
+}
+
+function fallbackSediment() {
+  document.getElementById('sedimentType').textContent = 'Non disponible';
+  document.getElementById('sedSwatchColor').style.background = '#E2E8F0';
+}
+
+// ============================================================
+// TIDES
+// ============================================================
+function loadDrawerTides(lat, lon) {
+  var nearest = SPOTS.reduce(function(best, s) {
+    var d = Math.hypot(s.lat - lat, s.lon - lon);
+    return d < best.d ? { spot: s, d: d } : best;
+  }, { spot: SPOTS[0], d: Infinity }).spot;
+
+  document.getElementById('tidesPortName').textContent = nearest.name;
+  document.getElementById('tidesCoeff').textContent = '...';
+  for (var i = 0; i < 4; i++) {
+    document.getElementById('tideCell' + i + 'Time').textContent = '...';
+    document.getElementById('tideCell' + i + 'Height').textContent = '';
+    var cell = document.getElementById('tideCell' + i);
+    cell.classList.remove('past', 'next');
+  }
+
+  var apiKey = '17d84504-31e5-4520-90fc-537883a0492e';
+  var now = new Date();
+  var start = Math.floor(new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() / 1000);
+  var end = start + 86400;
+  var url = 'https://www.worldtides.info/api/v3?extremes&lat=' + nearest.lat + '&lon=' + nearest.lon + '&start=' + start + '&end=' + end + '&datum=LAT&key=' + apiKey;
+
+  fetch(url).then(function(r) { return r.json(); }).then(function(data) {
+    if (!data.extremes || data.extremes.length === 0) { renderDrawerTidesFallback(); return; }
+    var extremes = data.extremes.map(function(e) {
+      var d = new Date(e.date);
+      return {
+        type: e.type === 'High' ? 'high' : 'low',
+        time: d.toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit', hour12: false }),
+        timeObj: d,
+        height: e.height.toFixed(2)
+      };
+    }).sort(function(a, b) { return a.timeObj - b.timeObj; });
+    var coeff = estimateCoeff(data.extremes);
+    renderDrawerTides2x2(extremes, coeff, now);
+  }).catch(function() { renderDrawerTidesFallback(); });
+}
+
+function estimateCoeff(extremes) {
+  var highs = extremes.filter(function(e) { return e.type === 'High'; });
+  var lows = extremes.filter(function(e) { return e.type === 'Low'; });
+  if (highs.length === 0 || lows.length === 0) return '-';
+  var marnage = highs[0].height - lows[0].height;
+  return Math.min(120, Math.max(20, Math.round((marnage - 1.2) / 5.8 * 100 + 20)));
+}
+
+function renderDrawerTides2x2(extremes, coeff, now) {
+  document.getElementById('tidesCoeff').textContent = coeff;
+  var highs = extremes.filter(function(e) { return e.type === 'high'; });
+  var lows = extremes.filter(function(e) { return e.type === 'low'; });
+  var cells = [
+    { el: 0, data: highs[0], label: '1ere PM' },
+    { el: 1, data: lows[0], label: '1ere BM' },
+    { el: 2, data: highs[1], label: '2eme PM' },
+    { el: 3, data: lows[1], label: '2eme BM' }
+  ];
+  cells.forEach(function(c) {
+    document.getElementById('tideCell' + c.el + 'Label').textContent = c.label;
+    if (!c.data) {
+      document.getElementById('tideCell' + c.el + 'Time').textContent = '-';
+      document.getElementById('tideCell' + c.el + 'Height').textContent = '';
+      return;
+    }
+    document.getElementById('tideCell' + c.el + 'Time').textContent = c.data.time;
+    document.getElementById('tideCell' + c.el + 'Height').textContent = c.data.height + 'm';
+    var cell = document.getElementById('tideCell' + c.el);
+    if (c.data.timeObj < now) cell.classList.add('past');
+  });
+}
+
+function renderDrawerTidesFallback() {
+  document.getElementById('tidesCoeff').textContent = '-';
+  for (var i = 0; i < 4; i++) {
+    document.getElementById('tideCell' + i + 'Time').textContent = '-';
+    document.getElementById('tideCell' + i + 'Height').textContent = 'non dispo';
+  }
+}
+
+// ============================================================
+// LAND DETECTION
+// ============================================================
+var LAND_MESSAGES = [
+  'Ca va etre complique la chasse sous-marine ici...',
+  'Belle profondeur de 0m. Les poissons sont en vacances.',
+  'Visibilite excellente - mais il n y a pas d eau.',
+  'Ce spot est sur la terre ferme. Essaie 50m plus a gauche.'
+];
+var _landToastTimer = null;
+
+function isOnSea(lat, lon, callback) {
+  var url = 'https://nominatim.openstreetmap.org/reverse?lat=' + lat + '&lon=' + lon + '&format=json&zoom=10';
+  fetch(url, { headers: { 'Accept-Language': 'fr' } }).then(function(r) { return r.json(); }).then(function(data) {
+    var type = (data.type || '').toLowerCase();
+    var cls = (data.class || '').toLowerCase();
+    var waterTypes = ['sea', 'bay', 'strait', 'ocean', 'water', 'coastline', 'harbour', 'inlet'];
+    var isWater = cls === 'waterway' || (cls === 'natural' && type === 'water') || waterTypes.indexOf(type) !== -1 || !data.address || (!data.address.road && !data.address.city && !data.address.town && !data.address.village);
+    callback(isWater);
+  }).catch(function() { callback(true); });
+}
+
+function showLandMessage(latlng) {
+  var msg = LAND_MESSAGES[Math.floor(Math.random() * LAND_MESSAGES.length)];
+  var toast = document.getElementById('landToast');
+  toast.textContent = msg;
+  toast.classList.add('show');
+  if (_landToastTimer) clearTimeout(_landToastTimer);
+  _landToastTimer = setTimeout(function() { toast.classList.remove('show'); }, 3200);
+}
+
+// ============================================================
+// OBSERVATION SHEET
+// ============================================================
+var OBS_FOND = true;
+var OBS_SUBMITTING = false;
+
+function openObsSheet() {
+  var now = new Date();
+  var latlng = isMobile() ? S.map.getCenter() : (S.clickLatLng || S.map.getCenter());
+  document.getElementById('obsSheetDate').value = now.toISOString().split('T')[0];
+  document.getElementById('obsSheetTime').value = now.getHours().toString().padStart(2, '0') + ':00';
+  document.getElementById('obsSheetCoords').textContent = latlng.lat.toFixed(4) + 'N - ' + Math.abs(latlng.lng).toFixed(4) + 'O';
+  document.getElementById('obsSheetVisSlider').value = 8;
+  updateObsSheetVis(8);
+  setObsFond(true);
+  document.getElementById('obsSheetSpecies').value = '';
+  document.getElementById('obsSheetSubmit').style.display = 'block';
+  document.getElementById('obsSheetSubmit').disabled = false;
+  document.getElementById('obsSheetSuccess').style.display = 'none';
+  document.getElementById('obsSheet').classList.add('open');
+  document.getElementById('obsSheetOverlay').style.display = 'block';
+}
+
+function closeObsSheet() {
+  document.getElementById('obsSheet').classList.remove('open');
+  document.getElementById('obsSheetOverlay').style.display = 'none';
+  OBS_SUBMITTING = false;
+}
+
+function updateObsSheetVis(idx) {
+  idx = parseInt(idx);
+  var v = VIS[idx];
+  var el = document.getElementById('obsSheetVisVal');
+  el.textContent = v.l;
+  el.style.color = v.c;
+}
+
+function setObsFond(val) {
+  OBS_FOND = val;
+  document.getElementById('obsSheetFondOui').classList.toggle('on', val);
+  document.getElementById('obsSheetFondNon').classList.toggle('on', !val);
+}
+
+function submitObsSheet() {
+  if (OBS_SUBMITTING) return;
+  OBS_SUBMITTING = true;
+  var btn = document.getElementById('obsSheetSubmit');
+  btn.disabled = true;
+  btn.textContent = 'Envoi...';
+  var latlng = isMobile() ? S.map.getCenter() : (S.clickLatLng || S.map.getCenter());
+  var idx = parseInt(document.getElementById('obsSheetVisSlider').value);
+  var visLevel = VIS[idx];
+  gasGet('submit_observation', {
+    lat: latlng.lat, lon: latlng.lng,
+    date: document.getElementById('obsSheetDate').value,
+    time: document.getElementById('obsSheetTime').value,
+    visibility_m: visLevel.v,
+    visibility_label: visLevel.l,
+    bottom_visible: OBS_FOND,
+    comment: document.getElementById('obsSheetSpecies').value
+  }).then(function(result) {
+    OBS_SUBMITTING = false;
+    if (result && result.success) {
+      btn.style.display = 'none';
+      document.getElementById('obsSheetSuccessMsg').textContent = 'Merci ! Observation enregistree.';
+      document.getElementById('obsSheetSuccessSub').textContent = 'Ton spot reste secret.';
+      document.getElementById('obsSheetSuccess').style.display = 'block';
+      setTimeout(closeObsSheet, 2500);
+    } else {
+      btn.disabled = false;
+      btn.textContent = 'Partager';
+      alert('Erreur envoi.');
+    }
+  });
+}
+
+function analyzeCenterPoint() {
+  var center = S.map.getCenter();
+  isOnSea(center.lat, center.lng, function(onSea) {
+    if (!onSea) { showLandMessage(center); return; }
+    openSpotPopup(center, null);
+    if (S_forecastOpen) loadForecast(center.lat, center.lng, null);
+  });
+}
+
+// ============================================================
+// AUTH - Placeholders si Firebase pas charge
+// ============================================================
+var S_currentUser = null;
+var S_loginMode = 'signin';
+var S_currentMood = 3;
+var S_sessionContext = null;
+
+window.handleAuthStateChange = function(user) {
+  S_currentUser = user;
+  var btn = document.getElementById('authBtn');
+  var btnText = document.getElementById('authBtnText');
+  if (!btn) return;
+  if (user) {
+    btn.classList.add('logged');
+    btnText.textContent = 'Mon carnet';
+    document.getElementById('carnetUser').textContent = user.email || user.displayName || 'Connecte';
+  } else {
+    btn.classList.remove('logged');
+    btnText.textContent = 'Se connecter';
+  }
+};
+
+function handleAuthClick() {
+  if (S_currentUser) openCarnet();
+  else openLogin();
+}
+
+function openLogin() {
+  document.getElementById('loginOverlay').classList.add('open');
+  document.getElementById('loginError').style.display = 'none';
+  document.getElementById('loginEmail').value = '';
+  document.getElementById('loginPwd').value = '';
+}
+
+function closeLogin() {
+  document.getElementById('loginOverlay').classList.remove('open');
+}
+
+function toggleLoginMode() {
+  S_loginMode = S_loginMode === 'signin' ? 'signup' : 'signin';
+  if (S_loginMode === 'signup') {
+    document.getElementById('loginSubmit').textContent = 'Creer mon compte';
+    document.getElementById('loginToggle').innerHTML = 'Deja un compte ? <span>Se connecter</span>';
+  } else {
+    document.getElementById('loginSubmit').textContent = 'Se connecter';
+    document.getElementById('loginToggle').innerHTML = 'Pas encore de compte ? <span>Cree un compte</span>';
+  }
+}
+
+function showLoginError(msg) {
+  var el = document.getElementById('loginError');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function loginGoogle() {
+  if (!window.fbAuth) { alert('Firebase pas encore charge, attends 1 sec'); return; }
+  window.fbSignInWithPopup(window.fbAuth, window.fbGoogleProvider).then(function() {
+    closeLogin();
+    checkAndOpenCarnet();
+  }).catch(function(err) { showLoginError('Echec Google : ' + err.message); });
+}
+
+function loginEmail() {
+  var email = document.getElementById('loginEmail').value.trim();
+  var pwd = document.getElementById('loginPwd').value;
+  if (!email || !pwd) { showLoginError('Email et mot de passe requis'); return; }
+  if (pwd.length < 6) { showLoginError('Mot de passe : 6 caracteres minimum'); return; }
+  if (!window.fbAuth) { alert('Firebase pas charge'); return; }
+  var fn = S_loginMode === 'signup' ? window.fbCreateUser : window.fbSignInEmail;
+  fn(window.fbAuth, email, pwd).then(function() {
+    closeLogin();
+    checkAndOpenCarnet();
+  }).catch(function(err) {
+    var msg = err.message;
+    if (msg.indexOf('email-already-in-use') !== -1) msg = 'Cet email est deja utilise';
+    else if (msg.indexOf('wrong-password') !== -1 || msg.indexOf('invalid-credential') !== -1) msg = 'Email ou mot de passe incorrect';
+    else if (msg.indexOf('user-not-found') !== -1) msg = 'Aucun compte avec cet email';
+    showLoginError(msg);
+  });
+}
+
+function logout() {
+  if (!window.fbAuth) return;
+  window.fbSignOut(window.fbAuth).then(function() { closeCarnet(); });
+}
+
+function checkAndOpenCarnet() {
+  if (!window.fbDb || !S_currentUser) return;
+  var q = window.fbQuery(window.fbCollection(window.fbDb, 'sessions'), window.fbWhere('userId', '==', S_currentUser.uid));
+  window.fbGetDocs(q).then(function(snapshot) {
+    if (snapshot.empty) {
+      showWelcomeToast();
+    } else {
+      openCarnet();
+    }
+  }).catch(function() { openCarnet(); });
+}
+
+function showWelcomeToast() {
+  var toast = document.getElementById('landToast');
+  toast.innerHTML = 'Bienvenue ! Clique sur ton spot de chasse pour enregistrer ta premiere session.';
+  toast.style.fontSize = '15px';
+  toast.style.maxWidth = '400px';
+  toast.style.whiteSpace = 'normal';
+  toast.style.lineHeight = '1.5';
+  toast.classList.add('show');
+  setTimeout(function() {
+    toast.classList.remove('show');
+    toast.style.fontSize = '';
+    toast.style.maxWidth = '';
+    toast.style.whiteSpace = '';
+    toast.style.lineHeight = '';
+  }, 5500);
+}
+
+function openCarnet() {
+  if (!S_currentUser) { openLogin(); return; }
+  document.getElementById('carnetDrawer').classList.add('open');
+  loadSessions();
+}
+
+function closeCarnet() {
+  document.getElementById('carnetDrawer').classList.remove('open');
+  if (S_carnetMapLayer) {
+    S.map.removeLayer(S_carnetMapLayer);
+    S_carnetMapLayer = null;
+  }
+}
+
+function loadSessions() {
+  var body = document.getElementById('carnetBody');
+  body.innerHTML = '<div class="carnet-empty">Chargement...</div>';
+  if (!window.fbDb || !S_currentUser) return;
+  var q = window.fbQuery(window.fbCollection(window.fbDb, 'sessions'), window.fbWhere('userId', '==', S_currentUser.uid), window.fbOrderBy('date', 'desc'));
+  window.fbGetDocs(q).then(function(snapshot) {
+    if (snapshot.empty) {
+      body.innerHTML = '<div class="carnet-empty">Aucune session enregistree.<br><br>Clique sur ton spot sur la carte, puis sur "Enregistrer ma session".</div>';
+      return;
+    }
+    var sessions = [];
+    snapshot.forEach(function(d) { sessions.push(d.data()); });
+    renderCarnetDashboard(sessions);
+  }).catch(function(err) {
+    body.innerHTML = '<div class="carnet-empty" style="color:var(--bad)">Erreur : ' + err.message + '</div>';
+  });
+}
+
+function renderCarnetDashboard(sessions) {
+  window.S_carnetAllSessions = sessions;
+  window.S_carnetFilter = { search: '', year: 'all' };
+  buildCarnetUI();
+}
+
+function buildCarnetUI() {
+  var body = document.getElementById('carnetBody');
+  var sessions = window.S_carnetAllSessions || [];
+  var now = new Date();
+  var yearStart = new Date(now.getFullYear(), 0, 1);
+
+  var sessionsYear = sessions.filter(function(s) {
+    if (!s.date) return false;
+    return new Date(s.date) >= yearStart;
+  }).length;
+
+  var lastSession = sessions[0];
+  var daysSince = '-';
+  if (lastSession && lastSession.date) {
+    var diffMs = now - new Date(lastSession.date);
+    var d = Math.floor(diffMs / 86400000);
+    if (d === 0) daysSince = "Aujourd'hui";
+    else if (d === 1) daysSince = 'Hier';
+    else daysSince = 'il y a ' + d + 'j';
+  }
+
+  var years = {};
+  sessions.forEach(function(s) {
+    if (s.date) years[new Date(s.date).getFullYear()] = true;
+  });
+  var yearList = Object.keys(years).sort(function(a, b) { return b - a; });
+
+  var html = '';
+
+  html += '<div class="carnet-stats-row">';
+  html += '<div class="carnet-stat"><div class="carnet-stat-val">' + sessionsYear + '</div><div class="carnet-stat-lbl">En ' + now.getFullYear() + '</div></div>';
+  html += '<div class="carnet-stat"><div class="carnet-stat-val">' + sessions.length + '</div><div class="carnet-stat-lbl">Total</div></div>';
+  html += '<div class="carnet-stat"><div class="carnet-stat-val" style="font-size:16px;line-height:1.2">' + daysSince + '</div><div class="carnet-stat-lbl">Derniere</div></div>';
+  html += '</div>';
+
+  html += '<button class="carnet-new-btn" onclick="startNewSession()">+ Nouvelle session</button>';
+
+  html += '<div class="carnet-map-btn" id="carnetMapToggle" onclick="toggleCarnetSessionsOnMap()">Afficher mes sessions sur la carte</div>';
+
+  html += '<div class="carnet-filters">';
+  html += '<input type="text" class="carnet-search" id="carnetSearch" placeholder="Rechercher un spot, une prise..." oninput="filterCarnet()">';
+  html += '<select class="carnet-year-select" id="carnetYear" onchange="filterCarnet()">';
+  html += '<option value="all">Toutes annees</option>';
+  yearList.forEach(function(y) {
+    html += '<option value="' + y + '">' + y + '</option>';
+  });
+  html += '</select>';
+  html += '</div>';
+
+  html += '<div class="carnet-sessions-wrap" id="carnetSessionsWrap"></div>';
+
+  body.innerHTML = html;
+  renderSessionsList();
+}
+
+function filterCarnet() {
+  window.S_carnetFilter = {
+    search: document.getElementById('carnetSearch').value.trim().toLowerCase(),
+    year: document.getElementById('carnetYear').value
+  };
+  renderSessionsList();
+}
+
+function renderSessionsList() {
+  var wrap = document.getElementById('carnetSessionsWrap');
+  if (!wrap) return;
+  var sessions = window.S_carnetAllSessions || [];
+  var filter = window.S_carnetFilter || { search: '', year: 'all' };
+
+  var filtered = sessions.filter(function(s) {
+    if (filter.year !== 'all' && s.date) {
+      if (new Date(s.date).getFullYear().toString() !== filter.year) return false;
+    }
+    if (filter.search) {
+      var haystack = [s.spotName || '', s.catch_ || '', s.notes || ''].join(' ').toLowerCase();
+      if (haystack.indexOf(filter.search) === -1) return false;
+    }
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    wrap.innerHTML = '<div class="carnet-empty" style="padding:30px 10px">Aucune session ne correspond a ta recherche.</div>';
+    return;
+  }
+
+  var groups = {};
+  var groupOrder = [];
+  filtered.forEach(function(s) {
+    if (!s.date) return;
+    var d = new Date(s.date);
+    var key = d.getFullYear() + '-' + (d.getMonth() + 1).toString().padStart(2, '0');
+    if (!groups[key]) {
+      groups[key] = { label: d.toLocaleDateString('fr', { month: 'long', year: 'numeric' }), sessions: [] };
+      groupOrder.push(key);
+    }
+    groups[key].sessions.push(s);
+  });
+
+  var moodLabels = ['', 'Chiante', 'Bof', 'Normale', 'Bien', 'Top'];
+  var moodBgColors = ['', '#FEE2E2', '#FED7AA', '#FEF3C7', '#DCFCE7', '#D1FAE5'];
+  var moodTxtColors = ['', '#991B1B', '#9A3412', '#854D0E', '#166534', '#065F46'];
+
+  var html = '<div class="carnet-sessions-title">' + filtered.length + ' session' + (filtered.length > 1 ? 's' : '') + '</div>';
+
+  groupOrder.forEach(function(key) {
+    var group = groups[key];
+    html += '<div class="month-group-header"><span>' + group.label + '</span><span class="month-group-count">' + group.sessions.length + ' sortie' + (group.sessions.length > 1 ? 's' : '') + '</span></div>';
+
+    group.sessions.forEach(function(s) {
+      var mood = s.mood || 3;
+      var dateObj = s.date ? new Date(s.date) : null;
+      var dateStr = dateObj ? dateObj.toLocaleDateString('fr', { weekday: 'short', day: 'numeric', month: 'short' }) : '-';
+      if (s.time) dateStr += ' - ' + s.time;
+      var spotName = s.spotName || (s.lat ? s.lat.toFixed(3) + 'N ' + Math.abs(s.lon).toFixed(3) + 'O' : 'Spot inconnu');
+
+      html += '<div class="session-card mood-' + mood + '" onclick="focusSessionOnMap(' + (s.lat || 0) + ',' + (s.lon || 0) + ')">';
+      html += '<div class="session-card-top">';
+      html += '<div><div class="session-date">' + dateStr + '</div><div class="session-spot">' + spotName + '</div></div>';
+      html += '<div class="session-mood-badge" style="background:' + moodBgColors[mood] + ';color:' + moodTxtColors[mood] + '">' + moodLabels[mood] + '</div>';
+      html += '</div>';
+
+      html += '<div class="session-grid">';
+      html += '<div class="session-field-mini"><span class="session-field-lbl">Visibilite</span><span class="session-field-val">' + (s.visibilityLabel || '-') + '</span></div>';
+      if (s.leadKg !== undefined && s.leadKg !== null) {
+        html += '<div class="session-field-mini"><span class="session-field-lbl">Plomb</span><span class="session-field-val">' + s.leadKg + ' kg</span></div>';
+      }
+      if (s.windKmh !== undefined) {
+        html += '<div class="session-field-mini"><span class="session-field-lbl">Vent</span><span class="session-field-val">' + s.windKmh + ' km/h ' + (s.windDirName || '') + '</span></div>';
+      }
+      if (s.tideCoef) {
+        html += '<div class="session-field-mini"><span class="session-field-lbl">Coef maree</span><span class="session-field-val">' + s.tideCoef + '</span></div>';
+      }
+      if (s.catch_) {
+        html += '<div class="session-field-mini" style="grid-column:span 2"><span class="session-field-lbl">Prises</span><span class="session-field-val">' + s.catch_ + '</span></div>';
+      }
+      html += '</div>';
+
+      if (s.fbVis !== undefined || s.fbCurrent !== undefined || s.fbTemp !== undefined) {
+        var fbParts = [];
+        if (s.fbVis !== undefined && s.fbVis !== 0) {
+          var visLabels = { '-2': 'visi bien pire', '-1': 'visi pire', '1': 'visi mieux', '2': 'visi bien mieux' };
+          fbParts.push(visLabels[s.fbVis]);
+        }
+        if (s.fbCurrent !== undefined && s.fbCurrent !== 2) {
+          var currLabels = { '0': 'pas de courant', '1': 'courant faible', '3': 'courant fort', '4': 'courant tres fort' };
+          fbParts.push(currLabels[s.fbCurrent]);
+        }
+        if (s.fbTemp !== undefined && s.fbTemp !== 0) {
+          var tempLabels = { '-2': 'eau glaciale', '-1': 'eau froide', '1': 'eau tiede', '2': 'eau chaude' };
+          fbParts.push(tempLabels[s.fbTemp]);
+        }
+        if (fbParts.length > 0) {
+          html += '<div class="session-notes" style="font-style:normal;color:var(--text-3);font-size:11px">' + fbParts.join(' - ') + '</div>';
+        }
+      }
+
+      if (s.notes) {
+        html += '<div class="session-notes">' + s.notes + '</div>';
+      }
+
+      html += '</div>';
+    });
+  });
+
+  wrap.innerHTML = html;
+  window.S_carnetSessions = filtered;
+}
+
+var S_carnetMapLayer = null;
+function toggleCarnetSessionsOnMap() {
+  var btn = document.getElementById('carnetMapToggle');
+  if (S_carnetMapLayer) {
+    S.map.removeLayer(S_carnetMapLayer);
+    S_carnetMapLayer = null;
+    btn.classList.remove('active');
+    btn.textContent = 'Afficher mes sessions sur la carte';
+    return;
+  }
+  var sessions = window.S_carnetSessions || [];
+  if (sessions.length === 0) return;
+  var markers = [];
+  var moodColors = ['', '#DC2626', '#EA580C', '#CA8A04', '#16A34A', '#0BA888'];
+  sessions.forEach(function(s) {
+    if (!s.lat || !s.lon) return;
+    var mood = s.mood || 3;
+    var color = moodColors[mood];
+    var dateStr = s.date ? new Date(s.date).toLocaleDateString('fr', { day: 'numeric', month: 'short', year: 'numeric' }) : '-';
+    var m = L.circleMarker([s.lat, s.lon], {
+      radius: 8, fillColor: color, color: '#fff', weight: 2, fillOpacity: 0.9
+    });
+    var popup = '<div style="font-family:IBM Plex Mono,monospace;font-size:11px;line-height:1.6;"><strong>' + dateStr + '</strong><br>' + (s.spotName || '-') + '<br>Visi : ' + (s.visibilityLabel || '-');
+    if (s.catch_) popup += '<br>Prises : ' + s.catch_;
+    popup += '</div>';
+    m.bindPopup(popup);
+    markers.push(m);
+  });
+  S_carnetMapLayer = L.featureGroup(markers).addTo(S.map);
+  btn.classList.add('active');
+  btn.textContent = 'Masquer mes sessions';
+  if (markers.length > 0) S.map.fitBounds(S_carnetMapLayer.getBounds(), { padding: [80, 80], maxZoom: 13 });
+}
+
+function focusSessionOnMap(lat, lon) {
+  if (!lat || !lon) return;
+  S.map.setView([lat, lon], 13);
+}
+
+var S_leadKg = 7.0;
+var S_fbVis = 0;
+var S_fbCurrent = 2;
+var S_fbTemp = 0;
+
+function adjustLead(delta) {
+  S_leadKg = Math.max(0, Math.min(20, S_leadKg + delta));
+  document.getElementById('sessionLeadVal').textContent = S_leadKg.toFixed(1);
+}
+
+function updateFbVis(val) {
+  S_fbVis = parseInt(val);
+  var labels = { '-2': 'Bien pire', '-1': 'Pire', '0': 'Conforme', '1': 'Mieux', '2': 'Bien mieux' };
+  document.getElementById('fbVisVal').textContent = labels[val];
+}
+
+function updateFbCurrent(val) {
+  S_fbCurrent = parseInt(val);
+  var labels = { '0': 'Nul', '1': 'Faible', '2': 'Moyen', '3': 'Fort', '4': 'Tres fort' };
+  document.getElementById('fbCurrentVal').textContent = labels[val];
+}
+
+function updateFbTemp(val) {
+  S_fbTemp = parseInt(val);
+  var labels = { '-2': 'Glaciale', '-1': 'Froide', '0': 'Normale', '1': 'Tiede', '2': 'Chaude' };
+  document.getElementById('fbTempVal').textContent = labels[val];
+}
+
+function openSessionModal() {
+  if (!S_currentUser) { openLogin(); return; }
+  if (!S.clickLatLng) { alert('Clique d abord sur la carte sur ton spot.'); return; }
+  var lat = S.clickLatLng.lat;
+  var lon = S.clickLatLng.lng;
+  S_sessionContext = { lat: lat, lon: lon, depth: S._spotDepth };
+  document.getElementById('sessionModalCoords').textContent = lat.toFixed(4) + 'N ' + Math.abs(lon).toFixed(4) + 'O';
+  var now = new Date();
+  document.getElementById('sessionDate').value = now.toISOString().split('T')[0];
+  document.getElementById('sessionTime').value = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+  document.getElementById('sessionVisSlider').value = 8;
+  updateSessionVis(8);
+  document.getElementById('sessionCatch').value = '';
+  document.getElementById('sessionNotes').value = '';
+  setMood(3);
+
+  S_leadKg = 7.0;
+  document.getElementById('sessionLeadVal').textContent = S_leadKg.toFixed(1);
+  document.getElementById('fbVisSlider').value = 0; updateFbVis(0);
+  document.getElementById('fbCurrentSlider').value = 2; updateFbCurrent(2);
+  document.getElementById('fbTempSlider').value = 0; updateFbTemp(0);
+
+  var condText = '-';
+  if (S_spotWeatherCache && S_spotWeatherCache.time) {
+    var w = Math.round(S_spotWeatherCache.windspeed_10m[0] || 0);
+    var g = Math.round(S_spotWeatherCache.windgusts_10m[0] || 0);
+    condText = 'Vent : ' + w + ' km/h / Rafales : ' + g + ' km/h';
+  }
+  document.getElementById('sessionCondVal').textContent = condText;
+  document.getElementById('sessionOverlay').classList.add('open');
+}
+
+function closeSessionModal() {
+  document.getElementById('sessionOverlay').classList.remove('open');
+}
+
+function updateSessionVis(idx) {
+  idx = parseInt(idx);
+  var v = VIS[idx];
+  var el = document.getElementById('sessionVisVal');
+  el.textContent = v.l;
+  el.style.color = v.c;
+}
+
+function setMood(n) {
+  S_currentMood = n;
+  document.querySelectorAll('.mood-btn').forEach(function(b) {
+    b.classList.toggle('on', parseInt(b.dataset.mood) === n);
+  });
+}
+
+function saveSession() {
+  if (!S_currentUser || !S_sessionContext) return;
+  var btn = document.getElementById('sessionSubmitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Enregistrement...';
+  var idx = parseInt(document.getElementById('sessionVisSlider').value);
+  var visLevel = VIS[idx];
+  var w = 0, g = 0, dir = null;
+  if (S_spotWeatherCache && S_spotWeatherCache.time) {
+    w = Math.round(S_spotWeatherCache.windspeed_10m[0] || 0);
+    g = Math.round(S_spotWeatherCache.windgusts_10m[0] || 0);
+    dir = S_spotWeatherCache.winddirection_10m[0];
+  }
+  var fromNames = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
+  var dirName = (dir !== null && dir !== undefined) ? fromNames[Math.round(dir / 45) % 8] : '';
+  var coeffEl = document.getElementById('tidesCoeff');
+  var coeff = (coeffEl && coeffEl.textContent && coeffEl.textContent !== '-') ? coeffEl.textContent : null;
+  var portEl = document.getElementById('tidesPortName');
+  var spotName = (portEl && portEl.textContent && portEl.textContent !== '-') ? portEl.textContent : null;
+
+  var session = {
+    userId: S_currentUser.uid,
+    date: document.getElementById('sessionDate').value,
+    time: document.getElementById('sessionTime').value,
+    lat: S_sessionContext.lat,
+    lon: S_sessionContext.lon,
+    spotName: spotName,
+    visibilityM: visLevel.v,
+    visibilityLabel: visLevel.l,
+    catch_: document.getElementById('sessionCatch').value.trim() || null,
+    mood: S_currentMood,
+    notes: document.getElementById('sessionNotes').value.trim() || null,
+    leadKg: S_leadKg,
+    fbVis: S_fbVis,
+    fbCurrent: S_fbCurrent,
+    fbTemp: S_fbTemp,
+    windKmh: w,
+    gustsKmh: g,
+    windDirName: dirName,
+    tideCoef: coeff,
+    depth: S_sessionContext.depth || null,
+    createdAt: window.fbServerTimestamp()
+  };
+
+  window.fbAddDoc(window.fbCollection(window.fbDb, 'sessions'), session).then(function() {
+    btn.textContent = 'Enregistre !';
+    setTimeout(function() {
+      closeSessionModal();
+      btn.disabled = false;
+      btn.textContent = 'Enregistrer dans mon carnet';
+    }, 1200);
+  }).catch(function(err) {
+    btn.disabled = false;
+    btn.textContent = 'Enregistrer dans mon carnet';
+    alert('Erreur : ' + err.message);
+  });
+}
+
+// ============================================================
+// DOM READY
+// ============================================================
+function boot() {
+  initCanvas();
+  initMap();
+  var headerH = document.getElementById('header').offsetHeight;
+  document.getElementById('sedLegend').style.top = (headerH + 8) + 'px';
+  if (window.innerWidth > 768) {
+    document.getElementById('spotDrawer').style.top = headerH + 'px';
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', boot);
+} else {
+  boot();
+}
+</script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, addDoc, query, where, orderBy, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBHWn_aG3HKOqUVmq_E6dk_BJ9-CsbXR5M",
+  authDomain: "visimer.firebaseapp.com",
+  projectId: "visimer",
+  storageBucket: "visimer.firebasestorage.app",
+  messagingSenderId: "140117972122",
+  appId: "1:140117972122:web:3135dcfd6b66b441d57b23",
+  measurementId: "G-0Z5CS0B565"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+window.fbAuth = auth;
+window.fbDb = db;
+window.fbGoogleProvider = new GoogleAuthProvider();
+window.fbSignInWithPopup = signInWithPopup;
+window.fbCreateUser = createUserWithEmailAndPassword;
+window.fbSignInEmail = signInWithEmailAndPassword;
+window.fbSignOut = signOut;
+window.fbCollection = collection;
+window.fbAddDoc = addDoc;
+window.fbQuery = query;
+window.fbWhere = where;
+window.fbOrderBy = orderBy;
+window.fbGetDocs = getDocs;
+window.fbServerTimestamp = serverTimestamp;
+
+onAuthStateChanged(auth, (user) => {
+  if (window.handleAuthStateChange) window.handleAuthStateChange(user);
+});
+</script>
+
+</body>
+</html>
