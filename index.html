@@ -725,18 +725,35 @@ function findApiMareeSiteNear(lat, lon) {
   return best;
 }
 
+// Label de marée basé sur le marnage réel du jour (beaucoup plus fiable qu'un coef calculé)
+// Seuils calibrés pour les ports de la façade Atlantique/Manche
+function marnageToTideLabel(marnageMeters) {
+  if (marnageMeters >= 8.0) return { label: 'Grande marée', color: '#DC2626', desc: 'Étales très courtes, courants forts' };
+  if (marnageMeters >= 6.0) return { label: 'Vive-eau', color: '#EA580C', desc: 'Bon créneau aux étales' };
+  if (marnageMeters >= 4.0) return { label: 'Marée moyenne', color: '#CA8A04', desc: 'Étales confortables' };
+  if (marnageMeters >= 2.5) return { label: 'Morte-eau', color: '#16A34A', desc: 'Longues étales, peu de courant' };
+  return { label: 'Très petite marée', color: '#0BA888', desc: 'Quasi-étale permanente' };
+}
+
+// Fonction gardée pour compat mais non utilisée dans l'affichage principal
 function computeCoefBrest(date) {
-  var refMs = Date.UTC(2000, 0, 6, 18, 14, 0);
-  var daysSinceRef = (date.getTime() - refMs) / 86400000;
-  var lunarPhase = (daysSinceRef / 29.5306) % 1;
-  if (lunarPhase < 0) lunarPhase += 1;
-  var lunarAngle = lunarPhase * 4 * Math.PI;
-  var lunarFactor = Math.pow(Math.cos(lunarAngle / 2), 2);
-  var dayOfYear = Math.floor((date.getTime() - Date.UTC(date.getFullYear(), 0, 0)) / 86400000);
-  var solarAngle = (dayOfYear / 365.25) * 2 * Math.PI;
-  var solarFactor = 1 + 0.08 * Math.cos(2 * solarAngle - 0.3);
-  var coef = 45 + lunarFactor * 50 * solarFactor;
+  var ref = Date.UTC(2024, 0, 12, 12, 0, 0);
+  var days = (date.getTime() - ref) / 86400000;
+  var phase = (days / 14.7653) % 1;
+  if (phase < 0) phase += 1;
+  var amp = (Math.cos(phase * 2 * Math.PI) + 1) / 2;
+  var doy = Math.floor((date.getTime() - Date.UTC(date.getFullYear(), 0, 0)) / 86400000);
+  var eq = 1 + 0.12 * Math.cos((doy - 80) / 365.25 * 4 * Math.PI);
+  var per = 1 + 0.07 * Math.cos((days / 27.5546) * 2 * Math.PI);
+  var coef = 50 + amp * 55 * eq * per;
   return Math.round(Math.max(20, Math.min(120, coef)));
+}
+
+function coefToLabel(coef) {
+  if (coef >= 100) return 'Grande marée';
+  if (coef >= 70) return 'Vive-eau';
+  if (coef >= 40) return 'Morte-eau';
+  return 'Très petite marée';
 }
 
 function coefToLabel(coef) {
