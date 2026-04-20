@@ -1624,16 +1624,22 @@ function closeSpotPopup() {
 }
 
 function fetchSpotWeather(lat, lon) {
-  var now = new Date();
-  var start = new Date(now); start.setHours(0, 0, 0, 0);
-  var end = new Date(now); end.setDate(end.getDate() + 4);
-  var fmt = function(d) { return d.toISOString().split('T')[0]; };
-  var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&hourly=windspeed_10m,windgusts_10m,winddirection_10m,wave_height,precipitation&wind_speed_unit=kmh&timezone=Europe/Paris&start_date=' + fmt(start) + '&end_date=' + fmt(end) + '&past_days=3&models=meteofrance_arome_france';
-  fetch(url).then(function(r) { return r.json(); }).then(function(d) {
+  var url = 'https://api.open-meteo.com/v1/forecast'
+    + '?latitude=' + lat + '&longitude=' + lon
+    + '&hourly=windspeed_10m,windgusts_10m,winddirection_10m,wave_height,precipitation'
+    + '&wind_speed_unit=kmh&timezone=Europe/Paris'
+    + '&past_days=3&forecast_days=5'
+    + '&models=meteofrance_arome_france';
+  fetch(url).then(function(r) {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  }).then(function(d) {
     if (!d.hourly) return;
     S_spotWeatherCache = d.hourly;
     renderSpotPopup();
-  }).catch(function() {});
+  }).catch(function(err) {
+    console.error('[VIZI] meteo spot failed:', err);
+  });
 }
 
 function refreshSpotPopup() {
