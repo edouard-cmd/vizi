@@ -692,6 +692,60 @@ var SPOTS = [
   { id:'bastia', name:'Bastia', lat:42.7000, lon:9.4500, region:'Mediterranee' }
 ];
 
+// ============================================================
+// MAPPING Vizi SPOTS -> api-maree.fr site IDs
+// ============================================================
+var API_MAREE_SITES = {
+  'dunkerque': 'dunkerque', 'calais': 'calais', 'boulogne': 'boulogne-sur-mer',
+  'dieppe': 'dieppe', 'le_havre': 'le-havre', 'ouistreham': 'ouistreham',
+  'courseulles': 'courseulles-sur-mer', 'port_bessin': 'port-en-bessin',
+  'grandcamp': 'grandcamp', 'isigny': 'grandcamp', 'cherbourg': 'cherbourg',
+  'carteret': 'carteret', 'granville': 'granville', 'saint_malo': 'saint-malo',
+  'cancale': 'cancale', 'saint_brieuc': 'baie-de-saint-brieuc-le-legue',
+  'paimpol': 'paimpol', 'morlaix': 'baie-de-morlaix-carantec', 'brest': 'brest',
+  'camaret': 'camaret-sur-mer', 'douarnenez': 'douarnenez', 'audierne': 'audierne',
+  'concarneau': 'concarneau', 'lorient': 'lorient', 'belle_ile': 'belle-ile-le-palais',
+  'vannes': 'vannes', 'saint_nazaire': 'saint-nazaire',
+  'noirmoutier': 'noirmoutier-l-herbaudiere', 'les_sables': 'les-sables-d-olonne',
+  'la_rochelle': 'la-rochelle-pallice', 'rochefort': 'la-rochelle-pallice',
+  'royan': 'royan', 'bordeaux': 'bordeaux', 'arcachon': 'cap-ferret',
+  'capbreton': 'boucau-bayonne-biarritz', 'bayonne': 'boucau-bayonne-biarritz',
+  'port_vendres': null, 'sete': null, 'marseille': null, 'toulon': null,
+  'nice': null, 'ajaccio': null, 'bastia': null
+};
+
+function findApiMareeSiteNear(lat, lon) {
+  var best = null, minD = Infinity;
+  SPOTS.forEach(function(s) {
+    var siteId = API_MAREE_SITES[s.id];
+    if (!siteId) return;
+    var d = Math.hypot(s.lat - lat, s.lon - lon);
+    if (d < minD) { minD = d; best = { siteId: siteId, name: s.name, spot: s }; }
+  });
+  return best;
+}
+
+function computeCoefBrest(date) {
+  var refMs = Date.UTC(2000, 0, 6, 18, 14, 0);
+  var daysSinceRef = (date.getTime() - refMs) / 86400000;
+  var lunarPhase = (daysSinceRef / 29.5306) % 1;
+  if (lunarPhase < 0) lunarPhase += 1;
+  var lunarAngle = lunarPhase * 4 * Math.PI;
+  var lunarFactor = Math.pow(Math.cos(lunarAngle / 2), 2);
+  var dayOfYear = Math.floor((date.getTime() - Date.UTC(date.getFullYear(), 0, 0)) / 86400000);
+  var solarAngle = (dayOfYear / 365.25) * 2 * Math.PI;
+  var solarFactor = 1 + 0.08 * Math.cos(2 * solarAngle - 0.3);
+  var coef = 45 + lunarFactor * 50 * solarFactor;
+  return Math.round(Math.max(20, Math.min(120, coef)));
+}
+
+function coefToLabel(coef) {
+  if (coef >= 100) return 'Grande marée';
+  if (coef >= 70) return 'Vive-eau';
+  if (coef >= 40) return 'Morte-eau';
+  return 'Très petite marée';
+}
+  
 var VIS = [
   {v:0, l:'0m', c:'#DC2626'},
   {v:0.5, l:'0.5m', c:'#EA580C'},
