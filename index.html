@@ -709,6 +709,9 @@ var S_spotWeatherCache = null;
 var S_spotMarineCache = null;
 var S_spotSunCache = null;
 var S_hexLayer = null;
+var S_zones = [];
+var S_zoneScores = {};
+var S_zoneLayer = null;
 
 // ============================================================
 // UTILS
@@ -879,43 +882,220 @@ function scoreToLabel(score) {
 }
 
 function showHexLayer() {
-  if (S_hexLayer) return;
-  gasGet('turb_scores').then(function(data) {
-    if (data && data.scores && data.scores.length > 0) {
-      S_gridScores = data.scores;
-      renderTurbLayer(data.scores);
-    }
-  }).catch(function() {});
+  if (S_zoneLayer) return;
+  loadZonesAndCompute();
 }
 
-function renderTurbLayer(points) {
-  if (S_hexLayer) { S.map.removeLayer(S_hexLayer); S_hexLayer = null; }
-  var circles = [];
-  points.forEach(function(pt) {
-    var score = pt.score !== undefined ? pt.score : pt[2];
-    var lat = pt.lat !== undefined ? pt.lat : pt[0];
-    var lon = pt.lon !== undefined ? pt.lon : pt[1];
-    var color = scoreToColor(score);
-    var label = scoreToLabel(score);
-    var circle = L.circle([lat, lon], {
-      radius: 500, fillColor: color, fillOpacity: 0.75, color: color, weight: 0, interactive: false
+function loadZonesAndCompute() {
+  // 1. Charger le GeoJSON des zones
+  fetch('./vizi_zones_normandie.geojson')
+    .then(function(r) { return r.json(); })
+    .then(function(geojson) {
+      S_zones = geojson.features;
+      // 2. Afficher d'abord les zones en gris (en attendant les scores)
+      renderZonesPending();
+      // 3. Calculer les scores pour chaque zone (un appel API par zone)
+      computeZoneScores();
+    })
+    .catch(function(err) {
+      console.error('Erreur chargement zones:', err);
     });
-    circles.push(circle);
-    var textColor = score < 50 ? '#fff' : '#1A2535';
-    var lbl = L.marker([lat, lon], {
-      icon: L.divIcon({
-        className: '',
-        html: '<div style="font-family:IBM Plex Mono,monospace;font-size:10px;font-weight:700;color:' + textColor + ';white-space:nowrap;pointer-events:none;">' + label + '</div>',
-        iconSize: null, iconAnchor: [12, 6]
-      }),
-      interactive: false
+}
+
+function renderZonesPending() {
+  if (S_zoneLayer) { S.map.removeLayer(S_zoneLayer); S_zoneLayer = null; }
+  var layers = [];
+  S_zones.forEach(function(zone) {
+    var poly = L.geoJSON(zone, {
+      style: {
+        fillColor: '#888',
+        fillOpacity: 0.3,
+        color: '#aaa',
+        weight: 1.5,
+        interactive: false
+      }
     });
-    circles.push(lbl);
+    layers.push(poly);
   });
-  S_hexLayer = L.featureGroup(circles).addTo(S.map);
+  S_zoneLayer = L.featureGroup(layers).addTo(S.map);
+}
+
+// Cache localStorage 1h pour éviter trop d'appels Open-Meteo
+function getCachedWeather(key) {
+  try {
+    var raw = localStorage.getItem('vizi_weather_' + key);
+    if (!raw) return null;
+    var obj = JSON.parse(raw);
+    if (Date.now() - obj.ts > 3600000) return null;
+    return obj.data;
+  } catch(e) { return null; }
+}
+
+function setCachedWeather(key, data) {
+  try {
+    localStorage.setItem('vizi_weather_' + key, JSON.stringify({ ts: Date.now(), data: data }));
+  } catch(e) {}
+}
+
+function computeZoneScores() {
+  S_zoneScores = {};
+  var promises = S_zones.map(function(zone, i) {
+    return computeOneZone(zone).then(function(result) {
+      S_zoneScores[zone.properties.id] = result;
+      // Re-render au fur et à mesure que chaque zone finit
+      renderZonesColored();
+    });
+  });
+  Promise.all(promises).then(function() {
+    renderZonesColored();
+  });
+}
+
+function computeOneZone(zone) {
+  var props = zone.properties;
+  var lat = props.sample_lat;
+  var lon = props.sample_lon;
+  var cacheKey = 'z_' + props.id;
+  var cached = getCachedWeather(cacheKey);
+  if (cached) {
+    return Promise.resolve(cached);
+  }
+  // Appel Open-Meteo : 1 seul point par zone
+  var url = 'https://api.open-meteo.com/v1/forecast'
+    + '?latitude=' + lat + '&longitude=' + lon
+    + '&hourly=windspeed_10m,windgusts_10m,winddirection_10m,wave_height,precipitation'
+    + '&wind_speed_unit=kmh&timezone=Europe/Paris&forecast_days=1&past_days=2'
+    + '&models=meteofrance_arome_france';
+  return fetch(url).then(function(r) { return r.json(); }).then(function(data) {
+    var now = new Date();
+    var h = data.hourly;
+    var idx = 0;
+    if (h && h.time) {
+      var nowStr = now.toISOString().slice(0, 13);
+      for (var t = 0; t < h.time.length; t++) {
+        if (h.time[t].slice(0, 13) === nowStr) { idx = t; break; }
+      }
+    }
+    var wind = h.windspeed_10m ? (h.windspeed_10m[idx] || 0) : 0;
+    var gusts = h.windgusts_10m ? (h.windgusts_10m[idx] || 0) : 0;
+    var dir = h.winddirection_10m ? (h.winddirection_10m[idx] || 0) : 0;
+    var wave = h.wave_height ? (h.wave_height[idx] || 0) : 0;
+    var rain = h.precipitation ? (h.precipitation[idx] || 0) : 0;
+    var score = computeZoneScore(wind, gusts, dir, wave, rain, props, h, idx);
+    var result = {
+      score: score,
+      wind: Math.round(wind),
+      gusts: Math.round(gusts),
+      dir: Math.round(dir),
+      wave: wave,
+      label: scoreToLabel(score)
+    };
+    setCachedWeather(cacheKey, result);
+    return result;
+  }).catch(function() {
+    return { score: 50, wind: 0, gusts: 0, dir: 0, wave: 0, label: 'N/A' };
+  });
+}
+
+// Formule de score adaptée aux zones avec prise en compte de l'orientation
+function computeZoneScore(wind, gusts, dir, wave, rain, props, h, idx) {
+  var depth = props.avg_depth_coastal || 8;
+  var orientation = props.coast_orientation || 0;
+  var turbBase = props.turbidity_base || 0.4;
+  
+  // Facteur bathy
+  var bathyFactor = depth <= 3 ? 3.5 : depth <= 6 ? 2.5 : depth <= 10 ? 1.8 : depth <= 15 ? 1.3 : 1.0;
+  
+  // Facteur direction : angle entre vent et perpendiculaire à la côte
+  // Si le vent vient de la mer vers la terre = onshore = pénalité max
+  // Si le vent va de la terre vers la mer = offshore = pénalité faible
+  var perpCoast = (orientation + 180) % 360; // direction "vers le large"
+  var diff = Math.abs(((dir - perpCoast + 540) % 360) - 180);
+  // diff proche de 0 = vent offshore parfait (0.15)
+  // diff proche de 180 = vent onshore frontal (1.4)
+  // diff 90 = latéral (0.7)
+  var dirFactor;
+  if (diff < 45) dirFactor = 0.15;          // offshore
+  else if (diff < 90) dirFactor = 0.4;       // offshore oblique
+  else if (diff < 135) dirFactor = 0.9;      // latéral + léger onshore
+  else dirFactor = 1.4;                      // onshore
+  
+  // Mémoire 72h : on regarde les rafales des dernières heures
+  var decayHours = depth <= 5 ? 72 : depth <= 10 ? 48 : 24;
+  var residualPenalty = 0;
+  if (h && h.windspeed_10m && idx > 0) {
+    var start = Math.max(0, idx - decayHours);
+    for (var i = start; i < idx; i++) {
+      var pw = h.windspeed_10m[i] || 0;
+      var pg = h.windgusts_10m[i] || 0;
+      var pd = h.winddirection_10m ? (h.winddirection_10m[i] || 0) : dir;
+      var pDiff = Math.abs(((pd - perpCoast + 540) % 360) - 180);
+      var pDirF = pDiff < 45 ? 0.15 : pDiff < 90 ? 0.4 : pDiff < 135 ? 0.9 : 1.4;
+      var pImpact = (Math.max(pw - 5, 0) / 20 * 55 + Math.max(pg - 10, 0) / 25 * 30) * pDirF;
+      var hoursAgo = idx - i;
+      var decay = Math.exp(-hoursAgo / (decayHours / 3));
+      residualPenalty = Math.max(residualPenalty, pImpact * decay);
+    }
+  }
+  
+  // Pénalités instantanées
+  var windPenalty = Math.min(Math.max(wind - 5, 0) / 20, 1) * 55 * dirFactor;
+  var gustPenalty = Math.min(Math.max(gusts - 10, 0) / 25, 1) * 30 * dirFactor;
+  var wavePenalty = Math.min(wave / 1.2, 1) * 35;
+  var rainPenalty = Math.min(rain / 3, 1) * 10;
+  
+  var instantPenalty = windPenalty + gustPenalty;
+  var combined = Math.max(instantPenalty, residualPenalty) + wavePenalty + rainPenalty;
+  var total = Math.min(combined * bathyFactor * (0.7 + turbBase), 100);
+  // Score = turbidité (0 = eau claire, 100 = eau totalement brouillée)
+  // Cohérent avec scoreToColor/scoreToLabel existants
+  var score = Math.max(0, Math.min(100, total));
+  
+  return Math.round(score);
+}
+
+function renderZonesColored() {
+  if (S_zoneLayer) { S.map.removeLayer(S_zoneLayer); S_zoneLayer = null; }
+  var layers = [];
+  S_zones.forEach(function(zone) {
+    var props = zone.properties;
+    var zs = S_zoneScores[props.id];
+    var fillColor, fillOp;
+    if (zs) {
+      fillColor = scoreToColor(zs.score);
+      fillOp = 0.55;
+    } else {
+      fillColor = '#888';
+      fillOp = 0.3;
+    }
+    var poly = L.geoJSON(zone, {
+      style: {
+        fillColor: fillColor,
+        fillOpacity: fillOp,
+        color: fillColor,
+        weight: 2,
+        interactive: true
+      }
+    });
+    if (zs) {
+      poly.bindTooltip(
+        '<b>' + props.name + '</b><br>' +
+        '<span style="font-family:IBM Plex Mono,monospace;font-size:11px">' +
+        props.subtitle + '</span><br>' +
+        '<span style="color:' + fillColor + ';font-weight:700">' + zs.label + '</span> - ' +
+        'vent ' + zs.wind + ' km/h',
+        { sticky: true, direction: 'top' }
+      );
+    } else {
+      poly.bindTooltip('<b>' + props.name + '</b><br>Chargement...', { sticky: true });
+    }
+    layers.push(poly);
+  });
+  S_zoneLayer = L.featureGroup(layers).addTo(S.map);
 }
 
 function hideHexLayer() {
+  if (S_zoneLayer) { S.map.removeLayer(S_zoneLayer); S_zoneLayer = null; }
   if (S_hexLayer) { S.map.removeLayer(S_hexLayer); S_hexLayer = null; }
 }
 
@@ -1621,8 +1801,10 @@ function buildCarnetUI() {
   html += '<div class="carnet-stats-row">';
   html += '<div class="carnet-stat"><div class="carnet-stat-val">' + sessionsYear + '</div><div class="carnet-stat-lbl">En ' + now.getFullYear() + '</div></div>';
   html += '<div class="carnet-stat"><div class="carnet-stat-val">' + sessions.length + '</div><div class="carnet-stat-lbl">Total</div></div>';
-  html += '<div class="carnet-stat"><div class="carnet-stat-val" style="font-size:14px;line-height:1.2">' + daysSince + '</div><div class="carnet-stat-lbl">Derniere</div></div>';
+  html += '<div class="carnet-stat"><div class="carnet-stat-val" style="font-size:16px;line-height:1.2">' + daysSince + '</div><div class="carnet-stat-lbl">Derniere</div></div>';
   html += '</div>';
+
+  html += '<button class="carnet-new-btn" onclick="startNewSession()">+ Nouvelle session</button>';
 
   html += '<div class="carnet-map-btn" id="carnetMapToggle" onclick="toggleCarnetSessionsOnMap()">Afficher mes sessions sur la carte</div>';
 
