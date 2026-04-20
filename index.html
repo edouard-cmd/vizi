@@ -89,6 +89,13 @@
     .drawer-datetime input { flex:1; padding:10px 12px; background:var(--surface); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:'IBM Plex Mono', monospace; font-size:15px; outline:none; cursor:pointer; transition:border-color 0.15s; }
     .drawer-datetime input:focus { border-color:var(--accent); }
     .drawer-body { overflow-y:auto; flex:1; }
+    .decant-banner { display:none; padding:14px 16px; background:linear-gradient(135deg, #DC2626, #B91C1C); color:white; border-bottom:2px solid #991B1B; }
+    .decant-banner.show { display:block; }
+    .decant-title { font-family:'IBM Plex Mono', monospace; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.12em; color:rgba(255,255,255,0.85); margin-bottom:4px; display:flex; align-items:center; gap:7px; }
+    .decant-title::before { content:''; width:8px; height:8px; background:white; border-radius:50%; animation:decantPulse 1.4s ease-in-out infinite; }
+    .decant-main { font-family:'Inter', sans-serif; font-size:16px; font-weight:700; line-height:1.3; }
+    .decant-sub { font-family:'IBM Plex Mono', monospace; font-size:12px; color:rgba(255,255,255,0.85); margin-top:4px; }
+    @keyframes decantPulse { 0%, 100% { opacity:1; } 50% { opacity:0.4; } }
     .spot-vis-block { padding:16px 16px 12px; border-bottom:1px solid var(--border); }
     .spot-vis-label { font-family:'IBM Plex Mono', monospace; font-size:13px; font-weight:500; color:var(--text-3); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:12px; }
     .spot-vis-badge { width:100%; padding:16px 0; border-radius:10px; display:flex; align-items:center; justify-content:center; margin-bottom:12px; transition:background 0.35s; }
@@ -429,6 +436,11 @@
     <input type="time" id="spotTime" step="3600" onchange="refreshSpotPopup()">
   </div>
   <div class="drawer-body">
+    <div class="decant-banner" id="decantBanner">
+      <div class="decant-title">Décantation en cours</div>
+      <div class="decant-main" id="decantMain">-</div>
+      <div class="decant-sub" id="decantSub">-</div>
+    </div>
     <div class="spot-vis-block">
       <div class="spot-vis-label">Visibilite estimee</div>
       <div class="spot-vis-badge" id="spotVisBadge">
@@ -722,9 +734,9 @@ var VIZI_ZONES_DATA = {
     {
       "type": "Feature",
       "properties": {
-        "id": "cote_fleurie",
-        "name": "Côte Fleurie",
-        "subtitle": "Deauville, Trouville, Villers",
+        "id": "zone_1",
+        "name": "Zone 1",
+        "subtitle": "Est - vers Deauville",
         "region": "Calvados",
         "coast_orientation": 340,
         "avg_depth_coastal": 6,
@@ -754,9 +766,9 @@ var VIZI_ZONES_DATA = {
     {
       "type": "Feature",
       "properties": {
-        "id": "cote_nacre_est",
-        "name": "Côte de Nacre Est",
-        "subtitle": "Cabourg, Merville, Ouistreham",
+        "id": "zone_2",
+        "name": "Zone 2",
+        "subtitle": "Côte de Nacre Est",
         "region": "Calvados",
         "coast_orientation": 0,
         "avg_depth_coastal": 7,
@@ -789,9 +801,9 @@ var VIZI_ZONES_DATA = {
     {
       "type": "Feature",
       "properties": {
-        "id": "cote_nacre_ouest",
-        "name": "Côte de Nacre Ouest",
-        "subtitle": "Courseulles, Ver-sur-Mer, Graye",
+        "id": "zone_3",
+        "name": "Zone 3",
+        "subtitle": "Côte de Nacre Ouest",
         "region": "Calvados",
         "coast_orientation": 0,
         "avg_depth_coastal": 8,
@@ -865,9 +877,9 @@ var VIZI_ZONES_DATA = {
     {
       "type": "Feature",
       "properties": {
-        "id": "bessin_est",
-        "name": "Bessin Est",
-        "subtitle": "Arromanches, Port-en-Bessin",
+        "id": "zone_4",
+        "name": "Zone 4",
+        "subtitle": "Bessin Est",
         "region": "Calvados",
         "coast_orientation": 355,
         "avg_depth_coastal": 10,
@@ -897,9 +909,9 @@ var VIZI_ZONES_DATA = {
     {
       "type": "Feature",
       "properties": {
-        "id": "bessin_ouest",
-        "name": "Bessin Ouest",
-        "subtitle": "Port-en-Bessin, Omaha, Grandcamp",
+        "id": "zone_5",
+        "name": "Zone 5",
+        "subtitle": "Bessin Ouest",
         "region": "Calvados",
         "coast_orientation": 350,
         "avg_depth_coastal": 9,
@@ -939,9 +951,9 @@ var VIZI_ZONES_DATA = {
     {
       "type": "Feature",
       "properties": {
-        "id": "cotentin_est",
-        "name": "Cotentin Est",
-        "subtitle": "Saint-Vaast, Gatteville, Barfleur",
+        "id": "zone_6",
+        "name": "Zone 6",
+        "subtitle": "Cotentin Est",
         "region": "Manche",
         "coast_orientation": 70,
         "avg_depth_coastal": 12,
@@ -1000,6 +1012,65 @@ function gasGet(action, params) {
 }
 
 function toKt(kmh) { return Math.round(kmh * 0.539957); }
+
+// Récupère la vraie profondeur via EMODnet Bathymetry (couverture Europe entière)
+// Précision : grille 115m. Cache localStorage pour éviter rappels.
+function fetchRealDepth(lat, lon) {
+  // Arrondi à 3 décimales pour créer une clé de cache pertinente (~100m de résolution)
+  var cacheKey = 'vizi_depth_' + lat.toFixed(3) + '_' + lon.toFixed(3);
+  try {
+    var cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      var obj = JSON.parse(cached);
+      // Pas d'expiration : la bathy ne change pas
+      return Promise.resolve(obj.depth);
+    }
+  } catch(e) {}
+
+  var url = 'https://rest.emodnet-bathymetry.eu/depth/point?geom=POINT(' + lon + ' ' + lat + ')';
+  return fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      // EMODnet retourne des profondeurs négatives (sous niveau mer)
+      // On prend la valeur "avg" et on convertit en positif
+      if (data && typeof data.avg === 'number') {
+        var depth = Math.abs(data.avg);
+        // Sanity check : rejeter les valeurs aberrantes
+        if (depth > 0 && depth < 1000) {
+          try { localStorage.setItem(cacheKey, JSON.stringify({ depth: depth })); } catch(e) {}
+          return depth;
+        }
+      }
+      return null;
+    })
+    .catch(function() { return null; });
+}
+
+// Distance Haversine entre 2 points (en mètres)
+function haversineM(lat1, lon1, lat2, lon2) {
+  var R = 6371000;
+  var dLat = (lat2 - lat1) * Math.PI / 180;
+  var dLon = (lon2 - lon1) * Math.PI / 180;
+  var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) *
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+// Estime la distance au trait de côte le plus proche en utilisant les bords de polygones
+// Les polygones de zones ont été dessinés en collant au trait de côte (bord sud/terre)
+function estimateDistanceToCoast(lat, lon) {
+  var minDist = Infinity;
+  if (!VIZI_ZONES_DATA || !VIZI_ZONES_DATA.features) return 500;
+  VIZI_ZONES_DATA.features.forEach(function(zone) {
+    var coords = zone.geometry.coordinates[0];
+    for (var i = 0; i < coords.length - 1; i++) {
+      var d = haversineM(lat, lon, coords[i][1], coords[i][0]);
+      if (d < minDist) minDist = d;
+    }
+  });
+  return minDist === Infinity ? 500 : minDist;
+}
 
 function isMobile() { return window.innerWidth <= 768; }
 
@@ -1510,10 +1581,24 @@ function openSpotPopup(latlng, name) {
 
   document.getElementById('spotCoords').textContent = latlng.lat.toFixed(4) + 'N - ' + Math.abs(latlng.lng).toFixed(4) + 'O' + (name ? ' - ' + name : '');
 
-  var distCoastDeg = Math.abs(latlng.lat - 49.34);
-  var depth = Math.max(2.5, Math.min(50, distCoastDeg * 111 * 10));
-  S._spotDepth = depth;
-  document.getElementById('spotMeta').textContent = '~' + Math.round(depth) + 'm - AROME 2.5km';
+  // Estimation initiale rapide (fallback en attendant EMODnet)
+  var distToCoastMeters = estimateDistanceToCoast(latlng.lat, latlng.lng);
+  var depthEstimate = Math.max(1.5, Math.min(30, distToCoastMeters * 0.004 + 1.5));
+  S._spotDepth = depthEstimate;
+  S._distToCoast = distToCoastMeters;
+  document.getElementById('spotMeta').textContent = 'Profondeur en cours...';
+
+  // Profondeur réelle via EMODnet (couvre toute la France + Europe)
+  fetchRealDepth(latlng.lat, latlng.lng).then(function(realDepth) {
+    if (realDepth !== null && realDepth > 0) {
+      S._spotDepth = realDepth;
+      document.getElementById('spotMeta').textContent = '~' + Math.round(realDepth) + 'm - EMODnet (115m)';
+    } else {
+      document.getElementById('spotMeta').textContent = '~' + Math.round(depthEstimate) + 'm - estimation';
+    }
+    // Rafraîchir le rendu si les données météo sont déjà là
+    if (S_spotWeatherCache) renderSpotPopup();
+  });
 
   var now = new Date();
   document.getElementById('spotDate').value = now.toISOString().split('T')[0];
@@ -1543,7 +1628,7 @@ function fetchSpotWeather(lat, lon) {
   var start = new Date(now); start.setHours(0, 0, 0, 0);
   var end = new Date(now); end.setDate(end.getDate() + 4);
   var fmt = function(d) { return d.toISOString().split('T')[0]; };
-  var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&hourly=windspeed_10m,windgusts_10m,winddirection_10m,wave_height,precipitation&wind_speed_unit=kmh&timezone=Europe/Paris&start_date=' + fmt(start) + '&end_date=' + fmt(end) + '&models=meteofrance_arome_france';
+  var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&hourly=windspeed_10m,windgusts_10m,winddirection_10m,wave_height,precipitation&wind_speed_unit=kmh&timezone=Europe/Paris&start_date=' + fmt(start) + '&end_date=' + fmt(end) + '&past_days=3&models=meteofrance_arome_france';
   fetch(url).then(function(r) { return r.json(); }).then(function(d) {
     if (!d.hourly) return;
     S_spotWeatherCache = d.hourly;
@@ -1627,6 +1712,94 @@ function renderSpotPopup() {
     var impactStr = f.impact !== null ? (f.impact > 0 ? '-' + f.impact : 'ok') : '';
     return '<div style="display:flex;align-items:center;gap:8px;font-family:IBM Plex Mono,monospace;font-size:11px;color:#4A6080;"><span style="flex:1">' + f.label + '</span><span style="font-weight:600">' + impactStr + '</span></div>';
   }).join('');
+
+  // Calcul décantation : quand l'eau sera-t-elle claire ?
+  renderDecantation(h, idx, depth, dir, S.clickLatLng);
+}
+
+// Calcul et affichage de la période de décantation
+function renderDecantation(h, currentIdx, depth, currentDir, latlng) {
+  var banner = document.getElementById('decantBanner');
+  if (!h || !h.windspeed_10m || !banner) { if (banner) banner.classList.remove('show'); return; }
+
+  // Profondeur détermine la durée de décantation de base
+  // Fond peu profond (<5m) = décantation plus lente
+  var decantBaseHours = depth <= 3 ? 72 : depth <= 6 ? 48 : depth <= 10 ? 30 : depth <= 15 ? 18 : 12;
+
+  // On cherche le pic de vent onshore dans les 72h passées
+  // Un vent onshore fort brasse l'eau, et après son arrêt il faut X heures pour décanter
+  var lookback = Math.min(72, currentIdx);
+  var maxImpactHoursAgo = -1;
+  var maxImpact = 0;
+  var zone = findZoneAtPoint(latlng.lat, latlng.lng);
+  var coastOrient = zone ? zone.properties.coast_orientation : 0;
+  var perpCoast = (coastOrient + 180) % 360;
+
+  for (var i = currentIdx - lookback; i <= currentIdx; i++) {
+    if (i < 0) continue;
+    var w = h.windspeed_10m[i] || 0;
+    var g = h.windgusts_10m[i] || 0;
+    var d = h.winddirection_10m ? (h.winddirection_10m[i] || 0) : 0;
+    var diff = Math.abs(((d - perpCoast + 540) % 360) - 180);
+    // Onshore seulement (diff > 135°)
+    if (diff < 135) continue;
+    // Impact fonction de la vitesse du vent
+    var impact = Math.max(w - 12, 0) + Math.max(g - 18, 0) * 0.6;
+    if (impact > maxImpact) {
+      maxImpact = impact;
+      maxImpactHoursAgo = currentIdx - i;
+    }
+  }
+
+  // Si aucun pic significatif : pas de décantation à signaler
+  if (maxImpact < 5) { banner.classList.remove('show'); return; }
+
+  // Durée totale de décantation depuis le pic (proportionnel à l'intensité)
+  var decantTotalHours = Math.round(decantBaseHours * (0.5 + Math.min(maxImpact / 40, 1)));
+  // Temps restant = durée totale - temps écoulé depuis le pic
+  var hoursRemaining = decantTotalHours - maxImpactHoursAgo;
+
+  if (hoursRemaining <= 2) { banner.classList.remove('show'); return; }
+
+  // Heure estimée d'eau claire
+  var now = new Date();
+  var clearTime = new Date(now.getTime() + hoursRemaining * 3600 * 1000);
+  var dayNames = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+  var dayName;
+  var dayDiff = Math.floor((clearTime.getTime() - new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) / 86400000);
+  if (dayDiff === 0) dayName = "aujourd'hui";
+  else if (dayDiff === 1) dayName = 'demain';
+  else if (dayDiff === 2) dayName = 'après-demain';
+  else dayName = dayNames[clearTime.getDay()];
+  var hh = clearTime.getHours().toString().padStart(2, '0');
+  var mm = clearTime.getMinutes().toString().padStart(2, '0');
+
+  document.getElementById('decantMain').textContent = 'Eau claire vers ' + dayName + ' ' + hh + 'h';
+  document.getElementById('decantSub').textContent = '≈ ' + hoursRemaining + 'h restantes (fond ' + Math.round(depth) + 'm)';
+  banner.classList.add('show');
+}
+
+// Trouve la zone contenant un point (retourne la feature ou null)
+function findZoneAtPoint(lat, lon) {
+  if (!VIZI_ZONES_DATA || !VIZI_ZONES_DATA.features) return null;
+  for (var i = 0; i < VIZI_ZONES_DATA.features.length; i++) {
+    var zone = VIZI_ZONES_DATA.features[i];
+    if (pointInPolygon([lon, lat], zone.geometry.coordinates[0])) return zone;
+  }
+  return null;
+}
+
+// Ray casting algorithm point-in-polygon
+function pointInPolygon(point, polygon) {
+  var x = point[0], y = point[1];
+  var inside = false;
+  for (var i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    var xi = polygon[i][0], yi = polygon[i][1];
+    var xj = polygon[j][0], yj = polygon[j][1];
+    var intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
 }
 
 function fetchSpotMarineAndSun(lat, lon) {
