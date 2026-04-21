@@ -2,6 +2,93 @@
 
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxyjkavoaEJ6AdhK1MKzph68IH3ZKL8QadDGuU_GyzruxqUsXRv6nP9dJqenTCf6u7Z/exec';
 
+// ============================================================
+// ORIENTATION DE COTE - meme source que arome_scores.gs
+// Retourne la normale sortante (vers le large) en degres
+// ============================================================
+var COAST_SEGMENTS = [
+  ['Cote Opale',        50.3, 51.2,  1.3,  2.6,  300],
+  ['Baie de Somme',     50.0, 50.4,  1.4,  1.8,  290],
+  ['Cote Albatre',      49.5, 50.1,  0.0,  1.5,  330],
+  ['Estuaire Seine',    49.3, 49.5, -0.1,  0.4,    0],
+  ['Calvados',          49.2, 49.5, -1.2, -0.1,    0],
+  ['Baie Seine O',      49.2, 49.5, -1.4, -1.1,   20],
+  ['Cotentin E',        49.3, 49.7, -1.3, -1.1,   90],
+  ['Cotentin N',        49.6, 49.8, -1.95,-1.2,    0],
+  ['Cotentin O',        48.7, 49.6, -2.0, -1.5,  270],
+  ['Mont St Michel',    48.5, 48.8, -2.0, -1.4,  300],
+  ['Bretagne N est',    48.5, 48.8, -2.8, -2.0,    0],
+  ['Bretagne N ouest',  48.5, 48.8, -4.8, -2.8,    0],
+  ['Finistere O',       48.0, 48.6, -4.9, -4.4,  270],
+  ['Pointe du Raz',     47.9, 48.1, -4.8, -4.5,  260],
+  ['Bretagne S',        47.2, 48.0, -4.5, -2.0,  180],
+  ['Loire Atlantique',  47.0, 47.4, -2.6, -1.8,  260],
+  ['Vendee',            46.3, 47.0, -2.4, -1.4,  260],
+  ['Ile de Re-Oleron',  45.7, 46.4, -1.6, -1.0,  270],
+  ['Charente',          45.5, 45.9, -1.2, -0.7,  280],
+  ['Gironde',           45.3, 45.7, -1.3, -0.8,  270],
+  ['Cote Landes',       43.6, 45.3, -1.6, -1.0,  270],
+  ['Pays Basque',       43.3, 43.6, -1.8, -1.4,  290],
+  ['Pyrenees Or.',      42.4, 42.7,  3.0,  3.3,   90],
+  ['Roussillon',        42.6, 42.9,  2.9,  3.2,  120],
+  ['Languedoc',         43.0, 43.6,  3.0,  4.3,  180],
+  ['Camargue',          43.3, 43.6,  4.3,  4.9,  180],
+  ['Cote Bleue',        43.2, 43.5,  4.9,  5.4,  180],
+  ['Marseille',         43.1, 43.4,  5.2,  5.5,  180],
+  ['Calanques',         43.1, 43.3,  5.4,  5.8,  180],
+  ['Toulon',            42.9, 43.2,  5.7,  6.3,  180],
+  ['Hyeres',            42.9, 43.2,  6.0,  6.5,  180],
+  ['Cote Maures',       43.0, 43.3,  6.2,  6.7,  170],
+  ['Cote Esterel',      43.3, 43.6,  6.6,  7.0,  170],
+  ['Cannes-Antibes',    43.4, 43.7,  6.9,  7.2,  180],
+  ['Nice',              43.6, 43.8,  7.1,  7.4,  180],
+  ['Menton',            43.7, 43.9,  7.4,  7.6,  180],
+  ['Cap Corse E',       42.7, 43.1,  9.3,  9.6,   90],
+  ['Cap Corse O',       42.7, 43.1,  9.1,  9.3,  270],
+  ['Corse E',           41.6, 42.7,  9.3,  9.7,   90],
+  ['Bonifacio',         41.3, 41.6,  9.1,  9.4,  180],
+  ['Corse SO',          41.3, 41.7,  8.7,  9.2,  210],
+  ['Corse O',           41.7, 42.7,  8.5,  9.0,  270]
+];
+
+function getCoastNormal(lat, lon) {
+  var MARGIN = 0.2;
+  var matching = [];
+  for (var i = 0; i < COAST_SEGMENTS.length; i++) {
+    var s = COAST_SEGMENTS[i];
+    if (lat >= (s[1] - MARGIN) && lat <= (s[2] + MARGIN) &&
+        lon >= (s[3] - MARGIN) && lon <= (s[4] + MARGIN)) {
+      matching.push(s);
+    }
+  }
+  if (matching.length === 0) matching = COAST_SEGMENTS;
+  var best = null, bestDist = Infinity;
+  for (var j = 0; j < matching.length; j++) {
+    var seg = matching[j];
+    var cLat = (seg[1] + seg[2]) / 2;
+    var cLon = (seg[3] + seg[4]) / 2;
+    var dLat = (lat - cLat) * 111;
+    var dLon = (lon - cLon) * 111 * Math.cos(lat * Math.PI / 180);
+    var d = Math.sqrt(dLat*dLat + dLon*dLon);
+    if (d < bestDist) { bestDist = d; best = seg; }
+  }
+  return best ? best[5] : 270;
+}
+
+// Facteur direction base sur composante onshore reelle
+// offshore pur -> 0.15 (protecteur) ; onshore pur -> 1.15 (amplificateur)
+function getDirFactorForPoint(windDir, lat, lon) {
+  if (windDir === null || windDir === undefined) return 1.0;
+  var coastNormal = getCoastNormal(lat, lon);
+  var windGoesTo = (windDir + 180) % 360;
+  var angle = windGoesTo - coastNormal;
+  while (angle > 180) angle -= 360;
+  while (angle < -180) angle += 360;
+  var offshoreFactor = Math.cos(angle * Math.PI / 180);
+  var factor = 0.65 - offshoreFactor * 0.5;
+  return Math.max(0.15, Math.min(1.15, factor));
+}
+
 var SPOTS = [
   { id:'dunkerque', name:'Dunkerque', lat:51.0500, lon:2.3667, region:'Manche' },
   { id:'calais', name:'Calais', lat:50.9667, lon:1.8500, region:'Manche' },
@@ -415,7 +502,7 @@ function computeOneZone(zone) {
     var dir = h.winddirection_10m ? (h.winddirection_10m[idx] || 0) : 0;
     var wave = h.wave_height ? (h.wave_height[idx] || 0) : 0;
     var rain = h.precipitation ? (h.precipitation[idx] || 0) : 0;
-    var score = computeZoneScore(wind, gusts, dir, wave, rain, props, h, idx);
+    var score = computeZoneScore(wind, gusts, dir, wave, rain, props, h, idx, lat, lon);
     var result = { score: score, wind: Math.round(wind), gusts: Math.round(gusts), dir: Math.round(dir), wave: wave, label: scoreToLabel(score) };
     setCachedWeather(cacheKey, result);
     return result;
@@ -424,18 +511,11 @@ function computeOneZone(zone) {
   });
 }
 
-function computeZoneScore(wind, gusts, dir, wave, rain, props, h, idx) {
+function computeZoneScore(wind, gusts, dir, wave, rain, props, h, idx, lat, lon) {
   var depth = props.avg_depth_coastal || 8;
-  var orientation = props.coast_orientation || 0;
   var turbBase = props.turbidity_base || 0.4;
   var bathyFactor = depth <= 3 ? 3.5 : depth <= 6 ? 2.5 : depth <= 10 ? 1.8 : depth <= 15 ? 1.3 : 1.0;
-  var perpCoast = (orientation + 180) % 360;
-  var diff = Math.abs(((dir - perpCoast + 540) % 360) - 180);
-  var dirFactor;
-  if (diff < 45) dirFactor = 0.15;
-  else if (diff < 90) dirFactor = 0.4;
-  else if (diff < 135) dirFactor = 0.9;
-  else dirFactor = 1.4;
+  var dirFactor = getDirFactorForPoint(dir, lat, lon);
   var decayHours = depth <= 5 ? 72 : depth <= 10 ? 48 : 24;
   var residualPenalty = 0;
   if (h && h.windspeed_10m && idx > 0) {
@@ -444,8 +524,7 @@ function computeZoneScore(wind, gusts, dir, wave, rain, props, h, idx) {
       var pw = h.windspeed_10m[i] || 0;
       var pg = h.windgusts_10m[i] || 0;
       var pd = h.winddirection_10m ? (h.winddirection_10m[i] || 0) : dir;
-      var pDiff = Math.abs(((pd - perpCoast + 540) % 360) - 180);
-      var pDirF = pDiff < 45 ? 0.15 : pDiff < 90 ? 0.4 : pDiff < 135 ? 0.9 : 1.4;
+      var pDirF = getDirFactorForPoint(pd, lat, lon);
       var pImpact = (Math.max(pw - 5, 0) / 20 * 55 + Math.max(pg - 10, 0) / 25 * 30) * pDirF;
       var hoursAgo = idx - i;
       var decay = Math.exp(-hoursAgo / (decayHours / 3));
@@ -674,6 +753,10 @@ function refreshSpotPopup() {
   if (S_spotWeatherCache) renderSpotPopup();
 }
 
+// ============================================================
+// CALCUL VISIBILITE ALIGNE SUR arome_scores.gs
+// Utilise getDirFactorForPoint avec orientation de cote locale
+// ============================================================
 function renderSpotPopup() {
   var h = S_spotWeatherCache;
   if (!h) return;
@@ -690,19 +773,20 @@ function renderSpotPopup() {
   var dir = h.winddirection_10m[idx];
   var wave = h.wave_height ? (h.wave_height[idx] || 0) : 0;
   var depth = S._spotDepth || 5;
+  var lat = S.clickLatLng ? S.clickLatLng.lat : 49.35;
+  var lon = S.clickLatLng ? S.clickLatLng.lng : -0.5;
+
   var bathyFactor = depth <= 2 ? 4.0 : depth <= 5 ? 3.0 : depth <= 10 ? 2.0 : depth <= 20 ? 1.3 : 1.0;
-  function getDirFactor(d) {
-    if (d === null || d === undefined) return 1.0;
-    if (d >= 135 && d <= 225) return 0.15;
-    if ((d > 45 && d < 135) || (d > 225 && d < 315)) return 0.7;
-    return 1.4;
-  }
-  var dirFactor = getDirFactor(dir);
+
+  // NOUVEAU : facteur direction base sur orientation locale de la cote
+  var dirFactor = getDirFactorForPoint(dir, lat, lon);
+
   var windPenalty = Math.min(Math.max(wind - 5, 0) / 20, 1) * 55 * dirFactor;
   var gustPenalty = Math.min(Math.max(gusts - 10, 0) / 25, 1) * 30 * dirFactor;
   var wavePenalty = Math.min(wave / 1.2, 1) * 35;
   var totalPenalty = Math.min((windPenalty + gustPenalty + wavePenalty) * bathyFactor, 100);
   var score = Math.max(0, Math.min(100, 100 - totalPenalty));
+
   var visLabel = score >= 80 ? 'Excellente' : score >= 60 ? 'Bonne' : score >= 40 ? 'Moyenne' : score >= 20 ? 'Faible' : 'Nulle';
   var badgeColors = { 'Nulle': '#DC2626', 'Faible': '#EA580C', 'Moyenne': '#CA8A04', 'Bonne': '#16A34A', 'Excellente': '#0BA888' };
   var segColors = ['#DC2626', '#EA580C', '#CA8A04', '#16A34A', '#0BA888'];
@@ -726,8 +810,15 @@ function renderSpotPopup() {
   var dirName = (dir !== null && dir !== undefined) ? fromNames[aidx] : '-';
   document.getElementById('spotWindDir').textContent = dirName;
   document.getElementById('spotWindDeg').textContent = dir !== null ? Math.round(dir) + ' deg' : '-';
+
+  // Affichage du facteur direction pour transparence
+  var offshoreLabel = '';
+  if (dirFactor <= 0.3) offshoreLabel = ' - offshore';
+  else if (dirFactor >= 1.0) offshoreLabel = ' - onshore';
+  else offshoreLabel = ' - lateral';
+
   var factors = [];
-  factors.push({ label: 'Vent ' + windDisp + ' ' + unitDisp + ' (' + dirName + ')', impact: Math.round(windPenalty) });
+  factors.push({ label: 'Vent ' + windDisp + ' ' + unitDisp + ' (' + dirName + ')' + offshoreLabel, impact: Math.round(windPenalty) });
   if (wavePenalty > 3) factors.push({ label: 'Vagues ' + wave.toFixed(1) + 'm', impact: Math.round(wavePenalty) });
   factors.push({ label: 'Fond ~' + Math.round(depth) + 'm (x' + bathyFactor.toFixed(1) + ')', impact: null });
   var factorsEl = document.getElementById('spotFactors');
@@ -745,16 +836,23 @@ function renderDecantation(h, currentIdx, depth, currentDir, latlng) {
   var lookback = Math.min(72, currentIdx);
   var maxImpactHoursAgo = -1;
   var maxImpact = 0;
-  var zone = findZoneAtPoint(latlng.lat, latlng.lng);
-  var coastOrient = zone ? zone.properties.coast_orientation : 0;
-  var perpCoast = (coastOrient + 180) % 360;
+  // NOUVEAU : utilise orientation locale de la cote
+  var coastNormal = getCoastNormal(latlng.lat, latlng.lng);
+
   for (var i = currentIdx - lookback; i <= currentIdx; i++) {
     if (i < 0) continue;
     var w = h.windspeed_10m[i] || 0;
     var g = h.windgusts_10m[i] || 0;
     var d = h.winddirection_10m ? (h.winddirection_10m[i] || 0) : 0;
-    var diff = Math.abs(((d - perpCoast + 540) % 360) - 180);
-    if (diff < 135) continue;
+    // Si le vent est offshore (va vers le large), pas de contribution a la turbidite
+    var windGoesTo = (d + 180) % 360;
+    var angle = windGoesTo - coastNormal;
+    while (angle > 180) angle -= 360;
+    while (angle < -180) angle += 360;
+    var offshoreFactor = Math.cos(angle * Math.PI / 180);
+    // Ne considere la decantation que si onshore (offshoreFactor < -0.3)
+    if (offshoreFactor > -0.3) continue;
+
     var impact = Math.max(w - 12, 0) + Math.max(g - 18, 0) * 0.6;
     if (impact > maxImpact) {
       maxImpact = impact;
@@ -853,9 +951,6 @@ function fallbackSediment() {
   document.getElementById('sedSwatchColor').style.background = '#E2E8F0';
 }
 
-// ============================================================
-// TIDES via api-maree.fr (proxy GAS) - VRAIE NOUVELLE VERSION
-// ============================================================
 function loadDrawerTides(lat, lon) {
   var near = findApiMareeSiteNear(lat, lon);
   var container = document.getElementById('drawerTides');
