@@ -563,6 +563,85 @@
     }
     .tides-window-arrow { color: var(--text-3); font-size: 16px; }
 
+    /* Bouton ajouter a l'agenda (discret) */
+    .tides-agenda-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 4px;
+      padding: 6px 10px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text-3);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .tides-agenda-btn:hover {
+      background: var(--surface-2, rgba(11, 168, 136, 0.08));
+      border-color: #0BA888;
+      color: #0BA888;
+    }
+
+    /* Modale agenda : inputs et boutons */
+    .agenda-label {
+      display: block;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-3);
+      margin-bottom: 4px;
+    }
+    .agenda-input {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      color: var(--text-1);
+      background: var(--surface);
+      box-sizing: border-box;
+    }
+    .agenda-input:focus {
+      outline: none;
+      border-color: #0BA888;
+      box-shadow: 0 0 0 3px rgba(11, 168, 136, 0.15);
+    }
+    textarea.agenda-input { resize: vertical; font-family: 'Inter', sans-serif; }
+    .agenda-btn-primary {
+      flex: 1;
+      padding: 10px 16px;
+      background: #0BA888;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .agenda-btn-primary:hover { background: #089375; }
+    .agenda-btn-secondary {
+      flex: 1;
+      padding: 10px 16px;
+      background: transparent;
+      color: var(--text-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .agenda-btn-secondary:hover { background: var(--surface); }
+
     /* Grande courbe */
     .tides-curve-wrap {
       background: var(--surface);
