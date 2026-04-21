@@ -2251,7 +2251,7 @@ function renderFullWindows(extremes, isToday, now) {
   if (!extremes || extremes.length === 0) return '';
 
   var html = '<div class="tides-windows-grid">';
-  extremes.forEach(function(e) {
+  extremes.forEach(function(e, idx) {
     var etaleTime = new Date(e.time);
     var startTime = new Date(etaleTime.getTime() - 120 * 60000);
     var endTime = new Date(etaleTime.getTime() + 120 * 60000);
@@ -2270,6 +2270,25 @@ function renderFullWindows(extremes, isToday, now) {
     var bg = isCurrent ? 'rgba(168,230,61,0.1)' : 'var(--surface)';
     var badge = isCurrent ? '<span class="tides-window-badge">MAINTENANT</span>' : '';
 
+    // Bouton agenda : on passe les infos en data-attr pour la modale
+    var agendaBtn = isPast ? '' : (
+      '<button class="tides-agenda-btn" ' +
+      'data-etale="' + etaleTime.toISOString() + '" ' +
+      'data-type="' + e.type + '" ' +
+      'data-start="' + startTime.toISOString() + '" ' +
+      'data-end="' + endTime.toISOString() + '" ' +
+      'onclick="openAgendaModal(this)" ' +
+      'title="Ajouter a mon agenda">' +
+      '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+        '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>' +
+        '<line x1="16" y1="2" x2="16" y2="6"></line>' +
+        '<line x1="8" y1="2" x2="8" y2="6"></line>' +
+        '<line x1="3" y1="10" x2="21" y2="10"></line>' +
+      '</svg>' +
+      '<span>Agenda</span>' +
+      '</button>'
+    );
+
     html += '<div class="tides-window-card" style="border:' + border + ';background:' + bg + ';opacity:' + opacity + ';">' +
       '<div class="tides-window-top">' +
         '<div class="tides-window-type" style="color:' + typeColor + ';">' + typeShort + ' &mdash; ' + typeLabel + badge + '</div>' +
@@ -2280,10 +2299,171 @@ function renderFullWindows(extremes, isToday, now) {
         '<span class="tides-window-arrow">&rarr;</span>' +
         '<span class="tides-window-time">' + endStr + '</span>' +
       '</div>' +
+      agendaBtn +
     '</div>';
   });
   html += '</div>';
   return html;
+}
+
+// ============================================================
+// Modale "Ajouter a l'agenda" + generation ICS
+// ============================================================
+function openAgendaModal(btn) {
+  var etale = new Date(btn.dataset.etale);
+  var type = btn.dataset.type;
+  var start = new Date(btn.dataset.start);
+  var end = new Date(btn.dataset.end);
+
+  var typeLabel = type === 'high' ? 'Pleine mer' : 'Basse mer';
+  var portName = TIDES_PAGE.currentSiteName || 'spot';
+  var selDate = TIDES_PAGE.selectedDate;
+  var coef = getCoefForDate(selDate);
+  var isMed = isMediterraneanPort(TIDES_PAGE.currentSite);
+
+  // Format YYYY-MM-DD et HH:MM pour les inputs
+  function toDateInput(d) {
+    var y = d.getFullYear();
+    var m = String(d.getMonth() + 1).padStart(2, '0');
+    var day = String(d.getDate()).padStart(2, '0');
+    return y + '-' + m + '-' + day;
+  }
+  function toTimeInput(d) {
+    return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  }
+
+  var defaultTitle = 'Chasse sous-marine - ' + typeLabel + ' ' + portName;
+  var defaultNotes = 'Etale ' + etale.toLocaleTimeString('fr', { hour:'2-digit', minute:'2-digit' }) +
+    (isMed ? '' : ' - Coef ' + coef) +
+    ' - Creneau chassable +/-2h';
+
+  // Construction de la modale
+  var modal = document.createElement('div');
+  modal.id = 'agendaModal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(26,37,53,0.6);z-index:3000;display:flex;align-items:center;justify-content:center;padding:20px;';
+  modal.innerHTML =
+    '<div style="background:#fff;border-radius:12px;max-width:440px;width:100%;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,0.25);">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">' +
+        '<h3 style="margin:0;font-family:Space Grotesk,sans-serif;font-size:18px;color:var(--text-1);">Ajouter a l\'agenda</h3>' +
+        '<button onclick="closeAgendaModal()" style="background:none;border:none;cursor:pointer;padding:4px;color:var(--text-3);font-size:20px;line-height:1;">&times;</button>' +
+      '</div>' +
+      '<div style="display:flex;flex-direction:column;gap:12px;">' +
+        '<div>' +
+          '<label class="agenda-label">Titre</label>' +
+          '<input type="text" id="agendaTitle" value="' + defaultTitle.replace(/"/g, '&quot;') + '" class="agenda-input"/>' +
+        '</div>' +
+        '<div>' +
+          '<label class="agenda-label">Date</label>' +
+          '<input type="date" id="agendaDate" value="' + toDateInput(start) + '" class="agenda-input"/>' +
+        '</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">' +
+          '<div>' +
+            '<label class="agenda-label">Debut</label>' +
+            '<input type="time" id="agendaStart" value="' + toTimeInput(start) + '" class="agenda-input"/>' +
+          '</div>' +
+          '<div>' +
+            '<label class="agenda-label">Fin</label>' +
+            '<input type="time" id="agendaEnd" value="' + toTimeInput(end) + '" class="agenda-input"/>' +
+          '</div>' +
+        '</div>' +
+        '<div>' +
+          '<label class="agenda-label">Notes</label>' +
+          '<textarea id="agendaNotes" class="agenda-input" rows="2">' + defaultNotes + '</textarea>' +
+        '</div>' +
+      '</div>' +
+      '<div style="display:flex;gap:8px;margin-top:20px;">' +
+        '<button onclick="closeAgendaModal()" class="agenda-btn-secondary">Annuler</button>' +
+        '<button onclick="exportAgendaICS()" class="agenda-btn-primary">Exporter</button>' +
+      '</div>' +
+    '</div>';
+  document.body.appendChild(modal);
+
+  // Ferme si clic en dehors
+  modal.addEventListener('click', function(evt) {
+    if (evt.target === modal) closeAgendaModal();
+  });
+}
+
+function closeAgendaModal() {
+  var m = document.getElementById('agendaModal');
+  if (m) m.remove();
+}
+
+// Genere et telecharge un fichier .ics compatible Apple Calendar, Google Agenda, Outlook
+function exportAgendaICS() {
+  var title = document.getElementById('agendaTitle').value || 'Chasse sous-marine';
+  var dateStr = document.getElementById('agendaDate').value;
+  var startStr = document.getElementById('agendaStart').value;
+  var endStr = document.getElementById('agendaEnd').value;
+  var notes = document.getElementById('agendaNotes').value || '';
+
+  if (!dateStr || !startStr || !endStr) {
+    alert('Date, debut et fin sont obligatoires');
+    return;
+  }
+
+  // Construit les Date objects en heure locale
+  var startDate = new Date(dateStr + 'T' + startStr + ':00');
+  var endDate = new Date(dateStr + 'T' + endStr + ':00');
+
+  if (endDate <= startDate) {
+    alert('La fin doit etre apres le debut');
+    return;
+  }
+
+  // Format ICS : YYYYMMDDTHHMMSSZ (UTC)
+  function toICSDate(d) {
+    function pad(n) { return String(n).padStart(2, '0'); }
+    return d.getUTCFullYear() +
+      pad(d.getUTCMonth() + 1) +
+      pad(d.getUTCDate()) + 'T' +
+      pad(d.getUTCHours()) +
+      pad(d.getUTCMinutes()) +
+      pad(d.getUTCSeconds()) + 'Z';
+  }
+
+  function escapeICS(s) {
+    return String(s).replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\\;');
+  }
+
+  var uid = 'vizi-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '@vizi.app';
+  var portName = TIDES_PAGE.currentSiteName || '';
+
+  var ics = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Vizi//Chasse sous-marine//FR',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    'BEGIN:VEVENT',
+    'UID:' + uid,
+    'DTSTAMP:' + toICSDate(new Date()),
+    'DTSTART:' + toICSDate(startDate),
+    'DTEND:' + toICSDate(endDate),
+    'SUMMARY:' + escapeICS(title),
+    'DESCRIPTION:' + escapeICS(notes),
+    'LOCATION:' + escapeICS(portName),
+    'BEGIN:VALARM',
+    'TRIGGER:-PT1H',
+    'ACTION:DISPLAY',
+    'DESCRIPTION:' + escapeICS(title),
+    'END:VALARM',
+    'END:VEVENT',
+    'END:VCALENDAR'
+  ].join('\r\n');
+
+  // Telechargement du .ics
+  var blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+  var url = URL.createObjectURL(blob);
+  var link = document.createElement('a');
+  link.href = url;
+  link.download = 'vizi-' + dateStr + '.ics';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+
+  closeAgendaModal();
 }
 
 // ============================================================
