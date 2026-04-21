@@ -1647,6 +1647,13 @@ function boot() {
   if (window.innerWidth > 768) {
     document.getElementById('spotDrawer').style.top = headerH + 'px';
   }
+  // Init du bouton unite vent sur 'noeuds' par defaut
+  var btn = document.getElementById('windUnitToggle');
+  if (btn) {
+    btn.textContent = 'noeuds';
+    btn.style.color = '#A8E63D';
+    btn.style.borderColor = '#A8E63D';
+  }
 }
 
 if (document.readyState === 'loading') {
