@@ -88,7 +88,7 @@
     .drawer-datetime { display:flex; gap:8px; padding:10px 16px; border-bottom:1px solid var(--border); background:var(--surface2); flex-shrink:0; }
     .drawer-datetime input { flex:1; padding:10px 12px; background:var(--surface); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:'IBM Plex Mono', monospace; font-size:15px; outline:none; cursor:pointer; transition:border-color 0.15s; }
     .drawer-datetime input:focus { border-color:var(--accent); }
-    .drawer-body { overflow-y:auto; flex:1; }
+    .drawer-body { overflow-y:auto; overflow-x:hidden; flex:1; }
     .decant-banner { display:none; padding:14px 16px; background:linear-gradient(135deg, #DC2626, #B91C1C); color:white; border-bottom:2px solid #991B1B; }
     .decant-banner.show { display:block; }
     .decant-title { font-family:'IBM Plex Mono', monospace; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.12em; color:rgba(255,255,255,0.85); margin-bottom:4px; display:flex; align-items:center; gap:7px; }
@@ -117,7 +117,7 @@
     .spot-sea-lbl { font-family:'IBM Plex Mono', monospace; font-size:12px; font-weight:500; color:var(--text-3); text-transform:uppercase; letter-spacing:0.08em; }
     .spot-sea-val { font-family:'IBM Plex Mono', monospace; font-size:18px; font-weight:600; color:var(--text); line-height:1; }
     #spotFactors { padding:12px 16px 14px; border-bottom:1px solid var(--border); display:flex; flex-direction:column; gap:8px; background:var(--surface2); }
-    #drawerTides { padding:14px 16px 16px; background:var(--surface); }
+    #drawerTides { padding:14px 16px 16px; background:var(--surface); overflow-x:hidden; }
     .tides-label { font-family:'IBM Plex Mono', monospace; font-size:13px; font-weight:500; color:var(--text-3); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:12px; }
     .tides-port-name { font-family:'IBM Plex Mono', monospace; font-size:16px; font-weight:600; color:var(--text); margin-bottom:12px; }
     .visim-pulse-marker { position:relative; width:40px; height:40px; }
@@ -320,6 +320,149 @@
       border-color: var(--accent);
       color: var(--accent);
     }
+
+    /* ============================================================
+       PAGE MAREES PLEIN ECRAN
+       ============================================================ */
+    #tidesPageOverlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 2500;
+      background: var(--bg);
+      flex-direction: column;
+    }
+    #tidesPageOverlay.open { display: flex; }
+    .tides-page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      background: #1A2535;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      flex-shrink: 0;
+    }
+    .tides-page-header-left {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .tides-page-label {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      color: #A8E63D;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+    .tides-page-title {
+      font-family: 'Inter', sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      color: white;
+    }
+    .tides-page-close {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      color: white;
+      font-size: 18px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .tides-page-close:hover { background: rgba(255,255,255,0.15); }
+    .tides-page-body {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 35% 65%;
+      overflow: hidden;
+      min-height: 0;
+    }
+    .tides-page-map-col {
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      background: var(--surface);
+    }
+    .tides-page-map-head {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface2);
+    }
+    .tides-page-map-title {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      color: var(--text-3);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 3px;
+    }
+    .tides-page-map-sub {
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      color: var(--text);
+      font-weight: 600;
+    }
+    #tidesMiniMap {
+      flex: 1;
+      width: 100%;
+      min-height: 0;
+    }
+    .tides-page-days-col {
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    #tidesPageDays {
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 1px;
+      background: var(--border);
+      overflow-y: auto;
+    }
+    .tide-day-col {
+      background: var(--surface);
+      padding: 14px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      overflow-y: auto;
+    }
+    .tide-day-head {
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .tide-day-summary {
+      padding: 8px 10px;
+      background: var(--surface2);
+      border-radius: 6px;
+    }
+    .tide-day-curve {
+      background: var(--surface2);
+      border-radius: 6px;
+      padding: 4px;
+    }
+    .tide-day-windows { display: flex; flex-direction: column; }
+    @media (max-width: 900px) {
+      .tides-page-body {
+        grid-template-columns: 1fr;
+        grid-template-rows: 200px 1fr;
+      }
+      .tides-page-map-col {
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+      }
+      #tidesPageDays {
+        grid-template-columns: repeat(5, 260px);
+        grid-auto-flow: column;
+        overflow-x: auto;
+        overflow-y: hidden;
+      }
+    }
   </style>
 </head>
 <body>
@@ -392,6 +535,7 @@
     <button class="ctrl-btn active" id="btnIso" onclick="toggleLayer('iso')"><span class="ctrl-dot"></span>Reperes</button>
     <button class="ctrl-btn" id="btnSed" onclick="toggleLayer('sed')"><span class="ctrl-dot"></span>Nature du fond</button>
     <button class="ctrl-btn" id="btnWind" onclick="toggleForecastPanel()"><span class="ctrl-dot"></span>Meteo</button>
+    <button class="ctrl-btn" id="btnTidesPage" onclick="openTidesPage()"><span class="ctrl-dot"></span>Marees</button>
     <button id="windUnitToggle" onclick="toggleWindUnit()" style="flex-shrink:0;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.18);border-radius:8px;padding:7px 14px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;color:rgba(255,255,255,0.75);cursor:pointer;letter-spacing:0.04em;">km/h</button>
     <button onclick="openObsSheet()" style="flex-shrink:0;padding:7px 14px;background:#A8E63D;border:none;border-radius:8px;color:#1A2535;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">+ Ameliorer les previsions</button>
     <button id="authBtn" onclick="handleAuthClick()"><span id="authBtnText">Se connecter</span></button>
@@ -634,6 +778,30 @@
       <textarea class="session-textarea" id="sessionNotes" placeholder="courant fort, eau froide..."></textarea>
     </div>
     <button class="session-submit" id="sessionSubmitBtn" onclick="saveSession()">Enregistrer dans mon carnet</button>
+  </div>
+</div>
+
+<div id="tidesPageOverlay">
+  <div class="tides-page-header">
+    <div class="tides-page-header-left">
+      <div class="tides-page-label">Marees sur 5 jours</div>
+      <div class="tides-page-title" id="tidesPageTitle">Selectionnez un port</div>
+    </div>
+    <button class="tides-page-close" onclick="closeTidesPage()">&#10005;</button>
+  </div>
+  <div class="tides-page-body">
+    <div class="tides-page-map-col">
+      <div class="tides-page-map-head">
+        <div class="tides-page-map-title">Choisissez un port</div>
+        <div class="tides-page-map-sub">Clique sur un point</div>
+      </div>
+      <div id="tidesMiniMap"></div>
+    </div>
+    <div class="tides-page-days-col">
+      <div id="tidesPageDays">
+        <div style="padding:40px;text-align:center;color:var(--text-3);font-family:IBM Plex Mono,monospace;font-size:13px;grid-column:1 / -1;">Selectionne un port sur la carte</div>
+      </div>
+    </div>
   </div>
 </div>
 
