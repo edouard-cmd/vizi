@@ -194,7 +194,7 @@ var S = {
 };
 
 var S_forecastOpen = false;
-var S_windUnit = 'kmh';
+var S_windUnit = 'kt';
 var S_lastForecastData = null;
 var S_gridScores = [];
 var S_gridUpdatedAt = null;
