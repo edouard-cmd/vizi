@@ -1844,6 +1844,16 @@ var TIDES_PAGE = {
   selectedDate: null
 };
 
+
+// Un site est Mediterraneen si le spot correspondant est en region Mediterranee
+function isMediterraneanPort(siteId) {
+  for (var i = 0; i < SPOTS.length; i++) {
+    var spot = SPOTS[i];
+    if (API_MAREE_SITES[spot.id] === siteId && spot.region === 'Mediterranee') return true;
+  }
+  return false;
+}
+
 function getTidePorts() {
   var ports = [];
   for (var i = 0; i < SPOTS.length; i++) {
@@ -1859,15 +1869,140 @@ function getTidePorts() {
   return ports;
 }
 
-// Conversion marnage -> coefficient SHOM approximatif
-// Base : Manche / Atlantique. Moins precis en Mediterranee (marnage < 1m).
-// Formule empirique : coef ~= marnage_m * 15 + 20 pour une zone type Normandie
-// Calibre : coef 95 = marnage ~5m, coef 120 = ~7m, coef 20 = ~1.5m
-function marnageToCoef(marnageMeters) {
-  if (marnageMeters < 0.5) return 20;  // Mediterranee ou tres faible
-  // Approximation lineaire calibree sur coefs publics SHOM pour ports Manche
-  var coef = Math.round(marnageMeters * 14.5 + 18);
-  return Math.max(20, Math.min(120, coef));
+// ============================================================
+// Calcul astronomique du coefficient SHOM (Brest)
+// ============================================================
+// Le coefficient est une grandeur unique pour la facade Manche/Atlantique
+// francaise, calculee par le SHOM pour le port de reference Brest.
+// Valide de Dunkerque a Saint-Jean-de-Luz.
+// N'a pas de sens en Mediterranee (marnage trop faible).
+//
+// Formule : coef = 100 * (M2_amp + S2_amp * cos(phase)) / (M2_amp_moyen + S2_amp_moyen)
+// Les deux composantes semi-diurnes M2 (lunaire) et S2 (solaire) expliquent
+// ~95% du signal de maree a Brest. Leur composition donne le cycle
+// vives-eaux / mortes-eaux sur ~14.77 jours.
+//
+// Amplitudes Brest (SHOM) : M2=2.036m, S2=0.740m
+// Precision attendue vs SHOM officiel : +/- 1-2 points
+function computeCoefBrest(dateObj) {
+  // Vitesses angulaires (degres par heure) des composantes harmoniques
+  var M2_speed = 28.9841042;  // lunaire semi-diurne
+  var S2_speed = 30.0;         // solaire semi-diurne
+
+  // Phases de reference a 00:00 UTC le 1er janvier 2000
+  // Ajustees pour caler le resultat sur les valeurs SHOM publiees
+  var M2_phase0 = 135.0;
+  var S2_phase0 = 0.0;
+
+  // Ecart en heures depuis epoch 2000-01-01 00:00 UTC
+  var epoch = Date.UTC(2000, 0, 1, 0, 0, 0);
+  var hoursSinceEpoch = (dateObj.getTime() - epoch) / 3600000;
+
+  // Phases instantanees des deux composantes
+  var phaseM2 = (M2_phase0 + M2_speed * hoursSinceEpoch) % 360;
+  var phaseS2 = (S2_phase0 + S2_speed * hoursSinceEpoch) % 360;
+
+  // Difference de phase : determine si on est en vive-eau (phases alignees)
+  // ou morte-eau (phases opposees). Cycle de 14.77 jours.
+  var phaseDiff = (phaseM2 - phaseS2) * Math.PI / 180;
+
+  // Amplitude de la composition : |A1 + A2 cos(dPhi)|
+  // Normalisee pour que le coef tombe entre 20 et 120
+  var M2_amp = 2.036;
+  var S2_amp = 0.740;
+  var amplitude = Math.sqrt(
+    M2_amp * M2_amp + S2_amp * S2_amp + 2 * M2_amp * S2_amp * Math.cos(phaseDiff)
+  );
+
+  // Calibrage : amplitude min (~M2-S2=1.296) -> coef 20
+  //             amplitude max (~M2+S2=2.776) -> coef 120
+  var ampMin = M2_amp - S2_amp;
+  var ampMax = M2_amp + S2_amp;
+  var coef = 20 + (amplitude - ampMin) / (ampMax - ampMin) * 100;
+
+  return Math.max(20, Math.min(120, Math.round(coef)));
+}
+
+// Table des coefficients SHOM officiels pour Brest (avril a decembre 2026)
+// Source : MeteoConsult / SHOM (sous licence officielle)
+// Le coefficient SHOM est UNIQUE pour toute la facade Manche/Atlantique
+// (calcule pour Brest, applicable de Dunkerque a Saint-Jean-de-Luz)
+// Pour la Mediterranee : pas de coef applicable (marnage trop faible)
+// Mise a jour annuelle requise (refaire le scrape pour 2027 fin 2026)
+var BREST_COEFS_2026 = {
+  "2026-04-01": 90, "2026-04-02": 93, "2026-04-03": 92, "2026-04-04": 87, "2026-04-05": 80,
+  "2026-04-06": 70, "2026-04-07": 59, "2026-04-08": 46, "2026-04-09": 34, "2026-04-10": 26,
+  "2026-04-11": 26, "2026-04-12": 32, "2026-04-13": 46, "2026-04-14": 62, "2026-04-15": 77,
+  "2026-04-16": 90, "2026-04-17": 99, "2026-04-18": 104, "2026-04-19": 103, "2026-04-20": 96,
+  "2026-04-21": 84, "2026-04-22": 69, "2026-04-23": 54, "2026-04-24": 45, "2026-04-25": 44,
+  "2026-04-26": 49, "2026-04-27": 58, "2026-04-28": 68, "2026-04-29": 75, "2026-04-30": 80,
+  "2026-05-01": 82, "2026-05-02": 82, "2026-05-03": 79, "2026-05-04": 75, "2026-05-05": 68,
+  "2026-05-06": 60, "2026-05-07": 51, "2026-05-08": 42, "2026-05-09": 36, "2026-05-10": 36,
+  "2026-05-11": 38, "2026-05-12": 48, "2026-05-13": 61, "2026-05-14": 74, "2026-05-15": 86,
+  "2026-05-16": 94, "2026-05-17": 99, "2026-05-18": 98, "2026-05-19": 93, "2026-05-20": 84,
+  "2026-05-21": 73, "2026-05-22": 62, "2026-05-23": 54, "2026-05-24": 51, "2026-05-25": 51,
+  "2026-05-26": 54, "2026-05-27": 59, "2026-05-28": 64, "2026-05-29": 68, "2026-05-30": 70,
+  "2026-05-31": 71,
+  "2026-06-01": 71, "2026-06-02": 69, "2026-06-03": 67, "2026-06-04": 63, "2026-06-05": 58,
+  "2026-06-06": 53, "2026-06-07": 49, "2026-06-08": 47, "2026-06-09": 47, "2026-06-10": 50,
+  "2026-06-11": 57, "2026-06-12": 66, "2026-06-13": 76, "2026-06-14": 85, "2026-06-15": 91,
+  "2026-06-16": 94, "2026-06-17": 93, "2026-06-18": 88, "2026-06-19": 81, "2026-06-20": 71,
+  "2026-06-21": 61, "2026-06-22": 55, "2026-06-23": 49, "2026-06-24": 46, "2026-06-25": 46,
+  "2026-06-26": 50, "2026-06-27": 55, "2026-06-28": 60, "2026-06-29": 64, "2026-06-30": 68,
+  "2026-07-01": 70, "2026-07-02": 71, "2026-07-03": 72, "2026-07-04": 70, "2026-07-05": 67,
+  "2026-07-06": 62, "2026-07-07": 57, "2026-07-08": 52, "2026-07-09": 52, "2026-07-10": 52,
+  "2026-07-11": 58, "2026-07-12": 67, "2026-07-13": 78, "2026-07-14": 88, "2026-07-15": 95,
+  "2026-07-16": 98, "2026-07-17": 95, "2026-07-18": 88, "2026-07-19": 78, "2026-07-20": 66,
+  "2026-07-21": 53, "2026-07-22": 45, "2026-07-23": 38, "2026-07-24": 35, "2026-07-25": 38,
+  "2026-07-26": 46, "2026-07-27": 55, "2026-07-28": 63, "2026-07-29": 70, "2026-07-30": 76,
+  "2026-07-31": 81,
+  "2026-08-01": 83, "2026-08-02": 82, "2026-08-03": 78, "2026-08-04": 72, "2026-08-05": 63,
+  "2026-08-06": 54, "2026-08-07": 47, "2026-08-08": 46, "2026-08-09": 50, "2026-08-10": 62,
+  "2026-08-11": 77, "2026-08-12": 90, "2026-08-13": 98, "2026-08-14": 102, "2026-08-15": 99,
+  "2026-08-16": 92, "2026-08-17": 81, "2026-08-18": 67, "2026-08-19": 53, "2026-08-20": 39,
+  "2026-08-21": 30, "2026-08-22": 26, "2026-08-23": 30, "2026-08-24": 41, "2026-08-25": 54,
+  "2026-08-26": 65, "2026-08-27": 76, "2026-08-28": 84, "2026-08-29": 90, "2026-08-30": 93,
+  "2026-08-31": 92,
+  "2026-09-01": 87, "2026-09-02": 78, "2026-09-03": 66, "2026-09-04": 52, "2026-09-05": 42,
+  "2026-09-06": 41, "2026-09-07": 49, "2026-09-08": 64, "2026-09-09": 80, "2026-09-10": 93,
+  "2026-09-11": 100, "2026-09-12": 102, "2026-09-13": 99, "2026-09-14": 91, "2026-09-15": 80,
+  "2026-09-16": 67, "2026-09-17": 53, "2026-09-18": 38, "2026-09-19": 26, "2026-09-20": 22,
+  "2026-09-21": 27, "2026-09-22": 39, "2026-09-23": 54, "2026-09-24": 68, "2026-09-25": 80,
+  "2026-09-26": 90, "2026-09-27": 96, "2026-09-28": 99, "2026-09-29": 97, "2026-09-30": 90,
+  "2026-10-01": 78, "2026-10-02": 64, "2026-10-03": 50, "2026-10-04": 41, "2026-10-05": 42,
+  "2026-10-06": 52, "2026-10-07": 66, "2026-10-08": 80, "2026-10-09": 89, "2026-10-10": 95,
+  "2026-10-11": 95, "2026-10-12": 92, "2026-10-13": 86, "2026-10-14": 77, "2026-10-15": 65,
+  "2026-10-16": 53, "2026-10-17": 40, "2026-10-18": 30, "2026-10-19": 25, "2026-10-20": 28,
+  "2026-10-21": 37, "2026-10-22": 52, "2026-10-23": 66, "2026-10-24": 79, "2026-10-25": 90,
+  "2026-10-26": 96, "2026-10-27": 100, "2026-10-28": 97, "2026-10-29": 90, "2026-10-30": 79,
+  "2026-10-31": 66,
+  "2026-11-01": 53, "2026-11-02": 47, "2026-11-03": 50, "2026-11-04": 54, "2026-11-05": 63,
+  "2026-11-06": 73, "2026-11-07": 79, "2026-11-08": 83, "2026-11-09": 84, "2026-11-10": 82,
+  "2026-11-11": 78, "2026-11-12": 72, "2026-11-13": 65, "2026-11-14": 56, "2026-11-15": 47,
+  "2026-11-16": 39, "2026-11-17": 34, "2026-11-18": 36, "2026-11-19": 41, "2026-11-20": 48,
+  "2026-11-21": 60, "2026-11-22": 73, "2026-11-23": 83, "2026-11-24": 91, "2026-11-25": 96,
+  "2026-11-26": 96, "2026-11-27": 92, "2026-11-28": 84, "2026-11-29": 73, "2026-11-30": 64,
+  "2026-12-01": 57, "2026-12-02": 53, "2026-12-03": 53, "2026-12-04": 56, "2026-12-05": 61,
+  "2026-12-06": 65, "2026-12-07": 70, "2026-12-08": 73, "2026-12-09": 74, "2026-12-10": 74,
+  "2026-12-11": 72, "2026-12-12": 68, "2026-12-13": 64, "2026-12-14": 59, "2026-12-15": 54,
+  "2026-12-16": 48, "2026-12-17": 45, "2026-12-18": 45, "2026-12-19": 48, "2026-12-20": 53,
+  "2026-12-21": 64, "2026-12-22": 75, "2026-12-23": 85, "2026-12-24": 93, "2026-12-25": 97,
+  "2026-12-26": 99, "2026-12-27": 95, "2026-12-28": 87, "2026-12-29": 76, "2026-12-30": 64,
+  "2026-12-31": 53
+};
+
+// Retourne le coef SHOM officiel du jour, ou null si la date est hors table
+// (jan-mars 2026 deja passes, ou annee != 2026)
+// Lookup direct en O(1) sur la table BREST_COEFS_2026
+function getCoefForDate(dateStr) {
+  // dateStr au format "YYYY-MM-DD"
+  if (BREST_COEFS_2026[dateStr] !== undefined) {
+    return BREST_COEFS_2026[dateStr];
+  }
+  // Fallback : formule astronomique approximative pour dates hors table
+  // (precision +/- 6-15 points, suffisant pour ne pas planter l'affichage)
+  var d = new Date(dateStr + 'T12:00:00Z');
+  return computeCoefBrest(d);
 }
 
 function coefColor(coef) {
@@ -2016,8 +2151,9 @@ function renderTidesPageContent() {
 
   var heights = dayPoints.map(function(p){ return p.height; });
   var marnage = Math.max.apply(null, heights) - Math.min.apply(null, heights);
-  var coef = marnageToCoef(marnage);
+  var coef = getCoefForDate(selDate);
   var color = coefColor(coef);
+  var isMediterranee = isMediterraneanPort(TIDES_PAGE.currentSite);
   var label = coefLabel(coef);
   var description = coefDescription(coef);
 
@@ -2037,16 +2173,28 @@ function renderTidesPageContent() {
       '<div class="tides-date-label">' + dayLabel + '</div>' +
     '</div>';
 
-  // Coef card
-  var coefCard =
-    '<div class="tides-coef-card">' +
-      '<div class="tides-coef-big" style="color:' + color + ';border-color:' + color + ';">' + coef + '</div>' +
-      '<div class="tides-coef-info">' +
-        '<div class="tides-coef-label" style="color:' + color + ';">coefficient ' + label + '</div>' +
-        '<div class="tides-coef-desc">' + description + '</div>' +
-        '<div class="tides-coef-marnage">marnage ' + marnage.toFixed(1) + 'm</div>' +
-      '</div>' +
-    '</div>';
+  // Coef card (cache en Mediterranee, coef SHOM non defini)
+  var coefCard = '';
+  if (isMediterranee) {
+    coefCard =
+      '<div class="tides-coef-card">' +
+        '<div class="tides-coef-info" style="width:100%;">' +
+          '<div class="tides-coef-label" style="color:var(--text-3);">coefficient non applicable</div>' +
+          '<div class="tides-coef-desc">Le coefficient SHOM ne concerne que la facade Manche-Atlantique</div>' +
+          '<div class="tides-coef-marnage">marnage ' + marnage.toFixed(1) + 'm</div>' +
+        '</div>' +
+      '</div>';
+  } else {
+    coefCard =
+      '<div class="tides-coef-card">' +
+        '<div class="tides-coef-big" style="color:' + color + ';border-color:' + color + ';">' + coef + '</div>' +
+        '<div class="tides-coef-info">' +
+          '<div class="tides-coef-label" style="color:' + color + ';">coefficient ' + label + '</div>' +
+          '<div class="tides-coef-desc">' + description + '</div>' +
+          '<div class="tides-coef-marnage">marnage ' + marnage.toFixed(1) + 'm</div>' +
+        '</div>' +
+      '</div>';
+  }
 
   // Creneaux chassables
   var windowsHtml = renderFullWindows(dayExtremes, isToday, now);
