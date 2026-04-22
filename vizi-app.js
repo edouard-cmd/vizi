@@ -741,7 +741,7 @@ function renderForecastTable(h, now, modelMap) {
   // On ajoute donc 180 a la direction pour obtenir l'orientation de la fleche
   function windArrowSvg(deg, isNow) {
     if (deg === null || deg === undefined) return '-';
-    var rot = (deg + 180) % 360;
+    var rot = deg;
     var col = isNow ? '#1A2535' : '#4A6080';
     return '<svg width="14" height="14" viewBox="0 0 20 20" style="transform:rotate(' + rot + 'deg);display:inline-block;vertical-align:middle;">'
       + '<path d="M10 2 L10 16 M10 16 L6 12 M10 16 L14 12" stroke="' + col + '" stroke-width="2" stroke-linecap="round" fill="none"/>'
@@ -997,11 +997,18 @@ function renderSpotPopup() {
   document.querySelectorAll('.spot-wind-unit').forEach(function(el, i) {
     if (i < 2) el.textContent = unitDisp;
   });
-  var fromNames = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
+var fromNames = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
   var aidx = Math.round(dir / 45) % 8;
   var dirName = (dir !== null && dir !== undefined) ? fromNames[aidx] : '-';
-  document.getElementById('spotWindDir').textContent = dirName;
-  document.getElementById('spotWindDeg').textContent = dir !== null ? Math.round(dir) + ' deg' : '-';
+  var dirEl = document.getElementById('spotWindDir');
+  if (dir !== null && dir !== undefined) {
+    dirEl.innerHTML = '<svg width="32" height="32" viewBox="0 0 20 20" style="transform:rotate(' + dir + 'deg);display:inline-block;vertical-align:middle;">'
+      + '<path d="M10 2 L10 16 M10 16 L6 12 M10 16 L14 12" stroke="#1A2535" stroke-width="2" stroke-linecap="round" fill="none"/>'
+      + '</svg>';
+  } else {
+    dirEl.textContent = '-';
+  }
+  document.getElementById('spotWindDeg').textContent = dir !== null ? dirName + ' ' + Math.round(dir) + ' deg' : '-';
 
   // Affichage du facteur direction pour transparence
   var offshoreLabel = '';
