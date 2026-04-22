@@ -617,25 +617,100 @@ function closeForecast() {
   document.getElementById('btnWind').classList.remove('active');
   document.getElementById('forecastPanel').style.display = 'none';
 }
+// ============================================================
+// PATCH METEO VIZI - Remplacer les 2 fonctions existantes dans vizi-app.js
+// ============================================================
+// - loadForecast : utilise maintenant AROME (48h) + ARPEGE (au-dela)
+// - renderForecastTable : fleches directionnelles + ligne nebulosite
+//
+// A copier/coller tel quel en remplacement des 2 fonctions actuelles.
+// Ne touche a rien d'autre dans vizi-app.js.
+// ============================================================
 
 function loadForecast(lat, lon, locationName) {
   S_forecastOpen = true;
   document.getElementById('btnWind').classList.add('active');
   document.getElementById('forecastPanel').style.display = 'block';
   document.getElementById('forecastLocation').textContent = locationName || (lat.toFixed(4) + ', ' + lon.toFixed(4));
-  document.getElementById('forecastCoords').textContent = lat.toFixed(4) + 'N ' + lon.toFixed(4) + 'E - AROME';
-  document.getElementById('forecastTable').innerHTML = '<div style="padding:18px;text-align:center;color:#94A3B8;font-family:IBM Plex Mono,monospace;font-size:10px;">Chargement AROME...</div>';
-  var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&hourly=windspeed_10m,winddirection_10m,windgusts_10m,wave_height,wave_period,wave_direction,temperature_2m,precipitation&wind_speed_unit=kmh&timezone=Europe/Paris&past_days=0&forecast_days=5&models=meteofrance_arome_france';
-  fetch(url).then(function(r){ return r.json(); }).then(function(d) {
-    if (!d.hourly) throw new Error('Pas de donnees');
-    S_lastForecastData = { h: d.hourly, now: new Date() };
-    renderForecastTable(d.hourly, new Date());
+  document.getElementById('forecastCoords').textContent = lat.toFixed(4) + 'N ' + lon.toFixed(4) + 'E';
+  document.getElementById('forecastTable').innerHTML = '<div style="padding:18px;text-align:center;color:#94A3B8;font-family:IBM Plex Mono,monospace;font-size:10px;">Chargement previsions...</div>';
+
+  // Strategie hybride : AROME pour les 48 premieres heures (haute resolution 1.3km)
+  // puis ARPEGE pour J+2 a J+4 (plus grossier mais couverture plus longue)
+  // On fait 2 appels paralleles et on fusionne.
+
+  var aromeUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon
+    + '&hourly=windspeed_10m,winddirection_10m,windgusts_10m,wave_height,wave_period,wave_direction,temperature_2m,precipitation,cloud_cover'
+    + '&wind_speed_unit=kmh&timezone=Europe/Paris&past_days=0&forecast_days=2'
+    + '&models=meteofrance_arome_france';
+
+  var arpegeUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon
+    + '&hourly=windspeed_10m,winddirection_10m,windgusts_10m,wave_height,wave_period,wave_direction,temperature_2m,precipitation,cloud_cover'
+    + '&wind_speed_unit=kmh&timezone=Europe/Paris&past_days=0&forecast_days=5'
+    + '&models=meteofrance_arpege_europe';
+
+  Promise.all([
+    fetch(aromeUrl).then(function(r){ return r.json(); }),
+    fetch(arpegeUrl).then(function(r){ return r.json(); })
+  ]).then(function(results) {
+    var arome = results[0];
+    var arpege = results[1];
+
+    if (!arome.hourly && !arpege.hourly) throw new Error('Pas de donnees');
+
+    // Fusion : AROME prioritaire sur les heures couvertes, ARPEGE pour le reste
+    var fused = fuseForecasts(arome.hourly, arpege.hourly);
+    S_lastForecastData = { h: fused.h, now: new Date(), modelMap: fused.modelMap };
+    renderForecastTable(fused.h, new Date(), fused.modelMap);
   }).catch(function(e) {
     document.getElementById('forecastTable').innerHTML = '<div style="padding:18px;color:#DC2626;font-family:IBM Plex Mono,monospace;font-size:10px;">Erreur : ' + e.message + '</div>';
   });
 }
 
-function renderForecastTable(h, now) {
+// Fusionne AROME (haute res, court terme) et ARPEGE (moyenne res, moyen terme)
+// Retourne un objet hourly unifie + une carte timestamp -> 'AROME'|'ARPEGE'
+function fuseForecasts(arome, arpege) {
+  if (!arpege || !arpege.time) return { h: arome, modelMap: {} };
+  if (!arome || !arome.time) {
+    var mapAll = {};
+    arpege.time.forEach(function(t){ mapAll[t] = 'ARPEGE'; });
+    return { h: arpege, modelMap: mapAll };
+  }
+
+  var modelMap = {};
+  var aromeSet = {};
+  arome.time.forEach(function(t){ aromeSet[t] = true; });
+
+  // On prend tout ARPEGE comme base, puis on ecrase avec AROME quand dispo
+  var keys = ['windspeed_10m','winddirection_10m','windgusts_10m','wave_height','wave_period','wave_direction','temperature_2m','precipitation','cloud_cover'];
+  var result = { time: arpege.time.slice() };
+  keys.forEach(function(k){ result[k] = arpege[k] ? arpege[k].slice() : []; });
+
+  // Pour chaque timestamp ARPEGE, si AROME l'a aussi, on prend AROME
+  for (var i = 0; i < result.time.length; i++) {
+    var t = result.time[i];
+    if (aromeSet[t]) {
+      var aIdx = arome.time.indexOf(t);
+      if (aIdx >= 0) {
+        keys.forEach(function(k){
+          if (arome[k] && arome[k][aIdx] !== null && arome[k][aIdx] !== undefined) {
+            result[k][i] = arome[k][aIdx];
+          }
+        });
+        modelMap[t] = 'AROME';
+      } else {
+        modelMap[t] = 'ARPEGE';
+      }
+    } else {
+      modelMap[t] = 'ARPEGE';
+    }
+  }
+
+  return { h: result, modelMap: modelMap };
+}
+
+function renderForecastTable(h, now, modelMap) {
+  modelMap = modelMap || {};
   var times = h.time;
   var nowHour = now.toISOString().slice(0, 13);
   var cols = [];
@@ -650,6 +725,7 @@ function renderForecastTable(h, now) {
     if (!days[day]) days[day] = [];
     days[day].push(c);
   });
+
   function windColor(v) {
     if (!v) return 'wc-0'; if (v < 5) return 'wc-0'; if (v < 10) return 'wc-1';
     if (v < 15) return 'wc-2'; if (v < 20) return 'wc-3'; if (v < 30) return 'wc-4';
@@ -659,13 +735,71 @@ function renderForecastTable(h, now) {
     if (!v) return 'ww-0'; if (v < 0.5) return 'ww-0'; if (v < 1) return 'ww-1';
     if (v < 2) return 'ww-2'; if (v < 3) return 'ww-3'; return 'ww-4';
   }
-  function dirArrow(deg) {
+
+  // Fleche SVG en fonction de l'angle de provenance du vent
+  // Le vent de 0 deg vient du Nord -> la fleche pointe vers le Sud (bas)
+  // On ajoute donc 180 a la direction pour obtenir l'orientation de la fleche
+  function windArrowSvg(deg, isNow) {
     if (deg === null || deg === undefined) return '-';
-    var arrows = ['N','NE','E','SE','S','SO','O','NO'];
-    return arrows[Math.round(deg / 45) % 8];
+    var rot = (deg + 180) % 360;
+    var col = isNow ? '#1A2535' : '#4A6080';
+    return '<svg width="14" height="14" viewBox="0 0 20 20" style="transform:rotate(' + rot + 'deg);display:inline-block;vertical-align:middle;">'
+      + '<path d="M10 2 L10 16 M10 16 L6 12 M10 16 L14 12" stroke="' + col + '" stroke-width="2" stroke-linecap="round" fill="none"/>'
+      + '</svg>';
   }
+
+  // Icone nebulosite + pluie : soleil < 25%, peu nuageux < 50%, nuageux < 80%, couvert >= 80%
+  // Si pluie > 0.3mm/h, priorite a l'icone pluie
+  function weatherIcon(cloudPct, rainMm, isNow) {
+    var baseColor = isNow ? '#1A2535' : '#4A6080';
+    if (rainMm !== null && rainMm !== undefined && rainMm >= 0.3) {
+      var rainIntensity = rainMm >= 2 ? '3' : rainMm >= 1 ? '2' : '1';
+      // Pluie : nuage avec gouttes
+      return '<svg width="20" height="20" viewBox="0 0 24 24" style="display:inline-block;vertical-align:middle;">'
+        + '<path d="M6 13 Q3 13 3 10 Q3 7 6 7 Q7 4 11 4 Q15 4 16 7 Q20 7 20 10 Q20 13 17 13 Z" fill="#64748B" stroke="' + baseColor + '" stroke-width="0.5"/>'
+        + (rainIntensity >= '1' ? '<line x1="8" y1="16" x2="7" y2="20" stroke="#2563EB" stroke-width="1.5" stroke-linecap="round"/>' : '')
+        + (rainIntensity >= '2' ? '<line x1="12" y1="16" x2="11" y2="20" stroke="#2563EB" stroke-width="1.5" stroke-linecap="round"/>' : '')
+        + (rainIntensity >= '3' ? '<line x1="16" y1="16" x2="15" y2="20" stroke="#2563EB" stroke-width="1.5" stroke-linecap="round"/>' : '')
+        + '</svg>';
+    }
+    if (cloudPct === null || cloudPct === undefined) return '-';
+    if (cloudPct < 25) {
+      // Soleil
+      return '<svg width="20" height="20" viewBox="0 0 24 24" style="display:inline-block;vertical-align:middle;">'
+        + '<circle cx="12" cy="12" r="4" fill="#FBBF24"/>'
+        + '<g stroke="#FBBF24" stroke-width="2" stroke-linecap="round">'
+        + '<line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/>'
+        + '<line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/>'
+        + '<line x1="4.9" y1="4.9" x2="7" y2="7"/><line x1="17" y1="17" x2="19.1" y2="19.1"/>'
+        + '<line x1="4.9" y1="19.1" x2="7" y2="17"/><line x1="17" y1="7" x2="19.1" y2="4.9"/>'
+        + '</g></svg>';
+    }
+    if (cloudPct < 55) {
+      // Soleil avec petit nuage
+      return '<svg width="20" height="20" viewBox="0 0 24 24" style="display:inline-block;vertical-align:middle;">'
+        + '<circle cx="9" cy="9" r="3.5" fill="#FBBF24"/>'
+        + '<g stroke="#FBBF24" stroke-width="1.5" stroke-linecap="round">'
+        + '<line x1="9" y1="2" x2="9" y2="4"/><line x1="2" y1="9" x2="4" y2="9"/>'
+        + '<line x1="3.5" y1="3.5" x2="5" y2="5"/><line x1="14.5" y1="3.5" x2="13" y2="5"/>'
+        + '</g>'
+        + '<path d="M10 15 Q8 15 8 13 Q8 11 10 11 Q11 9 14 9 Q17 9 17 11 Q19 11 19 13 Q19 15 17 15 Z" fill="#CBD5E0" stroke="#64748B" stroke-width="0.5"/>'
+        + '</svg>';
+    }
+    if (cloudPct < 85) {
+      // Nuageux
+      return '<svg width="20" height="20" viewBox="0 0 24 24" style="display:inline-block;vertical-align:middle;">'
+        + '<path d="M6 17 Q3 17 3 14 Q3 11 6 11 Q7 8 11 8 Q15 8 16 11 Q20 11 20 14 Q20 17 17 17 Z" fill="#94A3B8" stroke="' + baseColor + '" stroke-width="0.5"/>'
+        + '</svg>';
+    }
+    // Couvert
+    return '<svg width="20" height="20" viewBox="0 0 24 24" style="display:inline-block;vertical-align:middle;">'
+      + '<path d="M6 17 Q3 17 3 14 Q3 11 6 11 Q7 8 11 8 Q15 8 16 11 Q20 11 20 14 Q20 17 17 17 Z" fill="#475569" stroke="' + baseColor + '" stroke-width="0.5"/>'
+      + '</svg>';
+  }
+
   var unitLabel = S_windUnit === 'kt' ? 'noeuds' : 'km/h';
   var conv = S_windUnit === 'kt' ? function(v) { return toKt(v); } : function(v) { return Math.round(v); };
+
   var html = '<table class="wg-table"><thead><tr><td class="row-label day-header"></td>';
   Object.keys(days).forEach(function(day) {
     var dcols = days[day];
@@ -678,21 +812,34 @@ function renderForecastTable(h, now) {
     html += '<td class="hour-row' + (c.isNow ? ' wg-now wg-now-header' : '') + '">' + c.t.slice(11, 16) + '</td>';
   });
   html += '</tr></thead><tbody>';
+
   html += '<tr><td class="row-label">Vent (' + unitLabel + ')</td>';
   cols.forEach(function(c) {
     var raw = h.windspeed_10m[c.i] || 0;
     html += '<td class="' + windColor(raw) + (c.isNow ? ' wg-now' : '') + '" style="font-weight:600">' + conv(raw) + '</td>';
   });
+
   html += '</tr><tr><td class="row-label">Rafales (' + unitLabel + ')</td>';
   cols.forEach(function(c) {
     var raw = h.windgusts_10m[c.i] || 0;
     html += '<td class="' + windColor(raw) + (c.isNow ? ' wg-now' : '') + '">' + conv(raw) + '</td>';
   });
+
   html += '</tr><tr><td class="row-label">Direction</td>';
   cols.forEach(function(c) {
-    html += '<td class="' + (c.isNow ? 'wg-now' : '') + '">' + dirArrow(h.winddirection_10m[c.i]) + '</td>';
+    html += '<td class="' + (c.isNow ? 'wg-now' : '') + '">' + windArrowSvg(h.winddirection_10m[c.i], c.isNow) + '</td>';
   });
   html += '</tr>';
+
+  // Ligne ciel (icones nebulosite/pluie)
+  html += '<tr><td class="row-label">Ciel</td>';
+  cols.forEach(function(c) {
+    var cloud = h.cloud_cover ? h.cloud_cover[c.i] : null;
+    var rain = h.precipitation ? h.precipitation[c.i] : null;
+    html += '<td class="' + (c.isNow ? 'wg-now' : '') + '">' + weatherIcon(cloud, rain, c.isNow) + '</td>';
+  });
+  html += '</tr>';
+
   var hasWaves = h.wave_height && h.wave_height.some(function(v) { return v > 0; });
   if (hasWaves) {
     html += '<tr><td class="row-label">Vagues (m)</td>';
@@ -702,21 +849,34 @@ function renderForecastTable(h, now) {
     });
     html += '</tr>';
   }
+
   html += '<tr><td class="row-label">Temp. (C)</td>';
   cols.forEach(function(c) {
     html += '<td class="' + (c.isNow ? 'wg-now' : '') + '">' + Math.round(h.temperature_2m[c.i] || 0) + '</td>';
   });
+
   html += '</tr><tr><td class="row-label">Pluie (mm/h)</td>';
   cols.forEach(function(c) {
     var v = h.precipitation[c.i];
     var bg = v > 2 ? 'background:rgba(37,99,235,0.25)' : v > 0.5 ? 'background:rgba(37,99,235,0.12)' : '';
     html += '<td class="' + (c.isNow ? 'wg-now' : '') + '" style="' + bg + '">' + (v && v > 0 ? v.toFixed(1) : '') + '</td>';
   });
+
+  // Ligne modele (source AROME/ARPEGE par heure)
+  html += '</tr><tr><td class="row-label" style="color:#94A3B8;font-size:10px;">Source</td>';
+  cols.forEach(function(c) {
+    var model = modelMap[c.t] || '-';
+    var col = model === 'AROME' ? '#0BA888' : model === 'ARPEGE' ? '#CA8A04' : '#94A3B8';
+    html += '<td class="' + (c.isNow ? 'wg-now' : '') + '" style="font-size:9px;color:' + col + ';font-weight:600;">' + model + '</td>';
+  });
+
   html += '</tr></tbody></table>';
-  html += '<div style="padding:4px 12px 6px;font-family:IBM Plex Mono,monospace;font-size:11px;color:#94A3B8;">Source : Meteo-France AROME 2.5km</div>';
+  html += '<div style="padding:4px 12px 6px;font-family:IBM Plex Mono,monospace;font-size:11px;color:#94A3B8;display:flex;gap:14px;flex-wrap:wrap;">'
+    + '<span><span style="color:#0BA888;font-weight:600">AROME</span> 1.3km haute resolution (0-48h)</span>'
+    + '<span><span style="color:#CA8A04;font-weight:600">ARPEGE</span> Europe moyen terme (48h-4j)</span>'
+    + '</div>';
   document.getElementById('forecastTable').innerHTML = html;
 }
-
 function openSpotPopup(latlng, name) {
   S.clickLatLng = latlng;
   if (S.clickMarker) S.map.removeLayer(S.clickMarker);
