@@ -344,13 +344,21 @@ function initCanvas() {
 function initMap() {
   S.map = L.map('map', { center:[49.32, -0.55], zoom:11, zoomControl:true });
 
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-    attribution: 'Imagery Esri | SHOM | EMODnet', maxZoom: 19
-  }).addTo(S.map);
-
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
-    attribution: '', maxZoom: 19, opacity: 0.45
-  }).addTo(S.map);
+S.basemapSat = L.layerGroup([
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Imagery Esri | SHOM | EMODnet', maxZoom: 19
+    }),
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+      attribution: '', maxZoom: 19, opacity: 0.45
+    })
+  ]);
+  S.basemapIGN = L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=image/png', {
+    attribution: 'IGN-F/Geoportail', maxZoom: 18
+  });
+  var savedBasemap = null;
+  try { savedBasemap = localStorage.getItem('vizi_basemap'); } catch(e) {}
+  if (savedBasemap === 'ign') { S.basemapIGN.addTo(S.map); S.currentBasemap = 'ign'; }
+  else { S.basemapSat.addTo(S.map); S.currentBasemap = 'sat'; }
 
   S.isoDeep = L.tileLayer.wms('https://ows.emodnet-bathymetry.eu/wms', {
     layers: 'emodnet:contours', format: 'image/png', transparent: true,
@@ -438,7 +446,24 @@ function toggleLayer(type) {
     else { if (S.map.hasLayer(S.sedLayer)) S.map.removeLayer(S.sedLayer); }
   }
 }
-
+function switchBasemap(type) {
+  if (S.currentBasemap === type) return;
+  if (S.currentBasemap === 'sat' && S.map.hasLayer(S.basemapSat)) S.map.removeLayer(S.basemapSat);
+  else if (S.currentBasemap === 'ign' && S.map.hasLayer(S.basemapIGN)) S.map.removeLayer(S.basemapIGN);
+  if (type === 'sat') {
+    S.basemapSat.addTo(S.map);
+    S.basemapSat.eachLayer(function(l){ if (l.bringToBack) l.bringToBack(); });
+  } else {
+    S.basemapIGN.addTo(S.map);
+    if (S.basemapIGN.bringToBack) S.basemapIGN.bringToBack();
+  }
+  var btnSat = document.getElementById('btnBasemapSat');
+  var btnIgn = document.getElementById('btnBasemapIGN');
+  if (btnSat) btnSat.classList.toggle('active', type === 'sat');
+  if (btnIgn) btnIgn.classList.toggle('active', type === 'ign');
+  try { localStorage.setItem('vizi_basemap', type); } catch(e) {}
+  S.currentBasemap = type;
+}
 function scoreToColor(score) {
   if (score < 20) return '#0BA888';
   if (score < 35) return '#16A34A';
