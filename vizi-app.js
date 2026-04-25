@@ -1,4 +1,4 @@
-"use strict";
+x"use strict";
 
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxyjkavoaEJ6AdhK1MKzph68IH3ZKL8QadDGuU_GyzruxqUsXRv6nP9dJqenTCf6u7Z/exec';
 
@@ -2062,58 +2062,7 @@ function saveSession() {
 // Overlay avec mini carte ports + jour selectionne en detail
 // ============================================================
 
-var TIDES_PAGE = {
-  miniMap: null,
-  miniMarkers: {},
-  currentSite: null,
-  currentSiteName: null,
-  data: null,
-  extremes: null,
-  fromDate: null,
-  daysToShow: 14,
-  selectedDate: null
-};
 
-
-// Un site est Mediterraneen si le spot correspondant est en region Mediterranee
-function isMediterraneanPort(siteId) {
-  for (var i = 0; i < SPOTS.length; i++) {
-    var spot = SPOTS[i];
-    if (API_MAREE_SITES[spot.id] === siteId && spot.region === 'Mediterranee') return true;
-  }
-  return false;
-}
-
-function getTidePorts() {
-  var ports = [];
-  for (var i = 0; i < SPOTS.length; i++) {
-    var spot = SPOTS[i];
-    var siteId = API_MAREE_SITES[spot.id];
-    if (siteId) {
-      ports.push({
-        id: spot.id, name: spot.name, lat: spot.lat, lon: spot.lon,
-        siteId: siteId, region: spot.region
-      });
-    }
-  }
-  return ports;
-}
-
-// ============================================================
-// Calcul astronomique du coefficient SHOM (Brest)
-// ============================================================
-// Le coefficient est une grandeur unique pour la facade Manche/Atlantique
-// francaise, calculee par le SHOM pour le port de reference Brest.
-// Valide de Dunkerque a Saint-Jean-de-Luz.
-// N'a pas de sens en Mediterranee (marnage trop faible).
-//
-// Formule : coef = 100 * (M2_amp + S2_amp * cos(phase)) / (M2_amp_moyen + S2_amp_moyen)
-// Les deux composantes semi-diurnes M2 (lunaire) et S2 (solaire) expliquent
-// ~95% du signal de maree a Brest. Leur composition donne le cycle
-// vives-eaux / mortes-eaux sur ~14.77 jours.
-//
-// Amplitudes Brest (SHOM) : M2=2.036m, S2=0.740m
-// Precision attendue vs SHOM officiel : +/- 1-2 points
 function computeCoefBrest(dateObj) {
   // Vitesses angulaires (degres par heure) des composantes harmoniques
   var M2_speed = 28.9841042;  // lunaire semi-diurne
@@ -2256,285 +2205,6 @@ function coefDescription(coef) {
   return 'Etales courtes, courants forts';
 }
 
-// ============================================================
-// Ouverture / fermeture
-// ============================================================
-function openTidesPage() {
-  var overlay = document.getElementById('tidesPageOverlay');
-  overlay.classList.add('open');
-  document.body.style.overflow = 'hidden';
-
-  if (!TIDES_PAGE.miniMap) {
-    setTimeout(initTidesMiniMap, 50);
-  } else {
-    setTimeout(function() { TIDES_PAGE.miniMap.invalidateSize(); }, 100);
-  }
-
-  if (!TIDES_PAGE.currentSite) {
-    var ports = getTidePorts();
-    var defaultPort = ports.find(function(p){ return p.id === 'cherbourg'; }) || ports[0];
-    if (defaultPort) selectTidePort(defaultPort);
-  }
-}
-
-function closeTidesPage() {
-  document.getElementById('tidesPageOverlay').classList.remove('open');
-  document.body.style.overflow = '';
-}
-
-// ============================================================
-// Mini carte
-// ============================================================
-function initTidesMiniMap() {
-  var ports = getTidePorts();
-
-  TIDES_PAGE.miniMap = L.map('tidesMiniMap', {
-    center: [47.5, -2.5], zoom: 6, zoomControl: true, attributionControl: false
-  });
-
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png', {
-    subdomains: 'abcd', maxZoom: 18
-  }).addTo(TIDES_PAGE.miniMap);
-
-  var regionColors = {
-    'Manche': '#0BA888', 'Bretagne': '#16A34A',
-    'Atlantique': '#E8A838', 'Mediterranee': '#DC2626'
-  };
-
-  ports.forEach(function(port) {
-    var color = regionColors[port.region] || '#3A5A78';
-    var marker = L.circleMarker([port.lat, port.lon], {
-      radius: 7, fillColor: color, color: '#fff', weight: 2, fillOpacity: 0.9
-    }).addTo(TIDES_PAGE.miniMap);
-    marker.bindTooltip(port.name, { direction: 'top', offset: [0, -8] });
-    marker.on('click', function() { selectTidePort(port); });
-    TIDES_PAGE.miniMarkers[port.id] = marker;
-  });
-
-  var bounds = L.latLngBounds(ports.map(function(p){ return [p.lat, p.lon]; }));
-  TIDES_PAGE.miniMap.fitBounds(bounds, { padding: [20, 20] });
-}
-
-function selectTidePort(port) {
-  TIDES_PAGE.currentSite = port.siteId;
-  TIDES_PAGE.currentSiteName = port.name;
-
-  Object.keys(TIDES_PAGE.miniMarkers).forEach(function(id) {
-    var m = TIDES_PAGE.miniMarkers[id];
-    if (id === port.id) {
-      m.setStyle({ radius: 10, weight: 3, color: '#A8E63D' });
-      if (TIDES_PAGE.miniMap) TIDES_PAGE.miniMap.panTo([port.lat, port.lon]);
-    } else {
-      m.setStyle({ radius: 7, weight: 2, color: '#fff' });
-    }
-  });
-
-  document.getElementById('tidesPageTitle').textContent = port.name;
-
-  // Reset a aujourd hui a chaque changement de port
-  var today = new Date();
-  TIDES_PAGE.selectedDate = today.toISOString().split('T')[0];
-
-  fetchTidesPageData();
-}
-
-// ============================================================
-// Chargement des donnees
-// ============================================================
-function fetchTidesPageData() {
-  var today = new Date();
-  TIDES_PAGE.fromDate = today.toISOString().split('T')[0];
-
-  var wrap = document.getElementById('tidesPageContent');
-  wrap.innerHTML = '<div style="padding:60px;text-align:center;color:var(--text-3);font-family:IBM Plex Mono,monospace;font-size:13px;">Chargement...</div>';
-
-  var url = GAS_URL + '?action=tides_range&site=' + TIDES_PAGE.currentSite
-    + '&from=' + TIDES_PAGE.fromDate + '&days=' + TIDES_PAGE.daysToShow;
-
-  fetch(url).then(function(r){ return r.json(); }).then(function(data) {
-    if (!data.data || data.error) {
-      wrap.innerHTML = '<div style="padding:40px;color:var(--bad);font-family:IBM Plex Mono,monospace;">Erreur : ' + (data.error || 'pas de donnees') + '</div>';
-      return;
-    }
-    TIDES_PAGE.data = data.data;
-    TIDES_PAGE.extremes = data.extremes || [];
-    renderTidesPageContent();
-  }).catch(function(err) {
-    wrap.innerHTML = '<div style="padding:40px;color:var(--bad);font-family:IBM Plex Mono,monospace;">Erreur reseau</div>';
-  });
-}
-
-// ============================================================
-// Rendu principal : jour selectionne en detail
-// ============================================================
-function renderTidesPageContent() {
-  var wrap = document.getElementById('tidesPageContent');
-  var selDate = TIDES_PAGE.selectedDate;
-
-  var dayPoints = TIDES_PAGE.data.filter(function(p){ return p.time.slice(0,10) === selDate; });
-  var dayExtremes = TIDES_PAGE.extremes.filter(function(e){ return e.time.slice(0,10) === selDate; });
-
-  if (dayPoints.length === 0) {
-    wrap.innerHTML = '<div style="padding:60px;text-align:center;color:var(--text-3);">Aucune donnee pour cette date</div>';
-    return;
-  }
-
-  var heights = dayPoints.map(function(p){ return p.height; });
-  var marnage = Math.max.apply(null, heights) - Math.min.apply(null, heights);
-  var coef = getCoefForDate(selDate);
-  var color = coefColor(coef);
-  var isMediterranee = isMediterraneanPort(TIDES_PAGE.currentSite);
-  var label = coefLabel(coef);
-  var description = coefDescription(coef);
-
-  var dateObj = new Date(selDate + 'T12:00:00Z');
-  var now = new Date();
-  var today = now.toISOString().split('T')[0];
-  var isToday = selDate === today;
-  var dayLabel = dateObj.toLocaleDateString('fr', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-
-  // Navigation date : fleches + date picker + bouton aujourd hui
-  var dateNav =
-    '<div class="tides-date-nav">' +
-      '<button class="tides-date-btn" onclick="shiftTidesPageDate(-1)">&#9664;</button>' +
-      '<input type="date" id="tidesPageDatePicker" value="' + selDate + '" onchange="onTidesPageDateChange(this.value)">' +
-      '<button class="tides-date-btn" onclick="shiftTidesPageDate(1)">&#9654;</button>' +
-      (isToday ? '' : '<button class="tides-today-btn" onclick="goToToday()">Aujourd hui</button>') +
-      '<div class="tides-date-label">' + dayLabel + '</div>' +
-    '</div>';
-
-  // Coef card (cache en Mediterranee, coef SHOM non defini)
-  var coefCard = '';
-  if (isMediterranee) {
-    coefCard =
-      '<div class="tides-coef-card">' +
-        '<div class="tides-coef-info" style="width:100%;">' +
-          '<div class="tides-coef-label" style="color:var(--text-3);">coefficient non applicable</div>' +
-          '<div class="tides-coef-desc">Le coefficient SHOM ne concerne que la facade Manche-Atlantique</div>' +
-          '<div class="tides-coef-marnage">marnage ' + marnage.toFixed(1) + 'm</div>' +
-        '</div>' +
-      '</div>';
-  } else {
-    coefCard =
-      '<div class="tides-coef-card">' +
-        '<div class="tides-coef-big" style="color:' + color + ';border-color:' + color + ';">' + coef + '</div>' +
-        '<div class="tides-coef-info">' +
-          '<div class="tides-coef-label" style="color:' + color + ';">coefficient ' + label + '</div>' +
-          '<div class="tides-coef-desc">' + description + '</div>' +
-          '<div class="tides-coef-marnage">marnage ' + marnage.toFixed(1) + 'm</div>' +
-        '</div>' +
-      '</div>';
-  }
-
-  // Creneaux chassables
-  var windowsHtml = renderFullWindows(dayExtremes, isToday, now);
-
-  // Grande courbe
-  var curveHtml = renderFullCurve(dayPoints, dayExtremes, isToday, now);
-
-  wrap.innerHTML = dateNav + coefCard + windowsHtml + curveHtml;
-}
-
-function shiftTidesPageDate(delta) {
-  var d = new Date(TIDES_PAGE.selectedDate + 'T12:00:00Z');
-  d.setDate(d.getDate() + delta);
-  var newDate = d.toISOString().split('T')[0];
-
-  // Verifier qu'on reste dans la plage chargee
-  var from = new Date(TIDES_PAGE.fromDate + 'T00:00:00Z');
-  var to = new Date(from);
-  to.setDate(to.getDate() + TIDES_PAGE.daysToShow);
-
-  if (d < from || d >= to) {
-    // Hors plage : recharger
-    TIDES_PAGE.selectedDate = newDate;
-    fetchTidesPageData();
-  } else {
-    TIDES_PAGE.selectedDate = newDate;
-    renderTidesPageContent();
-  }
-}
-
-function onTidesPageDateChange(newDate) {
-  TIDES_PAGE.selectedDate = newDate;
-  var from = new Date(TIDES_PAGE.fromDate + 'T00:00:00Z');
-  var to = new Date(from);
-  to.setDate(to.getDate() + TIDES_PAGE.daysToShow);
-  var d = new Date(newDate + 'T12:00:00Z');
-  if (d < from || d >= to) {
-    fetchTidesPageData();
-  } else {
-    renderTidesPageContent();
-  }
-}
-
-function goToToday() {
-  var today = new Date();
-  TIDES_PAGE.selectedDate = today.toISOString().split('T')[0];
-  renderTidesPageContent();
-}
-
-// ============================================================
-// Creneaux chassables (format large)
-// ============================================================
-function renderFullWindows(extremes, isToday, now) {
-  if (!extremes || extremes.length === 0) return '';
-
-  var html = '<div class="tides-windows-grid">';
-  extremes.forEach(function(e, idx) {
-    var etaleTime = new Date(e.time);
-    var startTime = new Date(etaleTime.getTime() - 120 * 60000);
-    var endTime = new Date(etaleTime.getTime() + 120 * 60000);
-    var isPast = isToday && endTime < now;
-    var isCurrent = isToday && now >= startTime && now <= endTime;
-
-    var typeColor = e.type === 'high' ? '#0BA888' : '#D97706';
-    var typeLabel = e.type === 'high' ? 'Pleine mer' : 'Basse mer';
-    var typeShort = e.type === 'high' ? 'PM' : 'BM';
-    var startStr = startTime.toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
-    var endStr = endTime.toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
-    var etaleStr = etaleTime.toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
-
-    var opacity = isPast ? '0.45' : '1';
-    var border = isCurrent ? '2px solid #A8E63D' : '1px solid var(--border)';
-    var bg = isCurrent ? 'rgba(168,230,61,0.1)' : 'var(--surface)';
-    var badge = isCurrent ? '<span class="tides-window-badge">MAINTENANT</span>' : '';
-
-    // Bouton agenda : on passe les infos en data-attr pour la modale
-    var agendaBtn = isPast ? '' : (
-      '<button class="tides-agenda-btn" ' +
-      'data-etale="' + etaleTime.toISOString() + '" ' +
-      'data-type="' + e.type + '" ' +
-      'data-start="' + startTime.toISOString() + '" ' +
-      'data-end="' + endTime.toISOString() + '" ' +
-      'onclick="openAgendaModal(this)" ' +
-      'title="Ajouter a mon agenda">' +
-      '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
-        '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>' +
-        '<line x1="16" y1="2" x2="16" y2="6"></line>' +
-        '<line x1="8" y1="2" x2="8" y2="6"></line>' +
-        '<line x1="3" y1="10" x2="21" y2="10"></line>' +
-      '</svg>' +
-      '<span>Agenda</span>' +
-      '</button>'
-    );
-
-    html += '<div class="tides-window-card" style="border:' + border + ';background:' + bg + ';opacity:' + opacity + ';">' +
-      '<div class="tides-window-top">' +
-        '<div class="tides-window-type" style="color:' + typeColor + ';">' + typeShort + ' &mdash; ' + typeLabel + badge + '</div>' +
-        '<div class="tides-window-etale">etale ' + etaleStr + '</div>' +
-      '</div>' +
-      '<div class="tides-window-range">' +
-        '<span class="tides-window-time">' + startStr + '</span>' +
-        '<span class="tides-window-arrow">&rarr;</span>' +
-        '<span class="tides-window-time">' + endStr + '</span>' +
-      '</div>' +
-      agendaBtn +
-    '</div>';
-  });
-  html += '</div>';
-  return html;
-}
 
 // ============================================================
 // Modale "Ajouter a l'agenda" + generation ICS
@@ -2695,11 +2365,372 @@ function exportAgendaICS() {
 
   closeAgendaModal();
 }
+// ============================================================
+// VIZI - DRAWER MAREES (refonte : 60% a droite, sur carte Esri)
+// Remplace l'ancien overlay plein ecran #tidesPageOverlay
+// Le drawer s'ouvre par-dessus la carte principale, avec geoloc
+// auto sur le port le plus proche et halo vert pulsant.
+// ============================================================
+
+var TIDES_DRAWER = {
+  isOpen: false,
+  currentPort: null,
+  data: null,
+  extremes: null,
+  fromDate: null,
+  daysToShow: 14,
+  selectedDate: null,
+  haloMarker: null
+};
+
+// Liste des ports avec marees disponibles (Manche/Atlantique, pas Med)
+function getTidePortsForDrawer() {
+  var ports = [];
+  for (var i = 0; i < SPOTS.length; i++) {
+    var spot = SPOTS[i];
+    var siteId = API_MAREE_SITES[spot.id];
+    if (siteId) {
+      ports.push({
+        id: spot.id,
+        name: spot.name,
+        lat: spot.lat,
+        lon: spot.lon,
+        siteId: siteId,
+        region: spot.region
+      });
+    }
+  }
+  return ports;
+}
+
+// Trouve le port (avec maree) le plus proche d'une position donnee
+function findNearestTidePort(lat, lon) {
+  var ports = getTidePortsForDrawer();
+  if (ports.length === 0) return null;
+  var best = null;
+  var bestDist = Infinity;
+  ports.forEach(function(p) {
+    var d = haversineKm(lat, lon, p.lat, p.lon);
+    if (d < bestDist) { bestDist = d; best = p; }
+  });
+  return best;
+}
+
+// Un port Mediterraneen n'a pas de coef SHOM applicable
+function isMediterraneanTidePort(siteId) {
+  for (var i = 0; i < SPOTS.length; i++) {
+    if (API_MAREE_SITES[SPOTS[i].id] === siteId && SPOTS[i].region === 'Mediterranee') return true;
+  }
+  return false;
+}
 
 // ============================================================
-// Grande courbe de maree (pleine largeur)
+// Ouverture / fermeture du drawer
 // ============================================================
-function renderFullCurve(points, extremes, isToday, now) {
+function openTidesDrawer() {
+  var drawer = document.getElementById('tidesDrawer');
+  if (!drawer) return;
+
+  drawer.classList.add('open');
+  TIDES_DRAWER.isOpen = true;
+
+  if (TIDES_DRAWER.currentPort) {
+    selectTidePortForDrawer(TIDES_DRAWER.currentPort);
+    return;
+  }
+
+  var refLat = null, refLon = null;
+  if (typeof GEO_STATE !== 'undefined' && GEO_STATE.userLatLng) {
+    refLat = GEO_STATE.userLatLng.lat;
+    refLon = GEO_STATE.userLatLng.lon;
+  } else if (S.clickLatLng) {
+    refLat = S.clickLatLng.lat;
+    refLon = S.clickLatLng.lng;
+  }
+
+  var port;
+  if (refLat !== null) {
+    port = findNearestTidePort(refLat, refLon);
+  }
+  if (!port) {
+    var ports = getTidePortsForDrawer();
+    port = ports.find(function(p){ return p.id === 'cherbourg'; }) || ports[0];
+  }
+
+  if (port) selectTidePortForDrawer(port);
+}
+
+function closeTidesDrawer() {
+  var drawer = document.getElementById('tidesDrawer');
+  if (drawer) drawer.classList.remove('open');
+  TIDES_DRAWER.isOpen = false;
+  removeTidesPortHalo();
+}
+
+// ============================================================
+// Halo vert pulsant sur le port selectionne (sur la carte Esri)
+// ============================================================
+function addTidesPortHalo(lat, lon) {
+  removeTidesPortHalo();
+  var haloIcon = L.divIcon({
+    className: '',
+    html: '<div class="tides-port-halo">' +
+            '<div class="tides-port-halo-ring"></div>' +
+            '<div class="tides-port-halo-ring tides-port-halo-ring2"></div>' +
+            '<div class="tides-port-halo-dot"></div>' +
+          '</div>',
+    iconSize: [50, 50],
+    iconAnchor: [25, 25]
+  });
+  TIDES_DRAWER.haloMarker = L.marker([lat, lon], {
+    icon: haloIcon,
+    interactive: false,
+    zIndexOffset: 800
+  }).addTo(S.map);
+}
+
+function removeTidesPortHalo() {
+  if (TIDES_DRAWER.haloMarker) {
+    S.map.removeLayer(TIDES_DRAWER.haloMarker);
+    TIDES_DRAWER.haloMarker = null;
+  }
+}
+
+// ============================================================
+// Selection d'un port -> charge donnees + affiche
+// ============================================================
+function selectTidePortForDrawer(port) {
+  TIDES_DRAWER.currentPort = port;
+
+  var portNameEl = document.getElementById('tidesDrawerPortName');
+  if (portNameEl) portNameEl.textContent = port.name;
+
+  addTidesPortHalo(port.lat, port.lon);
+  if (S.map) {
+    var currentZoom = S.map.getZoom();
+    var targetZoom = Math.max(currentZoom, 9);
+    S.map.flyTo([port.lat, port.lon], targetZoom, { duration: 0.6 });
+  }
+
+  var today = new Date();
+  TIDES_DRAWER.selectedDate = today.toISOString().split('T')[0];
+
+  fetchTidesDrawerData();
+}
+
+// ============================================================
+// Chargement des donnees (14 jours pour permettre la nav)
+// ============================================================
+function fetchTidesDrawerData() {
+  var today = new Date();
+  TIDES_DRAWER.fromDate = today.toISOString().split('T')[0];
+
+  var body = document.getElementById('tidesDrawerBody');
+  if (body) {
+    body.innerHTML = '<div style="padding:60px 20px;text-align:center;color:var(--text-3);font-family:IBM Plex Mono,monospace;font-size:13px;">Chargement marees...</div>';
+  }
+
+  var url = GAS_URL + '?action=tides_range&site=' + TIDES_DRAWER.currentPort.siteId
+    + '&from=' + TIDES_DRAWER.fromDate + '&days=' + TIDES_DRAWER.daysToShow;
+
+  fetch(url).then(function(r){ return r.json(); }).then(function(data) {
+    if (!data.data || data.error) {
+      if (body) body.innerHTML = '<div style="padding:40px;color:var(--bad);font-family:IBM Plex Mono,monospace;font-size:12px;">Erreur : ' + (data.error || 'pas de donnees') + '</div>';
+      return;
+    }
+    TIDES_DRAWER.data = data.data;
+    TIDES_DRAWER.extremes = data.extremes || [];
+    renderTidesDrawerContent();
+  }).catch(function(err) {
+    if (body) body.innerHTML = '<div style="padding:40px;color:var(--bad);font-family:IBM Plex Mono,monospace;font-size:12px;">Erreur reseau</div>';
+  });
+}
+
+// ============================================================
+// Navigation date dans le drawer
+// ============================================================
+function shiftTidesDrawerDate(delta) {
+  var d = new Date(TIDES_DRAWER.selectedDate + 'T12:00:00Z');
+  d.setDate(d.getDate() + delta);
+  var newDate = d.toISOString().split('T')[0];
+
+  var from = new Date(TIDES_DRAWER.fromDate + 'T00:00:00Z');
+  var to = new Date(from);
+  to.setDate(to.getDate() + TIDES_DRAWER.daysToShow);
+
+  TIDES_DRAWER.selectedDate = newDate;
+  if (d < from || d >= to) {
+    fetchTidesDrawerData();
+  } else {
+    renderTidesDrawerContent();
+  }
+}
+
+function onTidesDrawerDateChange(newDate) {
+  TIDES_DRAWER.selectedDate = newDate;
+  var from = new Date(TIDES_DRAWER.fromDate + 'T00:00:00Z');
+  var to = new Date(from);
+  to.setDate(to.getDate() + TIDES_DRAWER.daysToShow);
+  var d = new Date(newDate + 'T12:00:00Z');
+  if (d < from || d >= to) {
+    fetchTidesDrawerData();
+  } else {
+    renderTidesDrawerContent();
+  }
+}
+
+function tidesDrawerGoToToday() {
+  var today = new Date();
+  TIDES_DRAWER.selectedDate = today.toISOString().split('T')[0];
+  renderTidesDrawerContent();
+}
+
+// ============================================================
+// Rendu du contenu du drawer (date nav + coef + creneaux + courbe)
+// ============================================================
+function renderTidesDrawerContent() {
+  var body = document.getElementById('tidesDrawerBody');
+  if (!body) return;
+
+  var selDate = TIDES_DRAWER.selectedDate;
+  var port = TIDES_DRAWER.currentPort;
+  if (!port) return;
+
+  var dayPoints = (TIDES_DRAWER.data || []).filter(function(p){ return p.time.slice(0,10) === selDate; });
+  var dayExtremes = (TIDES_DRAWER.extremes || []).filter(function(e){ return e.time.slice(0,10) === selDate; });
+
+  if (dayPoints.length === 0) {
+    body.innerHTML = '<div style="padding:60px;text-align:center;color:var(--text-3);">Aucune donnee pour cette date</div>';
+    return;
+  }
+
+  var heights = dayPoints.map(function(p){ return p.height; });
+  var marnage = Math.max.apply(null, heights) - Math.min.apply(null, heights);
+  var coef = getCoefForDate(selDate);
+  var color = coefColor(coef);
+  var isMed = isMediterraneanTidePort(port.siteId);
+  var label = coefLabel(coef);
+  var description = coefDescription(coef);
+
+  var dateObj = new Date(selDate + 'T12:00:00Z');
+  var now = new Date();
+  var today = now.toISOString().split('T')[0];
+  var isToday = selDate === today;
+  var dayLabel = dateObj.toLocaleDateString('fr', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+  var dateNav =
+    '<div class="tides-date-nav">' +
+      '<button class="tides-date-btn" onclick="shiftTidesDrawerDate(-1)">&#9664;</button>' +
+      '<input type="date" id="tidesDrawerDatePicker" value="' + selDate + '" onchange="onTidesDrawerDateChange(this.value)">' +
+      '<button class="tides-date-btn" onclick="shiftTidesDrawerDate(1)">&#9654;</button>' +
+      (isToday ? '' : '<button class="tides-today-btn" onclick="tidesDrawerGoToToday()">Aujourd hui</button>') +
+      '<div class="tides-date-label">' + dayLabel + '</div>' +
+    '</div>';
+
+  var coefCard;
+  if (isMed) {
+    coefCard =
+      '<div class="tides-coef-card">' +
+        '<div class="tides-coef-info" style="width:100%;">' +
+          '<div class="tides-coef-label" style="color:var(--text-3);">coefficient non applicable</div>' +
+          '<div class="tides-coef-desc">Le coefficient SHOM ne concerne que la facade Manche-Atlantique</div>' +
+          '<div class="tides-coef-marnage">marnage ' + marnage.toFixed(1) + 'm</div>' +
+        '</div>' +
+      '</div>';
+  } else {
+    coefCard =
+      '<div class="tides-coef-card">' +
+        '<div class="tides-coef-big" style="color:' + color + ';border-color:' + color + ';">' + coef + '</div>' +
+        '<div class="tides-coef-info">' +
+          '<div class="tides-coef-label" style="color:' + color + ';">coefficient ' + label + '</div>' +
+          '<div class="tides-coef-desc">' + description + '</div>' +
+          '<div class="tides-coef-marnage">marnage ' + marnage.toFixed(1) + 'm</div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  var windowsHtml = renderTidesDrawerWindows(dayExtremes, isToday, now);
+  var curveHtml = renderTidesDrawerCurve(dayPoints, dayExtremes, isToday, now);
+
+  body.innerHTML = dateNav + coefCard + windowsHtml + curveHtml;
+}
+
+// ============================================================
+// Creneaux chassables (cards format large)
+// ============================================================
+function renderTidesDrawerWindows(extremes, isToday, now) {
+  if (!extremes || extremes.length === 0) return '';
+
+  var html = '<div class="tides-windows-grid">';
+  extremes.forEach(function(e) {
+    var etaleTime = new Date(e.time);
+    var startTime = new Date(etaleTime.getTime() - 120 * 60000);
+    var endTime = new Date(etaleTime.getTime() + 120 * 60000);
+    var isPast = isToday && endTime < now;
+    var isCurrent = isToday && now >= startTime && now <= endTime;
+
+    var typeColor = e.type === 'high' ? '#0BA888' : '#D97706';
+    var typeLabel = e.type === 'high' ? 'Pleine mer' : 'Basse mer';
+    var typeShort = e.type === 'high' ? 'PM' : 'BM';
+    var startStr = startTime.toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
+    var endStr = endTime.toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
+    var etaleStr = etaleTime.toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
+
+    var opacity = isPast ? '0.45' : '1';
+    var border = isCurrent ? '2px solid #A8E63D' : '1px solid var(--border)';
+    var bg = isCurrent ? 'rgba(168,230,61,0.1)' : 'var(--surface)';
+    var badge = isCurrent ? '<span class="tides-window-badge">MAINTENANT</span>' : '';
+
+    var agendaBtn = isPast ? '' : (
+      '<button class="tides-agenda-btn" ' +
+      'data-etale="' + etaleTime.toISOString() + '" ' +
+      'data-type="' + e.type + '" ' +
+      'data-start="' + startTime.toISOString() + '" ' +
+      'data-end="' + endTime.toISOString() + '" ' +
+      'onclick="openAgendaModalFromDrawer(this)" ' +
+      'title="Ajouter a mon agenda">' +
+      '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+        '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>' +
+        '<line x1="16" y1="2" x2="16" y2="6"></line>' +
+        '<line x1="8" y1="2" x2="8" y2="6"></line>' +
+        '<line x1="3" y1="10" x2="21" y2="10"></line>' +
+      '</svg>' +
+      '<span>Agenda</span>' +
+      '</button>'
+    );
+
+    html += '<div class="tides-window-card" style="border:' + border + ';background:' + bg + ';opacity:' + opacity + ';">' +
+      '<div class="tides-window-top">' +
+        '<div class="tides-window-type" style="color:' + typeColor + ';">' + typeShort + ' &mdash; ' + typeLabel + badge + '</div>' +
+        '<div class="tides-window-etale">etale ' + etaleStr + '</div>' +
+      '</div>' +
+      '<div class="tides-window-range">' +
+        '<span class="tides-window-time">' + startStr + '</span>' +
+        '<span class="tides-window-arrow">&rarr;</span>' +
+        '<span class="tides-window-time">' + endStr + '</span>' +
+      '</div>' +
+      agendaBtn +
+    '</div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+// Wrapper agenda : utilise les memes fonctions openAgendaModal/exportAgendaICS
+function openAgendaModalFromDrawer(btn) {
+  if (typeof TIDES_PAGE === 'undefined') {
+    window.TIDES_PAGE = {};
+  }
+  TIDES_PAGE.currentSiteName = TIDES_DRAWER.currentPort ? TIDES_DRAWER.currentPort.name : '';
+  TIDES_PAGE.currentSite = TIDES_DRAWER.currentPort ? TIDES_DRAWER.currentPort.siteId : null;
+  TIDES_PAGE.selectedDate = TIDES_DRAWER.selectedDate;
+  openAgendaModal(btn);
+}
+
+// ============================================================
+// Grande courbe de maree
+// ============================================================
+function renderTidesDrawerCurve(points, extremes, isToday, now) {
   if (points.length === 0) return '';
 
   var w = 800, h = 240, pad = 40;
@@ -2716,7 +2747,6 @@ function renderFullCurve(points, extremes, isToday, now) {
     return pad + (1 - (height - minH) / rangeH) * (h - pad * 2);
   }
 
-  // Bandes chassables +/- 2h
   var chassableBands = extremes.map(function(e) {
     var t = new Date(e.time);
     var startMin = t.getHours() * 60 + t.getMinutes() - 120;
@@ -2728,7 +2758,6 @@ function renderFullCurve(points, extremes, isToday, now) {
     return '<rect x="' + x1.toFixed(1) + '" y="' + pad + '" width="' + (x2 - x1).toFixed(1) + '" height="' + (h - pad * 2) + '" fill="#A8E63D" opacity="0.15"/>';
   }).join('');
 
-  // Courbe
   var path = '';
   points.forEach(function(p, i) {
     path += (i === 0 ? 'M' : 'L') + xOf(p.time).toFixed(1) + ',' + yOf(p.height).toFixed(1) + ' ';
@@ -2736,7 +2765,6 @@ function renderFullCurve(points, extremes, isToday, now) {
   var lastX = xOf(points[points.length-1].time).toFixed(1);
   var firstX = xOf(points[0].time).toFixed(1);
 
-  // Marqueurs PM/BM avec labels
   var markers = extremes.map(function(e) {
     var x = xOf(e.time), y = yOf(e.height);
     var color = e.type === 'high' ? '#0BA888' : '#D97706';
@@ -2747,7 +2775,6 @@ function renderFullCurve(points, extremes, isToday, now) {
       '<text x="' + x.toFixed(1) + '" y="' + (ty + 14).toFixed(1) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="11" fill="' + color + '" opacity="0.7">' + e.height.toFixed(1) + 'm</text>';
   }).join('');
 
-  // Ligne "maintenant"
   var nowLine = '';
   if (isToday) {
     var nowX = pad + ((now.getHours() * 60 + now.getMinutes()) / 1440) * (w - pad * 2);
@@ -2757,7 +2784,6 @@ function renderFullCurve(points, extremes, isToday, now) {
       '<text x="' + nowX.toFixed(1) + '" y="' + (pad - 8) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="11" fill="#DC2626" font-weight="700">MAINTENANT</text>';
   }
 
-  // Labels heures
   var hourLabels = '';
   [0, 3, 6, 9, 12, 15, 18, 21, 24].forEach(function(hr) {
     var x = pad + (hr * 60 / 1440) * (w - pad * 2);
@@ -2765,7 +2791,6 @@ function renderFullCurve(points, extremes, isToday, now) {
     hourLabels += '<text x="' + x.toFixed(1) + '" y="' + (h - pad + 20) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="12" fill="#94A3B8">' + hr + 'h</text>';
   });
 
-  // Axe horizontal
   var xAxis = '<line x1="' + pad + '" y1="' + (h - pad) + '" x2="' + (w - pad) + '" y2="' + (h - pad) + '" stroke="#CBD5E0" stroke-width="1"/>';
 
   var svg = '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;display:block;max-width:100%;">' +
@@ -2789,8 +2814,6 @@ function renderFullCurve(points, extremes, isToday, now) {
     '</div>' +
   '</div>';
 }
-
-
 // ============================================================
 // VIZI - GEOLOCALISATION UTILISATEUR
 // ============================================================
