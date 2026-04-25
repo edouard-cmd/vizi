@@ -1213,25 +1213,12 @@ function renderTidesShell() {
   container.innerHTML =
     '<div class="tides-label">Marees</div>' +
     '<div class="tides-port-name">' + TIDES.siteName + '</div>' +
-    '<div style="display:flex;gap:4px;margin:10px 0 8px;flex-wrap:wrap;">' +
-      '<button class="tide-quick-btn" onclick="shiftTideDate(0)">Aujourd hui</button>' +
-      '<button class="tide-quick-btn" onclick="shiftTideDate(1)">+1j</button>' +
-      '<button class="tide-quick-btn" onclick="shiftTideDate(7)">+1 sem</button>' +
-      '<button class="tide-quick-btn" onclick="shiftTideDate(14)">+2 sem</button>' +
-    '</div>' +
-    '<div style="display:flex;gap:6px;margin-bottom:12px;">' +
-      '<button class="tide-nav-btn" onclick="shiftTideDateBy(-1)">&#9664;</button>' +
-      '<input type="date" id="tideDatePicker" onchange="onTideDateChange(this.value)" ' +
-        'style="flex:1;padding:9px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;font-family:IBM Plex Mono,monospace;font-size:13px;color:var(--text);outline:none;">' +
-      '<button class="tide-nav-btn" onclick="shiftTideDateBy(1)">&#9654;</button>' +
-    '</div>' +
     '<div id="tideDaySummary" style="margin:0 0 12px;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;">' +
       '<div style="padding:10px;text-align:center;color:var(--text-3);font-family:IBM Plex Mono,monospace;font-size:11px;">Chargement...</div>' +
     '</div>' +
     '<div id="tideCurve" style="margin-bottom:10px;"></div>' +
     '<div id="tideWindows"></div>';
 
-  document.getElementById('tideDatePicker').value = TIDES.selectedDate;
 }
 
 function fetchTidesRange() {
