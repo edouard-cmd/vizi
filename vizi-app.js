@@ -1418,6 +1418,7 @@ function renderTideCurveWithWindows(points, extremes) {
   });
 
   var svg = '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;display:block;max-width:100%;">' +
+    nightBands +
     chassableBands +
     etaleBands +
     '<path d="' + path + 'L' + lastX + ',' + (h - pad) + ' L' + firstX + ',' + (h - pad) + ' Z" fill="#0BA888" opacity="0.1"/>' +
