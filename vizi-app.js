@@ -2881,7 +2881,7 @@ function geolocateUser(userInitiated) {
       console.log('[VIZI] GPS non disponible:', err.message);
       fallbackToIPGeolocation(userInitiated);
     },
-    { enableHighAccuracy: true, timeout: 8000, maximumAge: 600000 }
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
   );
 }
 
