@@ -2753,7 +2753,150 @@ function renderFullCurve(points, extremes, isToday, now) {
 }
 
 
+// ============================================================
+// VIZI - GEOLOCALISATION UTILISATEUR
+// ============================================================
 
+var GEO_STATE = {
+  userMarker: null,
+  userLatLng: null,
+  hasAsked: false
+};
+
+function initGeolocationFlow() {
+  var choice = null;
+  try { choice = localStorage.getItem('vizi_geo_choice'); } catch(e) {}
+
+  if (choice === 'accepted') {
+    geolocateUser(false);
+  } else if (choice === 'dismissed') {
+    return;
+  } else {
+    setTimeout(function() {
+      var banner = document.getElementById('geoBanner');
+      if (banner) banner.classList.add('show');
+    }, 1500);
+  }
+}
+
+function dismissGeoBanner() {
+  var banner = document.getElementById('geoBanner');
+  if (banner) banner.classList.remove('show');
+  try { localStorage.setItem('vizi_geo_choice', 'dismissed'); } catch(e) {}
+}
+
+function acceptGeolocation() {
+  var banner = document.getElementById('geoBanner');
+  if (banner) banner.classList.remove('show');
+  try { localStorage.setItem('vizi_geo_choice', 'accepted'); } catch(e) {}
+  geolocateUser(true);
+}
+
+function geolocateUser(userInitiated) {
+  var btn = document.getElementById('locateBtn');
+  if (btn) btn.classList.add('locating');
+
+  if (!navigator.geolocation) {
+    if (btn) btn.classList.remove('locating');
+    if (userInitiated) fallbackToIPGeolocation(true);
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    function(position) {
+      if (btn) btn.classList.remove('locating');
+      handleUserPosition(position.coords.latitude, position.coords.longitude, 'gps');
+    },
+    function(err) {
+      if (btn) btn.classList.remove('locating');
+      console.log('[VIZI] GPS non disponible:', err.message);
+      fallbackToIPGeolocation(userInitiated);
+    },
+    { enableHighAccuracy: true, timeout: 8000, maximumAge: 600000 }
+  );
+}
+
+function fallbackToIPGeolocation(userInitiated) {
+  fetch('https://ipapi.co/json/').then(function(r) {
+    return r.json();
+  }).then(function(data) {
+    if (data && data.latitude && data.longitude) {
+      handleUserPosition(data.latitude, data.longitude, 'ip');
+    } else if (userInitiated) {
+      showGeolocError();
+    }
+  }).catch(function() {
+    if (userInitiated) showGeolocError();
+  });
+}
+
+function showGeolocError() {
+  var toast = document.getElementById('landToast');
+  if (!toast) return;
+  toast.textContent = 'Localisation impossible. Clique sur la carte pour choisir ton spot.';
+  toast.classList.add('show');
+  setTimeout(function() { toast.classList.remove('show'); }, 4000);
+}
+
+function handleUserPosition(lat, lon, source) {
+  GEO_STATE.userLatLng = { lat: lat, lon: lon };
+
+  if (GEO_STATE.userMarker) S.map.removeLayer(GEO_STATE.userMarker);
+  var posIcon = L.divIcon({
+    className: '',
+    html: '<div class="user-position-marker"><div class="user-position-pulse"></div><div class="user-position-dot"></div></div>',
+    iconSize: [24, 24], iconAnchor: [12, 12]
+  });
+  GEO_STATE.userMarker = L.marker([lat, lon], { icon: posIcon, interactive: false, zIndexOffset: 500 }).addTo(S.map);
+
+  var nearest = findNearestPort(lat, lon);
+  if (!nearest) {
+    S.map.setView([lat, lon], 11);
+    return;
+  }
+
+  var bounds = L.latLngBounds([[lat, lon], [nearest.spot.lat, nearest.spot.lon]]);
+  S.map.fitBounds(bounds, { padding: [80, 80], maxZoom: 12 });
+
+  var distKm = Math.round(nearest.distanceKm * 10) / 10;
+  var toast = document.getElementById('landToast');
+  if (toast) {
+    var sourceLabel = source === 'gps' ? '' : ' (approximatif)';
+    toast.textContent = 'Port le plus proche : ' + nearest.spot.name + ' (' + distKm + ' km)' + sourceLabel;
+    toast.classList.add('show');
+    setTimeout(function() { toast.classList.remove('show'); }, 4000);
+  }
+
+  setTimeout(function() {
+    openSpotPopup(L.latLng(nearest.spot.lat, nearest.spot.lon), nearest.spot.name);
+    if (S_forecastOpen) loadForecast(nearest.spot.lat, nearest.spot.lon, nearest.spot.name);
+  }, 1000);
+}
+
+function findNearestPort(lat, lon) {
+  if (!SPOTS || SPOTS.length === 0) return null;
+  var best = null;
+  var bestDist = Infinity;
+  SPOTS.forEach(function(spot) {
+    var dKm = haversineKm(lat, lon, spot.lat, spot.lon);
+    if (dKm < bestDist) {
+      bestDist = dKm;
+      best = spot;
+    }
+  });
+  if (!best) return null;
+  return { spot: best, distanceKm: bestDist };
+}
+
+function haversineKm(lat1, lon1, lat2, lon2) {
+  var R = 6371;
+  var dLat = (lat2 - lat1) * Math.PI / 180;
+  var dLon = (lon2 - lon1) * Math.PI / 180;
+  var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) *
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
 function boot() {
   initCanvas();
   initMap();
