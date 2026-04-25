@@ -2897,6 +2897,13 @@ function haversineKm(lat1, lon1, lat2, lon2) {
     Math.sin(dLon/2) * Math.sin(dLon/2);
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
+function zoomMapIn() {
+  if (S.map) S.map.zoomIn();
+}
+
+function zoomMapOut() {
+  if (S.map) S.map.zoomOut();
+}
 function boot() {
   initCanvas();
   initMap();
