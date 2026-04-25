@@ -2862,6 +2862,8 @@ function acceptGeolocation() {
 }
 
 function geolocateUser(userInitiated) {
+  // Force le GPS frais : on oublie le dernier clic carte pour que la geoloc reprenne la priorite
+  S.clickLatLng = null;
   var btn = document.getElementById('locateBtn');
   if (btn) btn.classList.add('locating');
 
