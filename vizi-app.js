@@ -904,6 +904,11 @@ function renderForecastTable(h, now, modelMap) {
 }
 function openSpotPopup(latlng, name) {
   S.clickLatLng = latlng;
+  // Si le drawer marees est ouvert, on bascule sur le port le plus proche du clic
+    if (typeof TIDES_DRAWER !== 'undefined' && TIDES_DRAWER.isOpen) {
+      var nearestPort = findNearestTidePort(latlng.lat, latlng.lng);
+      if (nearestPort) selectTidePortForDrawer(nearestPort);
+    }
   if (S.clickMarker) S.map.removeLayer(S.clickMarker);
   var pulseIcon = L.divIcon({
     className: '',
@@ -2440,13 +2445,15 @@ function openTidesDrawer() {
   }
 
   var refLat = null, refLon = null;
-  if (typeof GEO_STATE !== 'undefined' && GEO_STATE.userLatLng) {
-    refLat = GEO_STATE.userLatLng.lat;
-    refLon = GEO_STATE.userLatLng.lon;
-  } else if (S.clickLatLng) {
-    refLat = S.clickLatLng.lat;
-    refLon = S.clickLatLng.lng;
-  }
+  // Priorite : si l utilisateur a clique quelque part, c est sa reference
+    // Sinon on utilise sa position GPS
+    if (S.clickLatLng) {
+      refLat = S.clickLatLng.lat;
+      refLon = S.clickLatLng.lng;
+    } else if (typeof GEO_STATE !== 'undefined' && GEO_STATE.userLatLng) {
+      refLat = GEO_STATE.userLatLng.lat;
+      refLon = GEO_STATE.userLatLng.lon;
+    }
 
   var port;
   if (refLat !== null) {
@@ -2506,11 +2513,12 @@ function selectTidePortForDrawer(port) {
   if (portNameEl) portNameEl.textContent = port.name;
 
   addTidesPortHalo(port.lat, port.lon);
-  if (S.map) {
-    var currentZoom = S.map.getZoom();
-    var targetZoom = Math.max(currentZoom, 9);
-    S.map.flyTo([port.lat, port.lon], targetZoom, { duration: 0.6 });
-  }
+// Pas de recentrage : la carte reste ou l utilisateur l a laissee
+    if (S.map) {
+      var bounds = S.map.getBounds();
+      var portLatLng = L.latLng(port.lat, port.lon);
+      if (!bounds.contains(portLatLng)) S.map.panTo(portLatLng, { animate: true, duration: 0.6 });
+    }
 
   var today = new Date();
   TIDES_DRAWER.selectedDate = today.toISOString().split('T')[0];
