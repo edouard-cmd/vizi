@@ -1138,8 +1138,16 @@ function fetchSpotMarineAndSun(lat, lon) {
   var sunUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&daily=sunrise,sunset&timezone=Europe/Paris&start_date=' + fmt(start) + '&end_date=' + fmt(start);
   fetch(sunUrl).then(function(r) { return r.json(); }).then(function(d) {
     if (!d.daily) return;
-    if (d.daily.sunrise && d.daily.sunrise[0]) document.getElementById('spotSunrise').textContent = d.daily.sunrise[0].slice(11, 16);
-    if (d.daily.sunset && d.daily.sunset[0]) document.getElementById('spotSunset').textContent = d.daily.sunset[0].slice(11, 16);
+    if (d.daily.sunrise && d.daily.sunrise[0]) {
+  document.getElementById('spotSunrise').textContent = d.daily.sunrise[0].slice(11, 16);
+  S._sunriseTime = d.daily.sunrise[0].slice(11, 16);
+}
+if (d.daily.sunset && d.daily.sunset[0]) {
+  document.getElementById('spotSunset').textContent = d.daily.sunset[0].slice(11, 16);
+  S._sunsetTime = d.daily.sunset[0].slice(11, 16);
+}
+// Re-render du graphe maree avec les zones de nuit
+if (TIDES.data && TIDES.extremes) renderTidesForSelectedDate();
   }).catch(function() {});
 }
 
