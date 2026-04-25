@@ -342,7 +342,7 @@ function initCanvas() {
 }
 
 function initMap() {
-  S.map = L.map('map', { center:[49.32, -0.55], zoom:11, zoomControl:true });
+  S.map = L.map('map', { center:[49.32, -0.55], zoom:11, zoomControl:false });
 
 S.basemapSat = L.layerGroup([
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
