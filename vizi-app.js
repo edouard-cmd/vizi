@@ -2912,6 +2912,7 @@ function boot() {
     windBtn.style.color = S_windUnit === 'kt' ? '#A8E63D' : 'rgba(255,255,255,0.7)';
     windBtn.style.borderColor = S_windUnit === 'kt' ? '#A8E63D' : 'rgba(255,255,255,0.15)';
   }
+  initGeolocationFlow();
 }
 
 if (document.readyState === 'loading') {
