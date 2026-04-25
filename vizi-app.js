@@ -1358,7 +1358,16 @@ function renderTideCurveWithWindows(points, extremes) {
   function yOf(height) {
     return pad + (1 - (height - minH) / rangeH) * (h - pad * 2);
   }
-
+// Zones de nuit : rectangles gris de 0h au lever et du coucher a 24h
+  var nightBands = '';
+  if (S._sunriseTime && S._sunsetTime) {
+    var sunriseMin = parseInt(S._sunriseTime.slice(0,2)) * 60 + parseInt(S._sunriseTime.slice(3,5));
+    var sunsetMin = parseInt(S._sunsetTime.slice(0,2)) * 60 + parseInt(S._sunsetTime.slice(3,5));
+    var xSunrise = pad + (sunriseMin / 1440) * (w - pad * 2);
+    var xSunset = pad + (sunsetMin / 1440) * (w - pad * 2);
+    nightBands += '<rect x="' + pad + '" y="' + pad + '" width="' + (xSunrise - pad).toFixed(1) + '" height="' + (h - pad * 2) + '" fill="#1A2535" opacity="0.12"/>';
+    nightBands += '<rect x="' + xSunset.toFixed(1) + '" y="' + pad + '" width="' + (w - pad - xSunset).toFixed(1) + '" height="' + (h - pad * 2) + '" fill="#1A2535" opacity="0.12"/>';
+  }
   var chassableBands = extremes.map(function(e) {
     var t = new Date(e.time);
     var startMin = t.getHours() * 60 + t.getMinutes() - CHASSABLE_WINDOW_MINUTES;
