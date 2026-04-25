@@ -694,6 +694,163 @@
       .tides-date-label { display: none; }
       .tides-date-nav { flex-wrap: wrap; }
     }
+    /* ============================================================
+   GEOLOC : bandeau d'invitation + bouton "Me localiser"
+   ============================================================ */
+#geoBanner {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(120px);
+  z-index: 1500;
+  background: #1A2535;
+  border: 1.5px solid #A8E63D;
+  border-radius: 14px;
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+  max-width: calc(100vw - 32px);
+  opacity: 0;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  pointer-events: none;
+}
+#geoBanner.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: all;
+}
+.geo-banner-icon {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.geo-banner-text {
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  color: #fff;
+  line-height: 1.4;
+  flex: 1;
+  min-width: 0;
+}
+.geo-banner-text strong {
+  color: #A8E63D;
+  font-weight: 600;
+}
+.geo-banner-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.geo-btn-primary {
+  padding: 8px 16px;
+  background: #A8E63D;
+  border: none;
+  border-radius: 8px;
+  color: #1A2535;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.geo-btn-primary:hover { background: #7AB828; }
+.geo-btn-skip {
+  padding: 8px 12px;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.25);
+  border-radius: 8px;
+  color: rgba(255,255,255,0.7);
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.geo-btn-skip:hover {
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+}
+
+/* Bouton "Me localiser" dans le header */
+#locateBtn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 8px;
+  color: rgba(255,255,255,0.75);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+#locateBtn:hover {
+  border-color: #A8E63D;
+  color: #A8E63D;
+  background: rgba(168,230,61,0.08);
+}
+#locateBtn.locating {
+  border-color: #A8E63D;
+  color: #A8E63D;
+  animation: locatePulse 1.2s ease-in-out infinite;
+}
+@keyframes locatePulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(168,230,61,0.4); }
+  50%      { box-shadow: 0 0 0 8px rgba(168,230,61,0); }
+}
+
+/* Marqueur position utilisateur */
+.user-position-marker {
+  position: relative;
+  width: 24px;
+  height: 24px;
+}
+.user-position-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #4285F4;
+  border: 3px solid #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+}
+.user-position-pulse {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #4285F4;
+  opacity: 0.4;
+  animation: userPosPulse 2s ease-out infinite;
+}
+@keyframes userPosPulse {
+  0%   { width: 14px; height: 14px; opacity: 0.5; }
+  100% { width: 50px; height: 50px; opacity: 0; }
+}
+
+@media (max-width: 768px) {
+  #geoBanner {
+    bottom: 14px;
+    padding: 12px 14px;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .geo-banner-text { font-size: 13px; flex-basis: 100%; }
+  .geo-banner-actions { flex-basis: 100%; justify-content: flex-end; }
+  #locateBtn { width: 32px; height: 32px; }
+}
   </style>
 </head>
 <body>
@@ -769,6 +926,16 @@
     <button class="ctrl-btn" id="btnSed" onclick="toggleLayer('sed')"><span class="ctrl-dot"></span>Nature du fond</button>
     <button class="ctrl-btn" id="btnWind" onclick="toggleForecastPanel()"><span class="ctrl-dot"></span>Meteo</button>
     <button class="ctrl-btn" id="btnTidesPage" onclick="openTidesPage()"><span class="ctrl-dot"></span>Marees</button>
+    <button id="locateBtn" onclick="geolocateUser(true)" title="Me localiser">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="10"></circle>
+    <circle cx="12" cy="12" r="3" fill="currentColor"></circle>
+    <line x1="12" y1="2" x2="12" y2="5"></line>
+    <line x1="12" y1="19" x2="12" y2="22"></line>
+    <line x1="2" y1="12" x2="5" y2="12"></line>
+    <line x1="19" y1="12" x2="22" y2="12"></line>
+  </svg>
+</button>
     <button id="windUnitToggle" onclick="toggleWindUnit()" style="flex-shrink:0;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.18);border-radius:8px;padding:7px 14px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;color:rgba(255,255,255,0.75);cursor:pointer;letter-spacing:0.04em;">km/h</button>
     <button onclick="openObsSheet()" style="flex-shrink:0;padding:7px 14px;background:#A8E63D;border:none;border-radius:8px;color:#1A2535;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">+ Ameliorer les previsions</button>
     <button id="authBtn" onclick="handleAuthClick()"><span id="authBtnText">Se connecter</span></button>
@@ -1035,7 +1202,22 @@
     </div>
   </div>
 </div>
-
+<div id="geoBanner">
+  <div class="geo-banner-icon">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#A8E63D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 22s-8-7.5-8-13a8 8 0 0 1 16 0c0 5.5-8 13-8 13z"/>
+      <circle cx="12" cy="9" r="3"/>
+    </svg>
+  </div>
+  <div class="geo-banner-text">
+    <strong>Ouvrir Vizi sur ton spot ?</strong><br>
+    On te positionne sur le port le plus proche.
+  </div>
+  <div class="geo-banner-actions">
+    <button class="geo-btn-skip" onclick="dismissGeoBanner()">Plus tard</button>
+    <button class="geo-btn-primary" onclick="acceptGeolocation()">Activer ma position</button>
+  </div>
+</div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
 
