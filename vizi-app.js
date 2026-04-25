@@ -1508,7 +1508,30 @@ function isOnSea(lat, lon, callback) {
     callback(isWater);
   }).catch(function() { callback(true); });
 }
+var LAND_MESSAGES = [
+  "Hey, on chasse pas sur la terre !",
+  "Pas de bar sur le bitume...",
+  "T'as oublie ta combi ?",
+  "C'est sec par ici, vise plus a gauche.",
+  "Les daurades preferent l'eau, en general.",
+  "Clique sur la mer, pas sur les vaches.",
+  "Ton fusil rouille deja a sec...",
+  "Meme avec une grande maree, ca le fera pas.",
+  "Range ton bi et clique sur l'eau bleue.",
+  "Pas de visi sur le sable.",
+  "T'as pris ton tuba pour rien la.",
+  "Le poisson est dans l'autre sens.",
+  "Faut chercher le bleu, pas le marron.",
+  "Visi nulle ici : c'est de la terre.",
+  "Le bar habite dans la mer, pas dans la baie.",
+  "On dirait un coin a champignons plus qu'a poissons.",
+  "Spot sec, declinaison echec.",
+  "Apnee impossible sans eau.",
+  "Tu vas casser ta lame sur les cailloux.",
+  "Reessaie, mais cette fois en mer."
+];
 
+var _landToastTimer = null;
 function showLandMessage(latlng) {
   var msg = LAND_MESSAGES[Math.floor(Math.random() * LAND_MESSAGES.length)];
   var toast = document.getElementById('landToast');
