@@ -1365,8 +1365,8 @@ function renderTideCurveWithWindows(points, extremes) {
     var sunsetMin = parseInt(S._sunsetTime.slice(0,2)) * 60 + parseInt(S._sunsetTime.slice(3,5));
     var xSunrise = pad + (sunriseMin / 1440) * (w - pad * 2);
     var xSunset = pad + (sunsetMin / 1440) * (w - pad * 2);
-    nightBands += '<rect x="' + pad + '" y="' + pad + '" width="' + (xSunrise - pad).toFixed(1) + '" height="' + (h - pad * 2) + '" fill="#1A2535" opacity="0.12"/>';
-    nightBands += '<rect x="' + xSunset.toFixed(1) + '" y="' + pad + '" width="' + (w - pad - xSunset).toFixed(1) + '" height="' + (h - pad * 2) + '" fill="#1A2535" opacity="0.12"/>';
+    nightBands += '<rect x="' + pad + '" y="' + pad + '" width="' + (xSunrise - pad).toFixed(1) + '" height="' + (h - pad * 2) + '" fill="#1A2535" opacity="0.30"/>';
+    nightBands += '<rect x="' + xSunset.toFixed(1) + '" y="' + pad + '" width="' + (w - pad - xSunset).toFixed(1) + '" height="' + (h - pad * 2) + '" fill="#1A2535" opacity="0.30"/>';
   }
   var chassableBands = extremes.map(function(e) {
     var t = new Date(e.time);
