@@ -968,6 +968,16 @@ function fetchSpotWeather(lat, lon) {
 
 function refreshSpotPopup() {
   if (S_spotWeatherCache) renderSpotPopup();
+  // Synchroniser le graphe de marée avec la date du haut
+  var newDate = document.getElementById('spotDate').value;
+  if (newDate && newDate !== TIDES.selectedDate) {
+    TIDES.selectedDate = newDate;
+    if (TIDES.data && isDateInLoadedRange(newDate)) {
+      renderTidesForSelectedDate();
+    } else if (TIDES.siteId) {
+      fetchTidesRange();
+    }
+  }
 }
 
 // ============================================================
