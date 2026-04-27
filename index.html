@@ -88,7 +88,16 @@
     .drawer-datetime { display:flex; gap:8px; padding:10px 16px; border-bottom:1px solid var(--border); background:var(--surface2); flex-shrink:0; }
     .drawer-datetime input { flex:1; padding:10px 12px; background:var(--surface); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:'IBM Plex Mono', monospace; font-size:15px; outline:none; cursor:pointer; transition:border-color 0.15s; }
     .drawer-datetime input:focus { border-color:var(--accent); }
-    
+    .decant-banner-v2 { display:none; padding:14px 16px; margin:12px 16px 0; border-radius:10px; color:#fff; }
+    .decant-banner-v2.show { display:block; }
+    .decant-banner-v2.degradation { background:linear-gradient(135deg, #D85A30, #993C1D); }
+    .decant-banner-v2.decantation { background:linear-gradient(135deg, #16A34A, #0F6E56); }
+    .decant-banner-v2.neutre { background:linear-gradient(135deg, #94A3B8, #64748B); }
+    .decant-v2-title { font-family:'Inter', sans-serif; font-size:15px; font-weight:600; display:flex; align-items:center; justify-content:space-between; gap:8px; color:#fff; margin-bottom:4px; }
+    .decant-v2-sub { font-family:'IBM Plex Mono', monospace; font-size:12px; color:rgba(255,255,255,0.9); }
+    .decant-v2-detail { display:none; margin-top:10px; padding:10px; background:rgba(255,255,255,0.18); border-radius:8px; font-size:12px; line-height:1.5; font-family:'Inter', sans-serif; color:#fff; }
+    .decant-v2-detail.open { display:block; }
+    .decant-v2-info-btn { width:18px; height:18px; min-width:18px; padding:0; border-radius:50%; font-size:11px; line-height:1; display:inline-flex; align-items:center; justify-content:center; background:rgba(255,255,255,0.25); border:1px solid rgba(255,255,255,0.5); color:#fff; cursor:pointer; font-weight:600; font-family:'Inter', sans-serif; flex-shrink:0; }
     .spot-vis-block { padding:16px 16px 12px; border-bottom:1px solid var(--border); }
     .spot-vis-label { font-family:'IBM Plex Mono', monospace; font-size:13px; font-weight:500; color:var(--text-3); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:12px; }
     .spot-vis-badge { width:100%; padding:16px 0; border-radius:10px; display:flex; align-items:center; justify-content:center; margin-bottom:12px; transition:background 0.35s; }
