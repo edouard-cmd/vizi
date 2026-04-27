@@ -970,7 +970,24 @@ function fetchSpotWeather(lat, lon) {
     console.error('[VIZI] meteo spot failed:', err);
   });
 }
+function shiftSpotDate(delta) {
+  var input = document.getElementById('spotDate');
+  if (!input.value) return;
+  var d = new Date(input.value + 'T12:00:00');
+  d.setDate(d.getDate() + delta);
+  var newDateStr = d.toISOString().split('T')[0];
+  var today = new Date().toISOString().split('T')[0];
+  // Limite : impossible de descendre en dessous d aujourd hui
+  if (newDateStr < today) return;
+  input.value = newDateStr;
+  onSpotDateChange();
+}
 
+function onSpotDateChange() {
+  // Met a jour l etat du bouton precedent (grise si on est sur aujourd hui)
+  var input = document.getElementById('spotDate');
+  var prevBtn = document.getElementById('spotDatePrev');
+  var today = new Date().toISOString()
 function refreshSpotPopup() {
   if (S_spotWeatherCache) renderSpotPopup();
   // Synchroniser le graphe de marée avec la date du haut
