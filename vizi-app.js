@@ -1100,6 +1100,7 @@ var fromNames = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
     return '<div style="display:flex;align-items:center;gap:8px;font-family:IBM Plex Mono,monospace;font-size:11px;color:#4A6080;"><span style="flex:1">' + f.label + '</span><span style="font-weight:600">' + impactStr + '</span></div>';
   }).join('');
   renderDecantation(h, idx, depth, dir, S.clickLatLng);
+  renderPaliersTimeline(h, idx, depth, S.clickLatLng);
 }
 
 function renderDecantation(h, currentIdx, depth, currentDir, latlng) {
@@ -1221,6 +1222,101 @@ function toggleDecantInfo() {
   if (detail) detail.classList.toggle('open');
 }
 
+function renderPaliersTimeline(h, currentIdx, depth, latlng) {
+  var block = document.getElementById('spotPaliersBlock');
+  var list = document.getElementById('spotPaliersList');
+  if (!block || !list || !h || !h.windspeed_10m) return;
+
+  var lat = latlng.lat;
+  var lon = latlng.lng;
+
+  // Calcule le score visi a un index donne (meme formule que renderSpotPopup)
+  function visScoreAtIdx(idx) {
+    var w = h.windspeed_10m[idx] || 0;
+    var g = h.windgusts_10m[idx] || 0;
+    var d = h.winddirection_10m ? h.winddirection_10m[idx] : null;
+    var wave = h.wave_height ? (h.wave_height[idx] || 0) : 0;
+    var bathyFactor = depth <= 2 ? 4.0 : depth <= 5 ? 3.0 : depth <= 10 ? 2.0 : depth <= 20 ? 1.3 : 1.0;
+    var dirFactor = getDirFactorForPoint(d, lat, lon);
+    var windPenalty = Math.min(Math.max(w - 5, 0) / 20, 1) * 55 * dirFactor;
+    var gustPenalty = Math.min(Math.max(g - 10, 0) / 25, 1) * 30 * dirFactor;
+    var wavePenalty = Math.min(wave / 1.2, 1) * 35;
+    var totalPenalty = Math.min((windPenalty + gustPenalty + wavePenalty) * bathyFactor, 100);
+    return Math.max(0, Math.min(100, 100 - totalPenalty));
+  }
+
+  // Score actuel pour savoir quels paliers sont deja atteints
+  var currentScore = visScoreAtIdx(currentIdx);
+
+  // Definition des paliers (label, score minimum requis)
+  var paliers = [
+    { label: '2m', minScore: 20 },
+    { label: '4m', minScore: 40 },
+    { label: '8m', minScore: 60 },
+    { label: '+8m', minScore: 80 }
+  ];
+
+  // Cherche pour chaque palier la premiere heure future ou il est atteint
+  var maxLookahead = Math.min(120, h.time.length - currentIdx - 1); // 120h = 5 jours
+  var results = paliers.map(function(p) {
+    if (currentScore >= p.minScore) {
+      return { label: p.label, current: true };
+    }
+    for (var i = currentIdx + 1; i <= currentIdx + maxLookahead; i++) {
+      if (visScoreAtIdx(i) >= p.minScore) {
+        var t = new Date(h.time[i]);
+        var hoursAhead = i - currentIdx;
+        return { label: p.label, time: t, hoursAhead: hoursAhead };
+      }
+    }
+    return { label: p.label, na: true };
+  });
+
+  // Format date FR : "mer 29 avr 14h"
+  function formatPalierDate(d) {
+    var dayShort = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'][d.getDay()];
+    var monthShort = ['janv', 'fevr', 'mars', 'avr', 'mai', 'juin', 'juil', 'aout', 'sept', 'oct', 'nov', 'dec'][d.getMonth()];
+    var dayNum = d.getDate();
+    var hh = d.getHours().toString().padStart(2, '0');
+    return dayShort + ' ' + dayNum + ' ' + monthShort + ' ' + hh + 'h';
+  }
+
+  // Construit le HTML
+  var html = results.map(function(r) {
+    var rowStyle = 'display:grid;grid-template-columns:40px 1fr auto;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);align-items:center;font-family:IBM Plex Mono,monospace;font-size:12px;';
+    var labelStyle = 'font-weight:700;color:var(--text);';
+    if (r.current) {
+      return '<div style="' + rowStyle + '">' +
+        '<span style="' + labelStyle + '">' + r.label + '</span>' +
+        '<span style="color:#0F6E56;font-weight:600;">atteint maintenant</span>' +
+        '<span style="color:var(--text-3);font-size:10px;text-align:right;">&mdash;</span>' +
+      '</div>';
+    }
+    if (r.na) {
+      return '<div style="' + rowStyle + '">' +
+        '<span style="' + labelStyle + ';opacity:0.5;">' + r.label + '</span>' +
+        '<span style="color:var(--text-3);font-style:italic;">non atteint dans 5j</span>' +
+        '<span></span>' +
+      '</div>';
+    }
+    return '<div style="' + rowStyle + '">' +
+      '<span style="' + labelStyle + '">' + r.label + '</span>' +
+      '<span style="color:var(--text-2);">' + formatPalierDate(r.time) + '</span>' +
+      '<span style="color:var(--text-3);font-size:10px;text-align:right;">dans ' + r.hoursAhead + 'h</span>' +
+    '</div>';
+  }).join('');
+
+  // Retire la derniere bordure pour finir propre
+  html = html.replace(/border-bottom:1px solid var\(--border\);(?=[^;]*$)/, 'border-bottom:none;');
+
+  list.innerHTML = html;
+  block.style.display = 'block';
+}
+
+function togglePaliersInfo() {
+  var info = document.getElementById('spotPaliersInfo');
+  if (info) info.style.display = info.style.display === 'none' ? 'block' : 'none';
+}
 function findZoneAtPoint(lat, lon) {
   if (!VIZI_ZONES_DATA || !VIZI_ZONES_DATA.features) return null;
   for (var i = 0; i < VIZI_ZONES_DATA.features.length; i++) {
