@@ -987,8 +987,11 @@ function onSpotDateChange() {
   // Met a jour l etat du bouton precedent (grise si on est sur aujourd hui)
   var input = document.getElementById('spotDate');
   var prevBtn = document.getElementById('spotDatePrev');
-  var today = new Date().toISOString()
-function refreshSpotPopup() {
+var today = new Date().toISOString().split('T')[0];
+  if (prevBtn) prevBtn.disabled = (input.value <= today);
+  refreshSpotPopup();
+}
+  function refreshSpotPopup() {
   if (S_spotWeatherCache) renderSpotPopup();
   // Synchroniser le graphe de marée avec la date du haut
   var newDate = document.getElementById('spotDate').value;
