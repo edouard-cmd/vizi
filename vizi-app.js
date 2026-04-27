@@ -1244,7 +1244,11 @@ function renderPaliersTimeline(h, currentIdx, depth, latlng) {
       var pd = h.winddirection_10m ? h.winddirection_10m[pastIdx] : null;
       if (pd === null) continue;
       var coast = getCoastNormal(lat, lon);
-      var onshore = onshoreFactor(pd, coast);
+      var windGoesTo = (pd + 180) % 360;
+      var angle = windGoesTo - coast;
+      while (angle > 180) angle -= 360;
+      while (angle < -180) angle += 360;
+      var onshore = -Math.cos(angle * Math.PI / 180);
       // Pic onshore = rafale >= 15 nds avec composante onshore significative
       if (onshore >= 0.3 && pg >= 15) {
         // Plus le pic est recent, plus le residuel est fort (decroit lineairement)
