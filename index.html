@@ -131,6 +131,9 @@ function onSpotDateChange() {
     .spot-vis-block { padding:16px 16px 12px; border-bottom:1px solid var(--border); }
     .spot-vis-label { font-family:'IBM Plex Mono', monospace; font-size:13px; font-weight:500; color:var(--text-3); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:12px; }
     .spot-vis-badge { width:100%; padding:16px 0; border-radius:10px; display:flex; align-items:center; justify-content:center; margin-bottom:12px; transition:background 0.35s; }
+    .spot-vis-badge-wrapper { display:flex; align-items:stretch; gap:10px; margin-bottom:12px; }
+        .spot-vis-badge-wrapper .spot-vis-badge { flex:1; margin-bottom:0; }
+        .spot-trend-arrow { display:none; align-items:center; justify-content:center; padding:0 14px; border:0.5px solid transparent; border-radius:10px; min-width:48px; }
     .spot-vis-badge-text { font-family:'Inter', system-ui, sans-serif; font-size:26px; font-weight:700; color:white; }
     .spot-vis-segments { display:flex; gap:5px; margin-bottom:10px; }
     .spot-vis-seg { flex:1; height:10px; border-radius:4px; background:var(--border); }
@@ -929,9 +932,12 @@ function onSpotDateChange() {
     <div class="decant-banner-v2" id="decantBannerV2"></div>
     <div class="spot-vis-block">
       <div class="spot-vis-label">Visibilite estimee</div>
-      <div class="spot-vis-badge" id="spotVisBadge">
+      <div class="spot-vis-badge-wrapper">
+    <div class="spot-vis-badge" id="spotVisBadge">
         <span class="spot-vis-badge-text" id="spotVisLabel">-</span>
-      </div>
+    </div>
+    <div id="spotTrendArrow" class="spot-trend-arrow" style="display:none;"></div>
+</div>
       <div class="spot-vis-segments">
         <div class="spot-vis-seg" id="visSeg0"></div>
         <div class="spot-vis-seg" id="visSeg1"></div>
