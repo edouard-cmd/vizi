@@ -1226,9 +1226,37 @@ function renderPaliersTimeline(h, currentIdx, depth, latlng) {
   var block = document.getElementById('spotPaliersBlock');
   var list = document.getElementById('spotPaliersList');
   if (!block || !list || !h || !h.windspeed_10m) return;
-
   var lat = latlng.lat;
   var lon = latlng.lng;
+
+  // Fenetre de decantation selon profondeur (meme logique que le bandeau)
+  var decantWindow = depth <= 3 ? 72 : depth <= 6 ? 48 : depth <= 10 ? 30 : depth <= 15 ? 18 : 12;
+
+  // Calcule la penalite residuelle de decantation a un idx donne
+  // Retourne 0 (eau decantee) a 1 (brassage frais en cours)
+  function decantPenaltyAtIdx(idx) {
+    var maxResidual = 0;
+    var lookback = Math.min(decantWindow, idx);
+    for (var k = 1; k <= lookback; k++) {
+      var pastIdx = idx - k;
+      var pw = h.windspeed_10m[pastIdx] || 0;
+      var pg = h.windgusts_10m[pastIdx] || 0;
+      var pd = h.winddirection_10m ? h.winddirection_10m[pastIdx] : null;
+      if (pd === null) continue;
+      var coast = getCoastNormal(lat, lon);
+      var onshore = onshoreFactor(pd, coast);
+      // Pic onshore = rafale >= 15 nds avec composante onshore significative
+      if (onshore >= 0.3 && pg >= 15) {
+        // Plus le pic est recent, plus le residuel est fort (decroit lineairement)
+        var residual = (decantWindow - k) / decantWindow;
+        // Module aussi par l'intensite du pic (15 nds = 0.5, 30 nds = 1.0)
+        var intensity = Math.min((pg - 10) / 20, 1) * onshore;
+        var contribution = residual * intensity;
+        if (contribution > maxResidual) maxResidual = contribution;
+      }
+    }
+    return maxResidual;
+  }
 
   // Calcule le score visi a un index donne (meme formule que renderSpotPopup)
   function visScoreAtIdx(idx) {
@@ -1241,13 +1269,17 @@ function renderPaliersTimeline(h, currentIdx, depth, latlng) {
     var windPenalty = Math.min(Math.max(w - 5, 0) / 20, 1) * 55 * dirFactor;
     var gustPenalty = Math.min(Math.max(g - 10, 0) / 25, 1) * 30 * dirFactor;
     var wavePenalty = Math.min(wave / 1.2, 1) * 35;
-    var totalPenalty = Math.min((windPenalty + gustPenalty + wavePenalty) * bathyFactor, 100);
+    var totalPenalty = (windPenalty + gustPenalty + wavePenalty) * bathyFactor;
+    // Applique la memoire du brassage : tant que la decantation n'est pas finie,
+    // on majore la penalite (jusqu'a x2.5 si pic onshore tres recent et fort)
+    var decantResidual = decantPenaltyAtIdx(idx);
+    totalPenalty = totalPenalty * (1 + decantResidual * 1.5);
+    totalPenalty = Math.min(totalPenalty, 100);
     return Math.max(0, Math.min(100, 100 - totalPenalty));
   }
 
   // Score actuel pour savoir quels paliers sont deja atteints
   var currentScore = visScoreAtIdx(currentIdx);
-
   // Definition des paliers (label, score minimum requis)
   var paliers = [
     { label: '2m', minScore: 20 },
@@ -1255,9 +1287,8 @@ function renderPaliersTimeline(h, currentIdx, depth, latlng) {
     { label: '8m', minScore: 60 },
     { label: '+8m', minScore: 80 }
   ];
-
   // Cherche pour chaque palier la premiere heure future ou il est atteint
-  var maxLookahead = Math.min(120, h.time.length - currentIdx - 1); // 120h = 5 jours
+  var maxLookahead = Math.min(120, h.time.length - currentIdx - 1);
   var results = paliers.map(function(p) {
     if (currentScore >= p.minScore) {
       return { label: p.label, current: true };
