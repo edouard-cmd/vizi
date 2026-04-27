@@ -1103,52 +1103,122 @@ var fromNames = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
 }
 
 function renderDecantation(h, currentIdx, depth, currentDir, latlng) {
-  var banner = document.getElementById('decantBanner');
-  if (!h || !h.windspeed_10m || !banner) { if (banner) banner.classList.remove('show'); return; }
-  var decantBaseHours = depth <= 3 ? 72 : depth <= 6 ? 48 : depth <= 10 ? 30 : depth <= 15 ? 18 : 12;
-  var lookback = Math.min(72, currentIdx);
-  var maxImpactHoursAgo = -1;
-  var maxImpact = 0;
-  // NOUVEAU : utilise orientation locale de la cote
+  var banner = document.getElementById('decantBannerV2');
+  if (!banner) return;
+  banner.classList.remove('show', 'degradation', 'decantation', 'stable');
+
+  // Si on regarde une date future, pas de bandeau (le score visi suffit)
+  var selectedDateStr = document.getElementById('spotDate').value;
+  var todayStr = new Date().toISOString().split('T')[0];
+  if (selectedDateStr > todayStr) return;
+
+  if (!h || !h.windspeed_10m) return;
+
   var coastNormal = getCoastNormal(latlng.lat, latlng.lng);
+
+  // Helper : composante onshore d un vent (1 = onshore pur, -1 = offshore pur)
+  function onshoreFactor(windDir) {
+    if (windDir === null || windDir === undefined) return 0;
+    var windGoesTo = (windDir + 180) % 360;
+    var angle = windGoesTo - coastNormal;
+    while (angle > 180) angle -= 360;
+    while (angle < -180) angle += 360;
+    return -Math.cos(angle * Math.PI / 180);
+  }
+
+  // Vent actuel
+  var currentWind = h.windspeed_10m[currentIdx] || 0;
+  var currentGusts = h.windgusts_10m[currentIdx] || 0;
+  var currentDirVal = h.winddirection_10m ? h.winddirection_10m[currentIdx] : null;
+  var currentOnshore = onshoreFactor(currentDirVal);
+  var isCurrentlyOnshoreWind = currentOnshore > 0.3 && currentWind >= 10;
+
+  // Cherche le pic onshore le plus fort dans la fenetre passee
+  var decantBaseHours = depth <= 3 ? 72 : depth <= 6 ? 48 : depth <= 10 ? 30 : depth <= 15 ? 18 : 12;
+  var lookback = Math.min(decantBaseHours, currentIdx);
+  var peakWind = 0, peakGusts = 0, peakHoursAgo = -1, peakDir = null;
 
   for (var i = currentIdx - lookback; i <= currentIdx; i++) {
     if (i < 0) continue;
     var w = h.windspeed_10m[i] || 0;
     var g = h.windgusts_10m[i] || 0;
-    var d = h.winddirection_10m ? (h.winddirection_10m[i] || 0) : 0;
-    // Si le vent est offshore (va vers le large), pas de contribution a la turbidite
-    var windGoesTo = (d + 180) % 360;
-    var angle = windGoesTo - coastNormal;
-    while (angle > 180) angle -= 360;
-    while (angle < -180) angle += 360;
-    var offshoreFactor = Math.cos(angle * Math.PI / 180);
-    // Ne considere la decantation que si onshore (offshoreFactor < -0.3)
-    if (offshoreFactor > -0.3) continue;
-
-    var impact = Math.max(w - 12, 0) + Math.max(g - 18, 0) * 0.6;
-    if (impact > maxImpact) {
-      maxImpact = impact;
-      maxImpactHoursAgo = currentIdx - i;
+    var d = h.winddirection_10m ? h.winddirection_10m[i] : null;
+    var onsh = onshoreFactor(d);
+    if (onsh < 0.3) continue;
+    var impact = Math.max(w - 10, 0) + Math.max(g - 15, 0) * 0.6;
+    if (impact > peakGusts) {
+      peakWind = Math.round(w);
+      peakGusts = Math.round(g);
+      peakHoursAgo = currentIdx - i;
+      peakDir = d;
     }
   }
-  if (maxImpact < 5) { banner.classList.remove('show'); return; }
-  var decantTotalHours = Math.round(decantBaseHours * (0.5 + Math.min(maxImpact / 40, 1)));
-  var hoursRemaining = decantTotalHours - maxImpactHoursAgo;
-  if (hoursRemaining <= 2) { banner.classList.remove('show'); return; }
-  var now = new Date();
-  var clearTime = new Date(now.getTime() + hoursRemaining * 3600 * 1000);
-  var dayNames = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
-  var dayName;
-  var dayDiff = Math.floor((clearTime.getTime() - new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) / 86400000);
-  if (dayDiff === 0) dayName = "aujourd'hui";
-  else if (dayDiff === 1) dayName = 'demain';
-  else if (dayDiff === 2) dayName = 'apres-demain';
-  else dayName = dayNames[clearTime.getDay()];
-  var hh = clearTime.getHours().toString().padStart(2, '0');
-  document.getElementById('decantMain').textContent = 'Eau claire vers ' + dayName + ' ' + hh + 'h';
-  document.getElementById('decantSub').textContent = '~ ' + hoursRemaining + 'h restantes (fond ' + Math.round(depth) + 'm)';
-  banner.classList.add('show');
+
+  var fromNames = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
+  function dirName(deg) {
+    if (deg === null || deg === undefined) return '?';
+    return fromNames[Math.round(deg / 45) % 8];
+  }
+
+  // PHASE 1 - DEGRADATION : vent onshore actif >= 10 nds maintenant
+  if (isCurrentlyOnshoreWind) {
+    var gustsKt = S_windUnit === 'kt' ? toKt(currentGusts) : currentGusts;
+    var unit = S_windUnit === 'kt' ? 'nds' : 'km/h';
+    banner.innerHTML =
+      '<div class="decant-v2-title">' +
+        '<span>&#9679; Degradation en cours</span>' +
+        '<button class="decant-v2-info-btn" onclick="toggleDecantInfo()">i</button>' +
+      '</div>' +
+      '<div class="decant-v2-main">L eau se trouble</div>' +
+      '<div class="decant-v2-sub">Rafale ' + gustsKt + ' ' + unit + ' onshore (' + dirName(currentDirVal) + ')</div>' +
+      '<div class="decant-v2-detail" id="decantDetail">' +
+        'Vent ' + dirName(currentDirVal) + ' actuel ' + (S_windUnit === 'kt' ? toKt(currentWind) : currentWind) + ' ' + unit + ' avec rafales ' + gustsKt + ' ' + unit + ', soufflant onshore (composante perpendiculaire a la cote). ' +
+        'Sur fond ~' + Math.round(depth) + 'm, ce vent met en suspension les sediments du fond et degrade rapidement la visi. Tant que ca souffle, ca empire.' +
+      '</div>';
+    banner.classList.add('show', 'degradation');
+    return;
+  }
+
+  // PHASE 2 - DECANTATION : pic onshore recent mais vent retombe
+  if (peakHoursAgo >= 0 && peakGusts >= 15) {
+    var decantTotalHours = Math.round(decantBaseHours * (0.5 + Math.min(peakGusts / 40, 1)));
+    var hoursRemaining = decantTotalHours - peakHoursAgo;
+    if (hoursRemaining > 2) {
+      var now = new Date();
+      var clearTime = new Date(now.getTime() + hoursRemaining * 3600 * 1000);
+      var dayNames = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+      var dayDiff = Math.floor((clearTime.getTime() - new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) / 86400000);
+      var dayLabel;
+      if (dayDiff === 0) dayLabel = "aujourd'hui";
+      else if (dayDiff === 1) dayLabel = 'demain';
+      else if (dayDiff === 2) dayLabel = 'apres-demain';
+      else dayLabel = dayNames[clearTime.getDay()];
+      var hh = clearTime.getHours().toString().padStart(2, '0');
+      var peakKt = S_windUnit === 'kt' ? toKt(peakGusts) : peakGusts;
+      var unit2 = S_windUnit === 'kt' ? 'nds' : 'km/h';
+      banner.innerHTML =
+        '<div class="decant-v2-title">' +
+          '<span>&#9679; Eclaircissement en cours</span>' +
+          '<button class="decant-v2-info-btn" onclick="toggleDecantInfo()">i</button>' +
+        '</div>' +
+        '<div class="decant-v2-main">Eau claire vers ' + dayLabel + ' ' + hh + 'h</div>' +
+        '<div class="decant-v2-sub">Vent retombe depuis ' + peakHoursAgo + 'h (~' + hoursRemaining + 'h restantes)</div>' +
+        '<div class="decant-v2-detail" id="decantDetail">' +
+          'Pic onshore de ' + peakKt + ' ' + unit2 + ' ' + dirName(peakDir) + ' detecte il y a ' + peakHoursAgo + 'h. ' +
+          'Vent actuel ' + (S_windUnit === 'kt' ? toKt(currentWind) : currentWind) + ' ' + unit2 + ', sous le seuil de remise en suspension. Les particules redescendent. ' +
+          'Sur fond ~' + Math.round(depth) + 'm, comptez ~' + hoursRemaining + 'h supplementaires avant retour a une visi correcte.' +
+        '</div>';
+      banner.classList.add('show', 'decantation');
+      return;
+    }
+  }
+
+  // PHASE 3 - STABLE : pas de bandeau
+}
+
+function toggleDecantInfo() {
+  var detail = document.getElementById('decantDetail');
+  if (detail) detail.classList.toggle('open');
 }
 
 function findZoneAtPoint(lat, lon) {
