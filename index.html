@@ -88,6 +88,27 @@
     .drawer-datetime { display:flex; gap:8px; padding:10px 16px; border-bottom:1px solid var(--border); background:var(--surface2); flex-shrink:0; }
     .drawer-datetime input { flex:1; padding:10px 12px; background:var(--surface); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:'IBM Plex Mono', monospace; font-size:15px; outline:none; cursor:pointer; transition:border-color 0.15s; }
     .drawer-datetime input:focus { border-color:var(--accent); }
+    function shiftSpotDate(delta) {
+  var input = document.getElementById('spotDate');
+  if (!input.value) return;
+  var d = new Date(input.value + 'T12:00:00');
+  d.setDate(d.getDate() + delta);
+  var newDateStr = d.toISOString().split('T')[0];
+  var today = new Date().toISOString().split('T')[0];
+  // Limite : impossible de descendre en dessous d aujourd hui
+  if (newDateStr < today) return;
+  input.value = newDateStr;
+  onSpotDateChange();
+}
+
+function onSpotDateChange() {
+  // Met a jour l etat du bouton precedent (grise si on est sur aujourd hui)
+  var input = document.getElementById('spotDate');
+  var prevBtn = document.getElementById('spotDatePrev');
+  var today = new Date().toISOString().split('T')[0];
+  if (prevBtn) prevBtn.disabled = (input.value <= today);
+  refreshSpotPopup();
+}
     .drawer-body { overflow-y:auto; overflow-x:hidden; flex:1; }
     .decant-banner { display:none; padding:14px 16px; background:linear-gradient(135deg, #DC2626, #B91C1C); color:white; border-bottom:2px solid #991B1B; }
     .decant-banner.show { display:block; }
@@ -888,8 +909,10 @@
     <button class="spot-close" onclick="closeSpotPopup()">&#10005;</button>
   </div>
   <div class="drawer-datetime">
-    <input type="date" id="spotDate" onchange="refreshSpotPopup()">
-    <input type="time" id="spotTime" step="3600" onchange="refreshSpotPopup()">
+   <button class="spot-date-arrow" id="spotDatePrev" onclick="shiftSpotDate(-1)" title="Jour precedent" aria-label="Jour precedent">&#9664;</button>
+      <input type="date" id="spotDate" onchange="onSpotDateChange()">
+      <button class="spot-date-arrow" onclick="shiftSpotDate(1)" title="Jour suivant" aria-label="Jour suivant">&#9654;</button>
+      <input type="time" id="spotTime" step="3600" onchange="refreshSpotPopup()">
   </div>
   <div class="drawer-body">
     <div class="decant-banner" id="decantBanner">
