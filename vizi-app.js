@@ -953,18 +953,32 @@ function closeSpotPopup() {
 }
 
 function fetchSpotWeather(lat, lon) {
-  var url = 'https://api.open-meteo.com/v1/forecast'
+  // Strategie hybride : AROME (haute res 1.3km, 0-48h) + ARPEGE (moyen terme, 48h-5j)
+  // Permet d avoir des donnees vent jusqu a J+5 dans le drawer spot
+  var aromeUrl = 'https://api.open-meteo.com/v1/forecast'
+    + '?latitude=' + lat + '&longitude=' + lon
+    + '&hourly=windspeed_10m,windgusts_10m,winddirection_10m,wave_height,precipitation'
+    + '&wind_speed_unit=kmh&timezone=Europe/Paris'
+    + '&past_days=3&forecast_days=2'
+    + '&models=meteofrance_arome_france';
+
+  var arpegeUrl = 'https://api.open-meteo.com/v1/forecast'
     + '?latitude=' + lat + '&longitude=' + lon
     + '&hourly=windspeed_10m,windgusts_10m,winddirection_10m,wave_height,precipitation'
     + '&wind_speed_unit=kmh&timezone=Europe/Paris'
     + '&past_days=3&forecast_days=5'
-    + '&models=meteofrance_arome_france';
-  fetch(url).then(function(r) {
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    return r.json();
-  }).then(function(d) {
-    if (!d.hourly) return;
-    S_spotWeatherCache = d.hourly;
+    + '&models=meteofrance_arpege_europe';
+
+  Promise.all([
+    fetch(aromeUrl).then(function(r){ if (!r.ok) throw new Error('AROME ' + r.status); return r.json(); }),
+    fetch(arpegeUrl).then(function(r){ if (!r.ok) throw new Error('ARPEGE ' + r.status); return r.json(); })
+  ]).then(function(results) {
+    var arome = results[0];
+    var arpege = results[1];
+    if (!arome.hourly && !arpege.hourly) throw new Error('Pas de donnees');
+    // Fusion : AROME prioritaire la ou il couvre, ARPEGE pour le reste
+    var fused = fuseForecasts(arome.hourly, arpege.hourly);
+    S_spotWeatherCache = fused.h;
     renderSpotPopup();
   }).catch(function(err) {
     console.error('[VIZI] meteo spot failed:', err);
