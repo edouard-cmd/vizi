@@ -1175,6 +1175,61 @@ function renderDecantation(h, currentIdx, depth, currentDir, latlng) {
   var currentOnshore = onshoreFactor(currentDirVal);
   var isCurrentlyOnshoreWind = currentOnshore > 0.3 && currentWind >= 10;
 
+  // PHASE 0 - DEGRADATION IMMINENTE : score va chuter dans les 24h
+  // Cherche le score min dans les 24h futures
+  var futureMinScore = scoreNow;
+  var futureMinIdx = currentIdx;
+  var lookForward = Math.min(24, h.time.length - currentIdx - 1);
+  for (var f = currentIdx + 1; f <= currentIdx + lookForward; f++) {
+    var sf = visScoreV2(h, f, depth, lat, lon);
+    if (sf < futureMinScore) {
+      futureMinScore = sf;
+      futureMinIdx = f;
+    }
+  }
+  var futureDrop = scoreNow - futureMinScore;
+  if (futureDrop >= 20 && !isCurrentlyOnshoreWind) {
+    var degradeTime = new Date(h.time[futureMinIdx]);
+    var degradeNow = new Date();
+    var hoursToDegrade = Math.round((degradeTime.getTime() - degradeNow.getTime()) / 3600000);
+    var degradeDayDiff = Math.floor((degradeTime.getTime() - new Date(degradeNow.getFullYear(), degradeNow.getMonth(), degradeNow.getDate()).getTime()) / 86400000);
+    var degradeDayLabel;
+    if (degradeDayDiff === 0) degradeDayLabel = "aujourd'hui";
+    else if (degradeDayDiff === 1) degradeDayLabel = 'demain';
+    else if (degradeDayDiff === 2) degradeDayLabel = 'apres-demain';
+    else { var dayN = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam']; degradeDayLabel = dayN[degradeTime.getDay()]; }
+    var degradeHh = degradeTime.getHours().toString().padStart(2, '0');
+
+    // Cherche la rafale max prevue pour expliquer
+    var maxFutureGusts = 0, maxFutureDir = null, maxFutureIdx = -1;
+    for (var ff = currentIdx; ff <= currentIdx + lookForward; ff++) {
+      var fg = h.windgusts_10m[ff] || 0;
+      var fd = h.winddirection_10m ? h.winddirection_10m[ff] : null;
+      var fOnsh = onshoreFactor(fd);
+      if (fOnsh < 0.3) continue;
+      if (fg > maxFutureGusts) {
+        maxFutureGusts = Math.round(fg);
+        maxFutureDir = fd;
+        maxFutureIdx = ff;
+      }
+    }
+    var maxFutureKt = S_windUnit === 'kt' ? toKt(maxFutureGusts) : maxFutureGusts;
+
+    banner.innerHTML =
+      '<div class="decant-v2-title">' +
+        '<span>&#9679; Degradation prevue</span>' +
+        '<button class="decant-v2-info-btn" onclick="toggleDecantInfo()">i</button>' +
+      '</div>' +
+      '<div class="decant-v2-main">L eau va se troubler ' + degradeDayLabel + ' ' + degradeHh + 'h</div>' +
+      '<div class="decant-v2-sub">Coup de vent ' + dirName(maxFutureDir) + ' a ' + maxFutureKt + ' ' + unit + ' attendu</div>' +
+      '<div class="decant-v2-detail" id="decantDetail">' +
+        'Aujourd hui visi correcte (score ' + Math.round(scoreNow) + '/100), mais coup de vent ' + dirName(maxFutureDir) + ' onshore avec rafales jusqu a ' + maxFutureKt + ' ' + unit + ' attendu dans ~' + hoursToDegrade + 'h. ' +
+        'Le score chutera a ~' + Math.round(futureMinScore) + '/100. Sur fond ~' + Math.round(depth) + 'm, prevoir plusieurs jours de decantation ensuite.' +
+      '</div>';
+    banner.classList.add('show', 'degradation');
+    return;
+  }
+  
   // PHASE 1 - DEGRADATION : score baisse ET vent onshore actif
   if (isCurrentlyOnshoreWind && trend < -3) {
     var gustsKt = S_windUnit === 'kt' ? toKt(currentGusts) : currentGusts;
