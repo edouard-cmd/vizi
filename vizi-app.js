@@ -1050,8 +1050,8 @@ function renderSpotPopup() {
   var windPenalty = Math.min(Math.max(wind - 5, 0) / 20, 1) * 55 * dirFactor;
   var gustPenalty = Math.min(Math.max(gusts - 10, 0) / 25, 1) * 30 * dirFactor;
   var wavePenalty = Math.min(wave / 1.2, 1) * 35;
-  var totalPenalty = Math.min((windPenalty + gustPenalty + wavePenalty) * bathyFactor, 100);
-  var score = Math.max(0, Math.min(100, 100 - totalPenalty));
+  var score = visScoreV2(h, idx, depth, lat, lon);
+  var totalPenalty = 100 - score;
 
   var visLabel = score >= 80 ? 'Excellente' : score >= 60 ? 'Bonne' : score >= 40 ? 'Moyenne' : score >= 20 ? 'Faible' : 'Nulle';
   var badgeColors = { 'Nulle': '#DC2626', 'Faible': '#EA580C', 'Moyenne': '#CA8A04', 'Bonne': '#16A34A', 'Excellente': '#0BA888' };
@@ -1102,7 +1102,6 @@ var fromNames = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
   renderDecantation(h, idx, depth, dir, S.clickLatLng);
   renderPaliersTimeline(h, idx, depth, S.clickLatLng);
 }
-
 function renderDecantation(h, currentIdx, depth, currentDir, latlng) {
   var banner = document.getElementById('decantBannerV2');
   if (!banner) return;
@@ -1115,9 +1114,26 @@ function renderDecantation(h, currentIdx, depth, currentDir, latlng) {
 
   if (!h || !h.windspeed_10m) return;
 
-  var coastNormal = getCoastNormal(latlng.lat, latlng.lng);
+  var lat = latlng.lat;
+  var lon = latlng.lng;
 
-  // Helper : composante onshore d un vent (1 = onshore pur, -1 = offshore pur)
+  // Score actuel + score 6h passees (pour detecter tendance)
+  var scoreNow = visScoreV2(h, currentIdx, depth, lat, lon);
+  var score6hAgo = visScoreV2(h, Math.max(0, currentIdx - 6), depth, lat, lon);
+  var trend = scoreNow - score6hAgo;
+
+  // Cherche dans le futur le moment ou le score franchit 60 (= "eau claire" = palier 4m)
+  var clearIdx = -1;
+  var maxLook = Math.min(120, h.time.length - currentIdx - 1);
+  for (var i = currentIdx + 1; i <= currentIdx + maxLook; i++) {
+    if (visScoreV2(h, i, depth, lat, lon) >= 60) {
+      clearIdx = i;
+      break;
+    }
+  }
+
+  // Cherche dans le passe recent le pic de brassage onshore (pour explication)
+  var coastNormal = getCoastNormal(lat, lon);
   function onshoreFactor(windDir) {
     if (windDir === null || windDir === undefined) return 0;
     var windGoesTo = (windDir + 180) % 360;
@@ -1127,31 +1143,19 @@ function renderDecantation(h, currentIdx, depth, currentDir, latlng) {
     return -Math.cos(angle * Math.PI / 180);
   }
 
-  // Vent actuel
-  var currentWind = h.windspeed_10m[currentIdx] || 0;
-  var currentGusts = h.windgusts_10m[currentIdx] || 0;
-  var currentDirVal = h.winddirection_10m ? h.winddirection_10m[currentIdx] : null;
-  var currentOnshore = onshoreFactor(currentDirVal);
-  var isCurrentlyOnshoreWind = currentOnshore > 0.3 && currentWind >= 10;
-
-  // Cherche le pic onshore le plus fort dans la fenetre passee
-  var decantBaseHours = depth <= 3 ? 72 : depth <= 6 ? 48 : depth <= 10 ? 30 : depth <= 15 ? 18 : 12;
-  var lookback = Math.min(decantBaseHours, currentIdx);
-  var peakWind = 0, peakGusts = 0, peakHoursAgo = -1, peakDir = null;
-
-  for (var i = currentIdx - lookback; i <= currentIdx; i++) {
-    if (i < 0) continue;
-    var w = h.windspeed_10m[i] || 0;
-    var g = h.windgusts_10m[i] || 0;
-    var d = h.winddirection_10m ? h.winddirection_10m[i] : null;
-    var onsh = onshoreFactor(d);
+  var lookback = Math.min(72, currentIdx);
+  var peakGusts = 0, peakHoursAgo = -1, peakDir = null;
+  for (var k = 0; k <= lookback; k++) {
+    var pIdx = currentIdx - k;
+    if (pIdx < 0) continue;
+    var pg = h.windgusts_10m[pIdx] || 0;
+    var pd = h.winddirection_10m ? h.winddirection_10m[pIdx] : null;
+    var onsh = onshoreFactor(pd);
     if (onsh < 0.3) continue;
-    var impact = Math.max(w - 10, 0) + Math.max(g - 15, 0) * 0.6;
-    if (impact > peakGusts) {
-      peakWind = Math.round(w);
-      peakGusts = Math.round(g);
-      peakHoursAgo = currentIdx - i;
-      peakDir = d;
+    if (pg > peakGusts) {
+      peakGusts = Math.round(pg);
+      peakHoursAgo = k;
+      peakDir = pd;
     }
   }
 
@@ -1161,10 +1165,19 @@ function renderDecantation(h, currentIdx, depth, currentDir, latlng) {
     return fromNames[Math.round(deg / 45) % 8];
   }
 
-  // PHASE 1 - DEGRADATION : vent onshore actif >= 10 nds maintenant
-  if (isCurrentlyOnshoreWind) {
+  var unit = S_windUnit === 'kt' ? 'nds' : 'km/h';
+  var peakKt = S_windUnit === 'kt' ? toKt(peakGusts) : peakGusts;
+
+  // Vent actuel onshore et fort = degradation en cours
+  var currentWind = h.windspeed_10m[currentIdx] || 0;
+  var currentGusts = h.windgusts_10m[currentIdx] || 0;
+  var currentDirVal = h.winddirection_10m ? h.winddirection_10m[currentIdx] : null;
+  var currentOnshore = onshoreFactor(currentDirVal);
+  var isCurrentlyOnshoreWind = currentOnshore > 0.3 && currentWind >= 10;
+
+  // PHASE 1 - DEGRADATION : score baisse ET vent onshore actif
+  if (isCurrentlyOnshoreWind && trend < -3) {
     var gustsKt = S_windUnit === 'kt' ? toKt(currentGusts) : currentGusts;
-    var unit = S_windUnit === 'kt' ? 'nds' : 'km/h';
     banner.innerHTML =
       '<div class="decant-v2-title">' +
         '<span>&#9679; Degradation en cours</span>' +
@@ -1173,48 +1186,46 @@ function renderDecantation(h, currentIdx, depth, currentDir, latlng) {
       '<div class="decant-v2-main">L eau se trouble</div>' +
       '<div class="decant-v2-sub">Rafale ' + gustsKt + ' ' + unit + ' onshore (' + dirName(currentDirVal) + ')</div>' +
       '<div class="decant-v2-detail" id="decantDetail">' +
-        'Vent ' + dirName(currentDirVal) + ' actuel ' + (S_windUnit === 'kt' ? toKt(currentWind) : currentWind) + ' ' + unit + ' avec rafales ' + gustsKt + ' ' + unit + ', soufflant onshore (composante perpendiculaire a la cote). ' +
-        'Sur fond ~' + Math.round(depth) + 'm, ce vent met en suspension les sediments du fond et degrade rapidement la visi. Tant que ca souffle, ca empire.' +
+        'Vent ' + dirName(currentDirVal) + ' actuel ' + (S_windUnit === 'kt' ? toKt(currentWind) : currentWind) + ' ' + unit + ' avec rafales ' + gustsKt + ' ' + unit + ', soufflant onshore. ' +
+        'Sur fond ~' + Math.round(depth) + 'm, ce vent met en suspension les sediments. Score actuel ' + Math.round(scoreNow) + '/100, en baisse de ' + Math.abs(Math.round(trend)) + ' points en 6h.' +
       '</div>';
     banner.classList.add('show', 'degradation');
     return;
   }
 
-  // PHASE 2 - DECANTATION : pic onshore recent mais vent retombe
-  if (peakHoursAgo >= 0 && peakGusts >= 15) {
-    var decantTotalHours = Math.round(decantBaseHours * (0.5 + Math.min(peakGusts / 40, 1)));
-    var hoursRemaining = decantTotalHours - peakHoursAgo;
-    if (hoursRemaining > 2) {
-      var now = new Date();
-      var clearTime = new Date(now.getTime() + hoursRemaining * 3600 * 1000);
-      var dayNames = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
-      var dayDiff = Math.floor((clearTime.getTime() - new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) / 86400000);
-      var dayLabel;
-      if (dayDiff === 0) dayLabel = "aujourd'hui";
-      else if (dayDiff === 1) dayLabel = 'demain';
-      else if (dayDiff === 2) dayLabel = 'apres-demain';
-      else dayLabel = dayNames[clearTime.getDay()];
-      var hh = clearTime.getHours().toString().padStart(2, '0');
-      var peakKt = S_windUnit === 'kt' ? toKt(peakGusts) : peakGusts;
-      var unit2 = S_windUnit === 'kt' ? 'nds' : 'km/h';
-      banner.innerHTML =
-        '<div class="decant-v2-title">' +
-          '<span>&#9679; Eclaircissement en cours</span>' +
-          '<button class="decant-v2-info-btn" onclick="toggleDecantInfo()">i</button>' +
-        '</div>' +
-        '<div class="decant-v2-main">Eau claire vers ' + dayLabel + ' ' + hh + 'h</div>' +
-        '<div class="decant-v2-sub">Vent retombe depuis ' + peakHoursAgo + 'h (~' + hoursRemaining + 'h restantes)</div>' +
-        '<div class="decant-v2-detail" id="decantDetail">' +
-          'Pic onshore de ' + peakKt + ' ' + unit2 + ' ' + dirName(peakDir) + ' detecte il y a ' + peakHoursAgo + 'h. ' +
-          'Vent actuel ' + (S_windUnit === 'kt' ? toKt(currentWind) : currentWind) + ' ' + unit2 + ', sous le seuil de remise en suspension. Les particules redescendent. ' +
-          'Sur fond ~' + Math.round(depth) + 'm, comptez ~' + hoursRemaining + 'h supplementaires avant retour a une visi correcte.' +
-        '</div>';
-      banner.classList.add('show', 'decantation');
-      return;
-    }
+  // PHASE 2 - ECLAIRCISSEMENT : score remonte ET vent calmi ET clear point detecte
+  if (trend > 3 && !isCurrentlyOnshoreWind && clearIdx > 0) {
+    var clearTime = new Date(h.time[clearIdx]);
+    var now = new Date();
+    var dayNames = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+    var dayDiff = Math.floor((clearTime.getTime() - new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) / 86400000);
+    var dayLabel;
+    if (dayDiff === 0) dayLabel = "aujourd'hui";
+    else if (dayDiff === 1) dayLabel = 'demain';
+    else if (dayDiff === 2) dayLabel = 'apres-demain';
+    else dayLabel = dayNames[clearTime.getDay()];
+    var hh = clearTime.getHours().toString().padStart(2, '0');
+    var hoursToClear = Math.round((clearTime.getTime() - now.getTime()) / 3600000);
+
+    var subText = peakHoursAgo > 0 ? 'Vent retombe depuis ' + peakHoursAgo + 'h' : 'Score en hausse';
+    var detailText = peakHoursAgo > 0
+      ? 'Pic onshore de ' + peakKt + ' ' + unit + ' ' + dirName(peakDir) + ' detecte il y a ' + peakHoursAgo + 'h. Les particules redescendent. '
+      : 'Le vent s est calme. ';
+    detailText += 'Score actuel ' + Math.round(scoreNow) + '/100, en hausse de ' + Math.round(trend) + ' points en 6h. Eau claire (>4m) attendue dans ~' + hoursToClear + 'h.';
+
+    banner.innerHTML =
+      '<div class="decant-v2-title">' +
+        '<span>&#9679; Eclaircissement en cours</span>' +
+        '<button class="decant-v2-info-btn" onclick="toggleDecantInfo()">i</button>' +
+      '</div>' +
+      '<div class="decant-v2-main">Eau claire vers ' + dayLabel + ' ' + hh + 'h</div>' +
+      '<div class="decant-v2-sub">' + subText + '</div>' +
+      '<div class="decant-v2-detail" id="decantDetail">' + detailText + '</div>';
+    banner.classList.add('show', 'decantation');
+    return;
   }
 
-  // PHASE 3 - STABLE : pas de bandeau
+  // PHASE 3 - STABLE : pas de bandeau, le score visi suffit
 }
 
 function toggleDecantInfo() {
