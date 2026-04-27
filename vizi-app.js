@@ -959,14 +959,14 @@ function fetchSpotWeather(lat, lon) {
     + '?latitude=' + lat + '&longitude=' + lon
     + '&hourly=windspeed_10m,windgusts_10m,winddirection_10m,wave_height,precipitation'
     + '&wind_speed_unit=kmh&timezone=Europe/Paris'
-    + '&past_days=3&forecast_days=2'
+    + '&past_days=7&forecast_days=2'
     + '&models=meteofrance_arome_france';
 
   var arpegeUrl = 'https://api.open-meteo.com/v1/forecast'
     + '?latitude=' + lat + '&longitude=' + lon
     + '&hourly=windspeed_10m,windgusts_10m,winddirection_10m,wave_height,precipitation'
     + '&wind_speed_unit=kmh&timezone=Europe/Paris'
-    + '&past_days=3&forecast_days=5'
+    + '&past_days=7&forecast_days=5'
     + '&models=meteofrance_arpege_europe';
 
   Promise.all([
@@ -1222,6 +1222,92 @@ function toggleDecantInfo() {
   if (detail) detail.classList.toggle('open');
 }
 
+// ============================================================
+// ALGO DECANTATION V2 - Memoire d'energie cumulee + decroissance exponentielle
+// Calibre sur observation terrain Courseulles 26/04/2026 (2m apres 60h NE 25-32 nds)
+// Reference scientifique : Green & Coco 2014 (AGU Reviews of Geophysics)
+// ============================================================
+
+// Constante de temps (heures) pour la decantation, selon profondeur
+// Plus le fond est peu profond, plus tau est long (re-brassage marees + houle residuelle)
+function decantTau(depth) {
+  if (depth <= 2)  return 36;  // estran, beaucoup d'energie residuelle
+  if (depth <= 5)  return 30;  // cote de Nacre type Courseulles (calibre)
+  if (depth <= 10) return 22;
+  if (depth <= 20) return 14;
+  return 8;                     // au-dela 20m, decantation rapide
+}
+
+// Energie de brassage instantanee a une heure i
+// Vent effectif = mix vent soutenu + rafales, seuil critique 8 nds
+// Effet quadratique de l'onshore (un vent lateral brasse beaucoup moins)
+function brassageInstant(h, i, lat, lon) {
+  if (i < 0 || i >= h.time.length) return 0;
+  var w = h.windspeed_10m[i] || 0;
+  var g = h.windgusts_10m[i] || 0;
+  var d = h.winddirection_10m ? h.winddirection_10m[i] : null;
+  if (d === null) return 0;
+  var ventEff = w * 0.6 + g * 0.4;
+  if (ventEff < 8) return 0; // sous le seuil critique, pas de remise en suspension
+  var coast = getCoastNormal(lat, lon);
+  var windGoesTo = (d + 180) % 360;
+  var angle = windGoesTo - coast;
+  while (angle > 180) angle -= 360;
+  while (angle < -180) angle += 360;
+  var onshore = -Math.cos(angle * Math.PI / 180);
+  if (onshore < 0.2) return 0; // vent offshore ou tres lateral, pas de brassage cote
+  var excess = ventEff - 8;
+  return excess * excess * onshore * onshore;
+}
+
+// Energie residuelle cumulee au temps idx (sommation exponentielle decroissante)
+// Regarde jusqu'a 5*tau heures en arriere (capte 99% de l'energie)
+function energieResiduelle(h, idx, depth, lat, lon) {
+  var tau = decantTau(depth);
+  var lookback = Math.min(Math.round(tau * 5), idx);
+  var total = 0;
+  for (var k = 1; k <= lookback; k++) {
+    var pastIdx = idx - k;
+    var brass = brassageInstant(h, pastIdx, lat, lon);
+    if (brass > 0) {
+      total += brass * Math.exp(-k / tau);
+    }
+  }
+  return total;
+}
+
+// Score visi unifie (utilise par timeline ET score instantane)
+// Combine penalite instantanee + penalite cumulee de brassage residuel
+function visScoreV2(h, idx, depth, lat, lon) {
+  if (!h || !h.windspeed_10m || idx < 0) return 50;
+  var w = h.windspeed_10m[idx] || 0;
+  var g = h.windgusts_10m[idx] || 0;
+  var d = h.winddirection_10m ? h.winddirection_10m[idx] : null;
+  var wave = h.wave_height ? (h.wave_height[idx] || 0) : 0;
+
+  // Bathy factor lisse (exponentiel, plus de saut brutal)
+  var bathyFactor = 1.0 + 3.0 * Math.exp(-depth / 4);
+
+  // Penalite instantanee (vent du moment)
+  var dirFactor = getDirFactorForPoint(d, lat, lon);
+  var windPenalty = Math.min(Math.max(w - 5, 0) / 20, 1) * 55 * dirFactor;
+  var gustPenalty = Math.min(Math.max(g - 10, 0) / 25, 1) * 30 * dirFactor;
+  var wavePenalty = Math.min(wave / 1.2, 1) * 35;
+  var penaliteInstant = (windPenalty + gustPenalty + wavePenalty) * bathyFactor;
+
+  // Penalite cumulee (energie de brassage des dernieres heures/jours)
+  var energie = energieResiduelle(h, idx, depth, lat, lon);
+  // Calibration : energie ~30-50 = brassage actif, ~5-15 = decantation en cours, <2 = eau claire
+  var penaliteCumulee = Math.min(energie * 1.2, 100) * bathyFactor * 0.5;
+
+  // On prend la plus forte des deux (l'instant ou le cumule, selon ce qui domine)
+  // Cela evite la double-comptabilisation quand le vent est en train de souffler
+  var penaliteFinale = Math.max(penaliteInstant, penaliteCumulee);
+  penaliteFinale = Math.min(penaliteFinale, 100);
+
+  return Math.max(0, Math.min(100, 100 - penaliteFinale));
+}
+
 function renderPaliersTimeline(h, currentIdx, depth, latlng) {
   var block = document.getElementById('spotPaliersBlock');
   var list = document.getElementById('spotPaliersList');
@@ -1229,76 +1315,20 @@ function renderPaliersTimeline(h, currentIdx, depth, latlng) {
   var lat = latlng.lat;
   var lon = latlng.lng;
 
-  // Fenetre de decantation selon profondeur (meme logique que le bandeau)
-  var decantWindow = depth <= 3 ? 72 : depth <= 6 ? 48 : depth <= 10 ? 30 : depth <= 15 ? 18 : 12;
-
-  // Calcule la penalite residuelle de decantation a un idx donne
-  // Retourne 0 (eau decantee) a 1 (brassage frais en cours)
-  function decantPenaltyAtIdx(idx) {
-    var maxResidual = 0;
-    var lookback = Math.min(decantWindow, idx);
-    for (var k = 1; k <= lookback; k++) {
-      var pastIdx = idx - k;
-      var pw = h.windspeed_10m[pastIdx] || 0;
-      var pg = h.windgusts_10m[pastIdx] || 0;
-      var pd = h.winddirection_10m ? h.winddirection_10m[pastIdx] : null;
-      if (pd === null) continue;
-      var coast = getCoastNormal(lat, lon);
-      var windGoesTo = (pd + 180) % 360;
-      var angle = windGoesTo - coast;
-      while (angle > 180) angle -= 360;
-      while (angle < -180) angle += 360;
-      var onshore = -Math.cos(angle * Math.PI / 180);
-      // Pic onshore = rafale >= 15 nds avec composante onshore significative
-      if (onshore >= 0.3 && pg >= 15) {
-        // Plus le pic est recent, plus le residuel est fort (decroit lineairement)
-        var residual = (decantWindow - k) / decantWindow;
-        // Module aussi par l'intensite du pic (15 nds = 0.5, 30 nds = 1.0)
-        var intensity = Math.min((pg - 10) / 20, 1) * onshore;
-        var contribution = residual * intensity;
-        if (contribution > maxResidual) maxResidual = contribution;
-      }
-    }
-    return maxResidual;
-  }
-
-  // Calcule le score visi a un index donne (meme formule que renderSpotPopup)
-  function visScoreAtIdx(idx) {
-    var w = h.windspeed_10m[idx] || 0;
-    var g = h.windgusts_10m[idx] || 0;
-    var d = h.winddirection_10m ? h.winddirection_10m[idx] : null;
-    var wave = h.wave_height ? (h.wave_height[idx] || 0) : 0;
-    var bathyFactor = depth <= 2 ? 4.0 : depth <= 5 ? 3.0 : depth <= 10 ? 2.0 : depth <= 20 ? 1.3 : 1.0;
-    var dirFactor = getDirFactorForPoint(d, lat, lon);
-    var windPenalty = Math.min(Math.max(w - 5, 0) / 20, 1) * 55 * dirFactor;
-    var gustPenalty = Math.min(Math.max(g - 10, 0) / 25, 1) * 30 * dirFactor;
-    var wavePenalty = Math.min(wave / 1.2, 1) * 35;
-    var totalPenalty = (windPenalty + gustPenalty + wavePenalty) * bathyFactor;
-    // Applique la memoire du brassage : tant que la decantation n'est pas finie,
-    // on majore la penalite (jusqu'a x2.5 si pic onshore tres recent et fort)
-    var decantResidual = decantPenaltyAtIdx(idx);
-    totalPenalty = totalPenalty * (1 + decantResidual * 1.5);
-    totalPenalty = Math.min(totalPenalty, 100);
-    return Math.max(0, Math.min(100, 100 - totalPenalty));
-  }
-
-  // Score actuel pour savoir quels paliers sont deja atteints
-  var currentScore = visScoreAtIdx(currentIdx);
-  // Definition des paliers (label, score minimum requis)
+  var currentScore = visScoreV2(h, currentIdx, depth, lat, lon);
   var paliers = [
     { label: '2m', minScore: 20 },
     { label: '4m', minScore: 40 },
     { label: '8m', minScore: 60 },
     { label: '+8m', minScore: 80 }
   ];
-  // Cherche pour chaque palier la premiere heure future ou il est atteint
   var maxLookahead = Math.min(120, h.time.length - currentIdx - 1);
   var results = paliers.map(function(p) {
     if (currentScore >= p.minScore) {
       return { label: p.label, current: true };
     }
     for (var i = currentIdx + 1; i <= currentIdx + maxLookahead; i++) {
-      if (visScoreAtIdx(i) >= p.minScore) {
+      if (visScoreV2(h, i, depth, lat, lon) >= p.minScore) {
         var t = new Date(h.time[i]);
         var hoursAhead = i - currentIdx;
         return { label: p.label, time: t, hoursAhead: hoursAhead };
@@ -1307,7 +1337,6 @@ function renderPaliersTimeline(h, currentIdx, depth, latlng) {
     return { label: p.label, na: true };
   });
 
-  // Format date FR : "mer 29 avr 14h"
   function formatPalierDate(d) {
     var dayShort = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'][d.getDay()];
     var monthShort = ['janv', 'fevr', 'mars', 'avr', 'mai', 'juin', 'juil', 'aout', 'sept', 'oct', 'nov', 'dec'][d.getMonth()];
@@ -1316,7 +1345,6 @@ function renderPaliersTimeline(h, currentIdx, depth, latlng) {
     return dayShort + ' ' + dayNum + ' ' + monthShort + ' ' + hh + 'h';
   }
 
-  // Construit le HTML
   var html = results.map(function(r) {
     var rowStyle = 'display:grid;grid-template-columns:40px 1fr auto;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);align-items:center;font-family:IBM Plex Mono,monospace;font-size:12px;';
     var labelStyle = 'font-weight:700;color:var(--text);';
@@ -1341,9 +1369,7 @@ function renderPaliersTimeline(h, currentIdx, depth, latlng) {
     '</div>';
   }).join('');
 
-  // Retire la derniere bordure pour finir propre
   html = html.replace(/border-bottom:1px solid var\(--border\);(?=[^;]*$)/, 'border-bottom:none;');
-
   list.innerHTML = html;
   block.style.display = 'block';
 }
