@@ -1142,34 +1142,52 @@ var fromNames = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
 function renderDecantation(h, currentIdx, depth, currentDir, latlng) {
   var banner = document.getElementById('decantBannerV2');
   if (!banner) return;
-  banner.classList.remove('show', 'degradation', 'decantation', 'stable');
+  banner.classList.remove('show', 'degradation', 'decantation', 'stable', 'neutre');
 
-  // Si on regarde une date future, pas de bandeau (le score visi suffit)
+  if (!h || !h.windspeed_10m) return;
+
   var selectedDateStr = document.getElementById('spotDate').value;
   var todayStr = new Date().toISOString().split('T')[0];
   if (selectedDateStr > todayStr) return;
 
-  if (!h || !h.windspeed_10m) return;
-
   var lat = latlng.lat;
   var lon = latlng.lng;
-
-  // Score actuel + score 6h passees (pour detecter tendance)
   var scoreNow = visScoreV2(h, currentIdx, depth, lat, lon);
-  var score6hAgo = visScoreV2(h, Math.max(0, currentIdx - 6), depth, lat, lon);
-  var trend = scoreNow - score6hAgo;
 
-  // Cherche dans le futur le moment ou le score franchit 60 (= "eau claire" = palier 4m)
-  var clearIdx = -1;
-  var maxLook = Math.min(120, h.time.length - currentIdx - 1);
-  for (var i = currentIdx + 1; i <= currentIdx + maxLook; i++) {
-    if (visScoreV2(h, i, depth, lat, lon) >= 60) {
-      clearIdx = i;
+  function scoreToLabelKey(s) {
+    if (s >= 80) return 4;
+    if (s >= 60) return 3;
+    if (s >= 40) return 2;
+    if (s >= 20) return 1;
+    return 0;
+  }
+  var labelNames = ['Nulle', 'Faible', 'Moyenne', 'Bonne', 'Excellente'];
+  var labelNowKey = scoreToLabelKey(scoreNow);
+
+  var lookForward = Math.min(24, h.time.length - currentIdx - 1);
+  var futureMinScore = scoreNow, futureMaxScore = scoreNow;
+  var futureMinIdx = currentIdx, futureMaxIdx = currentIdx;
+  for (var f = currentIdx + 1; f <= currentIdx + lookForward; f++) {
+    var sf = visScoreV2(h, f, depth, lat, lon);
+    if (sf < futureMinScore) { futureMinScore = sf; futureMinIdx = f; }
+    if (sf > futureMaxScore) { futureMaxScore = sf; futureMaxIdx = f; }
+  }
+  var labelMinKey = scoreToLabelKey(futureMinScore);
+  var labelMaxKey = scoreToLabelKey(futureMaxScore);
+
+  var lookFar = Math.min(120, h.time.length - currentIdx - 1);
+  var labelChangeIdx = -1;
+  var labelChangeKey = -1;
+  for (var ff = currentIdx + 1; ff <= currentIdx + lookFar; ff++) {
+    var sff = visScoreV2(h, ff, depth, lat, lon);
+    var kff = scoreToLabelKey(sff);
+    if (kff !== labelNowKey) {
+      labelChangeIdx = ff;
+      labelChangeKey = kff;
       break;
     }
   }
 
-  // Cherche dans le passe recent le pic de brassage onshore (pour explication)
   var coastNormal = getCoastNormal(lat, lon);
   function onshoreFactor(windDir) {
     if (windDir === null || windDir === undefined) return 0;
@@ -1179,145 +1197,118 @@ function renderDecantation(h, currentIdx, depth, currentDir, latlng) {
     while (angle < -180) angle += 360;
     return -Math.cos(angle * Math.PI / 180);
   }
-
-  var lookback = Math.min(72, currentIdx);
-  var peakGusts = 0, peakHoursAgo = -1, peakDir = null;
-  for (var k = 0; k <= lookback; k++) {
-    var pIdx = currentIdx - k;
-    if (pIdx < 0) continue;
-    var pg = h.windgusts_10m[pIdx] || 0;
-    var pd = h.winddirection_10m ? h.winddirection_10m[pIdx] : null;
-    var onsh = onshoreFactor(pd);
-    if (onsh < 0.3) continue;
-    if (pg > peakGusts) {
-      peakGusts = Math.round(pg);
-      peakHoursAgo = k;
-      peakDir = pd;
-    }
-  }
-
   var fromNames = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
   function dirName(deg) {
     if (deg === null || deg === undefined) return '?';
     return fromNames[Math.round(deg / 45) % 8];
   }
-
-  var unit = S_windUnit === 'kt' ? 'nds' : 'km/h';
-  var peakKt = S_windUnit === 'kt' ? toKt(peakGusts) : peakGusts;
-
-  // Vent actuel onshore et fort = degradation en cours
-  var currentWind = h.windspeed_10m[currentIdx] || 0;
-  var currentGusts = h.windgusts_10m[currentIdx] || 0;
-  var currentDirVal = h.winddirection_10m ? h.winddirection_10m[currentIdx] : null;
-  var currentOnshore = onshoreFactor(currentDirVal);
-  var isCurrentlyOnshoreWind = currentOnshore > 0.3 && currentWind >= 10;
-
-  // PHASE 0 - DEGRADATION IMMINENTE : score va chuter dans les 24h
-  // Cherche le score min dans les 24h futures
-  var futureMinScore = scoreNow;
-  var futureMinIdx = currentIdx;
-  var lookForward = Math.min(24, h.time.length - currentIdx - 1);
-  for (var f = currentIdx + 1; f <= currentIdx + lookForward; f++) {
-    var sf = visScoreV2(h, f, depth, lat, lon);
-    if (sf < futureMinScore) {
-      futureMinScore = sf;
-      futureMinIdx = f;
-    }
-  }
-  var futureDrop = scoreNow - futureMinScore;
-  if (futureDrop >= 20 && !isCurrentlyOnshoreWind) {
-    var degradeTime = new Date(h.time[futureMinIdx]);
-    var degradeNow = new Date();
-    var hoursToDegrade = Math.round((degradeTime.getTime() - degradeNow.getTime()) / 3600000);
-    var degradeDayDiff = Math.floor((degradeTime.getTime() - new Date(degradeNow.getFullYear(), degradeNow.getMonth(), degradeNow.getDate()).getTime()) / 86400000);
-    var degradeDayLabel;
-    if (degradeDayDiff === 0) degradeDayLabel = "aujourd'hui";
-    else if (degradeDayDiff === 1) degradeDayLabel = 'demain';
-    else if (degradeDayDiff === 2) degradeDayLabel = 'apres-demain';
-    else { var dayN = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam']; degradeDayLabel = dayN[degradeTime.getDay()]; }
-    var degradeHh = degradeTime.getHours().toString().padStart(2, '0');
-
-    // Cherche la rafale max prevue pour expliquer
-    var maxFutureGusts = 0, maxFutureDir = null, maxFutureIdx = -1;
-    for (var ff = currentIdx; ff <= currentIdx + lookForward; ff++) {
-      var fg = h.windgusts_10m[ff] || 0;
-      var fd = h.winddirection_10m ? h.winddirection_10m[ff] : null;
-      var fOnsh = onshoreFactor(fd);
-      if (fOnsh < 0.3) continue;
-      if (fg > maxFutureGusts) {
-        maxFutureGusts = Math.round(fg);
-        maxFutureDir = fd;
-        maxFutureIdx = ff;
-      }
-    }
-    var maxFutureKt = S_windUnit === 'kt' ? toKt(maxFutureGusts) : maxFutureGusts;
-
-    banner.innerHTML =
-      '<div class="decant-v2-title">' +
-        '<span>&#9679; Degradation prevue</span>' +
-        '<button class="decant-v2-info-btn" onclick="toggleDecantInfo()">i</button>' +
-      '</div>' +
-      '<div class="decant-v2-main">L eau va se troubler ' + degradeDayLabel + ' ' + degradeHh + 'h</div>' +
-      '<div class="decant-v2-sub">Coup de vent ' + dirName(maxFutureDir) + ' a ' + maxFutureKt + ' ' + unit + ' attendu</div>' +
-      '<div class="decant-v2-detail" id="decantDetail">' +
-        'Aujourd hui visi correcte (score ' + Math.round(scoreNow) + '/100), mais coup de vent ' + dirName(maxFutureDir) + ' onshore avec rafales jusqu a ' + maxFutureKt + ' ' + unit + ' attendu dans ~' + hoursToDegrade + 'h. ' +
-        'Le score chutera a ~' + Math.round(futureMinScore) + '/100. Sur fond ~' + Math.round(depth) + 'm, prevoir plusieurs jours de decantation ensuite.' +
-      '</div>';
-    banner.classList.add('show', 'degradation');
-    return;
-  }
-  
-  // PHASE 1 - DEGRADATION : score baisse ET vent onshore actif
-  if (isCurrentlyOnshoreWind && trend < -3) {
-    var gustsKt = S_windUnit === 'kt' ? toKt(currentGusts) : currentGusts;
-    banner.innerHTML =
-      '<div class="decant-v2-title">' +
-        '<span>&#9679; Degradation en cours</span>' +
-        '<button class="decant-v2-info-btn" onclick="toggleDecantInfo()">i</button>' +
-      '</div>' +
-      '<div class="decant-v2-main">L eau se trouble</div>' +
-      '<div class="decant-v2-sub">Rafale ' + gustsKt + ' ' + unit + ' onshore (' + dirName(currentDirVal) + ')</div>' +
-      '<div class="decant-v2-detail" id="decantDetail">' +
-        'Vent ' + dirName(currentDirVal) + ' actuel ' + (S_windUnit === 'kt' ? toKt(currentWind) : currentWind) + ' ' + unit + ' avec rafales ' + gustsKt + ' ' + unit + ', soufflant onshore. ' +
-        'Sur fond ~' + Math.round(depth) + 'm, ce vent met en suspension les sediments. Score actuel ' + Math.round(scoreNow) + '/100, en baisse de ' + Math.abs(Math.round(trend)) + ' points en 6h.' +
-      '</div>';
-    banner.classList.add('show', 'degradation');
-    return;
-  }
-
-  // PHASE 2 - ECLAIRCISSEMENT : score remonte ET vent calmi ET clear point detecte
-  if (trend > 3 && !isCurrentlyOnshoreWind && clearIdx > 0) {
-    var clearTime = new Date(h.time[clearIdx]);
+  var dayNames = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'];
+  function formatWhen(dateObj) {
     var now = new Date();
-    var dayNames = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
-    var dayDiff = Math.floor((clearTime.getTime() - new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) / 86400000);
-    var dayLabel;
-    if (dayDiff === 0) dayLabel = "aujourd'hui";
-    else if (dayDiff === 1) dayLabel = 'demain';
-    else if (dayDiff === 2) dayLabel = 'apres-demain';
-    else dayLabel = dayNames[clearTime.getDay()];
-    var hh = clearTime.getHours().toString().padStart(2, '0');
-    var hoursToClear = Math.round((clearTime.getTime() - now.getTime()) / 3600000);
+    var dayDiff = Math.floor((dateObj.getTime() - new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()) / 86400000);
+    var hh = dateObj.getHours().toString().padStart(2, '0');
+    if (dayDiff === 0) return "aujourd'hui " + hh + 'h';
+    if (dayDiff === 1) return 'demain ' + hh + 'h';
+    if (dayDiff === 2) return 'apres-demain ' + hh + 'h';
+    return dayNames[dateObj.getDay()] + ' ' + hh + 'h';
+  }
+  var unit = S_windUnit === 'kt' ? 'nds' : 'km/h';
 
-    var subText = peakHoursAgo > 0 ? 'Vent retombe depuis ' + peakHoursAgo + 'h' : 'Score en hausse';
-    var detailText = peakHoursAgo > 0
-      ? 'Pic onshore de ' + peakKt + ' ' + unit + ' ' + dirName(peakDir) + ' detecte il y a ' + peakHoursAgo + 'h. Les particules redescendent. '
-      : 'Le vent s est calme. ';
-    detailText += 'Score actuel ' + Math.round(scoreNow) + '/100, en hausse de ' + Math.round(trend) + ' points en 6h. Eau claire (>4m) attendue dans ~' + hoursToClear + 'h.';
-
+  // CAS 2 - Degradation : label va baisser dans 24h
+  if (labelMinKey < labelNowKey) {
+    var futurePeakGusts = 0, futurePeakHoursAhead = -1, futurePeakDir = null;
+    for (var fk = 1; fk <= lookForward; fk++) {
+      var ffIdx = currentIdx + fk;
+      var fg = h.windgusts_10m[ffIdx] || 0;
+      var fd = h.winddirection_10m ? h.winddirection_10m[ffIdx] : null;
+      if (onshoreFactor(fd) < 0.3) continue;
+      if (fg > futurePeakGusts) { futurePeakGusts = Math.round(fg); futurePeakHoursAhead = fk; futurePeakDir = fd; }
+    }
+    var degradeWhen = formatWhen(new Date(h.time[futureMinIdx]));
+    var subText, detailText;
+    if (futurePeakGusts >= 15) {
+      var futKt = S_windUnit === 'kt' ? toKt(futurePeakGusts) : futurePeakGusts;
+      subText = 'Coup de ' + dirName(futurePeakDir) + ' a ' + futKt + ' ' + unit + ' attendu';
+      detailText = 'Coup de vent ' + dirName(futurePeakDir) + ' onshore avec rafales jusqu a ' + futKt + ' ' + unit + ' dans ' + futurePeakHoursAhead + 'h. Sur fond ~' + Math.round(depth) + 'm, prevoir plusieurs jours de decantation ensuite.';
+    } else {
+      subText = 'Conditions defavorables a venir';
+      detailText = 'La visi va se degrader. Sur fond ~' + Math.round(depth) + 'm, prevoir une periode de decantation.';
+    }
     banner.innerHTML =
       '<div class="decant-v2-title">' +
-        '<span>&#9679; Eclaircissement en cours</span>' +
+        '<span>L eau va se troubler ' + degradeWhen + '</span>' +
         '<button class="decant-v2-info-btn" onclick="toggleDecantInfo()">i</button>' +
       '</div>' +
-      '<div class="decant-v2-main">Eau claire vers ' + dayLabel + ' ' + hh + 'h</div>' +
       '<div class="decant-v2-sub">' + subText + '</div>' +
       '<div class="decant-v2-detail" id="decantDetail">' + detailText + '</div>';
+    banner.classList.add('show', 'degradation');
+    return;
+  }
+
+  // CAS 3 - Eclaircissement franc : label va monter dans 24h
+  if (labelMaxKey > labelNowKey) {
+    var pastPeakGusts = 0, pastPeakHoursAgo = -1, pastPeakDir = null;
+    for (var k = 1; k <= Math.min(72, currentIdx); k++) {
+      var pIdx = currentIdx - k;
+      var pg = h.windgusts_10m[pIdx] || 0;
+      var pd = h.winddirection_10m ? h.winddirection_10m[pIdx] : null;
+      if (onshoreFactor(pd) < 0.3) continue;
+      if (pg > pastPeakGusts) { pastPeakGusts = Math.round(pg); pastPeakHoursAgo = k; pastPeakDir = pd; }
+    }
+    var clearWhen = formatWhen(new Date(h.time[futureMaxIdx]));
+    var subText3, detailText3;
+    if (pastPeakHoursAgo > 0 && pastPeakGusts >= 15) {
+      var peakKt = S_windUnit === 'kt' ? toKt(pastPeakGusts) : pastPeakGusts;
+      subText3 = 'Vent retombe depuis ' + pastPeakHoursAgo + 'h, decantation en cours';
+      detailText3 = 'Pic onshore de ' + peakKt + ' ' + unit + ' ' + dirName(pastPeakDir) + ' detecte il y a ' + pastPeakHoursAgo + 'h. Les particules redescendent. Sur fond ~' + Math.round(depth) + 'm, l eau devrait s eclaircir vers ' + clearWhen + '.';
+    } else {
+      subText3 = 'Conditions s ameliorent';
+      detailText3 = 'La visi devrait s eclaircir vers ' + clearWhen + '.';
+    }
+    banner.innerHTML =
+      '<div class="decant-v2-title">' +
+        '<span>L eau s eclaircit ' + clearWhen + '</span>' +
+        '<button class="decant-v2-info-btn" onclick="toggleDecantInfo()">i</button>' +
+      '</div>' +
+      '<div class="decant-v2-sub">' + subText3 + '</div>' +
+      '<div class="decant-v2-detail" id="decantDetail">' + detailText3 + '</div>';
     banner.classList.add('show', 'decantation');
     return;
   }
 
-  // PHASE 3 - STABLE : pas de bandeau, le score visi suffit
+  // CAS 4 - Nulle ou Faible avec changement de label visible dans les 5j
+  if (labelNowKey <= 1 && labelChangeIdx > 0 && labelChangeKey > labelNowKey) {
+    var changeWhen = formatWhen(new Date(h.time[labelChangeIdx]));
+    var newLabel = labelNames[labelChangeKey];
+    banner.innerHTML =
+      '<div class="decant-v2-title">' +
+        '<span>' + newLabel + ' attendue ' + changeWhen + '</span>' +
+        '<button class="decant-v2-info-btn" onclick="toggleDecantInfo()">i</button>' +
+      '</div>' +
+      '<div class="decant-v2-sub">Decantation longue, fond ~' + Math.round(depth) + 'm</div>' +
+      '<div class="decant-v2-detail" id="decantDetail">' +
+        'La visi reste ' + labelNames[labelNowKey].toLowerCase() + ' a court terme mais devrait remonter a ' + newLabel.toLowerCase() + ' vers ' + changeWhen + '. Sur fond ~' + Math.round(depth) + 'm, decantation lente.' +
+      '</div>';
+    banner.classList.add('show', 'decantation');
+    return;
+  }
+
+  // CAS 1 - Nulle/Faible durable, aucune amelioration sur 5j
+  if (labelNowKey <= 1 && labelChangeIdx === -1) {
+    banner.innerHTML =
+      '<div class="decant-v2-title">' +
+        '<span>Aucune amelioration en vue</span>' +
+        '<button class="decant-v2-info-btn" onclick="toggleDecantInfo()">i</button>' +
+      '</div>' +
+      '<div class="decant-v2-sub">Conditions defavorables sur les 5 prochains jours</div>' +
+      '<div class="decant-v2-detail" id="decantDetail">' +
+        'Score visi reste sous le seuil "plongeable" sur les 5 prochains jours. Sediments en suspension persistante sur fond ~' + Math.round(depth) + 'm.' +
+      '</div>';
+    banner.classList.add('show', 'neutre');
+    return;
+  }
+
+  // CAS 5 - Stable bonne ou excellente : pas de bandeau
 }
 
 function toggleDecantInfo() {
