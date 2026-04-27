@@ -1058,6 +1058,43 @@ function renderSpotPopup() {
   var segColors = ['#DC2626', '#EA580C', '#CA8A04', '#16A34A', '#0BA888'];
   var levelIdx = ['Nulle', 'Faible', 'Moyenne', 'Bonne', 'Excellente'].indexOf(visLabel);
   document.getElementById('spotVisBadge').style.background = badgeColors[visLabel] || '#CA8A04';
+
+  // Calcule label actuel et label dans 24h pour determiner si on affiche fleche
+  function scoreToLabelKey(s) {
+    if (s >= 80) return 4;
+    if (s >= 60) return 3;
+    if (s >= 40) return 2;
+    if (s >= 20) return 1;
+    return 0;
+  }
+  var labelNowKey = scoreToLabelKey(score);
+  var futureMinScore = score, futureMaxScore = score;
+  var lookAhead = Math.min(24, h.time.length - idx - 1);
+  for (var fIdx = idx + 1; fIdx <= idx + lookAhead; fIdx++) {
+    var sFut = visScoreV2(h, fIdx, depth, lat, lon);
+    if (sFut < futureMinScore) futureMinScore = sFut;
+    if (sFut > futureMaxScore) futureMaxScore = sFut;
+  }
+  var labelMinKey = scoreToLabelKey(futureMinScore);
+  var labelMaxKey = scoreToLabelKey(futureMaxScore);
+
+  // Affiche fleche seulement si le label change dans les 24h
+  var trendArrowEl = document.getElementById('spotTrendArrow');
+  if (trendArrowEl) {
+    if (labelMinKey < labelNowKey) {
+      trendArrowEl.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="7" x2="17" y2="17"/><polyline points="17 7 17 17 7 17"/></svg>';
+      trendArrowEl.style.display = 'flex';
+      trendArrowEl.style.background = '#FCEBEB';
+      trendArrowEl.style.borderColor = '#F09595';
+    } else if (labelMaxKey > labelNowKey) {
+      trendArrowEl.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0BA888" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="17 17 17 7 7 7"/></svg>';
+      trendArrowEl.style.display = 'flex';
+      trendArrowEl.style.background = '#E1F5EE';
+      trendArrowEl.style.borderColor = '#5DCAA5';
+    } else {
+      trendArrowEl.style.display = 'none';
+    }
+  }
   document.getElementById('spotVisLabel').textContent = visLabel;
   for (var si = 0; si < 5; si++) {
     var seg = document.getElementById('visSeg' + si);
@@ -1385,8 +1422,8 @@ function renderPaliersTimeline(h, currentIdx, depth, latlng) {
   var paliers = [
     { label: '2m', minScore: 20 },
     { label: '4m', minScore: 40 },
-    { label: '8m', minScore: 60 },
-    { label: '+8m', minScore: 80 }
+    { label: '6m', minScore: 60 },
+    { label: '8m', minScore: 80 }
   ];
   var maxLookahead = Math.min(120, h.time.length - currentIdx - 1);
   var results = paliers.map(function(p) {
