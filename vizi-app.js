@@ -551,12 +551,12 @@ var WEBCAMS = [
   { id:'wc_porto_vecchio', name:'Porto-Vecchio', lat:41.5908, lon:9.2792, url:'https://www.vision-environnement.com/live/player/porto-vecchio0.php' },
   { id:'wc_pv_port', name:'Porto-Vecchio - Port', lat:41.5897, lon:9.2867, url:'https://www.vision-environnement.com/live/player/portportovecchio0.php' },
   { id:'wc_pv2', name:'Porto-Vecchio (vue 2)', lat:41.5908, lon:9.2839, url:'https://www.vision-environnement.com/live/player/portovecchio20.php' },
-  { id:'wc_santa_giulia', name:'Porto-Vecchio - Santa Giulia', lat:41.5256, lon:9.2742, url:'https://www.vision-environnement.com/live/player/santa-giulia0.php' }
+  { id:'wc_santa_giulia', name:'Porto-Vecchio - Santa Giulia', lat:41.5256, lon:9.2742, url:'https://www.vision-environnement.com/live/player/santa-giulia0.php' },
     // ============= COTENTIN (Viewsurf via encotentin.fr) =============
   { id:'wc_goury', name:'Goury - La Hague', lat:49.7178, lon:-1.9436, url:'https://pv.viewsurf.com/1552/La-Hague-Goury' },
   { id:'wc_urville', name:'Urville-Nacqueville - La Hague', lat:49.6794, lon:-1.7225, url:'https://pv.viewsurf.com/830/La-Hague-Nacqueville' },
   { id:'wc_vauville', name:'Vauville - La Hague', lat:49.6323, lon:-1.8493, url:'https://pv.viewsurf.com/826/La-Hague-Vauville' },
-  { id:'wc_collignon', name:'Cherbourg - Plage de Collignon', lat:49.6567, lon:-1.5678, url:'https://pv.viewsurf.com/2322/Cherbourg-Plage-de-Colignon' }
+  { id:'wc_collignon', name:'Cherbourg - Plage de Collignon', lat:49.6567, lon:-1.5678, url:'https://pv.viewsurf.com/2322/Cherbourg-Plage-de-Colignon' },
 ];
 
 var S_webcamsLayer = null;
