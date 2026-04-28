@@ -374,6 +374,136 @@ var API_MAREE_SITES = {
   'bastia': null
 };
 
+// ============================================================
+// WEBCAMS COTIERES - Source : Vision-Environnement (HD/4K)
+// Couche toggleable affichee sur la carte avec popup integre
+// ============================================================
+var WEBCAMS = [
+  // Cote d'Albatre (Seine-Maritime)
+  { id:'wc_treport', name:'Le Treport', lat:50.0578, lon:1.3742, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=letreport' },
+  { id:'wc_criel', name:'Criel-sur-Mer', lat:50.0214, lon:1.3097, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=criel' },
+  { id:'wc_dieppe_ango', name:'Dieppe - Ango', lat:49.9300, lon:1.0833, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=dieppe-ango' },
+  { id:'wc_ste_marguerite', name:'Sainte-Marguerite-sur-Mer', lat:49.9075, lon:0.9539, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=sainte-marguerite-sur-mer' },
+  { id:'wc_veules', name:'Veules-les-Roses', lat:49.8742, lon:0.7986, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=veules-les-roses' },
+  { id:'wc_svec', name:'Saint-Valery-en-Caux', lat:49.8678, lon:0.7100, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=saint-valery-en-caux-casino' },
+  { id:'wc_veulettes', name:'Veulettes-sur-Mer', lat:49.8492, lon:0.5972, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=veulettes-sur-mer' },
+  { id:'wc_cany', name:'Cany-Barville', lat:49.7861, lon:0.6394, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=cany-barville' },
+  { id:'wc_yport', name:'Yport', lat:49.7406, lon:0.3147, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=yport' },
+  { id:'wc_fecamp', name:'Fecamp', lat:49.7589, lon:0.3719, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=fecam' },
+  { id:'wc_etretat', name:'Etretat', lat:49.7075, lon:0.2058, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=etretat2-' },
+  { id:'wc_sjb', name:'Saint-Jouin-Bruneval', lat:49.6383, lon:0.1547, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=sjb' },
+  { id:'wc_le_havre', name:'Le Havre - Malraux', lat:49.4833, lon:0.1078, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=le-havre-malraux' },
+  // Cote Fleurie (Calvados)
+  { id:'wc_trouville_port', name:'Trouville - Port', lat:49.3661, lon:0.0867, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=port-trouville-sur-mer' },
+  { id:'wc_trouville', name:'Trouville-sur-Mer', lat:49.3678, lon:0.0850, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=trouville' },
+  { id:'wc_houlgate', name:'Houlgate', lat:49.2986, lon:-0.0731, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=houlgate' },
+  { id:'wc_cabourg', name:'Cabourg', lat:49.2856, lon:-0.1247, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=cabourg' },
+  // Cote de Nacre (Calvados)
+  { id:'wc_ouistreham', name:'Ouistreham', lat:49.2836, lon:-0.2492, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=ouistreham' },
+  { id:'wc_langrune', name:'Langrune-sur-Mer', lat:49.3289, lon:-0.3717, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=langrune-sur-mer' },
+  { id:'wc_luc', name:'Luc-sur-Mer', lat:49.3194, lon:-0.3539, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=luc-sur-mer' },
+  { id:'wc_staubin', name:'Saint-Aubin-sur-Mer', lat:49.3308, lon:-0.3936, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=staubin' },
+  // Cotentin (Manche)
+  { id:'wc_stgermain', name:'Saint-Germain-sur-Ay', lat:49.2278, lon:-1.6181, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=stgermain' },
+  { id:'wc_pirou', name:'Pirou', lat:49.1717, lon:-1.5944, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=pirou' },
+  { id:'wc_jullouville', name:'Jullouville', lat:48.7711, lon:-1.5614, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=jullouville' }
+];
+
+var S_webcamsLayer = null;
+var S_webcamsActive = false;
+
+function toggleWebcams() {
+  S_webcamsActive = !S_webcamsActive;
+  var btn = document.getElementById('btnWebcams');
+  if (btn) btn.classList.toggle('active', S_webcamsActive);
+  if (S_webcamsActive) {
+    showWebcamsLayer();
+  } else {
+    hideWebcamsLayer();
+  }
+}
+
+function showWebcamsLayer() {
+  if (S_webcamsLayer) return;
+  var markers = [];
+  WEBCAMS.forEach(function(wc) {
+    var icon = L.divIcon({
+      className: '',
+      html: '<div class="webcam-marker">' +
+        '<svg width="20" height="20" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="0.5">' +
+        '<path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/>' +
+        '</svg></div>',
+      iconSize: [32, 32], iconAnchor: [16, 16]
+    });
+    var m = L.marker([wc.lat, wc.lon], { icon: icon });
+    m.bindTooltip('<b>Webcam ' + wc.name + '</b><br><span style="font-size:10px;opacity:0.85">Cliquer pour voir le live</span>', {
+      direction: 'top', className: 'visim-tooltip', offset: [0, -10]
+    });
+    m.on('click', function(e) {
+      L.DomEvent.stopPropagation(e);
+      openWebcamPopup(wc);
+    });
+    markers.push(m);
+  });
+  S_webcamsLayer = L.featureGroup(markers).addTo(S.map);
+}
+
+function hideWebcamsLayer() {
+  if (S_webcamsLayer) {
+    S.map.removeLayer(S_webcamsLayer);
+    S_webcamsLayer = null;
+  }
+  closeWebcamPopup();
+}
+
+function openWebcamPopup(wc) {
+  closeWebcamPopup();
+  var html =
+    '<div id="webcamPopup">' +
+      '<div class="webcam-popup-header">' +
+        '<div class="webcam-popup-title">' +
+          '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A8E63D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;margin-right:6px;">' +
+          '<path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>' +
+          'Webcam : ' + wc.name +
+        '</div>' +
+        '<button class="webcam-popup-close" onclick="closeWebcamPopup()">&times;</button>' +
+      '</div>' +
+      '<div class="webcam-popup-body">' +
+        '<iframe src="' + wc.url + '" id="webcamIframe" allowfullscreen></iframe>' +
+        '<div class="webcam-popup-fallback" id="webcamFallback" style="display:none;">' +
+          '<p>L affichage integre n est pas disponible pour cette webcam.</p>' +
+          '<a href="' + wc.url + '" target="_blank" rel="noopener" class="webcam-popup-btn">Voir le live HD →</a>' +
+        '</div>' +
+      '</div>' +
+      '<div class="webcam-popup-footer">' +
+        '<a href="' + wc.url + '" target="_blank" rel="noopener">Plein ecran ↗</a>' +
+        ' · Source : Vision-Environnement' +
+      '</div>' +
+    '</div>';
+  var div = document.createElement('div');
+  div.innerHTML = html;
+  document.body.appendChild(div.firstChild);
+  // Detection iframe bloquee : si elle ne charge pas en 4s, fallback
+  setTimeout(function() {
+    var iframe = document.getElementById('webcamIframe');
+    if (!iframe) return;
+    try {
+      var doc = iframe.contentDocument || iframe.contentWindow.document;
+      if (!doc || doc.body.innerHTML === '') {
+        document.getElementById('webcamFallback').style.display = 'flex';
+        iframe.style.display = 'none';
+      }
+    } catch(e) {
+      // X-Frame-Options bloque l acces : c est ok l iframe charge quand meme
+    }
+  }, 4000);
+}
+
+function closeWebcamPopup() {
+  var p = document.getElementById('webcamPopup');
+  if (p) p.remove();
+}
+
 function findApiMareeSiteNear(lat, lon) {
   var best = null, minD = Infinity;
   SPOTS.forEach(function(s) {
