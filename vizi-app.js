@@ -627,7 +627,7 @@ function openWebcamPopup(wc) {
       '</div>' +
       '<div class="webcam-popup-footer">' +
         '<a href="' + wc.url + '" target="_blank" rel="noopener">Plein ecran ↗</a>' +
-        ' · Source : Vision-Environnement' +
+        '' +
       '</div>' +
     '</div>';
   var div = document.createElement('div');
