@@ -471,6 +471,91 @@ var WEBCAMS = [
   { id:'wc_vannes', name:'Vannes', lat:47.6478, lon:-2.7619, url:'https://www.vision-environnement.com/live/player/vannes0.php' },
   { id:'wc_damgan', name:'Damgan', lat:47.5083, lon:-2.5847, url:'https://www.vision-environnement.com/live/player/Damgan0.php' },
   { id:'wc_penestin', name:'Penestin', lat:47.4856, lon:-2.4858, url:'https://www.vision-environnement.com/live/player/penestin0.php' }
+  // ============= PAYS DE LA LOIRE =============
+  { id:'wc_piriac', name:'Piriac-sur-Mer', lat:47.3789, lon:-2.5469, url:'https://www.vision-environnement.com/live/player/piriac-sur-mer0.php' },
+  { id:'wc_mesquer', name:'Mesquer - Lanseria', lat:47.3958, lon:-2.4503, url:'https://www.vision-environnement.com/live/player/lanseria0.php' },
+  { id:'wc_labaule', name:'La Baule', lat:47.2867, lon:-2.4103, url:'https://www.vision-environnement.com/live/player/labaule0.php' },
+  { id:'wc_gois', name:'Noirmoutier - Passage du Gois', lat:46.9419, lon:-2.1369, url:'https://www.vision-environnement.com/live/player/gois0.php' },
+  { id:'wc_herbaudiere', name:'Noirmoutier - Herbaudiere', lat:47.0156, lon:-2.2997, url:'https://www.vision-environnement.com/live/player/herbaudiere0.php' },
+  { id:'wc_portmorin', name:'Noirmoutier - Port de Morin', lat:46.9817, lon:-2.2728, url:'https://www.vision-environnement.com/live/player/noirmoutier-port-de-morin0.php' },
+  { id:'wc_noirmoutier', name:'Noirmoutier en l Ile', lat:47.0028, lon:-2.2497, url:'https://www.vision-environnement.com/live/player/noirmoutier0.php' },
+  { id:'wc_sthilaire', name:'Saint-Hilaire-de-Riez', lat:46.7197, lon:-1.9928, url:'https://www.vision-environnement.com/live/player/sthilairederiez0.php' },
+  { id:'wc_olonnes', name:'Les Sables d Olonne', lat:46.4956, lon:-1.7958, url:'https://www.vision-environnement.com/live/player/olonnes0.php' },
+  { id:'wc_jardsurmer', name:'Jard-sur-Mer', lat:46.4133, lon:-1.5772, url:'https://www.vision-environnement.com/live/player/jardsurmer0.php' },
+  { id:'wc_latranche', name:'La Tranche-sur-Mer', lat:46.3461, lon:-1.4244, url:'https://www.vision-environnement.com/live/player/latranche0.php' },
+  { id:'wc_tranche2', name:'La Tranche-sur-Mer (vue 2)', lat:46.3447, lon:-1.4275, url:'https://www.vision-environnement.com/live/player/tranche0.php' },
+  // ============= NOUVELLE-AQUITAINE =============
+  { id:'wc_bourcefranc', name:'Bourcefranc-le-Chapus', lat:45.8511, lon:-1.1492, url:'https://www.vision-environnement.com/live/player/bourcefranc0.php' },
+  { id:'wc_chassiron', name:'Oleron - Phare de Chassiron', lat:46.0481, lon:-1.4111, url:'https://www.vision-environnement.com/live/player/chassiron0.php' },
+  { id:'wc_stdenis', name:'Saint-Denis-d Oleron', lat:46.0339, lon:-1.3897, url:'https://www.vision-environnement.com/live/player/stdenis0.php' },
+  { id:'wc_leshuttes', name:'Oleron - Les Huttes', lat:46.0181, lon:-1.4017, url:'https://www.vision-environnement.com/live/player/leshuttes0.php' },
+  { id:'wc_ledouhet', name:'Port Le Douhet', lat:45.9697, lon:-1.3267, url:'https://www.vision-environnement.com/live/player/ledouhet0.php' },
+  { id:'wc_perroche', name:'Oleron - La Perroche', lat:45.9131, lon:-1.3658, url:'https://www.vision-environnement.com/live/player/perroche0.php' },
+  { id:'wc_cotiniere', name:'Oleron - La Cotiniere', lat:45.8969, lon:-1.3303, url:'https://www.vision-environnement.com/live/player/cotiniere0.php' },
+  { id:'wc_sttrojan', name:'Saint-Trojan-les-Bains', lat:45.8344, lon:-1.2125, url:'https://www.vision-environnement.com/live/player/sttrojan0.php' },
+  { id:'wc_tremblade', name:'La Tremblade', lat:45.7689, lon:-1.1394, url:'https://www.vision-environnement.com/live/player/tremblade0.php' },
+  { id:'wc_mornac', name:'Mornac-sur-Seudre', lat:45.7283, lon:-1.0394, url:'https://www.vision-environnement.com/live/player/mornac0.php' }
+,
+
+  // ============= OCCITANIE =============
+  { id:'wc_labenne', name:'Labenne', lat:43.5933, lon:-1.4639, url:'https://www.vision-environnement.com/live/player/labenne0.php' },
+  { id:'wc_pilat', name:'Le Pilat', lat:44.5917, lon:-1.2156, url:'https://www.vision-environnement.com/live/player/pilat0.php' },
+  { id:'wc_sete', name:'Sete', lat:43.4053, lon:3.6975, url:'https://www.vision-environnement.com/live/player/sete0.php' },
+
+  // ============= PACA =============
+  // Bouches-du-Rhone
+  { id:'wc_carro', name:'Carro', lat:43.3328, lon:5.0414, url:'https://www.vision-environnement.com/live/player/carro0.php' },
+  { id:'wc_marseilleport', name:'Marseille - Vieux Port', lat:43.2956, lon:5.3697, url:'https://www.vision-environnement.com/live/player/marseilleport0.php' },
+  { id:'wc_marseille2', name:'Marseille - Panorama', lat:43.2864, lon:5.3589, url:'https://www.vision-environnement.com/live/player/marseille20.php' },
+  { id:'wc_samena', name:'Marseille - Calanque Samena', lat:43.2419, lon:5.3614, url:'https://www.vision-environnement.com/live/player/samena0.php' },
+  // Var
+  { id:'wc_seyne', name:'La Seyne-sur-Mer', lat:43.0942, lon:5.8800, url:'https://www.vision-environnement.com/live/player/la-seyne-sur-mer0.php' },
+  { id:'wc_lazaret', name:'Le Lazaret', lat:43.0789, lon:5.9183, url:'https://www.vision-environnement.com/live/player/le-lazaret0.php' },
+  { id:'wc_st_mandrier', name:'Saint-Mandrier-sur-Mer', lat:43.0786, lon:5.9281, url:'https://www.vision-environnement.com/live/player/saint-mandrier0.php' },
+  { id:'wc_sixfours', name:'Six-Fours-les-Plages', lat:43.0942, lon:5.8378, url:'https://www.vision-environnement.com/live/player/sixfours20.php' },
+  { id:'wc_toulon_v', name:'Toulon - Vieille Darse', lat:43.1186, lon:5.9319, url:'https://www.vision-environnement.com/live/player/toulon-vieille-darse0.php' },
+  { id:'wc_toulon_n', name:'Toulon - Darse Nord', lat:43.1175, lon:5.9342, url:'https://www.vision-environnement.com/live/player/toulon-darse-nord0.php' },
+  { id:'wc_hyeres1', name:'Hyeres - Madrague', lat:43.0825, lon:6.1469, url:'https://www.vision-environnement.com/live/player/madrague0.php' },
+  { id:'wc_hyeres2', name:'Hyeres', lat:43.0833, lon:6.1500, url:'https://www.vision-environnement.com/live/player/hyeres20.php' },
+  { id:'wc_hyeres3', name:'Hyeres (vue 3)', lat:43.0856, lon:6.1517, url:'https://www.vision-environnement.com/live/player/hyeres30.php' },
+  { id:'wc_hyeres4', name:'Hyeres (vue 4)', lat:43.0814, lon:6.1481, url:'https://www.vision-environnement.com/live/player/hyeres40.php' },
+  { id:'wc_hyeres_kite', name:'Hyeres - Kite', lat:43.1011, lon:6.1497, url:'https://www.vision-environnement.com/live/player/hyeres-kite0.php' },
+  { id:'wc_lavandou_a', name:'Le Lavandou - Aiguebelle', lat:43.1322, lon:6.3897, url:'https://www.vision-environnement.com/live/player/lavandou-aiguebelle0.php' },
+  { id:'wc_lavandou_c', name:'Le Lavandou - Coco Beach', lat:43.1378, lon:6.3683, url:'https://www.vision-environnement.com/live/player/lavandou-coco-beach0.php' },
+  { id:'wc_croix_valmer', name:'La Croix-Valmer', lat:43.2089, lon:6.5719, url:'https://www.vision-environnement.com/live/player/lily-of-the-valley-lily-of-the-valley0.php' },
+  { id:'wc_croix_valmer2', name:'La Croix-Valmer - Lily of the Valley', lat:43.2114, lon:6.5747, url:'https://www.vision-environnement.com/live/player/lily-of-the-valley20.php' },
+  { id:'wc_issambres', name:'Les Issambres', lat:43.3608, lon:6.7253, url:'https://www.vision-environnement.com/live/player/issambres0.php' },
+  // Alpes-Maritimes
+  { id:'wc_cannes', name:'Cannes', lat:43.5511, lon:7.0181, url:'https://www.vision-environnement.com/live/player/cannes0.php' },
+  { id:'wc_cannes2', name:'Cannes (vue 2)', lat:43.5489, lon:7.0167, url:'https://www.vision-environnement.com/live/player/cannes20.php' },
+  { id:'wc_cannes_qb', name:'Cannes - Quai Laubeuf', lat:43.5478, lon:7.0211, url:'https://www.vision-environnement.com/live/player/cannes-quai-laubeuf0.php' },
+  { id:'wc_st_laurent', name:'Saint-Laurent-du-Var', lat:43.6661, lon:7.1872, url:'https://www.vision-environnement.com/live/player/saint-laurent-du-var0.php' },
+  { id:'wc_villefranche1', name:'Villefranche-sur-Mer', lat:43.7039, lon:7.3097, url:'https://www.vision-environnement.com/live/player/villefranche-sur-mer0.php' },
+  { id:'wc_villefranche2', name:'Villefranche-sur-Mer (vue 2)', lat:43.7058, lon:7.3128, url:'https://www.vision-environnement.com/live/player/villefranche-sur-mer20.php' },
+  { id:'wc_menton', name:'Menton', lat:43.7747, lon:7.5025, url:'https://www.vision-environnement.com/live/player/menton0.php' },
+  // ============= CORSE =============
+  // Cap Corse / Bastia (Est)
+  { id:'wc_bastia', name:'Bastia', lat:42.6975, lon:9.4503, url:'https://www.vision-environnement.com/live/player/bastia0.php' },
+  // Balagne / Côte Ouest
+  { id:'wc_ile_rousse', name:'L Ile Rousse', lat:42.6336, lon:8.9367, url:'https://www.vision-environnement.com/live/player/ile-rousse0.php' },
+  { id:'wc_calvi', name:'Calvi', lat:42.5306, lon:8.7931, url:'https://www.vision-environnement.com/live/player/aero-calvi0.php' },
+  { id:'wc_porto_ota', name:'Porto - Ota', lat:42.2725, lon:8.6953, url:'https://www.vision-environnement.com/live/player/porto-ota0.php' },
+  { id:'wc_cargese', name:'Cargese', lat:42.1342, lon:8.5947, url:'https://www.vision-environnement.com/live/player/cargese0.php' },
+  // Ajaccio
+  { id:'wc_ajaccio_b', name:'Ajaccio', lat:41.9192, lon:8.7386, url:'https://www.vision-environnement.com/live/player/ajaccio-b0.php' },
+  { id:'wc_ajaccio_pano', name:'Ajaccio - Panorama', lat:41.9244, lon:8.7361, url:'https://www.vision-environnement.com/live/player/ajaccio-panorama0.php' },
+  { id:'wc_ajaccio4', name:'Ajaccio (vue 4)', lat:41.9281, lon:8.7344, url:'https://www.vision-environnement.com/live/player/ajaccio40.php' },
+  { id:'wc_ajaccio_port', name:'Ajaccio - Port', lat:41.9214, lon:8.7383, url:'https://www.vision-environnement.com/live/player/ajaccioport0.php' },
+  { id:'wc_ajaccio_port2', name:'Ajaccio - Port (vue 2)', lat:41.9217, lon:8.7375, url:'https://www.vision-environnement.com/live/player/ajaccioport20.php' },
+  // Sud
+  { id:'wc_propriano', name:'Propriano', lat:41.6764, lon:8.9039, url:'https://www.vision-environnement.com/live/player/propriano0.php' },
+  { id:'wc_figari', name:'Figari', lat:41.5036, lon:9.0975, url:'https://www.vision-environnement.com/live/player/figari0.php' },
+  { id:'wc_bonifacio', name:'Bonifacio', lat:41.3878, lon:9.1567, url:'https://www.vision-environnement.com/live/player/bonifacio0.php' },
+  // Porto-Vecchio (Est)
+  { id:'wc_porto_vecchio', name:'Porto-Vecchio', lat:41.5908, lon:9.2792, url:'https://www.vision-environnement.com/live/player/porto-vecchio0.php' },
+  { id:'wc_pv_port', name:'Porto-Vecchio - Port', lat:41.5897, lon:9.2867, url:'https://www.vision-environnement.com/live/player/portportovecchio0.php' },
+  { id:'wc_pv2', name:'Porto-Vecchio (vue 2)', lat:41.5908, lon:9.2839, url:'https://www.vision-environnement.com/live/player/portovecchio20.php' },
+  { id:'wc_santa_giulia', name:'Porto-Vecchio - Santa Giulia', lat:41.5256, lon:9.2742, url:'https://www.vision-environnement.com/live/player/santa-giulia0.php' }
 ];
 
 var S_webcamsLayer = null;
