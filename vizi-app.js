@@ -379,6 +379,7 @@ var API_MAREE_SITES = {
 // Couche toggleable affichee sur la carte avec popup integre
 // ============================================================
 var WEBCAMS = [
+  // ============= NORMANDIE =============
   // Cote d'Albatre (Seine-Maritime)
   { id:'wc_treport', name:'Le Treport', lat:50.0578, lon:1.3742, url:'https://www.vision-environnement.com/live/player/letreport0.php' },
   { id:'wc_criel', name:'Criel-sur-Mer', lat:50.0214, lon:1.3097, url:'https://www.vision-environnement.com/live/player/criel0.php' },
@@ -406,7 +407,70 @@ var WEBCAMS = [
   // Cotentin (Manche)
   { id:'wc_stgermain', name:'Saint-Germain-sur-Ay', lat:49.2278, lon:-1.6181, url:'https://www.vision-environnement.com/live/player/stgermain0.php' },
   { id:'wc_pirou', name:'Pirou', lat:49.1717, lon:-1.5944, url:'https://www.vision-environnement.com/live/player/pirou0.php' },
-  { id:'wc_jullouville', name:'Jullouville', lat:48.7711, lon:-1.5614, url:'https://www.vision-environnement.com/live/player/jullouville0.php' }
+  { id:'wc_jullouville', name:'Jullouville', lat:48.7711, lon:-1.5614, url:'https://www.vision-environnement.com/live/player/jullouville0.php' },
+
+  // ============= BRETAGNE =============
+  // Côte d'Émeraude (Ille-et-Vilaine, Côtes d'Armor Est)
+  { id:'wc_saint_malo', name:'Saint-Malo', lat:48.6444, lon:-2.0258, url:'https://www.vision-environnement.com/live/player/saint-malo0.php' },
+  { id:'wc_saint_malo_thermes', name:'Saint-Malo - Thermes', lat:48.6478, lon:-2.0492, url:'https://www.vision-environnement.com/live/player/saint-malo-thermes0.php' },
+  { id:'wc_cancale', name:'Cancale', lat:48.6789, lon:-1.8511, url:'https://www.vision-environnement.com/live/player/cancale0.php' },
+  { id:'wc_stcast', name:'Saint-Cast-le-Guildo', lat:48.6406, lon:-2.2647, url:'https://www.vision-environnement.com/live/player/stcast0.php' },
+  { id:'wc_stcast_plage', name:'Saint-Cast - Plage', lat:48.6383, lon:-2.2706, url:'https://www.vision-environnement.com/live/player/st-cast-plage0.php' },
+  { id:'wc_erquy', name:'Erquy', lat:48.6311, lon:-2.4675, url:'https://www.vision-environnement.com/live/player/erquy0.php' },
+  // Côte du Goëlo (Côtes d'Armor)
+  { id:'wc_etables', name:'Etables-sur-Mer', lat:48.6328, lon:-2.8403, url:'https://www.vision-environnement.com/live/player/etables-sur-mer0.php' },
+  { id:'wc_binic', name:'Binic', lat:48.6017, lon:-2.8244, url:'https://www.vision-environnement.com/live/player/binic0.php' },
+  { id:'wc_sqp', name:'Saint-Quay-Portrieux', lat:48.6481, lon:-2.8222, url:'https://www.vision-environnement.com/live/player/sqp0.php' },
+  { id:'wc_sqpp', name:'Saint-Quay-Portrieux - Port', lat:48.6531, lon:-2.8189, url:'https://www.vision-environnement.com/live/player/sqpp0.php' },
+  { id:'wc_plouezec', name:'Plouezec', lat:48.7322, lon:-3.0242, url:'https://www.vision-environnement.com/live/player/plouezec0.php' },
+  { id:'wc_brehec', name:'Brehec', lat:48.7236, lon:-2.9858, url:'https://www.vision-environnement.com/live/player/brehec0.php' },
+  { id:'wc_loguivy', name:'Ploubazlanec - Loguivy', lat:48.8328, lon:-3.0392, url:'https://www.vision-environnement.com/live/player/loguivy0.php' },
+  // Côte de Granit Rose (Côtes d'Armor Ouest)
+  { id:'wc_perrosguirec', name:'Perros-Guirec', lat:48.8131, lon:-3.4486, url:'https://www.vision-environnement.com/live/player/perrosguirec0.php' },
+  { id:'wc_portperros', name:'Perros-Guirec - Port', lat:48.8156, lon:-3.4356, url:'https://www.vision-environnement.com/live/player/portperrosguirec0.php' },
+  { id:'wc_perrosguirec4', name:'Perros-Guirec (vue 4)', lat:48.8181, lon:-3.4444, url:'https://www.vision-environnement.com/live/player/perrosguirec40.php' },
+  { id:'wc_trestraou', name:'Perros-Guirec - Trestraou', lat:48.8244, lon:-3.4581, url:'https://www.vision-environnement.com/live/player/trestraou0.php' },
+  { id:'wc_saint_guirec', name:'Perros-Guirec - Saint-Guirec', lat:48.8344, lon:-3.4811, url:'https://www.vision-environnement.com/live/player/saint-guirec0.php' },
+  { id:'wc_ploumanach', name:'Ploumanach', lat:48.8311, lon:-3.4811, url:'https://www.vision-environnement.com/live/player/portploumanach0.php' },
+  { id:'wc_tregastel', name:'Tregastel', lat:48.8267, lon:-3.5083, url:'https://www.vision-environnement.com/live/player/tregastel0.php' },
+  { id:'wc_trevou', name:'Trevou-Treguignec', lat:48.8214, lon:-3.4083, url:'https://www.vision-environnement.com/live/player/trevou-treguinec0.php' },
+  { id:'wc_locquirec', name:'Locquirec', lat:48.6917, lon:-3.6431, url:'https://www.vision-environnement.com/live/player/locquirec0.php' },
+  // Baie de Morlaix / Léon (Finistère Nord)
+  { id:'wc_plougasnou', name:'Plougasnou', lat:48.6997, lon:-3.7892, url:'https://www.vision-environnement.com/live/player/plougasnou0.php' },
+  { id:'wc_morlaix', name:'Morlaix', lat:48.5783, lon:-3.8278, url:'https://www.vision-environnement.com/live/player/morlaix0.php' },
+  { id:'wc_carantec', name:'Carantec', lat:48.6678, lon:-3.9111, url:'https://www.vision-environnement.com/live/player/carantec0.php' },
+  { id:'wc_stpol', name:'Saint-Pol-de-Leon', lat:48.6856, lon:-3.9881, url:'https://www.vision-environnement.com/live/player/stpol0.php' },
+  { id:'wc_roscoff', name:'Roscoff', lat:48.7256, lon:-3.9817, url:'https://www.vision-environnement.com/live/player/roscoff0.php' },
+  { id:'wc_roscoff2', name:'Roscoff - Île de Batz', lat:48.7311, lon:-3.9928, url:'https://www.vision-environnement.com/live/player/Roscoff20.php' },
+  { id:'wc_iledebatz', name:'Île de Batz', lat:48.7444, lon:-4.0125, url:'https://www.vision-environnement.com/live/player/iledebatz0.php' },
+  { id:'wc_plouescat', name:'Plouescat', lat:48.6683, lon:-4.1817, url:'https://www.vision-environnement.com/live/player/plouescat0.php' },
+  { id:'wc_plouescat_porsguen', name:'Plouescat - Porsguen', lat:48.6917, lon:-4.1972, url:'https://www.vision-environnement.com/live/player/plouescat-porsguen0.php' },
+  // Pays des Abers / Iroise (Finistère Ouest)
+  { id:'wc_landeda', name:'Landeda - Aber Wrac h', lat:48.5961, lon:-4.5594, url:'https://www.vision-environnement.com/live/player/landeda0.php' },
+  { id:'wc_portsall', name:'Ploudalmezeau - Portsall', lat:48.5658, lon:-4.7094, url:'https://www.vision-environnement.com/live/player/portsall0.php' },
+  { id:'wc_leconquet', name:'Le Conquet', lat:48.3614, lon:-4.7706, url:'https://www.vision-environnement.com/live/player/leconquet0.php' },
+  { id:'wc_plougonvelin', name:'Plougonvelin', lat:48.3439, lon:-4.7178, url:'https://www.vision-environnement.com/live/player/plougonvelin0.php' },
+  { id:'wc_brest_port', name:'Brest - Port', lat:48.3811, lon:-4.4953, url:'https://www.vision-environnement.com/live/player/brest-port0.php' },
+  // Cap Sizun / Baie Audierne (Finistère SO)
+  { id:'wc_pointe_raz', name:'Pointe du Raz', lat:48.0383, lon:-4.7392, url:'https://www.vision-environnement.com/live/player/pointe-du-raz0.php' },
+  { id:'wc_trepasses', name:'Baie des Trepasses', lat:48.0414, lon:-4.6983, url:'https://www.vision-environnement.com/live/player/trepasses0.php' },
+  { id:'wc_trepasses2', name:'Baie des Trepasses (vue 2)', lat:48.0397, lon:-4.7028, url:'https://www.vision-environnement.com/live/player/trepasses20.php' },
+  { id:'wc_iledesein', name:'Île de Sein', lat:48.0367, lon:-4.8506, url:'https://www.vision-environnement.com/live/player/ile-de-sein0.php' },
+  { id:'wc_esquibien', name:'Esquibien', lat:48.0167, lon:-4.5644, url:'https://www.vision-environnement.com/live/player/esquibien0.php' },
+  { id:'wc_esquibien_pouldu', name:'Esquibien - Le Pouldu', lat:48.0114, lon:-4.5747, url:'https://www.vision-environnement.com/live/player/esquibien-le-pouldu0.php' },
+  { id:'wc_audierne_port', name:'Audierne - Port', lat:48.0167, lon:-4.5333, url:'https://www.vision-environnement.com/live/player/audierne-port0.php' },
+  { id:'wc_audierne_pass', name:'Audierne - Passerelle', lat:48.0142, lon:-4.5408, url:'https://www.vision-environnement.com/live/player/audierne-passerelle0.php' },
+  { id:'wc_plouhinec', name:'Plouhinec - Pors Poulhan', lat:47.9892, lon:-4.4825, url:'https://www.vision-environnement.com/live/player/plouhinec-pors-poulhan0.php' },
+  { id:'wc_douarnenez', name:'Douarnenez', lat:48.0950, lon:-4.3294, url:'https://www.vision-environnement.com/live/player/douarnenez0.php' },
+  { id:'wc_douarnenez2', name:'Douarnenez (vue 2)', lat:48.0978, lon:-4.3322, url:'https://www.vision-environnement.com/live/player/douarnenez20.php' },
+  { id:'wc_douarnenez_rosmeur', name:'Douarnenez - Rosmeur', lat:48.0956, lon:-4.3211, url:'https://www.vision-environnement.com/live/player/douarnenez-rosmeur0.php' },
+  // Bretagne Sud (Morbihan)
+  { id:'wc_quiberon', name:'Quiberon', lat:47.4839, lon:-3.1228, url:'https://www.vision-environnement.com/live/player/quiberon0.php' },
+  { id:'wc_houat', name:'Houat', lat:47.3933, lon:-2.9528, url:'https://www.vision-environnement.com/live/player/houat0.php' },
+  { id:'wc_gavres', name:'Gavres', lat:47.7042, lon:-3.3792, url:'https://www.vision-environnement.com/live/player/gavres0.php' },
+  { id:'wc_vannes', name:'Vannes', lat:47.6478, lon:-2.7619, url:'https://www.vision-environnement.com/live/player/vannes0.php' },
+  { id:'wc_damgan', name:'Damgan', lat:47.5083, lon:-2.5847, url:'https://www.vision-environnement.com/live/player/Damgan0.php' },
+  { id:'wc_penestin', name:'Penestin', lat:47.4856, lon:-2.4858, url:'https://www.vision-environnement.com/live/player/penestin0.php' }
 ];
 
 var S_webcamsLayer = null;
