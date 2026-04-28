@@ -380,33 +380,33 @@ var API_MAREE_SITES = {
 // ============================================================
 var WEBCAMS = [
   // Cote d'Albatre (Seine-Maritime)
-  { id:'wc_treport', name:'Le Treport', lat:50.0578, lon:1.3742, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=letreport' },
-  { id:'wc_criel', name:'Criel-sur-Mer', lat:50.0214, lon:1.3097, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=criel' },
-  { id:'wc_dieppe_ango', name:'Dieppe - Ango', lat:49.9300, lon:1.0833, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=dieppe-ango' },
-  { id:'wc_ste_marguerite', name:'Sainte-Marguerite-sur-Mer', lat:49.9075, lon:0.9539, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=sainte-marguerite-sur-mer' },
-  { id:'wc_veules', name:'Veules-les-Roses', lat:49.8742, lon:0.7986, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=veules-les-roses' },
-  { id:'wc_svec', name:'Saint-Valery-en-Caux', lat:49.8678, lon:0.7100, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=saint-valery-en-caux-casino' },
-  { id:'wc_veulettes', name:'Veulettes-sur-Mer', lat:49.8492, lon:0.5972, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=veulettes-sur-mer' },
-  { id:'wc_cany', name:'Cany-Barville', lat:49.7861, lon:0.6394, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=cany-barville' },
-  { id:'wc_yport', name:'Yport', lat:49.7406, lon:0.3147, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=yport' },
-  { id:'wc_fecamp', name:'Fecamp', lat:49.7589, lon:0.3719, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=fecam' },
-  { id:'wc_etretat', name:'Etretat', lat:49.7075, lon:0.2058, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=etretat2-' },
-  { id:'wc_sjb', name:'Saint-Jouin-Bruneval', lat:49.6383, lon:0.1547, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=sjb' },
-  { id:'wc_le_havre', name:'Le Havre - Malraux', lat:49.4833, lon:0.1078, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=le-havre-malraux' },
+  { id:'wc_treport', name:'Le Treport', lat:50.0578, lon:1.3742, url:'https://www.vision-environnement.com/live/player/letreport0.php' },
+  { id:'wc_criel', name:'Criel-sur-Mer', lat:50.0214, lon:1.3097, url:'https://www.vision-environnement.com/live/player/criel0.php' },
+  { id:'wc_dieppe_ango', name:'Dieppe - Ango', lat:49.9300, lon:1.0833, url:'https://www.vision-environnement.com/live/player/dieppe-ango0.php' },
+  { id:'wc_ste_marguerite', name:'Sainte-Marguerite-sur-Mer', lat:49.9075, lon:0.9539, url:'https://www.vision-environnement.com/live/player/sainte-marguerite-sur-mer0.php' },
+  { id:'wc_veules', name:'Veules-les-Roses', lat:49.8742, lon:0.7986, url:'https://www.vision-environnement.com/live/player/veules-les-roses0.php' },
+  { id:'wc_svec', name:'Saint-Valery-en-Caux', lat:49.8678, lon:0.7100, url:'https://www.vision-environnement.com/live/player/saint-valery-en-caux-casino0.php' },
+  { id:'wc_veulettes', name:'Veulettes-sur-Mer', lat:49.8492, lon:0.5972, url:'https://www.vision-environnement.com/live/player/veulettes-sur-mer0.php' },
+  { id:'wc_cany', name:'Cany-Barville', lat:49.7861, lon:0.6394, url:'https://www.vision-environnement.com/live/player/cany-barville0.php' },
+  { id:'wc_yport', name:'Yport', lat:49.7406, lon:0.3147, url:'https://www.vision-environnement.com/live/player/yport0.php' },
+  { id:'wc_fecamp', name:'Fecamp', lat:49.7589, lon:0.3719, url:'https://www.vision-environnement.com/live/player/fecam0.php' },
+  { id:'wc_etretat', name:'Etretat', lat:49.7075, lon:0.2058, url:'https://www.vision-environnement.com/live/player/etretat2-0.php' },
+  { id:'wc_sjb', name:'Saint-Jouin-Bruneval', lat:49.6383, lon:0.1547, url:'https://www.vision-environnement.com/live/player/sjb0.php' },
+  { id:'wc_le_havre', name:'Le Havre - Malraux', lat:49.4833, lon:0.1078, url:'https://www.vision-environnement.com/live/player/le-havre-malraux0.php' },
   // Cote Fleurie (Calvados)
-  { id:'wc_trouville_port', name:'Trouville - Port', lat:49.3661, lon:0.0867, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=port-trouville-sur-mer' },
-  { id:'wc_trouville', name:'Trouville-sur-Mer', lat:49.3678, lon:0.0850, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=trouville' },
-  { id:'wc_houlgate', name:'Houlgate', lat:49.2986, lon:-0.0731, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=houlgate' },
-  { id:'wc_cabourg', name:'Cabourg', lat:49.2856, lon:-0.1247, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=cabourg' },
+  { id:'wc_trouville_port', name:'Trouville - Port', lat:49.3661, lon:0.0867, url:'https://www.vision-environnement.com/live/player/port-trouville-sur-mer0.php' },
+  { id:'wc_trouville', name:'Trouville-sur-Mer', lat:49.3678, lon:0.0850, url:'https://www.vision-environnement.com/live/player/trouville0.php' },
+  { id:'wc_houlgate', name:'Houlgate', lat:49.2986, lon:-0.0731, url:'https://www.vision-environnement.com/live/player/houlgate0.php' },
+  { id:'wc_cabourg', name:'Cabourg', lat:49.2856, lon:-0.1247, url:'https://www.vision-environnement.com/live/player/cabourg0.php' },
   // Cote de Nacre (Calvados)
-  { id:'wc_ouistreham', name:'Ouistreham', lat:49.2836, lon:-0.2492, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=ouistreham' },
-  { id:'wc_langrune', name:'Langrune-sur-Mer', lat:49.3289, lon:-0.3717, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=langrune-sur-mer' },
-  { id:'wc_luc', name:'Luc-sur-Mer', lat:49.3194, lon:-0.3539, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=luc-sur-mer' },
-  { id:'wc_staubin', name:'Saint-Aubin-sur-Mer', lat:49.3308, lon:-0.3936, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=staubin' },
+  { id:'wc_ouistreham', name:'Ouistreham', lat:49.2836, lon:-0.2492, url:'https://www.vision-environnement.com/live/player/ouistreham0.php' },
+  { id:'wc_langrune', name:'Langrune-sur-Mer', lat:49.3289, lon:-0.3717, url:'https://www.vision-environnement.com/live/player/langrune-sur-mer0.php' },
+  { id:'wc_luc', name:'Luc-sur-Mer', lat:49.3194, lon:-0.3539, url:'https://www.vision-environnement.com/live/player/luc-sur-mer0.php' },
+  { id:'wc_staubin', name:'Saint-Aubin-sur-Mer', lat:49.3308, lon:-0.3936, url:'https://www.vision-environnement.com/live/player/staubin0.php' },
   // Cotentin (Manche)
-  { id:'wc_stgermain', name:'Saint-Germain-sur-Ay', lat:49.2278, lon:-1.6181, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=stgermain' },
-  { id:'wc_pirou', name:'Pirou', lat:49.1717, lon:-1.5944, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=pirou' },
-  { id:'wc_jullouville', name:'Jullouville', lat:48.7711, lon:-1.5614, url:'https://www.vision-environnement.com/livecams/webcam.php?webcam=jullouville' }
+  { id:'wc_stgermain', name:'Saint-Germain-sur-Ay', lat:49.2278, lon:-1.6181, url:'https://www.vision-environnement.com/live/player/stgermain0.php' },
+  { id:'wc_pirou', name:'Pirou', lat:49.1717, lon:-1.5944, url:'https://www.vision-environnement.com/live/player/pirou0.php' },
+  { id:'wc_jullouville', name:'Jullouville', lat:48.7711, lon:-1.5614, url:'https://www.vision-environnement.com/live/player/jullouville0.php' }
 ];
 
 var S_webcamsLayer = null;
