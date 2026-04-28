@@ -408,7 +408,6 @@ var WEBCAMS = [
   { id:'wc_stgermain', name:'Saint-Germain-sur-Ay', lat:49.2278, lon:-1.6181, url:'https://www.vision-environnement.com/live/player/stgermain0.php' },
   { id:'wc_pirou', name:'Pirou', lat:49.1717, lon:-1.5944, url:'https://www.vision-environnement.com/live/player/pirou0.php' },
   { id:'wc_jullouville', name:'Jullouville', lat:48.7711, lon:-1.5614, url:'https://www.vision-environnement.com/live/player/jullouville0.php' },
-
   // ============= BRETAGNE =============
   // Côte d'Émeraude (Ille-et-Vilaine, Côtes d'Armor Est)
   { id:'wc_saint_malo', name:'Saint-Malo', lat:48.6444, lon:-2.0258, url:'https://www.vision-environnement.com/live/player/saint-malo0.php' },
@@ -470,7 +469,7 @@ var WEBCAMS = [
   { id:'wc_gavres', name:'Gavres', lat:47.7042, lon:-3.3792, url:'https://www.vision-environnement.com/live/player/gavres0.php' },
   { id:'wc_vannes', name:'Vannes', lat:47.6478, lon:-2.7619, url:'https://www.vision-environnement.com/live/player/vannes0.php' },
   { id:'wc_damgan', name:'Damgan', lat:47.5083, lon:-2.5847, url:'https://www.vision-environnement.com/live/player/Damgan0.php' },
-  { id:'wc_penestin', name:'Penestin', lat:47.4856, lon:-2.4858, url:'https://www.vision-environnement.com/live/player/penestin0.php' }
+  { id:'wc_penestin', name:'Penestin', lat:47.4856, lon:-2.4858, url:'https://www.vision-environnement.com/live/player/penestin0.php' },
   // ============= PAYS DE LA LOIRE =============
   { id:'wc_piriac', name:'Piriac-sur-Mer', lat:47.3789, lon:-2.5469, url:'https://www.vision-environnement.com/live/player/piriac-sur-mer0.php' },
   { id:'wc_mesquer', name:'Mesquer - Lanseria', lat:47.3958, lon:-2.4503, url:'https://www.vision-environnement.com/live/player/lanseria0.php' },
@@ -494,14 +493,11 @@ var WEBCAMS = [
   { id:'wc_cotiniere', name:'Oleron - La Cotiniere', lat:45.8969, lon:-1.3303, url:'https://www.vision-environnement.com/live/player/cotiniere0.php' },
   { id:'wc_sttrojan', name:'Saint-Trojan-les-Bains', lat:45.8344, lon:-1.2125, url:'https://www.vision-environnement.com/live/player/sttrojan0.php' },
   { id:'wc_tremblade', name:'La Tremblade', lat:45.7689, lon:-1.1394, url:'https://www.vision-environnement.com/live/player/tremblade0.php' },
-  { id:'wc_mornac', name:'Mornac-sur-Seudre', lat:45.7283, lon:-1.0394, url:'https://www.vision-environnement.com/live/player/mornac0.php' }
-,
-
+  { id:'wc_mornac', name:'Mornac-sur-Seudre', lat:45.7283, lon:-1.0394, url:'https://www.vision-environnement.com/live/player/mornac0.php' },
   // ============= OCCITANIE =============
   { id:'wc_labenne', name:'Labenne', lat:43.5933, lon:-1.4639, url:'https://www.vision-environnement.com/live/player/labenne0.php' },
   { id:'wc_pilat', name:'Le Pilat', lat:44.5917, lon:-1.2156, url:'https://www.vision-environnement.com/live/player/pilat0.php' },
   { id:'wc_sete', name:'Sete', lat:43.4053, lon:3.6975, url:'https://www.vision-environnement.com/live/player/sete0.php' },
-
   // ============= PACA =============
   // Bouches-du-Rhone
   { id:'wc_carro', name:'Carro', lat:43.3328, lon:5.0414, url:'https://www.vision-environnement.com/live/player/carro0.php' },
