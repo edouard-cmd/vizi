@@ -3841,10 +3841,14 @@ function handleUserPosition(lat, lon, source) {
     setTimeout(function() { toast.classList.remove('show'); }, 4000);
   }
 
-  setTimeout(function() {
-    openSpotPopup(L.latLng(nearest.spot.lat, nearest.spot.lon), nearest.spot.name);
-    if (S_forecastOpen) loadForecast(nearest.spot.lat, nearest.spot.lon, nearest.spot.name);
-  }, 1000);
+  // Sur mobile : pas d'ouverture auto du drawer spot, juste centrage carte
+  // Sur desktop : on ouvre le drawer pour montrer les conditions
+  if (!isMobile()) {
+    setTimeout(function() {
+      openSpotPopup(L.latLng(nearest.spot.lat, nearest.spot.lon), nearest.spot.name);
+      if (S_forecastOpen) loadForecast(nearest.spot.lat, nearest.spot.lon, nearest.spot.name);
+    }, 1000);
+  }
 }
 
 function findNearestPort(lat, lon) {
