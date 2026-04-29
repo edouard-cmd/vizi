@@ -4919,7 +4919,7 @@ window.openAgendaModalFromSheet = function(btn) {
 function renderTidesSheetCurve(points, extremes, isToday, now) {
   if (points.length === 0) return '';
 
-  var w = 800, h = 140, pad = 28;
+  var w = 800, h = 280, pad = 36;
   var heights = points.map(function(p){ return p.height; });
   var minH = Math.min.apply(null, heights);
   var maxH = Math.max.apply(null, heights);
@@ -4979,7 +4979,7 @@ function renderTidesSheetCurve(points, extremes, isToday, now) {
 
   var xAxis = '<line x1="' + pad + '" y1="' + (h - pad) + '" x2="' + (w - pad) + '" y2="' + (h - pad) + '" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>';
 
-  var svg = '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" style="width:100%;height:100%;display:block;">' +
+  var svg = '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block;">' +
     chassableBands +
     '<path d="' + path + 'L' + lastX + ',' + (h - pad) + ' L' + firstX + ',' + (h - pad) + ' Z" fill="#4DD4A8" opacity="0.10"/>' +
     '<path d="' + path + '" stroke="#4DD4A8" stroke-width="2.5" fill="none"/>' +
