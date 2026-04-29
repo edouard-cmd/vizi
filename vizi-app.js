@@ -4062,7 +4062,7 @@ var css = `
     .vz-cond-row-wind td, .vz-cond-row-gusts td {
       font-family: 'Inter', sans-serif;
       font-weight: 600;
-      font-size: 13px;
+      font-size: 12px;
     }
     .vz-cond-w-0 { background: rgba(77,212,168,0.10); }
     .vz-cond-w-1 { background: rgba(77,212,168,0.20); }
@@ -4071,6 +4071,10 @@ var css = `
     .vz-cond-w-4 { background: rgba(232,155,60,0.50); }
     .vz-cond-w-5 { background: rgba(201,74,61,0.55); }
     .vz-cond-w-6 { background: rgba(201,74,61,0.75); color: #fff; }
+    /* Cellules par défaut (Marée, Direction, Ciel) : taille uniforme */
+    .vz-cond-table tbody td:not(.vz-cond-rowlabel) {
+      font-size: 12px;
+    }
     /* Coef */
     .vz-cond-coef-low { color: var(--vz-text-on-dark-muted); }
     .vz-cond-coef-mid { color: var(--vz-medium); font-weight: 600; }
