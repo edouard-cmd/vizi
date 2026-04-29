@@ -927,7 +927,7 @@ S.map.on('click', function(e) {
       if (S_forecastOpen) loadForecast(e.latlng.lat, e.latlng.lng, null);
     });
   });
-
+}
 function toggleLayer(type) {
   if (type === 'heatmap') {
     S.showHeatmap = !S.showHeatmap;
