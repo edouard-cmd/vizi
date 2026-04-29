@@ -4340,9 +4340,26 @@ function renderSheetTable() {
 
   // ---- Build HTML ----
   var html = '<div class="vz-sheet-cond-wrap">';
-  html += '<div class="vz-sheet-cond-meta">';
-  html += spot.lat.toFixed(4) + 'N ' + Math.abs(spot.lng).toFixed(4) + (spot.lng < 0 ? 'O' : 'E');
-  if (depth != null) html += '  —  fond ~' + Math.round(depth) + 'm';
+
+  // Header avec profondeur en valeur principale
+  var depthLabel = depth != null ? Math.round(depth) : '—';
+  var depthColor = '#4DD4A8'; // vert par défaut
+  if (depth != null) {
+    if (depth < 3) depthColor = '#C94A3D';      // rouge : très peu profond, brassage facile
+    else if (depth < 8) depthColor = '#E89B3C';  // orange : peu profond
+    else if (depth < 15) depthColor = '#D8C84A'; // jaune : moyen
+    else depthColor = '#4DD4A8';                  // vert : profond, décante vite
+  }
+
+  html += '<div class="vz-sheet-cond-header">';
+  html += '<div class="vz-sheet-depth-block">';
+  html += '<div class="vz-sheet-depth-label">FOND</div>';
+  html += '<div class="vz-sheet-depth-value" style="color:' + depthColor + ';">' + depthLabel + '<span class="vz-sheet-depth-unit">m</span></div>';
+  html += '</div>';
+  html += '<div class="vz-sheet-coords-block">';
+  html += '<div class="vz-sheet-coords-line">' + spot.lat.toFixed(4) + 'N · ' + Math.abs(spot.lng).toFixed(4) + (spot.lng < 0 ? 'O' : 'E') + '</div>';
+  html += '<div class="vz-sheet-coords-source">EMODnet bathymétrie ~115m</div>';
+  html += '</div>';
   html += '</div>';
 
   html += '<div style="overflow-x:auto;">';
