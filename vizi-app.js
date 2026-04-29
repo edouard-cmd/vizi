@@ -4085,6 +4085,9 @@ window.openConditionsInSheet = function() {
   }
   
   VZ_SHEET.mode = 'cond';
+  // Affiche le bandeau s'il était caché
+  var sheet = document.getElementById('vzSheet');
+  if (sheet) sheet.style.display = '';
 
   var tabCond = document.getElementById('vzTabCond');
   var tabTides = document.getElementById('vzTabTides');
