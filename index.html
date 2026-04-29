@@ -1627,6 +1627,10 @@ function syncLayersPopover() {
   document.getElementById('vzRowSed').classList.toggle('active', S.showSed);
   document.getElementById('vzRowIso').classList.toggle('active', S.showIso);
 }
+    setInterval(function() {
+  var pop = document.getElementById('vzLayersPopover');
+  if (pop && pop.classList.contains('open')) syncLayersPopover();
+}, 200);
 document.addEventListener('click', function(e) {
   var pop = document.getElementById('vzLayersPopover');
   var btn = document.getElementById('vzBtnLayers');
