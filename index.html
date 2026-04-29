@@ -1201,8 +1201,8 @@
   transition: height 0.32s cubic-bezier(.4,0,.2,1), bottom 0.32s cubic-bezier(.4,0,.2,1);
 }
 #vzSheet.sheet-peek { height: 56px; }
-#vzSheet.sheet-half { height: 50vh; }
-#vzSheet.sheet-full { height: 50vh; } /* desktop : full = half (cycle peek <-> half) */
+#vzSheet.sheet-half { height: 60vh; }
+#vzSheet.sheet-full { height: 95vh; } /* desktop : full = half (cycle peek <-> half) */
 
 .vz-sheet-handle {
   flex-shrink: 0;
@@ -1292,7 +1292,7 @@
 @media (max-width: 768px) {
   #vzSheet { left: 0; right: 0; bottom: 0; border-radius: 16px 16px 0 0; }
   #vzSheet.sheet-peek { height: 50px; }
-  #vzSheet.sheet-half { height: 50vh; }
+  #vzSheet.sheet-half { height: 65vh; }
   #vzSheet.sheet-full { height: 95vh; } /* mobile : 3 états réels */
   .vz-sheet-mode-label { font-size: 13px; }
   .vz-sheet-spot-label { font-size: 11px; }
