@@ -4757,11 +4757,15 @@ window.tidesSheetGoToToday = function() {
 };
 
 // ============================================================
-// VIZI MARÉES — VERSION FINALE PROPRE
+// VIZI MARÉES v8 — Refonte hiérarchie + sémantique charte Talisker
+//
 // Remplace les 2 fonctions ci-dessous dans vizi-app.js :
 //   1. renderTidesSheetContent
-//   2. renderTidesSheetCurve
-// (et la fonction helper renderTidesDateNav qui suit immédiatement)
+//   2. renderTidesDateNav  →  renommée + remplacée par renderTidesDateChips
+//   3. renderTidesSheetCurve  →  réécrite avec cursor "now" + bandes colorées
+//
+// Tu peux supprimer aussi l'ancienne fonction renderTidesDateNav
+// (remplacée ici par renderTidesDateChips).
 // ============================================================
 
 function renderTidesSheetContent() {
@@ -4783,71 +4787,72 @@ function renderTidesSheetContent() {
   var heights = dayPoints.map(function(p){ return p.height; });
   var marnage = Math.max.apply(null, heights) - Math.min.apply(null, heights);
   var coef = getCoefForDate(selDate);
-  var color = coefColor(coef);
+  var color = coefColorV8(coef);
   var isMed = isMediterraneanTidePort(port.siteId);
   var label = coefLabel(coef);
   var description = coefDescription(coef);
 
-  var dateObj = new Date(selDate + 'T12:00:00Z');
   var now = new Date();
   var today = now.toISOString().split('T')[0];
   var isToday = selDate === today;
 
-  var dd = String(dateObj.getUTCDate()).padStart(2, '0');
-  var mm = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
-  var yyyy = dateObj.getUTCFullYear();
-  var dateDisplay = dd + '/' + mm + '/' + yyyy;
-  var dayShort = dateObj.toLocaleDateString('fr', { weekday: 'short' });
+  // ===== Détecter le prochain créneau =====
+  var nextExtremeIdx = -1;
+  if (isToday && dayExtremes && dayExtremes.length > 0) {
+    for (var i = 0; i < dayExtremes.length; i++) {
+      var endT = new Date(new Date(dayExtremes[i].time).getTime() + 120 * 60000);
+      if (endT > now) {
+        nextExtremeIdx = i;
+        break;
+      }
+    }
+  } else if (!isToday && dayExtremes && dayExtremes.length > 0) {
+    nextExtremeIdx = 0; // sur date future, premier créneau = "principal"
+  }
 
-  updateSheetHeader('Marées', '');
+  // ===== Phase actuelle (mer montante / descendante) =====
+  var phase = computeTidalPhase(dayPoints, now, isToday);
 
-  // === STRUCTURE : .vz-tides-wrap > [.vz-tides-leftcol, .vz-tides-curvewrap]
-  // Le CSS attend EXACTEMENT 2 enfants directs (grid 2 colonnes).
-  // Pas de wrapper .vz-tides-cols intermédiaire.
+  updateSheetHeader('Marées', port.name);
 
   var html = '<div class="vz-tides-wrap">';
 
   // ====== COLONNE GAUCHE ======
   html += '<div class="vz-tides-leftcol">';
 
-  // Coef card (avec nav date intégrée)
+  // --- Bloc coef ---
   if (isMed) {
-    html += '<div class="vz-tides-coefcard">' +
+    html += '<div class="vz-tides-coefbloc">' +
       '<div class="vz-tides-coefinfo">' +
-        '<div class="vz-tides-coeftop">' +
-          '<span class="vz-tides-portname">' + port.name + '</span>' +
-          '<span class="vz-tides-coeflabel" style="color:var(--vz-text-on-dark-faint);">méditerranée</span>' +
-        '</div>' +
-        '<div class="vz-tides-coefdesc">marnage ' + marnage.toFixed(1) + 'm</div>' +
-        renderTidesDateNav(selDate, dateDisplay, dayShort) +
+        '<div class="vz-tides-coeftitle">Méditerranée</div>' +
+        '<div class="vz-tides-coefmeta">marnage ' + marnage.toFixed(1) + 'm · marées faibles</div>' +
       '</div>' +
     '</div>';
   } else {
-    html += '<div class="vz-tides-coefcard">' +
+    html += '<div class="vz-tides-coefbloc">' +
       '<div class="vz-tides-coefbig" style="color:' + color + ';border-color:' + color + ';">' + coef + '</div>' +
       '<div class="vz-tides-coefinfo">' +
-        '<div class="vz-tides-coeftop">' +
-          '<span class="vz-tides-portname">' + port.name + '</span>' +
-          '<span class="vz-tides-coeflabel" style="color:' + color + ';">coef ' + label + '</span>' +
-        '</div>' +
-        '<div class="vz-tides-coefdesc">marnage ' + marnage.toFixed(1) + 'm · ' + description.toLowerCase() + '</div>' +
-        renderTidesDateNav(selDate, dateDisplay, dayShort) +
+        '<div class="vz-tides-coeftitle">' + capitalize(label) + '</div>' +
+        '<div class="vz-tides-coefmeta">marnage ' + marnage.toFixed(1) + 'm · ' + description.toLowerCase() + '</div>' +
       '</div>' +
     '</div>';
   }
 
-  // Créneaux 2x2
-  html += '<div class="vz-tides-windowscol">';
+  // --- Date chips ---
+  html += renderTidesDateChips(selDate);
+
+  // --- Section title ---
   html += '<div class="vz-tides-sectiontitle">Créneaux chassables</div>';
 
+  // --- Grid 2x2 ---
   if (dayExtremes && dayExtremes.length > 0) {
     html += '<div class="vz-tides-windowsgrid">';
-    dayExtremes.forEach(function(e) {
+    dayExtremes.forEach(function(e, idx) {
       var etaleTime = new Date(e.time);
       var startTime = new Date(etaleTime.getTime() - 120 * 60000);
       var endTime = new Date(etaleTime.getTime() + 120 * 60000);
       var isPast = isToday && endTime < now;
-      var isCurrent = isToday && now >= startTime && now <= endTime;
+      var isNext = (idx === nextExtremeIdx);
 
       var typeColor = e.type === 'high' ? 'var(--vz-accent)' : '#E89B3C';
       var typeShort = e.type === 'high' ? 'PM' : 'BM';
@@ -4856,167 +4861,389 @@ function renderTidesSheetContent() {
       var etaleStr = etaleTime.toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
 
       var cardClass = 'vz-tides-windowcard';
-      if (isCurrent) cardClass += ' is-current';
+      if (isNext) cardClass += ' is-next';
       if (isPast) cardClass += ' is-past';
 
-      var badge = isCurrent ? '<span class="vz-tides-windowbadge">NOW</span>' : '';
+      // Badge "PROCHAIN" en débordement
+      var nextBadge = isNext ? '<div class="vz-tides-windownext-badge">PROCHAIN</div>' : '';
 
+      // Bouton agenda (icône seule)
       var agendaBtn = isPast ? '' : (
-        '<button class="vz-tides-agendabtn" ' +
+        '<button class="vz-tides-agendabtn" title="Ajouter à l\'agenda" ' +
         'data-etale="' + etaleTime.toISOString() + '" ' +
         'data-type="' + e.type + '" ' +
         'data-start="' + startTime.toISOString() + '" ' +
         'data-end="' + endTime.toISOString() + '" ' +
         'onclick="openAgendaModalFromSheet(this)">' +
-        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' +
           '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>' +
           '<line x1="16" y1="2" x2="16" y2="6"></line>' +
           '<line x1="8" y1="2" x2="8" y2="6"></line>' +
           '<line x1="3" y1="10" x2="21" y2="10"></line>' +
         '</svg>' +
-        '<span>Agenda</span>' +
         '</button>'
       );
 
+      // Footer : chip "Dans X" si prochain et aujourd'hui, "Passé" si passé
+      var footerEl = '';
+      if (isNext && isToday) {
+        var diffMs = startTime.getTime() - now.getTime();
+        var inLabel;
+        if (diffMs < 0) {
+          inLabel = 'EN COURS';
+        } else {
+          var diffMin = Math.round(diffMs / 60000);
+          if (diffMin < 60) {
+            inLabel = 'DANS ' + diffMin + ' MIN';
+          } else {
+            var hours = Math.floor(diffMin / 60);
+            var mins = diffMin % 60;
+            inLabel = 'DANS ' + hours + 'H' + (mins > 0 ? String(mins).padStart(2, '0') : '');
+          }
+        }
+        footerEl = '<div class="vz-tides-windownow-chip">' + inLabel + '</div>';
+      } else if (isPast) {
+        footerEl = '<div class="vz-tides-windowpast-tag">Passé</div>';
+      }
+
       html += '<div class="' + cardClass + '">' +
+        nextBadge +
         '<div class="vz-tides-windowtop">' +
-          '<div class="vz-tides-windowtype" style="color:' + typeColor + ';">' + typeShort + badge + '</div>' +
-          '<div class="vz-tides-windowetale">' + etaleStr + '</div>' +
+          '<span class="vz-tides-windowtype" style="color:' + typeColor + ';">' + typeShort + '</span>' +
+          '<span class="vz-tides-windowetale">' + etaleStr + '</span>' +
+          agendaBtn +
         '</div>' +
         '<div class="vz-tides-windowrange">' +
           '<span class="vz-tides-windowtime">' + startStr + '</span>' +
           '<span class="vz-tides-windowarrow">→</span>' +
           '<span class="vz-tides-windowtime">' + endStr + '</span>' +
         '</div>' +
-        agendaBtn +
+        footerEl +
       '</div>';
     });
     html += '</div>'; // fin .vz-tides-windowsgrid
   }
-  html += '</div>'; // fin .vz-tides-windowscol
+
+  // --- Footer contextuel : phase / courant approx / soleil ---
+  html += renderTidesContextFooter(phase, coef, dayPoints, selDate);
 
   html += '</div>'; // fin .vz-tides-leftcol
 
-  // ====== COLONNE DROITE (enfant direct du grid) ======
-  html += renderTidesSheetCurve(dayPoints, dayExtremes, isToday, now);
+  // ====== COLONNE DROITE : courbe ======
+  html += renderTidesSheetCurve(dayPoints, dayExtremes, isToday, now, nextExtremeIdx);
 
   html += '</div>'; // fin .vz-tides-wrap
-
   body.innerHTML = html;
 }
 
-function renderTidesDateNav(selDate, dateDisplay, dayShort) {
-  return '<div class="vz-tides-datenav">' +
-    '<button class="vz-tides-datebtn" onclick="shiftTidesSheetDate(-1)">' +
-      '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>' +
-    '</button>' +
-    '<label class="vz-tides-datepicker">' +
-      '<span class="vz-tides-datepicker-display">' + dateDisplay + '</span>' +
-      '<span class="vz-tides-datepicker-day">' + dayShort + '</span>' +
-      '<input type="date" value="' + selDate + '" onchange="onTidesSheetDateChange(this.value)">' +
-    '</label>' +
-    '<button class="vz-tides-datebtn" onclick="shiftTidesSheetDate(1)">' +
-      '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>' +
-    '</button>' +
+// ============================================================
+// Helper : couleur sémantique du coef (charte Talisker)
+// <45 = teal calme | 45-70 = jaune | 70-95 = orange vigilance | >95 = rouge danger
+// ============================================================
+function coefColorV8(coef) {
+  if (coef < 45) return '#4DD4A8';
+  if (coef < 70) return '#D8C84A';
+  if (coef < 95) return '#E89B3C';
+  return '#C94A3D';
+}
+
+function capitalize(s) {
+  if (!s) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+// ============================================================
+// Helper : chips de date (Aujourd'hui / Demain / +2j / +3j / +4j / picker)
+// ============================================================
+function renderTidesDateChips(selDate) {
+  var now = new Date();
+  var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  var html = '<div class="vz-tides-datechips">';
+
+  var labels = ['Aujourd\'hui', 'Demain', '+2j', '+3j'];
+  for (var offset = 0; offset < 4; offset++) {
+    var d = new Date(today.getTime() + offset * 86400000);
+    var iso = d.getFullYear() + '-' +
+      String(d.getMonth() + 1).padStart(2, '0') + '-' +
+      String(d.getDate()).padStart(2, '0');
+    var isActive = (iso === selDate);
+    html += '<button class="vz-tides-datechip' + (isActive ? ' active' : '') + '" ' +
+      'onclick="onTidesSheetDateChange(\'' + iso + '\')">' + labels[offset] + '</button>';
+  }
+
+  // Bouton picker custom
+  html += '<label class="vz-tides-datepicker-btn" title="Choisir une date">' +
+    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+      '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>' +
+      '<line x1="16" y1="2" x2="16" y2="6"></line>' +
+      '<line x1="8" y1="2" x2="8" y2="6"></line>' +
+      '<line x1="3" y1="10" x2="21" y2="10"></line>' +
+    '</svg>' +
+    '<input type="date" value="' + selDate + '" onchange="onTidesSheetDateChange(this.value)">' +
+  '</label>';
+
+  html += '</div>';
+  return html;
+}
+
+// ============================================================
+// Helper : phase tidale actuelle
+// ============================================================
+function computeTidalPhase(dayPoints, now, isToday) {
+  if (!isToday || !dayPoints || dayPoints.length < 2) {
+    return { type: 'flat', label: '—', icon: 'flat' };
+  }
+  // Trouver le point le plus proche de maintenant
+  var nowMs = now.getTime();
+  var bestIdx = -1, bestDelta = Infinity;
+  for (var i = 0; i < dayPoints.length; i++) {
+    var pMs = new Date(dayPoints[i].time).getTime();
+    var d = Math.abs(pMs - nowMs);
+    if (d < bestDelta) { bestDelta = d; bestIdx = i; }
+  }
+  if (bestIdx < 0 || bestIdx >= dayPoints.length - 1) {
+    return { type: 'flat', label: '—', icon: 'flat' };
+  }
+  var nextH = dayPoints[Math.min(bestIdx + 1, dayPoints.length - 1)].height;
+  var currH = dayPoints[bestIdx].height;
+  if (nextH > currH + 0.05) return { type: 'rising', label: 'Mer montante', icon: 'up' };
+  if (nextH < currH - 0.05) return { type: 'falling', label: 'Mer descendante', icon: 'down' };
+  return { type: 'flat', label: 'Étale', icon: 'flat' };
+}
+
+// ============================================================
+// Helper : footer contextuel (phase + courant approx + soleil)
+// ============================================================
+function renderTidesContextFooter(phase, coef, dayPoints, selDate) {
+  // Estimation grossière du courant basée sur le coef
+  // (en nœuds, max ~2.5 pour coef 120, min ~0.3 pour coef 20)
+  var currentEst = (coef / 120 * 2.2 + 0.3).toFixed(1);
+
+  // Lever / coucher (approx pour la latitude France métropolitaine)
+  // Si tu as déjà une fonction getSunTimes(date, lat, lng), utilise-la
+  var sunTimes = getSunTimesForDate(selDate);
+
+  var iconSvg;
+  if (phase.icon === 'up') {
+    iconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 16 12 8 18 16"/><line x1="12" y1="8" x2="12" y2="20"/></svg>';
+  } else if (phase.icon === 'down') {
+    iconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 8 12 16 18 8"/><line x1="12" y1="4" x2="12" y2="16"/></svg>';
+  } else {
+    iconSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>';
+  }
+
+  return '<div class="vz-tides-contextfooter">' +
+    '<div class="vz-tides-ctxitem">' +
+      '<div class="vz-tides-ctxlabel">Phase</div>' +
+      '<div class="vz-tides-ctxvalue">' + iconSvg + '<span>' + phase.label + '</span></div>' +
+    '</div>' +
+    '<div class="vz-tides-ctxitem">' +
+      '<div class="vz-tides-ctxlabel">Courant</div>' +
+      '<div class="vz-tides-ctxvalue is-mono">~' + currentEst + ' nœud' + (parseFloat(currentEst) >= 2 ? 's' : '') + '</div>' +
+    '</div>' +
+    '<div class="vz-tides-ctxitem">' +
+      '<div class="vz-tides-ctxlabel">Soleil</div>' +
+      '<div class="vz-tides-ctxvalue is-mono">' + sunTimes.sunrise + ' → ' + sunTimes.sunset + '</div>' +
+    '</div>' +
   '</div>';
 }
-// Wrapper agenda pour le bandeau (réutilise openAgendaModal existant)
-window.openAgendaModalFromSheet = function(btn) {
-  if (typeof TIDES_PAGE === 'undefined') window.TIDES_PAGE = {};
-  TIDES_PAGE.currentSiteName = TIDES_DRAWER.currentPort ? TIDES_DRAWER.currentPort.name : '';
-  TIDES_PAGE.currentSite = TIDES_DRAWER.currentPort ? TIDES_DRAWER.currentPort.siteId : null;
-  TIDES_PAGE.selectedDate = TIDES_DRAWER.selectedDate;
-  openAgendaModal(btn);
-};
 
-// Courbe SVG style Talisker (fond sombre, accents teal)
-function renderTidesSheetCurve(points, extremes, isToday, now) {
-  if (points.length === 0) return '';
+// ============================================================
+// Helper : approximation lever/coucher soleil (fallback simple)
+// Si tu as déjà SunCalc ou une autre API, remplace cette fonction.
+// ============================================================
+function getSunTimesForDate(isoDate) {
+  // Approximation pour latitude France métropolitaine (~47°N)
+  // Précision ±15 min, suffisant pour un repère visuel
+  try {
+    var d = new Date(isoDate + 'T12:00:00Z');
+    var dayOfYear = Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 86400000);
+    // Variation sinusoidale autour du solstice (jour 172 = 21 juin)
+    var phase = (dayOfYear - 172) / 365 * 2 * Math.PI;
+    var dayLength = 12 + 4.3 * Math.cos(phase); // entre 7.7h (déc) et 16.3h (juin)
+    var noonTime = 13.5; // midi solaire approx France été
+    var sunrise = noonTime - dayLength / 2;
+    var sunset = noonTime + dayLength / 2;
+    var fmt = function(h) {
+      var hh = Math.floor(h);
+      var mm = Math.round((h - hh) * 60);
+      if (mm === 60) { hh++; mm = 0; }
+      return String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+    };
+    return { sunrise: fmt(sunrise), sunset: fmt(sunset) };
+  } catch (e) {
+    return { sunrise: '—', sunset: '—' };
+  }
+}
 
-  var w = 800, h = 480, pad = 50;
-  var heights = points.map(function(p){ return p.height; });
-  var minH = Math.min.apply(null, heights);
+// ============================================================
+// Courbe SVG v8 : cursor "now", bandes ±2h colorées par type, point prochain accentué
+// ============================================================
+function renderTidesSheetCurve(dayPoints, dayExtremes, isToday, now, nextExtremeIdx) {
+  if (!dayPoints || dayPoints.length === 0) return '';
+
+  var w = 800, h = 480;
+  var padL = 50, padR = 30, padT = 60, padB = 80;
+
+  var heights = dayPoints.map(function(p){ return p.height; });
   var maxH = Math.max.apply(null, heights);
-  var rangeH = Math.max(maxH - minH, 0.1);
+  var minH = Math.min.apply(null, heights);
+  var rangeH = (maxH - minH) || 1;
+
+  var dayStart = new Date(dayPoints[0].time);
+  dayStart.setHours(0, 0, 0, 0);
+  var dayEnd = new Date(dayStart.getTime() + 24 * 3600000);
+  var totalMs = dayEnd - dayStart;
 
   function xOf(time) {
-    var d = new Date(time);
-    return pad + ((d.getHours() * 60 + d.getMinutes()) / 1440) * (w - pad * 2);
+    var t = new Date(time).getTime() - dayStart.getTime();
+    return padL + (t / totalMs) * (w - padL - padR);
   }
   function yOf(height) {
-    // Réserve 80px en haut (labels pic) et 80px en bas (axes + labels creux)
-    var topMargin = 80;
-    var bottomMargin = 80;
-    return topMargin + (1 - (height - minH) / rangeH) * (h - topMargin - bottomMargin);
+    return padT + (1 - (height - minH) / rangeH) * (h - padT - padB);
   }
 
-  var chassableBands = extremes.map(function(e) {
-    var t = new Date(e.time);
-    var startMin = t.getHours() * 60 + t.getMinutes() - 120;
-    var endMin = t.getHours() * 60 + t.getMinutes() + 120;
-    startMin = Math.max(0, startMin);
-    endMin = Math.min(1440, endMin);
-    var x1 = pad + (startMin / 1440) * (w - pad * 2);
-    var x2 = pad + (endMin / 1440) * (w - pad * 2);
-    return '<rect x="' + x1.toFixed(1) + '" y="' + pad + '" width="' + (x2 - x1).toFixed(1) + '" height="' + (h - pad * 2) + '" fill="#4DD4A8" opacity="0.18"/>';
-  }).join('');
+  var svg = '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block;">';
 
-  var path = '';
-  points.forEach(function(p, i) {
-    path += (i === 0 ? 'M' : 'L') + xOf(p.time).toFixed(1) + ',' + yOf(p.height).toFixed(1) + ' ';
+  // === Defs : gradient sous courbe ===
+  svg += '<defs>' +
+    '<linearGradient id="vzTideFill" x1="0" x2="0" y1="0" y2="1">' +
+      '<stop offset="0%" stop-color="#4DD4A8" stop-opacity="0.32"/>' +
+      '<stop offset="100%" stop-color="#4DD4A8" stop-opacity="0.04"/>' +
+    '</linearGradient>' +
+  '</defs>';
+
+  // === Grille horizontale (3 lignes) ===
+  for (var g = 0; g < 3; g++) {
+    var gy = padT + (g / 2) * (h - padT - padB);
+    svg += '<line x1="' + padL + '" y1="' + gy + '" x2="' + (w - padR) + '" y2="' + gy + '" stroke="rgba(255,255,255,0.04)" stroke-dasharray="2,4"/>';
+  }
+
+  // === Bandes ±2h autour des extrêmes (colorées par type) ===
+  if (dayExtremes && dayExtremes.length > 0) {
+    dayExtremes.forEach(function(e) {
+      var et = new Date(e.time);
+      var bs = new Date(et.getTime() - 120 * 60000);
+      var be = new Date(et.getTime() + 120 * 60000);
+      var bx1 = Math.max(padL, xOf(bs));
+      var bx2 = Math.min(w - padR, xOf(be));
+      if (bx2 <= bx1) return;
+      var bandColor = e.type === 'high' ? '#4DD4A8' : '#E89B3C';
+      var bandOp = e.type === 'high' ? 0.10 : 0.07;
+      svg += '<rect x="' + bx1.toFixed(1) + '" y="' + padT + '" width="' + (bx2 - bx1).toFixed(1) + '" height="' + (h - padT - padB) + '" fill="' + bandColor + '" fill-opacity="' + bandOp + '"/>';
+    });
+  }
+
+  // === Axe X ===
+  svg += '<line x1="' + padL + '" y1="' + (h - padB) + '" x2="' + (w - padR) + '" y2="' + (h - padB) + '" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>';
+
+  // === Construction path courbe (smooth via points consécutifs) ===
+  var pathD = '';
+  var areaD = '';
+  dayPoints.forEach(function(p, i) {
+    var x = xOf(p.time);
+    var y = yOf(p.height);
+    if (i === 0) {
+      pathD = 'M ' + x.toFixed(1) + ' ' + y.toFixed(1);
+      areaD = 'M ' + x.toFixed(1) + ' ' + (h - padB) + ' L ' + x.toFixed(1) + ' ' + y.toFixed(1);
+    } else {
+      pathD += ' L ' + x.toFixed(1) + ' ' + y.toFixed(1);
+      areaD += ' L ' + x.toFixed(1) + ' ' + y.toFixed(1);
+    }
   });
-  var lastX = xOf(points[points.length-1].time).toFixed(1);
-  var firstX = xOf(points[0].time).toFixed(1);
+  var lastX = xOf(dayPoints[dayPoints.length - 1].time);
+  areaD += ' L ' + lastX.toFixed(1) + ' ' + (h - padB) + ' Z';
 
-  var markers = extremes.map(function(e) {
-    var x = xOf(e.time), y = yOf(e.height);
-    var color = e.type === 'high' ? '#4DD4A8' : '#E89B3C';
-    var timeLabel = new Date(e.time).toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
-    var ty = e.type === 'high' ? y - 14 : y + 22;
-    var ty2 = e.type === 'high' ? y - 24 : y + 38;
-    var ty3 = e.type === 'high' ? y - 8 : y + 22;
-    return '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="6" fill="' + color + '" stroke="#0A1520" stroke-width="2.5"/>' +
-      '<text x="' + x.toFixed(1) + '" y="' + ty3.toFixed(1) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="14" fill="' + color + '" font-weight="700">' + timeLabel + '</text>' +
-      '<text x="' + x.toFixed(1) + '" y="' + ty2.toFixed(1) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="11" fill="' + color + '" opacity="0.7">' + e.height.toFixed(1) + 'm</text>';
-  }).join('');
+  // Aire
+  svg += '<path d="' + areaD + '" fill="url(#vzTideFill)"/>';
+  // Trait
+  svg += '<path d="' + pathD + '" fill="none" stroke="#4DD4A8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>';
 
-  var nowLine = '';
-  if (isToday) {
-    var nowX = pad + ((now.getHours() * 60 + now.getMinutes()) / 1440) * (w - pad * 2);
-    nowLine =
-      '<line x1="' + nowX.toFixed(1) + '" y1="80" x2="' + nowX.toFixed(1) + '" y2="' + (h - 80) + '" stroke="#C94A3D" stroke-width="2" stroke-dasharray="4,3"/>' +
-      '<circle cx="' + nowX.toFixed(1) + '" cy="80" r="6" fill="#C94A3D"/>' +
-      '<text x="' + nowX.toFixed(1) + '" y="' + (pad - 8) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" fill="#C94A3D" font-weight="700" letter-spacing="0.08em">MAINTENANT</text>';
-  }
+  // === Labels Y (max / mid / min) ===
+  svg += '<text x="' + (padL - 8) + '" y="' + (padT + 4) + '" text-anchor="end" font-family="IBM Plex Mono,monospace" font-size="11" fill="rgba(255,255,255,0.4)">' + maxH.toFixed(1) + 'm</text>';
+  svg += '<text x="' + (padL - 8) + '" y="' + (padT + (h - padT - padB) / 2 + 4) + '" text-anchor="end" font-family="IBM Plex Mono,monospace" font-size="11" fill="rgba(255,255,255,0.4)">' + ((maxH + minH) / 2).toFixed(1) + 'm</text>';
+  svg += '<text x="' + (padL - 8) + '" y="' + (h - padB + 4) + '" text-anchor="end" font-family="IBM Plex Mono,monospace" font-size="11" fill="rgba(255,255,255,0.4)">' + minH.toFixed(1) + 'm</text>';
 
-  var hourLabels = '';
+  // === Labels X (heures) ===
   [0, 3, 6, 9, 12, 15, 18, 21, 24].forEach(function(hr) {
-    var x = pad + (hr * 60 / 1440) * (w - pad * 2);
-    hourLabels += '<line x1="' + x.toFixed(1) + '" y1="' + (h - pad) + '" x2="' + x.toFixed(1) + '" y2="' + (h - pad + 5) + '" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>';
-    hourLabels += '<text x="' + x.toFixed(1) + '" y="' + (h - pad + 16) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" fill="rgba(255,255,255,0.5)">' + hr + 'h</text>';
+    var x = padL + (hr / 24) * (w - padL - padR);
+    svg += '<line x1="' + x.toFixed(1) + '" y1="' + (h - padB) + '" x2="' + x.toFixed(1) + '" y2="' + (h - padB + 5) + '" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>';
+    svg += '<text x="' + x.toFixed(1) + '" y="' + (h - padB + 22) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="13" fill="rgba(255,255,255,0.5)">' + hr + 'h</text>';
   });
 
-  var xAxis = '<line x1="' + pad + '" y1="' + (h - 80) + '" x2="' + (w - pad) + '" y2="' + (h - 80) + '" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>';
+  // === Cursor NOW (ligne rouge dashed + label) ===
+  if (isToday) {
+    var nowX = xOf(now);
+    if (nowX >= padL && nowX <= w - padR) {
+      // Trouver Y de la courbe au "now" (interpolation simple)
+      var nowMs = now.getTime();
+      var nowY = padT + (h - padT - padB) / 2; // fallback
+      for (var k = 0; k < dayPoints.length - 1; k++) {
+        var t1 = new Date(dayPoints[k].time).getTime();
+        var t2 = new Date(dayPoints[k + 1].time).getTime();
+        if (nowMs >= t1 && nowMs <= t2) {
+          var ratio = (nowMs - t1) / (t2 - t1);
+          var interpH = dayPoints[k].height + ratio * (dayPoints[k + 1].height - dayPoints[k].height);
+          nowY = yOf(interpH);
+          break;
+        }
+      }
 
-  var svg = '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block;">' +
-    chassableBands +
-    '<path d="' + path + 'L' + lastX + ',' + (h - pad) + ' L' + firstX + ',' + (h - pad) + ' Z" fill="#4DD4A8" opacity="0.10"/>' +
-    '<path d="' + path + '" stroke="#4DD4A8" stroke-width="2.5" fill="none"/>' +
-    xAxis +
-    nowLine +
-    markers +
-    hourLabels +
-    '</svg>';
+      svg += '<line x1="' + nowX.toFixed(1) + '" y1="' + padT + '" x2="' + nowX.toFixed(1) + '" y2="' + (h - padB) + '" stroke="#C94A3D" stroke-width="1.5" stroke-dasharray="4,3"/>';
+      svg += '<circle cx="' + nowX.toFixed(1) + '" cy="' + nowY.toFixed(1) + '" r="6" fill="#C94A3D" stroke="#0A1520" stroke-width="2"/>';
+
+      var nowLabel = now.toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
+      var labelX = Math.max(padL + 30, Math.min(w - padR - 30, nowX));
+      svg += '<rect x="' + (labelX - 32).toFixed(1) + '" y="' + (padT - 24) + '" width="64" height="18" rx="3" fill="#C94A3D"/>';
+      svg += '<text x="' + labelX.toFixed(1) + '" y="' + (padT - 11) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" fill="#FFFFFF" font-weight="700" letter-spacing="0.08em">' + nowLabel + ' NOW</text>';
+    }
+  }
+
+  // === Points extrêmes + labels (PM teal / BM orange) ===
+  if (dayExtremes && dayExtremes.length > 0) {
+    dayExtremes.forEach(function(e, idx) {
+      var x = xOf(e.time);
+      var y = yOf(e.height);
+      var color = e.type === 'high' ? '#4DD4A8' : '#E89B3C';
+      var isPast = isToday && new Date(new Date(e.time).getTime() + 120 * 60000) < now;
+      var isNext = (idx === nextExtremeIdx);
+
+      var opacity = isPast ? 0.4 : 1;
+      var radius = isNext ? 7 : 5;
+      var strokeW = isNext ? 2.5 : 2;
+      var labelTime = new Date(e.time).toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
+
+      // Position labels : au-dessus pour PM, en-dessous pour BM
+      var ty1, ty2;
+      if (e.type === 'high') {
+        ty1 = y - 22;  // hauteur
+        ty2 = y - 8;   // heure
+      } else {
+        ty1 = y + 30;  // hauteur
+        ty2 = y + 18;  // heure
+      }
+      var fontSize = isNext ? 13 : 11;
+      var fontSizeH = isNext ? 11 : 10;
+
+      svg += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + radius + '" fill="' + color + '" stroke="#0A1520" stroke-width="' + strokeW + '" opacity="' + opacity + '"/>';
+      svg += '<text x="' + x.toFixed(1) + '" y="' + ty2.toFixed(1) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="' + fontSize + '" fill="' + color + '" font-weight="700" opacity="' + opacity + '">' + labelTime + '</text>';
+      svg += '<text x="' + x.toFixed(1) + '" y="' + ty1.toFixed(1) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="' + fontSizeH + '" fill="' + color + '" opacity="' + (opacity * 0.7) + '">' + e.height.toFixed(1) + 'm</text>';
+    });
+  }
+
+  svg += '</svg>';
+
+  // === Légende compacte ===
+  var legendHtml = '<div class="vz-tides-curvelegend">' +
+    '<span><span class="legend-band"></span>±2h étale</span>' +
+    '<span><span class="legend-dot" style="background:#4DD4A8;"></span>PM</span>' +
+    '<span><span class="legend-dot" style="background:#E89B3C;"></span>BM</span>' +
+    (isToday ? '<span><span class="legend-line"></span>maintenant</span>' : '') +
+  '</div>';
 
   return '<div class="vz-tides-curvewrap">' +
-    '<div class="vz-tides-sectiontitle" style="flex-shrink:0;">Courbe de marée — 24h</div>' +
     '<div class="vz-tides-curveinner">' + svg + '</div>' +
-    '<div class="vz-tides-curvelegend">' +
-      '<span><span class="legend-band"></span>±2h étale</span>' +
-      '<span style="color:#4DD4A8">● PM</span>' +
-      '<span style="color:#E89B3C">● BM</span>' +
-      (isToday ? '<span style="color:#C94A3D">● now</span>' : '') +
-    '</div>' +
+    legendHtml +
   '</div>';
 }
 console.log('[VZ_SHEET] Bandeau bas Conditions v2 initialisé');
