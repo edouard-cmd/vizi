@@ -656,8 +656,57 @@
     #mobileCrosshair .ch-line-h { width:28px; height:1.5px; background:rgba(168,230,61,0.7); position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); }
     #mobileCrosshair .ch-line-v { width:1.5px; height:28px; background:rgba(168,230,61,0.7); position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); }
     @keyframes chPulse { 0% { opacity:0.8; transform:translate(-50%,-50%) scale(1); } 100% { opacity:0; transform:translate(-50%,-50%) scale(2); } }
-    #mobileAnalyzeBtn { display:none; position:fixed; bottom:28px; left:50%; transform:translateX(-50%); z-index:960; padding:14px 32px; background:#1A2535; border:2px solid #A8E63D; border-radius:40px; color:#A8E63D; font-family:'Inter', sans-serif; font-size:15px; font-weight:700; letter-spacing:0.04em; cursor:pointer; box-shadow:0 4px 24px rgba(0,0,0,0.3); white-space:nowrap; transition:all 0.2s; }
-    #mobileShareBtn { display:none; position:fixed; bottom:88px; left:50%; transform:translateX(-50%); z-index:960; padding:13px 28px; background:rgba(26,37,53,0.92); border:1.5px solid rgba(168,230,61,0.5); border-radius:40px; color:rgba(168,230,61,0.85); font-family:'Inter', sans-serif; font-size:14px; font-weight:600; cursor:pointer; box-shadow:0 4px 20px rgba(0,0,0,0.2); white-space:nowrap; }
+    #mobileAnalyzeBtn {
+  display:none;
+  position:fixed;
+  bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  left:50%;
+  transform:translateX(-50%);
+  z-index:960;
+  padding:14px 32px;
+  background: var(--vz-accent);
+  border: none;
+  border-radius: var(--vz-radius-pill);
+  color: var(--vz-bg-deep);
+  font-family:'Inter', sans-serif;
+  font-size:15px;
+  font-weight:700;
+  letter-spacing:0.02em;
+  cursor:pointer;
+  box-shadow: 0 8px 24px rgba(77,212,168,0.35), 0 4px 12px rgba(0,0,0,0.3);
+  white-space:nowrap;
+  transition:all 0.2s;
+}
+#mobileAnalyzeBtn:hover, #mobileAnalyzeBtn:active {
+  background: var(--vz-accent-strong);
+  transform: translateX(-50%) translateY(-1px);
+}
+#mobileShareBtn {
+  display:none;
+  position:fixed;
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  left:50%;
+  transform:translateX(-50%);
+  z-index:960;
+  padding:12px 24px;
+  background: var(--vz-bg-glass-strong);
+  backdrop-filter: blur(var(--vz-blur));
+  -webkit-backdrop-filter: blur(var(--vz-blur));
+  border: 0.5px solid var(--vz-accent-border);
+  border-radius: var(--vz-radius-pill);
+  color: var(--vz-accent);
+  font-family:'Inter', sans-serif;
+  font-size:13px;
+  font-weight:600;
+  cursor:pointer;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  white-space:nowrap;
+  transition: all 0.2s;
+}
+#mobileShareBtn:hover, #mobileShareBtn:active {
+  background: var(--vz-accent-glow);
+  border-color: var(--vz-accent);
+}
 /* ============================================================
    MAREES dans le bandeau bas - Style Talisker (v8 final)
    ============================================================ */
@@ -2183,6 +2232,13 @@
     padding: 4px;
   }
 }
+    /* Cacher les boutons mobile quand le bandeau bas est en mode half ou full */
+#vzSheet.sheet-half ~ #mobileAnalyzeBtn,
+#vzSheet.sheet-full ~ #mobileAnalyzeBtn,
+#vzSheet.sheet-half ~ #mobileShareBtn,
+#vzSheet.sheet-full ~ #mobileShareBtn {
+  display: none !important;
+}
   </style>
 </head>
 <body>
@@ -2394,7 +2450,7 @@
   </svg>
   <span>Partager la visibilité</span>
 </button>
-<button id="mobileShareBtn" onclick="openObsSheet()">Ameliorer les previsions</button>
+<button id="mobileShareBtn" onclick="openObsSheet()">Améliorer les prévisions</button>
 
 <div id="obsSheetOverlay" onclick="closeObsSheet()"></div>
 
