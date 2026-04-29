@@ -4627,6 +4627,9 @@ window.openTidesInSheet = function() {
     return;
   }
 
+  // Ferme le drawer spot pour libérer toute la largeur
+  if (typeof closeSpotPopup === 'function') closeSpotPopup();
+
   VZ_SHEET.mode = 'tides';
   var sheet = document.getElementById('vzSheet');
   if (sheet) sheet.style.display = '';
@@ -4682,7 +4685,7 @@ window.openTidesInSheet = function() {
   var today = new Date();
   TIDES_DRAWER.selectedDate = today.toISOString().split('T')[0];
 
-  updateSheetHeader('Marées', port.name);
+  updateSheetHeader('', '');
   fetchTidesSheetData();
 };
 
@@ -4815,10 +4818,17 @@ function renderTidesSheetContent() {
 
   updateSheetHeader('Marées', port.name);
 
-  var html = '<div class="vz-tides-wrap">';
+var html = '<div class="vz-tides-wrap">';
 
   // ====== COLONNE GAUCHE ======
   html += '<div class="vz-tides-leftcol">';
+
+  // --- Titre interne colonne gauche (style mockup) ---
+  html += '<div class="vz-tides-colheader">' +
+    '<span class="vz-tides-colheader-title">Marées</span>' +
+    '<span class="vz-tides-colheader-sep">·</span>' +
+    '<span class="vz-tides-colheader-port">' + (port.name || '').toUpperCase() + '</span>' +
+  '</div>';
 
   // --- Bloc coef ---
   if (isMed) {
