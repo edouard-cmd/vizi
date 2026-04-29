@@ -926,6 +926,68 @@
 #locateBtn, #btnBasemapIGN, #authBtn {
   display: none !important;
 }
+    .vz-layers-popover {
+  position: fixed;
+  top: 168px;
+  left: 64px;
+  z-index: 1300;
+  min-width: 240px;
+  background: var(--vz-bg-glass-strong);
+  backdrop-filter: blur(var(--vz-blur));
+  -webkit-backdrop-filter: blur(var(--vz-blur));
+  border: 0.5px solid var(--vz-accent-border);
+  border-radius: var(--vz-radius-card);
+  padding: 12px 14px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  display: none;
+  flex-direction: column;
+  gap: 14px;
+}
+.vz-layers-popover.open { display: flex; }
+.vz-layers-section-title {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--vz-text-on-dark-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 6px;
+}
+.vz-layers-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--vz-text-on-dark);
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  transition: background 0.15s;
+}
+.vz-layers-row:hover { background: rgba(255,255,255,0.06); }
+.vz-layers-row.active { color: var(--vz-accent); }
+.vz-layers-row.disabled { opacity: 0.4; cursor: not-allowed; }
+.vz-layers-radio, .vz-layers-check {
+  width: 16px; height: 16px;
+  border: 1.5px solid var(--vz-text-on-dark-muted);
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.vz-layers-radio { border-radius: 50%; }
+.vz-layers-check { border-radius: 4px; }
+.vz-layers-row.active .vz-layers-radio,
+.vz-layers-row.active .vz-layers-check {
+  border-color: var(--vz-accent);
+  background: var(--vz-accent);
+}
+.vz-layers-row.active .vz-layers-radio::after {
+  content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--vz-bg-deep);
+}
+.vz-layers-row.active .vz-layers-check::after {
+  content: ''; width: 4px; height: 8px; border: solid var(--vz-bg-deep);
+  border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px, -1px);
+}
     @media (max-width: 768px) { #zoomControls { display: none; } }
     /* ============================================================
    WEBCAMS - Marker camera + popup integree
@@ -1121,9 +1183,11 @@
       <line x1="19" y1="12" x2="22" y2="12"></line>
     </svg>
   </button>
-  <button class="vz-side-btn" id="vzBtnIGN" onclick="switchBasemap('ign')" title="Plan IGN">
+ <button class="vz-side-btn" id="vzBtnLayers" onclick="toggleLayersPopover(event)" title="Couches">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+      <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+      <polyline points="2 17 12 22 22 17"></polyline>
+      <polyline points="2 12 12 17 22 12"></polyline>
     </svg>
   </button>
   <button class="vz-side-btn" id="vzBtnCarnet" onclick="handleAuthClick()" title="Mon carnet">
@@ -1132,6 +1196,38 @@
       <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
     </svg>
   </button>
+</div>
+  <div class="vz-layers-popover" id="vzLayersPopover" onclick="event.stopPropagation()">
+  <div>
+    <div class="vz-layers-section-title">Fond de carte</div>
+    <div class="vz-layers-row" id="vzRowSat" onclick="selectBasemap('sat')">
+      <div class="vz-layers-radio"></div>
+      <span>Satellite</span>
+    </div>
+    <div class="vz-layers-row" id="vzRowIGN" onclick="selectBasemap('ign')">
+      <div class="vz-layers-radio"></div>
+      <span>Relief</span>
+    </div>
+  </div>
+  <div>
+    <div class="vz-layers-section-title">Couches</div>
+    <div class="vz-layers-row" id="vzRowHeatmap" onclick="toggleLayer('heatmap')">
+      <div class="vz-layers-check"></div>
+      <span>Turbidité</span>
+    </div>
+    <div class="vz-layers-row" id="vzRowSed" onclick="toggleLayer('sed')">
+      <div class="vz-layers-check"></div>
+      <span>Nature du fond</span>
+    </div>
+    <div class="vz-layers-row" id="vzRowIso" onclick="toggleLayer('iso')">
+      <div class="vz-layers-check"></div>
+      <span>Repères marins</span>
+    </div>
+    <div class="vz-layers-row disabled">
+      <div class="vz-layers-check"></div>
+      <span>Vagues (bientôt)</span>
+    </div>
+  </div>
 </div>
 <canvas id="heatmapCanvas"></canvas>
 <div id="landToast"></div>
@@ -1512,6 +1608,34 @@
 
     
 <script src="vizi-app.js"></script>
+  <script>
+function toggleLayersPopover(e) {
+  if (e) e.stopPropagation();
+  var pop = document.getElementById('vzLayersPopover');
+  pop.classList.toggle('open');
+  syncLayersPopover();
+}
+function selectBasemap(type) {
+  switchBasemap(type);
+  syncLayersPopover();
+}
+function syncLayersPopover() {
+  var current = S.currentBasemap || 'sat';
+  document.getElementById('vzRowSat').classList.toggle('active', current === 'sat');
+  document.getElementById('vzRowIGN').classList.toggle('active', current === 'ign');
+  document.getElementById('vzRowHeatmap').classList.toggle('active', S.showHeatmap);
+  document.getElementById('vzRowSed').classList.toggle('active', S.showSed);
+  document.getElementById('vzRowIso').classList.toggle('active', S.showIso);
+}
+document.addEventListener('click', function(e) {
+  var pop = document.getElementById('vzLayersPopover');
+  var btn = document.getElementById('vzBtnLayers');
+  if (!pop || !btn) return;
+  if (pop.classList.contains('open') && !pop.contains(e.target) && !btn.contains(e.target)) {
+    pop.classList.remove('open');
+  }
+});
+</script>
     <script>
 // Sync visuel V2 ↔ V1 (les anciens boutons sont masqués mais gardent l'état réel)
 (function() {
