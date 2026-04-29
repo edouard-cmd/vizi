@@ -140,7 +140,7 @@
   visibility: hidden !important;
   opacity: 0 !important;
 }
-    #btnBasemapSat, #btnIso, #btnWebcams {
+    #btnBasemapSat, #btnIso, #btnWebcams, #btnWind, #btnTidesPage {
   display: none !important;
 }
 
@@ -1072,18 +1072,27 @@
     </svg>
   </div>
   <div class="vz-logo-pill-text">VISIMER</div>
-</a>
-  <div class="vz-tab-segmented">
-  <button class="vz-tab-btn active" id="vzTabSat" onclick="switchBasemap('sat')">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14 14 0 010 20M2 12h20"/></svg>
-    Satellite
+<div class="vz-tab-segmented">
+  <button class="vz-tab-btn" id="vzTabWind" onclick="toggleForecastPanel()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9.59 4.59A2 2 0 1111 8H2"/>
+      <path d="M12.59 19.41A2 2 0 1014 16H2"/>
+      <path d="M17.73 7.73A2.5 2.5 0 1119.5 12H2"/>
+    </svg>
+    Vent
   </button>
-  <button class="vz-tab-btn active" id="vzTabReperes" onclick="toggleLayer('iso')">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-    Repères
+  <button class="vz-tab-btn" id="vzTabTides" onclick="openTidesDrawer()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M2 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0 4 2 6 0"/>
+      <path d="M2 18c2-2 4-2 6 0s4 2 6 0 4-2 6 0 4 2 6 0"/>
+    </svg>
+    Marée
   </button>
   <button class="vz-tab-btn" id="vzTabWebcams" onclick="toggleWebcams()">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polygon points="23 7 16 12 23 17 23 7"/>
+      <rect x="1" y="5" width="15" height="14" rx="2"/>
+    </svg>
     Webcams
   </button>
 </div>
@@ -1500,7 +1509,35 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
 
+    
 <script src="vizi-app.js"></script>
+    <script>
+// Sync visuel V2 ↔ V1 (les anciens boutons sont masqués mais gardent l'état réel)
+(function() {
+  const syncMap = [
+    { v2: 'vzTabWind',     v1: 'btnWind' },
+    { v2: 'vzTabTides',    v1: 'btnTidesPage' },
+    { v2: 'vzTabWebcams',  v1: 'btnWebcams' }
+  ];
+  function syncStates() {
+    syncMap.forEach(({ v2, v1 }) => {
+      const elV2 = document.getElementById(v2);
+      const elV1 = document.getElementById(v1);
+      if (!elV2 || !elV1) return;
+      if (elV1.classList.contains('active')) {
+        elV2.classList.add('active');
+      } else {
+        elV2.classList.remove('active');
+      }
+    });
+  }
+  document.addEventListener('DOMContentLoaded', () => {
+    syncStates();
+    setInterval(syncStates, 200);
+  });
+})();
+</script>
+
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
