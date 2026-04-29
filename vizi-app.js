@@ -3915,6 +3915,62 @@ var css = `
       letter-spacing: 0.06em;
       margin-bottom: 16px;
     }
+    .vz-sheet-cond-header {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      margin-bottom: 18px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .vz-sheet-depth-block {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      padding-right: 24px;
+      border-right: 1px solid rgba(255,255,255,0.12);
+    }
+    .vz-sheet-depth-label {
+      font-family: 'Inter', sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--vz-text-on-dark-faint);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .vz-sheet-depth-value {
+      font-family: 'Inter', sans-serif;
+      font-size: 32px;
+      font-weight: 700;
+      line-height: 1;
+      letter-spacing: -0.02em;
+    }
+    .vz-sheet-depth-unit {
+      font-size: 16px;
+      font-weight: 500;
+      margin-left: 2px;
+      opacity: 0.7;
+    }
+    .vz-sheet-coords-block {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .vz-sheet-coords-line {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--vz-text-on-dark);
+      letter-spacing: 0.04em;
+    }
+    .vz-sheet-coords-source {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      color: var(--vz-text-on-dark-faint);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
     .vz-cond-table {
       width: 100%;
       border-collapse: separate;
