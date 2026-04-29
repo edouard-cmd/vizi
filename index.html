@@ -2375,10 +2375,9 @@ document.addEventListener('click', function(e) {
 });
 </script>
     <script>
-// Sync visuel V2 ↔ V1 (les anciens boutons sont masqués mais gardent l'état réel)
+// Sync visuel V2 ↔ V1 (uniquement Webcams encore couplé à V1)
 (function() {
   const syncMap = [
-    { v2: 'vzTabTides',    v1: 'btnTidesPage' },
     { v2: 'vzTabWebcams',  v1: 'btnWebcams' }
   ];
   function syncStates() {
