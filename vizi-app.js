@@ -5372,3 +5372,43 @@ window.closeSheetCompletely = function() {
     }
   }, { passive: true });
 })();
+// Swipe-down pour fermer le drawer spot (mobile)
+(function() {
+  var spotDrawer = document.getElementById('spotDrawer');
+  if (!spotDrawer) return;
+  
+  var startY = 0;
+  var currentY = 0;
+  var isDragging = false;
+  var swipeZone = null;
+  
+  // On utilise le header du drawer comme zone de swipe (la barre du haut)
+  function setupSwipe() {
+    swipeZone = spotDrawer.querySelector('.drawer-head');
+    if (!swipeZone) return;
+    
+    swipeZone.addEventListener('touchstart', function(e) {
+      if (window.innerWidth > 768) return; // mobile only
+      if (!spotDrawer.classList.contains('open')) return;
+      startY = e.touches[0].clientY;
+      isDragging = true;
+    }, { passive: true });
+    
+    swipeZone.addEventListener('touchmove', function(e) {
+      if (!isDragging) return;
+      currentY = e.touches[0].clientY;
+    }, { passive: true });
+    
+    swipeZone.addEventListener('touchend', function(e) {
+      if (!isDragging) return;
+      isDragging = false;
+      var deltaY = currentY - startY;
+      if (deltaY > 70) {
+        // Swipe down > 70px = ferme le drawer
+        closeSpotPopup();
+      }
+    }, { passive: true });
+  }
+  
+  setupSwipe();
+})();
