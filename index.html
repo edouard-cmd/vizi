@@ -89,11 +89,61 @@
   letter-spacing: 0.12em;
   line-height: 1;
 }
+.vz-tab-segmented {
+  position: fixed;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1200;
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  background: var(--vz-bg-glass);
+  backdrop-filter: blur(var(--vz-blur));
+  -webkit-backdrop-filter: blur(var(--vz-blur));
+  border: 0.5px solid var(--vz-accent-border);
+  border-radius: var(--vz-radius-pill);
+  pointer-events: all;
+}
+.vz-tab-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 16px;
+  background: transparent;
+  border: none;
+  border-radius: 20px;
+  color: var(--vz-text-on-dark-muted);
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.vz-tab-btn:hover {
+  color: var(--vz-text-on-dark);
+  background: rgba(255,255,255,0.05);
+}
+.vz-tab-btn.active {
+  background: var(--vz-accent-glow);
+  color: var(--vz-accent);
+  font-weight: 600;
+}
+.vz-tab-btn svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}    
 
 #header .logo {
   visibility: hidden !important;
   opacity: 0 !important;
 }
+    #btnBasemapSat, #btnIso, #btnWebcams {
+  display: none !important;
+}
+
     * { margin:0; padding:0; box-sizing:border-box; }
     html, body { width:100%; height:100%; overflow:hidden; font-family:'Inter', system-ui, sans-serif; background:var(--bg); color:var(--text); }
     #header { position:absolute; top:0; left:0; right:0; z-index:1000; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 24px; background:#1A2535; border-bottom:1px solid rgba(255,255,255,0.06); pointer-events:none; }
@@ -949,6 +999,20 @@
   </div>
   <div class="vz-logo-pill-text">VISIMER</div>
 </a>
+  <div class="vz-tab-segmented">
+  <button class="vz-tab-btn active" id="vzTabSat" onclick="switchBasemap('sat')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14 14 0 010 20M2 12h20"/></svg>
+    Satellite
+  </button>
+  <button class="vz-tab-btn active" id="vzTabReperes" onclick="toggleLayer('iso')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+    Repères
+  </button>
+  <button class="vz-tab-btn" id="vzTabWebcams" onclick="toggleWebcams()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+    Webcams
+  </button>
+</div>
 <div id="zoomControls">
   <button class="zoom-btn" onclick="zoomMapIn()" title="Zoomer">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
