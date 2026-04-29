@@ -4400,12 +4400,60 @@ function renderSheetTable() {
       + '<path d="M10 2 L10 16 M10 16 L6 12 M10 16 L14 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>';
   }
   function skyIcon(cloud, rain) {
-    if (rain != null && rain >= 0.3) return '🌧';
+    var color = '#4DD4A8'; // vert Talisker pour cohérence
+    var grayCloud = 'rgba(216,200,74,0.85)'; // jaune Talisker pour nuageux
+    var darkCloud = 'rgba(232,155,60,0.9)'; // orange Talisker pour couvert
+    var rainColor = 'rgba(77,150,212,0.95)'; // bleu pour pluie
+    
+    // Pluie : nuage avec gouttes
+    if (rain != null && rain >= 0.3) {
+      return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="' + rainColor + '" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;">'
+        + '<path d="M5 13 Q3 13 3 11 Q3 9 5 9 Q6 6 9 6 Q12 6 13 8 Q15 7 17 9 Q19 9 19 11 Q19 13 17 13 Z"/>'
+        + '<line x1="8" y1="16" x2="7" y2="19"/>'
+        + '<line x1="12" y1="16" x2="11" y2="19"/>'
+        + '<line x1="16" y1="16" x2="15" y2="19"/>'
+        + '</svg>';
+    }
+    
     if (cloud == null) return '—';
-    if (cloud < 25) return '☀';
-    if (cloud < 55) return '⛅';
-    if (cloud < 85) return '☁';
-    return '☁';
+    
+    // Soleil clair < 25%
+    if (cloud < 25) {
+      return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="1.8" stroke-linecap="round" style="display:inline-block;vertical-align:middle;">'
+        + '<circle cx="12" cy="12" r="4"/>'
+        + '<line x1="12" y1="3" x2="12" y2="5"/>'
+        + '<line x1="12" y1="19" x2="12" y2="21"/>'
+        + '<line x1="3" y1="12" x2="5" y2="12"/>'
+        + '<line x1="19" y1="12" x2="21" y2="12"/>'
+        + '<line x1="5.6" y1="5.6" x2="7" y2="7"/>'
+        + '<line x1="17" y1="17" x2="18.4" y2="18.4"/>'
+        + '<line x1="5.6" y1="18.4" x2="7" y2="17"/>'
+        + '<line x1="17" y1="7" x2="18.4" y2="5.6"/>'
+        + '</svg>';
+    }
+    
+    // Peu nuageux 25-55% : soleil + petit nuage
+    if (cloud < 55) {
+      return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;">'
+        + '<circle cx="9" cy="9" r="3"/>'
+        + '<line x1="9" y1="3" x2="9" y2="4.5"/>'
+        + '<line x1="3" y1="9" x2="4.5" y2="9"/>'
+        + '<line x1="4.7" y1="4.7" x2="5.6" y2="5.6"/>'
+        + '<path d="M10 16 Q8 16 8 14 Q8 12 10 12 Q11 10 13.5 10 Q16 10 16.5 12 Q18 12 18 14 Q18 16 16 16 Z" stroke="' + grayCloud + '"/>'
+        + '</svg>';
+    }
+    
+    // Nuageux 55-85% : nuage simple
+    if (cloud < 85) {
+      return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="' + grayCloud + '" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;">'
+        + '<path d="M5 16 Q3 16 3 14 Q3 11 6 11 Q7 8 10 8 Q14 8 15 11 Q19 11 19 14 Q19 16 17 16 Z"/>'
+        + '</svg>';
+    }
+    
+    // Couvert >= 85% : nuage rempli
+    return '<svg width="18" height="18" viewBox="0 0 24 24" fill="' + darkCloud + '" stroke="' + darkCloud + '" stroke-width="1.5" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;">'
+      + '<path d="M5 16 Q3 16 3 14 Q3 11 6 11 Q7 8 10 8 Q14 8 15 11 Q19 11 19 14 Q19 16 17 16 Z"/>'
+      + '</svg>';
   }
   function coefCls(c) {
     if (c < 50) return 'vz-cond-coef-low';
@@ -4515,7 +4563,7 @@ function renderSheetTable() {
   html += renderRow('Ciel', null, function(s) {
     var cloud = h.cloud_cover ? h.cloud_cover[s.i] : null;
     var rain = h.precipitation ? h.precipitation[s.i] : null;
-    return { cls: '', html: '<span style="font-size:14px;">' + skyIcon(cloud, rain) + '</span>' };
+    return { cls: '', html: skyIcon(cloud, rain) };
   });
 
   html += '</table></div>';
