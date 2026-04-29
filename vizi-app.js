@@ -4939,6 +4939,7 @@ var html = '<div class="vz-tides-wrap">';
         footerEl = '<div class="vz-tides-windownow-chip">' + inLabel + '</div>';
       } else if (isPast) {
         footerEl = '<div class="vz-tides-windowpast-tag">Passé</div>';
+      }
 
       html += '<div class="' + cardClass + '">' +
         nextBadge +
