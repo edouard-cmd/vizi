@@ -927,6 +927,7 @@
 #locateBtn, #btnBasemapIGN, #authBtn {
   display: none !important;
 }
+#header { display: none !important; }
     .vz-layers-popover {
   position: fixed;
   top: 168px;
@@ -1014,6 +1015,38 @@
 .vz-layers-row.active .vz-layers-check::after {
   content: ''; width: 4px; height: 8px; border: solid var(--vz-bg-deep);
   border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px, -1px);
+}
+    #vzFabImprove {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px;
+  background: var(--vz-bg-glass-strong);
+  backdrop-filter: blur(var(--vz-blur));
+  -webkit-backdrop-filter: blur(var(--vz-blur));
+  border: 0.5px solid var(--vz-accent-border);
+  border-radius: var(--vz-radius-pill);
+  color: var(--vz-accent);
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+  transition: all 0.2s ease;
+}
+#vzFabImprove:hover {
+  background: var(--vz-accent-glow);
+  border-color: var(--vz-accent);
+  transform: translateY(-1px);
+}
+#vzFabImprove svg { width: 16px; height: 16px; }
+@media (max-width: 768px) {
+  #vzFabImprove { bottom: 16px; right: 16px; padding: 10px 14px; font-size: 12px; }
+  #vzFabImprove span { display: none; }
 }
     @media (max-width: 768px) { #zoomControls { display: none; } }
     /* ============================================================
@@ -1349,7 +1382,13 @@
     <button id="authBtn" onclick="handleAuthClick()"><span id="authBtnText">Se connecter</span></button>
   </div>
 </div>
-
+<button id="vzFabImprove" onclick="openObsSheet()" title="Améliorer les prévisions">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="12" y1="5" x2="12" y2="19"></line>
+    <line x1="5" y1="12" x2="19" y2="12"></line>
+  </svg>
+  <span>Améliorer les prévisions</span>
+</button>
 <button id="mobileShareBtn" onclick="openObsSheet()">Ameliorer les previsions</button>
 
 <div id="obsSheetOverlay" onclick="closeObsSheet()"></div>
