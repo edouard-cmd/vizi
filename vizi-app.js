@@ -564,6 +564,7 @@ var S_webcamsActive = false;
 
 function toggleWebcams() {
   S_webcamsActive = !S_webcamsActive;
+  if (S_webcamsActive) closeSpotPopup();
   var btn = document.getElementById('btnWebcams');
   if (btn) btn.classList.toggle('active', S_webcamsActive);
   if (S_webcamsActive) {
@@ -4212,7 +4213,10 @@ window.openConditionsInSheet = function() {
   loadSheetConditions(spot);
 };
 
-window.openCondDrawer = function() { openConditionsInSheet(); };
+window.openCondDrawer = function() { 
+  closeSpotPopup(); 
+  openConditionsInSheet(); 
+};
 window.closeCondDrawer = function() {
   setSheetState('peek');
   VZ_SHEET.mode = null;
