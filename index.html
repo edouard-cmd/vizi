@@ -2055,7 +2055,35 @@
 #vzSheet.sheet-peek { height: 56px; }
 #vzSheet.sheet-half { height: 50vh; }
 #vzSheet.sheet-full { height: 95vh; } /* desktop : full = half (cycle peek <-> half) */
-
+/* Bouton X de fermeture du bandeau (mobile prioritaire) */
+.vz-sheet-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+  width: 36px;
+  height: 36px;
+  background: rgba(255,255,255,0.08);
+  border: 0.5px solid var(--vz-border-glass);
+  border-radius: 50%;
+  color: var(--vz-text-on-dark-muted);
+  cursor: pointer;
+  display: none; /* caché par défaut, visible quand half/full */
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+.vz-sheet-close:hover {
+  background: rgba(255,255,255,0.15);
+  color: var(--vz-text-on-dark);
+  border-color: var(--vz-accent-border);
+}
+.vz-sheet-close svg { width: 16px; height: 16px; }
+#vzSheet.sheet-half .vz-sheet-close,
+#vzSheet.sheet-full .vz-sheet-close {
+  display: flex;
+}
 .vz-sheet-handle {
   flex-shrink: 0;
   cursor: pointer;
@@ -2647,6 +2675,12 @@
      BANDEAU BAS UNIFIÉ - Conditions + Marées (3 états : peek/half/full)
      ============================================================ -->
 <div id="vzSheet" class="sheet-peek" style="display:none;">
+  <button class="vz-sheet-close" onclick="closeSheetCompletely()" title="Fermer">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="18" y1="6" x2="6" y2="18"></line>
+      <line x1="6" y1="6" x2="18" y2="18"></line>
+    </svg>
+  </button>
   <div class="vz-sheet-handle" onclick="cycleSheetState()">
     <div class="vz-sheet-handle-bar"></div>
     <div class="vz-sheet-header">
