@@ -4033,7 +4033,6 @@ var css = `
   style.id = 'vzSheetTableCSS';
   style.textContent = css;
   document.head.appendChild(style);
-})();
 
 window.VZ_SHEET = {
   state: 'peek',
