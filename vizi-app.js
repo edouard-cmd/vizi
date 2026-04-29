@@ -4784,46 +4784,48 @@ function renderTidesSheetContent() {
   var now = new Date();
   var today = now.toISOString().split('T')[0];
   var isToday = selDate === today;
-  var dayLabel = dateObj.toLocaleDateString('fr', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+  // Format JJ/MM/YYYY pour l'affichage
+  var dd = String(dateObj.getUTCDate()).padStart(2, '0');
+  var mm = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+  var yyyy = dateObj.getUTCFullYear();
+  var dateDisplay = dd + '/' + mm + '/' + yyyy;
+  var dayShort = dateObj.toLocaleDateString('fr', { weekday: 'long' });
+
+  // Mise à jour du header du bandeau (mode label seul)
+  updateSheetHeader('Marées', '');
 
   var html = '<div class="vz-tides-wrap">';
 
-  // Date nav
-  html += '<div class="vz-tides-datenav">' +
-    '<button class="vz-tides-datebtn" onclick="shiftTidesSheetDate(-1)">' +
-      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>' +
-    '</button>' +
-    '<input type="date" class="vz-tides-datepicker" value="' + selDate + '" onchange="onTidesSheetDateChange(this.value)">' +
-    '<button class="vz-tides-datebtn" onclick="shiftTidesSheetDate(1)">' +
-      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>' +
-    '</button>' +
-    (isToday ? '' : '<button class="vz-tides-todaybtn" onclick="tidesSheetGoToToday()">Aujourd\'hui</button>') +
-    '<div class="vz-tides-datelabel">' + dayLabel + '</div>' +
-  '</div>';
-
-  // Coef card
+  // Coef card unifiée : 75 (rond) + port + coef + desc + nav date
   if (isMed) {
     html += '<div class="vz-tides-coefcard">' +
-      '<div class="vz-tides-coefinfo" style="width:100%;">' +
-        '<div class="vz-tides-coeflabel" style="color:var(--vz-text-on-dark-faint);">coefficient non applicable</div>' +
-        '<div class="vz-tides-coefdesc">Méditerranée — marnage négligeable</div>' +
-        '<div class="vz-tides-coefmarnage">marnage ' + marnage.toFixed(1) + 'm</div>' +
+      '<div class="vz-tides-coefinfo">' +
+        '<div class="vz-tides-coeftop">' +
+          '<span class="vz-tides-portname">' + port.name + '</span>' +
+          '<span class="vz-tides-coeflabel" style="color:var(--vz-text-on-dark-faint);">méditerranée</span>' +
+        '</div>' +
+        '<div class="vz-tides-coefdesc">Coefficient non applicable · marnage ' + marnage.toFixed(1) + 'm</div>' +
       '</div>' +
+      renderTidesDateNav(selDate, dateDisplay, dayShort) +
     '</div>';
   } else {
     html += '<div class="vz-tides-coefcard">' +
       '<div class="vz-tides-coefbig" style="color:' + color + ';border-color:' + color + ';">' + coef + '</div>' +
       '<div class="vz-tides-coefinfo">' +
-        '<div class="vz-tides-coeflabel" style="color:' + color + ';">coefficient ' + label + '</div>' +
-        '<div class="vz-tides-coefdesc">' + description + '</div>' +
-        '<div class="vz-tides-coefmarnage">marnage ' + marnage.toFixed(1) + 'm</div>' +
+        '<div class="vz-tides-coeftop">' +
+          '<span class="vz-tides-portname">' + port.name + '</span>' +
+          '<span class="vz-tides-coeflabel" style="color:' + color + ';">coef ' + label + '</span>' +
+        '</div>' +
+        '<div class="vz-tides-coefdesc">' + description + ' · marnage ' + marnage.toFixed(1) + 'm</div>' +
       '</div>' +
+      renderTidesDateNav(selDate, dateDisplay, dayShort) +
     '</div>';
   }
 
   // Créneaux
   if (dayExtremes && dayExtremes.length > 0) {
-    html += '<div>';
+    html += '<div class="vz-tides-windowsblock">';
     html += '<div class="vz-tides-sectiontitle">Créneaux chassables</div>';
     html += '<div class="vz-tides-windowsgrid">';
     dayExtremes.forEach(function(e) {
@@ -4844,7 +4846,7 @@ function renderTidesSheetContent() {
       if (isCurrent) cardClass += ' is-current';
       if (isPast) cardClass += ' is-past';
 
-      var badge = isCurrent ? '<span class="vz-tides-windowbadge">MAINTENANT</span>' : '';
+      var badge = isCurrent ? '<span class="vz-tides-windowbadge">NOW</span>' : '';
 
       var agendaBtn = isPast ? '' : (
         '<button class="vz-tides-agendabtn" ' +
@@ -4853,7 +4855,7 @@ function renderTidesSheetContent() {
         'data-start="' + startTime.toISOString() + '" ' +
         'data-end="' + endTime.toISOString() + '" ' +
         'onclick="openAgendaModalFromSheet(this)">' +
-        '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">' +
           '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>' +
           '<line x1="16" y1="2" x2="16" y2="6"></line>' +
           '<line x1="8" y1="2" x2="8" y2="6"></line>' +
@@ -4866,7 +4868,7 @@ function renderTidesSheetContent() {
       html += '<div class="' + cardClass + '">' +
         '<div class="vz-tides-windowtop">' +
           '<div class="vz-tides-windowtype" style="color:' + typeColor + ';">' + typeShort + ' — ' + typeLabel + badge + '</div>' +
-          '<div class="vz-tides-windowetale">étale ' + etaleStr + '</div>' +
+          '<div class="vz-tides-windowetale">' + etaleStr + '</div>' +
         '</div>' +
         '<div class="vz-tides-windowrange">' +
           '<span class="vz-tides-windowtime">' + startStr + '</span>' +
@@ -4879,13 +4881,29 @@ function renderTidesSheetContent() {
     html += '</div></div>';
   }
 
-  // Courbe
+  // Courbe (étirée sur tout l'espace restant)
   html += renderTidesSheetCurve(dayPoints, dayExtremes, isToday, now);
 
   html += '</div>';
   body.innerHTML = html;
 }
 
+// Helper : nav date intégrée à droite de la coef card
+function renderTidesDateNav(selDate, dateDisplay, dayShort) {
+  return '<div class="vz-tides-datenav">' +
+    '<button class="vz-tides-datebtn" onclick="shiftTidesSheetDate(-1)">' +
+      '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>' +
+    '</button>' +
+    '<label class="vz-tides-datepicker">' +
+      '<span class="vz-tides-datepicker-display">' + dateDisplay + '</span>' +
+      '<span class="vz-tides-datepicker-day">' + dayShort + '</span>' +
+      '<input type="date" value="' + selDate + '" onchange="onTidesSheetDateChange(this.value)">' +
+    '</label>' +
+    '<button class="vz-tides-datebtn" onclick="shiftTidesSheetDate(1)">' +
+      '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>' +
+    '</button>' +
+  '</div>';
+}
 // Wrapper agenda pour le bandeau (réutilise openAgendaModal existant)
 window.openAgendaModalFromSheet = function(btn) {
   if (typeof TIDES_PAGE === 'undefined') window.TIDES_PAGE = {};
@@ -4959,7 +4977,7 @@ function renderTidesSheetCurve(points, extremes, isToday, now) {
 
   var xAxis = '<line x1="' + pad + '" y1="' + (h - pad) + '" x2="' + (w - pad) + '" y2="' + (h - pad) + '" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>';
 
-  var svg = '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto;display:block;max-width:100%;">' +
+  var svg = '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" style="width:100%;height:100%;display:block;">' +
     chassableBands +
     '<path d="' + path + 'L' + lastX + ',' + (h - pad) + ' L' + firstX + ',' + (h - pad) + ' Z" fill="#4DD4A8" opacity="0.10"/>' +
     '<path d="' + path + '" stroke="#4DD4A8" stroke-width="2.5" fill="none"/>' +
@@ -4970,8 +4988,8 @@ function renderTidesSheetCurve(points, extremes, isToday, now) {
     '</svg>';
 
   return '<div class="vz-tides-curvewrap">' +
-    '<div class="vz-tides-sectiontitle">Courbe de marée — 24h</div>' +
-    svg +
+    '<div class="vz-tides-sectiontitle" style="flex-shrink:0;">Courbe de marée — 24h</div>' +
+    '<div class="vz-tides-curveinner">' + svg + '</div>' +
     '<div class="vz-tides-curvelegend">' +
       '<span><span class="legend-band"></span>créneau chassable (±2h autour de l\'étale)</span>' +
       '<span style="color:#4DD4A8">● Pleine mer</span>' +
