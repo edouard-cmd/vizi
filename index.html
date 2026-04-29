@@ -316,7 +316,32 @@
   gap: 10px;
   min-height: 0;
 }
-
+/* Titre interne colonne gauche (style mockup) */
+.vz-tides-colheader {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+  flex-shrink: 0;
+}
+.vz-tides-colheader-title {
+  font-family: 'Inter', sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--vz-text-on-dark);
+  letter-spacing: 0.01em;
+}
+.vz-tides-colheader-sep {
+  color: var(--vz-text-on-dark-faint);
+  font-size: 14px;
+}
+.vz-tides-colheader-port {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--vz-text-on-dark-muted);
+  letter-spacing: 0.12em;
+}
 /* Bloc coef compact (haut) */
 .vz-tides-coefbloc {
   display: flex;
@@ -325,15 +350,15 @@
   flex-shrink: 0;
 }
 .vz-tides-coefbig {
-  width: 44px;
-  height: 44px;
-  border: 2px solid;
+  width: 52px;
+  height: 52px;
+  border: 2.5px solid;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: 'Inter', sans-serif;
-  font-size: 16px;
+  font-size: 19px;
   font-weight: 700;
   line-height: 1;
   flex-shrink: 0;
@@ -564,19 +589,20 @@
   font-size: 12px;
 }
 
-/* Chip "Dans 2h45" sur la card prochain */
+/* Chip "Dans 2h45" sur la card prochain (compact) */
 .vz-tides-windownow-chip {
   background: var(--vz-accent);
   color: var(--vz-bg-deep);
   font-family: 'Inter', sans-serif;
   font-size: 9px;
   font-weight: 700;
-  padding: 3px 7px;
+  padding: 2px 6px;
   border-radius: 3px;
   letter-spacing: 0.08em;
-  line-height: 1;
+  line-height: 1.2;
   align-self: flex-start;
   text-transform: uppercase;
+  margin-top: 0;
 }
 .vz-tides-windowpast-tag {
   font-family: 'IBM Plex Mono', monospace;
@@ -585,6 +611,17 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   align-self: flex-end;
+  margin-top: 0;
+  line-height: 1;
+}
+
+/* Compactage des cards créneaux */
+.vz-tides-windowcard {
+  padding: 8px 10px;
+  gap: 4px;
+}
+.vz-tides-windowcard.is-next {
+  padding: 8px 10px;
 }
 
 /* Footer info contextuelle (phase / courant / soleil) */
