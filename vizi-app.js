@@ -3887,3 +3887,340 @@ if (document.readyState === 'loading') {
 } else {
   boot();
 }
+// ============================================================
+// DRAWER CONDITIONS - Tableau dense Talisker (refonte v2)
+// Remplace l'ancien forecastPanel par un tableau 7 lignes x 40 colonnes
+// (3h x 5j) avec visi color-codée, marées, vent, ciel
+// ============================================================
+
+var VZ_COND = {
+  isOpen: false,
+  lat: null,
+  lon: null,
+  spotName: null,
+  weather: null,
+  modelMap: null,
+  depth: null,
+  tides: null,
+  coefs: null
+};
+
+function openCondDrawer() {
+  var drawer = document.getElementById('vzCondDrawer');
+  if (!drawer) return;
+  drawer.classList.add('open');
+  VZ_COND.isOpen = true;
+  var tab = document.getElementById('vzTabCond');
+  if (tab) tab.classList.add('active');
+
+  // Choix du point analysé : priorité clic > GPS > Cherbourg
+  var lat = null, lon = null, name = null;
+  if (S.clickLatLng) {
+    lat = S.clickLatLng.lat;
+    lon = S.clickLatLng.lng;
+    var nearest = findNearestPort(lat, lon);
+    if (nearest && nearest.distanceKm < 10) name = nearest.spot.name;
+  } else if (typeof GEO_STATE !== 'undefined' && GEO_STATE.userLatLng) {
+    var nearestGeo = findNearestPort(GEO_STATE.userLatLng.lat, GEO_STATE.userLatLng.lon);
+    if (nearestGeo) {
+      lat = nearestGeo.spot.lat;
+      lon = nearestGeo.spot.lon;
+      name = nearestGeo.spot.name;
+    }
+  }
+  if (lat === null) {
+    var cherbourg = SPOTS.find(function(s){ return s.id === 'cherbourg'; });
+    if (cherbourg) { lat = cherbourg.lat; lon = cherbourg.lon; name = cherbourg.name; }
+  }
+
+  VZ_COND.lat = lat;
+  VZ_COND.lon = lon;
+  VZ_COND.spotName = name;
+
+  document.getElementById('vzCondSpot').textContent = name || (lat.toFixed(3) + ', ' + lon.toFixed(3));
+  document.getElementById('vzCondMeta').textContent = lat.toFixed(3) + 'N ' + Math.abs(lon).toFixed(3) + 'O — chargement profondeur...';
+  document.getElementById('vzCondBody').innerHTML = '<div class="vz-cond-loading">Chargement des conditions...</div>';
+
+  loadCondData();
+}
+
+function closeCondDrawer() {
+  var drawer = document.getElementById('vzCondDrawer');
+  if (drawer) drawer.classList.remove('open');
+  VZ_COND.isOpen = false;
+  var tab = document.getElementById('vzTabCond');
+  if (tab) tab.classList.remove('active');
+}
+
+function loadCondData() {
+  var lat = VZ_COND.lat;
+  var lon = VZ_COND.lon;
+
+  // 1. Météo : AROME + ARPEGE fusionnés (5 jours)
+  var aromeUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon
+    + '&hourly=windspeed_10m,winddirection_10m,windgusts_10m,wave_height,precipitation,cloud_cover'
+    + '&wind_speed_unit=kmh&timezone=Europe/Paris&past_days=0&forecast_days=2'
+    + '&models=meteofrance_arome_france';
+  var arpegeUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon
+    + '&hourly=windspeed_10m,winddirection_10m,windgusts_10m,wave_height,precipitation,cloud_cover'
+    + '&wind_speed_unit=kmh&timezone=Europe/Paris&past_days=0&forecast_days=5'
+    + '&models=meteofrance_arpege_europe';
+
+  // 2. Profondeur EMODnet
+  var depthPromise = fetchRealDepth(lat, lon).then(function(d) {
+    return d !== null ? d : Math.max(2, estimateDistanceToCoast(lat, lon) * 0.004 + 1.5);
+  });
+
+  // 3. Marées (port le plus proche, 5 jours)
+  var tidesNear = findApiMareeSiteNear(lat, lon);
+  var tidesPromise;
+  if (tidesNear) {
+    var today = new Date().toISOString().split('T')[0];
+    tidesPromise = gasGet('tides_range', { site: tidesNear.siteId, from: today, days: 6 });
+  } else {
+    tidesPromise = Promise.resolve(null);
+  }
+
+  Promise.all([
+    fetch(aromeUrl).then(function(r){ return r.json(); }),
+    fetch(arpegeUrl).then(function(r){ return r.json(); }),
+    depthPromise,
+    tidesPromise
+  ]).then(function(results) {
+    var arome = results[0];
+    var arpege = results[1];
+    var depth = results[2];
+    var tidesData = results[3];
+
+    var fused = fuseForecasts(arome.hourly || null, arpege.hourly || null);
+    VZ_COND.weather = fused.h;
+    VZ_COND.modelMap = fused.modelMap;
+    VZ_COND.depth = depth;
+    VZ_COND.tides = (tidesData && tidesData.data) ? tidesData.data : null;
+
+    document.getElementById('vzCondMeta').textContent =
+      VZ_COND.lat.toFixed(3) + 'N ' + Math.abs(VZ_COND.lon).toFixed(3) + 'O — fond ~' + Math.round(depth) + 'm';
+
+    renderCondTable();
+  }).catch(function(err) {
+    console.error('[VZ_COND] erreur:', err);
+    document.getElementById('vzCondBody').innerHTML =
+      '<div class="vz-cond-loading" style="color:var(--vz-danger)">Erreur de chargement : ' + err.message + '</div>';
+  });
+}
+
+function renderCondTable() {
+  var h = VZ_COND.weather;
+  if (!h || !h.time) return;
+
+  var lat = VZ_COND.lat;
+  var lon = VZ_COND.lon;
+  var depth = VZ_COND.depth || 5;
+
+  // Échantillonnage : un créneau toutes les 3h sur 5 jours = ~40 colonnes
+  var cols = [];
+  var nowHour = new Date().toISOString().slice(0, 13);
+  for (var i = 0; i < h.time.length; i++) {
+    var t = h.time[i];
+    var hr = parseInt(t.slice(11, 13));
+    if (hr % 3 === 0) {
+      cols.push({ i: i, t: t, isNow: t.slice(0, 13) === nowHour });
+    }
+    if (cols.length >= 40) break;
+  }
+
+  // Groupement par jour pour les frontières
+  var days = [];
+  var lastDay = null;
+  cols.forEach(function(c, idx) {
+    var day = c.t.slice(0, 10);
+    if (day !== lastDay) {
+      days.push({ day: day, cols: [], firstColIdx: idx });
+      lastDay = day;
+    }
+    days[days.length - 1].cols.push(c);
+  });
+
+  // Helpers
+  function visClass(score) {
+    // score 0-100, plus haut = mieux
+    // Mapping : <20 = vis-0 (<1m), 20-40 = vis-1 (1-2m), 40-60 = vis-2 (2-4m), 60-80 = vis-3 (4-8m), 80+ = vis-4 (+8m)
+    if (score < 20) return 'vz-cond-vis-0';
+    if (score < 40) return 'vz-cond-vis-1';
+    if (score < 60) return 'vz-cond-vis-2';
+    if (score < 80) return 'vz-cond-vis-3';
+    return 'vz-cond-vis-4';
+  }
+  function visLabel(score) {
+    if (score < 20) return '<1m';
+    if (score < 40) return '1-2m';
+    if (score < 60) return '2-4m';
+    if (score < 80) return '4-8m';
+    return '+8m';
+  }
+  function windClass(kmh) {
+    if (kmh < 10) return 'vz-cond-w-0';
+    if (kmh < 15) return 'vz-cond-w-1';
+    if (kmh < 20) return 'vz-cond-w-2';
+    if (kmh < 28) return 'vz-cond-w-3';
+    if (kmh < 38) return 'vz-cond-w-4';
+    if (kmh < 50) return 'vz-cond-w-5';
+    return 'vz-cond-w-6';
+  }
+  function dirArrow(deg) {
+    if (deg === null || deg === undefined) return '-';
+    return '<svg width="14" height="14" viewBox="0 0 20 20" style="transform:rotate(' + deg + 'deg);display:inline-block;vertical-align:middle;">'
+      + '<path d="M10 2 L10 16 M10 16 L6 12 M10 16 L14 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>'
+      + '</svg>';
+  }
+  function skyIcon(cloud, rain) {
+    if (rain !== null && rain !== undefined && rain >= 0.3) return '🌧';
+    if (cloud === null || cloud === undefined) return '-';
+    if (cloud < 25) return '☀';
+    if (cloud < 55) return '⛅';
+    if (cloud < 85) return '☁';
+    return '☁';
+  }
+
+  // Marées : interpoler hauteur pour chaque créneau
+  function tideHeightAt(timeStr) {
+    if (!VZ_COND.tides) return null;
+    var target = new Date(timeStr).getTime();
+    var best = null, bestDiff = Infinity;
+    for (var k = 0; k < VZ_COND.tides.length; k++) {
+      var diff = Math.abs(new Date(VZ_COND.tides[k].time).getTime() - target);
+      if (diff < bestDiff) { bestDiff = diff; best = VZ_COND.tides[k]; }
+    }
+    return best && bestDiff < 3700000 ? best.height : null; // < 1h+
+  }
+
+  function coefAt(timeStr) {
+    return getCoefForDate(timeStr.slice(0, 10));
+  }
+  function coefClass(c) {
+    if (c < 50) return 'vz-cond-coef-low';
+    if (c < 80) return 'vz-cond-coef-mid';
+    return 'vz-cond-coef-high';
+  }
+
+  var unitLabel = S_windUnit === 'kt' ? 'nds' : 'km/h';
+  var conv = S_windUnit === 'kt' ? toKt : function(v){ return Math.round(v); };
+
+  // ============= Construction HTML =============
+  var dayNames = { 'Mon':'lun', 'Tue':'mar', 'Wed':'mer', 'Thu':'jeu', 'Fri':'ven', 'Sat':'sam', 'Sun':'dim' };
+  var monthNames = ['janv','févr','mars','avr','mai','juin','juil','août','sept','oct','nov','déc'];
+
+  var html = '<table class="vz-cond-table"><thead>';
+
+  // Ligne 1 : jours
+  html += '<tr><td class="vz-cond-cornerlabel"></td>';
+  days.forEach(function(d, di) {
+    var dateObj = new Date(d.day + 'T12:00:00');
+    var dayShort = dateObj.toLocaleDateString('fr', { weekday: 'short' });
+    var dayNum = dateObj.getDate();
+    var monthShort = monthNames[dateObj.getMonth()];
+    var label = dayShort + ' ' + dayNum + ' ' + monthShort;
+    html += '<td colspan="' + d.cols.length + '" class="vz-cond-dayhead' + (di > 0 ? ' vz-cond-dayboundary' : '') + '">' + label + '</td>';
+  });
+  html += '</tr>';
+
+  // Ligne 2 : heures
+  html += '<tr><td class="vz-cond-cornerhour"></td>';
+  cols.forEach(function(c, ci) {
+    var hourStr = c.t.slice(11, 13) + 'h';
+    var classes = 'vz-cond-hourhead';
+    if (c.isNow) classes += ' vz-cond-now vz-cond-now-header';
+    // Frontière jour ?
+    var isDayBoundary = ci > 0 && c.t.slice(0,10) !== cols[ci-1].t.slice(0,10);
+    if (isDayBoundary) classes += ' vz-cond-dayboundary';
+    html += '<td class="' + classes + '">' + hourStr + '</td>';
+  });
+  html += '</tr></thead><tbody>';
+
+  function renderRow(label, rowClass, cellFn) {
+    html += '<tr class="' + rowClass + '"><td class="vz-cond-rowlabel">' + label + '</td>';
+    cols.forEach(function(c, ci) {
+      var isDayBoundary = ci > 0 && c.t.slice(0,10) !== cols[ci-1].t.slice(0,10);
+      var extra = (c.isNow ? ' vz-cond-now' : '') + (isDayBoundary ? ' vz-cond-dayboundary' : '');
+      var cell = cellFn(c, ci);
+      html += '<td class="' + (cell.cls || '') + extra + '"' + (cell.attrs || '') + '>' + cell.html + '</td>';
+    });
+    html += '</tr>';
+  }
+
+  // Ligne VISIBILITÉ (killer feature, 44px haute, color-coded, cliquable)
+  renderRow('Visibilité', 'vz-cond-row-vis', function(c) {
+    var score = visScoreV2(h, c.i, depth, lat, lon);
+    return {
+      cls: visClass(score),
+      html: visLabel(score),
+      attrs: ' onclick="condCellClick(\'' + c.t + '\')" title="Voir le détail à ' + c.t.slice(11,16) + '"'
+    };
+  });
+
+  // Ligne MARÉE (m)
+  renderRow('Marée (m)', 'vz-cond-row-tide', function(c) {
+    var th = tideHeightAt(c.t);
+    return { cls: '', html: th !== null ? th.toFixed(1) : '-' };
+  });
+
+  // Ligne COEFFICIENT
+  renderRow('Coef', 'vz-cond-row-coef', function(c) {
+    var co = coefAt(c.t);
+    return { cls: coefClass(co), html: '<strong>' + co + '</strong>' };
+  });
+
+  // Ligne VENT
+  renderRow('Vent (' + unitLabel + ')', 'vz-cond-row-wind', function(c) {
+    var v = h.windspeed_10m[c.i] || 0;
+    return { cls: windClass(v), html: conv(v) };
+  });
+
+  // Ligne RAFALES
+  renderRow('Rafales (' + unitLabel + ')', 'vz-cond-row-gusts', function(c) {
+    var v = h.windgusts_10m[c.i] || 0;
+    return { cls: windClass(v), html: conv(v) };
+  });
+
+  // Ligne DIRECTION
+  renderRow('Direction', 'vz-cond-row-dir', function(c) {
+    return { cls: '', html: dirArrow(h.winddirection_10m[c.i]) };
+  });
+
+  // Ligne CIEL
+  renderRow('Ciel', 'vz-cond-row-sky', function(c) {
+    var cloud = h.cloud_cover ? h.cloud_cover[c.i] : null;
+    var rain = h.precipitation ? h.precipitation[c.i] : null;
+    return { cls: '', html: '<span style="font-size:14px;">' + skyIcon(cloud, rain) + '</span>' };
+  });
+
+  html += '</tbody></table>';
+
+  // Footer
+  html += '<div class="vz-cond-footer">'
+    + '<span><strong>AROME</strong> 1.3km (0-48h)</span>'
+    + '<span><strong>ARPEGE</strong> Europe (48h-5j)</span>'
+    + '<span>Marées : SHOM via WorldTides</span>'
+    + '<span>Algo visi calibré Courseulles 04/26</span>'
+    + '</div>';
+
+  document.getElementById('vzCondBody').innerHTML = html;
+}
+
+function condCellClick(timeStr) {
+  // Ouvre le drawer spot à la date/heure cliquée
+  if (!VZ_COND.lat) return;
+  var latlng = L.latLng(VZ_COND.lat, VZ_COND.lon);
+  closeCondDrawer();
+  openSpotPopup(latlng, VZ_COND.spotName);
+  // Set la date/heure dans le drawer spot
+  setTimeout(function() {
+    var dateInput = document.getElementById('spotDate');
+    var timeInput = document.getElementById('spotTime');
+    if (dateInput && timeInput) {
+      dateInput.value = timeStr.slice(0, 10);
+      timeInput.value = timeStr.slice(11, 16);
+      if (typeof refreshSpotPopup === 'function') refreshSpotPopup();
+    }
+  }, 350);
+}
