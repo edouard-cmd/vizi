@@ -4756,6 +4756,14 @@ window.tidesSheetGoToToday = function() {
   renderTidesSheetContent();
 };
 
+// ============================================================
+// VIZI MARÉES — VERSION FINALE PROPRE
+// Remplace les 2 fonctions ci-dessous dans vizi-app.js :
+//   1. renderTidesSheetContent
+//   2. renderTidesSheetCurve
+// (et la fonction helper renderTidesDateNav qui suit immédiatement)
+// ============================================================
+
 function renderTidesSheetContent() {
   var body = document.getElementById('vzSheetBody');
   if (!body) return;
@@ -4789,14 +4797,20 @@ function renderTidesSheetContent() {
   var mm = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
   var yyyy = dateObj.getUTCFullYear();
   var dateDisplay = dd + '/' + mm + '/' + yyyy;
-  var dayShort = dateObj.toLocaleDateString('fr', { weekday: 'long' });
+  var dayShort = dateObj.toLocaleDateString('fr', { weekday: 'short' });
 
-updateSheetHeader('Marées', '');
+  updateSheetHeader('Marées', '');
+
+  // === STRUCTURE : .vz-tides-wrap > [.vz-tides-leftcol, .vz-tides-curvewrap]
+  // Le CSS attend EXACTEMENT 2 enfants directs (grid 2 colonnes).
+  // Pas de wrapper .vz-tides-cols intermédiaire.
 
   var html = '<div class="vz-tides-wrap">';
+
+  // ====== COLONNE GAUCHE ======
   html += '<div class="vz-tides-leftcol">';
 
-  // Coef card unifiée (haut)
+  // Coef card (avec nav date intégrée)
   if (isMed) {
     html += '<div class="vz-tides-coefcard">' +
       '<div class="vz-tides-coefinfo">' +
@@ -4804,9 +4818,9 @@ updateSheetHeader('Marées', '');
           '<span class="vz-tides-portname">' + port.name + '</span>' +
           '<span class="vz-tides-coeflabel" style="color:var(--vz-text-on-dark-faint);">méditerranée</span>' +
         '</div>' +
-        '<div class="vz-tides-coefdesc">Coefficient non applicable · marnage ' + marnage.toFixed(1) + 'm</div>' +
+        '<div class="vz-tides-coefdesc">marnage ' + marnage.toFixed(1) + 'm</div>' +
+        renderTidesDateNav(selDate, dateDisplay, dayShort) +
       '</div>' +
-      renderTidesDateNav(selDate, dateDisplay, dayShort) +
     '</div>';
   } else {
     html += '<div class="vz-tides-coefcard">' +
@@ -4816,13 +4830,13 @@ updateSheetHeader('Marées', '');
           '<span class="vz-tides-portname">' + port.name + '</span>' +
           '<span class="vz-tides-coeflabel" style="color:' + color + ';">coef ' + label + '</span>' +
         '</div>' +
-        '<div class="vz-tides-coefdesc">' + description + ' · marnage ' + marnage.toFixed(1) + 'm</div>' +
+        '<div class="vz-tides-coefdesc">marnage ' + marnage.toFixed(1) + 'm · ' + description.toLowerCase() + '</div>' +
+        renderTidesDateNav(selDate, dateDisplay, dayShort) +
       '</div>' +
-      renderTidesDateNav(selDate, dateDisplay, dayShort) +
     '</div>';
   }
 
- // Créneaux 2x2 (toujours dans la colonne gauche)
+  // Créneaux 2x2
   html += '<div class="vz-tides-windowscol">';
   html += '<div class="vz-tides-sectiontitle">Créneaux chassables</div>';
 
@@ -4877,21 +4891,24 @@ updateSheetHeader('Marées', '');
         agendaBtn +
       '</div>';
     });
-    html += '</div>';
+    html += '</div>'; // fin .vz-tides-windowsgrid
   }
- html += '</div>'; // fin .vz-tides-windowscol
+  html += '</div>'; // fin .vz-tides-windowscol
+
   html += '</div>'; // fin .vz-tides-leftcol
 
-  // Colonne droite : courbe étirée (enfant direct du grid)
+  // ====== COLONNE DROITE (enfant direct du grid) ======
   html += renderTidesSheetCurve(dayPoints, dayExtremes, isToday, now);
 
   html += '</div>'; // fin .vz-tides-wrap
+
+  body.innerHTML = html;
 }
 
 function renderTidesDateNav(selDate, dateDisplay, dayShort) {
   return '<div class="vz-tides-datenav">' +
     '<button class="vz-tides-datebtn" onclick="shiftTidesSheetDate(-1)">' +
-      '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>' +
+      '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>' +
     '</button>' +
     '<label class="vz-tides-datepicker">' +
       '<span class="vz-tides-datepicker-display">' + dateDisplay + '</span>' +
@@ -4899,7 +4916,7 @@ function renderTidesDateNav(selDate, dateDisplay, dayShort) {
       '<input type="date" value="' + selDate + '" onchange="onTidesSheetDateChange(this.value)">' +
     '</label>' +
     '<button class="vz-tides-datebtn" onclick="shiftTidesSheetDate(1)">' +
-      '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>' +
+      '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>' +
     '</button>' +
   '</div>';
 }
