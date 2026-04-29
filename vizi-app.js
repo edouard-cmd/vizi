@@ -5155,18 +5155,9 @@ function renderTidesSheetCurve(dayPoints, dayExtremes, isToday, now, nextExtreme
   '</defs>';
 
   // === Zones de NUIT (avant lever + après coucher) ===
+  // Variables soleil (zones nuit dessinées en overlay tout en bas)
   var xSunrise = xOfMin(sunriseMin);
   var xSunset = xOfMin(sunsetMin);
-  // Bande nuit du matin (0h -> sunrise)
-  svg += '<rect x="' + padL + '" y="' + padT + '" width="' + (xSunrise - padL).toFixed(1) + '" height="' + (h - padT - padB) + '" fill="#000" fill-opacity="0.35"/>';
-  // Bande nuit du soir (sunset -> 24h)
-  svg += '<rect x="' + xSunset.toFixed(1) + '" y="' + padT + '" width="' + (w - padR - xSunset).toFixed(1) + '" height="' + (h - padT - padB) + '" fill="#000" fill-opacity="0.35"/>';
-
-  // Labels lever / coucher
-  svg += '<text x="' + xSunrise.toFixed(1) + '" y="' + (padT - 8) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="13" fill="#FBBF24" font-weight="600">☀ ' + sunTimes.sunrise + '</text>';
-  svg += '<line x1="' + xSunrise.toFixed(1) + '" y1="' + padT + '" x2="' + xSunrise.toFixed(1) + '" y2="' + (h - padB) + '" stroke="#FBBF24" stroke-width="1" stroke-dasharray="2,3" opacity="0.4"/>';
-  svg += '<text x="' + xSunset.toFixed(1) + '" y="' + (padT - 8) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="13" fill="#FBBF24" font-weight="600">☾ ' + sunTimes.sunset + '</text>';
-  svg += '<line x1="' + xSunset.toFixed(1) + '" y1="' + padT + '" x2="' + xSunset.toFixed(1) + '" y2="' + (h - padB) + '" stroke="#FBBF24" stroke-width="1" stroke-dasharray="2,3" opacity="0.4"/>';
 
   // === Grille horizontale (3 lignes) ===
   for (var g = 0; g < 3; g++) {
@@ -5227,7 +5218,7 @@ function renderTidesSheetCurve(dayPoints, dayExtremes, isToday, now, nextExtreme
     svg += '<text x="' + x.toFixed(1) + '" y="' + (h - padB + 26) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="15" fill="rgba(255,255,255,0.6)" font-weight="500">' + hr + 'h</text>';
   });
 
-  // === Cursor NOW (ligne rouge dashed + label) ===
+// === Cursor NOW (trait teal discret, point sur la courbe) ===
   if (isToday) {
     var nowX = xOf(now);
     if (nowX >= padL && nowX <= w - padR) {
@@ -5244,13 +5235,8 @@ function renderTidesSheetCurve(dayPoints, dayExtremes, isToday, now, nextExtreme
         }
       }
 
-      svg += '<line x1="' + nowX.toFixed(1) + '" y1="' + padT + '" x2="' + nowX.toFixed(1) + '" y2="' + (h - padB) + '" stroke="#C94A3D" stroke-width="2" stroke-dasharray="5,4"/>';
-      svg += '<circle cx="' + nowX.toFixed(1) + '" cy="' + nowY.toFixed(1) + '" r="7" fill="#C94A3D" stroke="#0A1520" stroke-width="2.5"/>';
-
-      var nowLabel = now.toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
-      var labelX = Math.max(padL + 40, Math.min(w - padR - 40, nowX));
-      svg += '<rect x="' + (labelX - 38).toFixed(1) + '" y="' + (padT + 8) + '" width="76" height="22" rx="4" fill="#C94A3D"/>';
-      svg += '<text x="' + labelX.toFixed(1) + '" y="' + (padT + 23) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="12" fill="#FFFFFF" font-weight="700" letter-spacing="0.08em">' + nowLabel + ' NOW</text>';
+      svg += '<line x1="' + nowX.toFixed(1) + '" y1="' + padT + '" x2="' + nowX.toFixed(1) + '" y2="' + (h - padB) + '" stroke="#4DD4A8" stroke-width="1.2" opacity="0.55"/>';
+      svg += '<circle cx="' + nowX.toFixed(1) + '" cy="' + nowY.toFixed(1) + '" r="6" fill="#4DD4A8" stroke="#0A1520" stroke-width="2"/>';
     }
   }
 
@@ -5285,6 +5271,16 @@ function renderTidesSheetCurve(dayPoints, dayExtremes, isToday, now, nextExtreme
       svg += '<text x="' + x.toFixed(1) + '" y="' + ty1.toFixed(1) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="' + fontSizeH + '" fill="' + color + '" opacity="' + (opacity * 0.75) + '">' + e.height.toFixed(1) + 'm</text>';
     });
   }
+
+  // === OVERLAY NUIT (par-dessus la courbe, comme la vraie nuit qui couvre tout) ===
+  svg += '<rect x="' + padL + '" y="' + padT + '" width="' + (xSunrise - padL).toFixed(1) + '" height="' + (h - padT - padB) + '" fill="#000" fill-opacity="0.42" pointer-events="none"/>';
+  svg += '<rect x="' + xSunset.toFixed(1) + '" y="' + padT + '" width="' + (w - padR - xSunset).toFixed(1) + '" height="' + (h - padT - padB) + '" fill="#000" fill-opacity="0.42" pointer-events="none"/>';
+
+  // Labels lever / coucher (par-dessus l'overlay)
+  svg += '<text x="' + xSunrise.toFixed(1) + '" y="' + (padT - 18) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="12" fill="#D8C84A" font-weight="600">☀ ' + sunTimes.sunrise + '</text>';
+  svg += '<line x1="' + xSunrise.toFixed(1) + '" y1="' + padT + '" x2="' + xSunrise.toFixed(1) + '" y2="' + (h - padB) + '" stroke="#D8C84A" stroke-width="1" stroke-dasharray="2,3" opacity="0.5"/>';
+  svg += '<text x="' + xSunset.toFixed(1) + '" y="' + (padT - 18) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="12" fill="#D8C84A" font-weight="600">☾ ' + sunTimes.sunset + '</text>';
+  svg += '<line x1="' + xSunset.toFixed(1) + '" y1="' + padT + '" x2="' + xSunset.toFixed(1) + '" y2="' + (h - padB) + '" stroke="#D8C84A" stroke-width="1" stroke-dasharray="2,3" opacity="0.5"/>';
 
   svg += '</svg>';
 
