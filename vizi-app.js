@@ -4101,6 +4101,25 @@ var css = `
       .vz-cond-cornerlabel, .vz-cond-cornerhour { min-width: 96px; }
       .vz-cond-row-vis td { font-size: 13px !important; }
     }
+     /* Scrollbar horizontale discrète type Apple */
+    .vz-sheet-cond-wrap > div[style*="overflow-x"] {
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,0.18) transparent;
+    }
+    .vz-sheet-cond-wrap > div[style*="overflow-x"]::-webkit-scrollbar {
+      height: 6px;
+      background: transparent;
+    }
+    .vz-sheet-cond-wrap > div[style*="overflow-x"]::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.18);
+      border-radius: 4px;
+    }
+    .vz-sheet-cond-wrap > div[style*="overflow-x"]::-webkit-scrollbar-thumb:hover {
+      background: rgba(255,255,255,0.32);
+    }
+    .vz-sheet-cond-wrap > div[style*="overflow-x"]::-webkit-scrollbar-track {
+      background: transparent;
+    }
   `;
   var style = document.createElement('style');
   style.id = 'vzSheetTableCSS';
