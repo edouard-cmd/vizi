@@ -3699,14 +3699,14 @@ function renderTidesDrawerCurve(points, extremes, isToday, now) {
     nowLine =
       '<line x1="' + nowX.toFixed(1) + '" y1="' + pad + '" x2="' + nowX.toFixed(1) + '" y2="' + (h - pad) + '" stroke="#DC2626" stroke-width="2" stroke-dasharray="4,3"/>' +
       '<circle cx="' + nowX.toFixed(1) + '" cy="' + pad + '" r="5" fill="#DC2626"/>' +
-      '<text x="' + nowX.toFixed(1) + '" y="' + (pad - 6) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="#C94A3D" font-weight="700" letter-spacing="0.08em">NOW</text>';
+      '<text x="' + nowX.toFixed(1) + '" y="' + (h - 70) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="11" fill="#C94A3D" font-weight="700" letter-spacing="0.08em">NOW</text>';
   }
 
   var hourLabels = '';
   [0, 3, 6, 9, 12, 15, 18, 21, 24].forEach(function(hr) {
     var x = pad + (hr * 60 / 1440) * (w - pad * 2);
-    hourLabels += '<line x1="' + x.toFixed(1) + '" y1="' + (h - pad) + '" x2="' + x.toFixed(1) + '" y2="' + (h - pad + 5) + '" stroke="#CBD5E0" stroke-width="1"/>';
-    hourLabels += '<text x="' + x.toFixed(1) + '" y="' + (h - pad + 20) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="12" fill="#94A3B8">' + hr + 'h</text>';
+    hourLabels += '<line x1="' + x.toFixed(1) + '" y1="' + (h - 80) + '" x2="' + x.toFixed(1) + '" y2="' + (h - 75) + '" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>';
+    hourLabels += '<text x="' + x.toFixed(1) + '" y="' + (h - 60) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="13" fill="rgba(255,255,255,0.5)">' + hr + 'h</text>';
   });
 
   var xAxis = '<line x1="' + pad + '" y1="' + (h - pad) + '" x2="' + (w - pad) + '" y2="' + (h - pad) + '" stroke="#CBD5E0" stroke-width="1"/>';
@@ -4919,7 +4919,7 @@ window.openAgendaModalFromSheet = function(btn) {
 function renderTidesSheetCurve(points, extremes, isToday, now) {
   if (points.length === 0) return '';
 
-  var w = 800, h = 280, pad = 36;
+  var w = 800, h = 480, pad = 50;
   var heights = points.map(function(p){ return p.height; });
   var minH = Math.min.apply(null, heights);
   var maxH = Math.max.apply(null, heights);
@@ -4930,7 +4930,10 @@ function renderTidesSheetCurve(points, extremes, isToday, now) {
     return pad + ((d.getHours() * 60 + d.getMinutes()) / 1440) * (w - pad * 2);
   }
   function yOf(height) {
-    return pad + (1 - (height - minH) / rangeH) * (h - pad * 2);
+    // Réserve 80px en haut (labels pic) et 80px en bas (axes + labels creux)
+    var topMargin = 80;
+    var bottomMargin = 80;
+    return topMargin + (1 - (height - minH) / rangeH) * (h - topMargin - bottomMargin);
   }
 
   var chassableBands = extremes.map(function(e) {
@@ -4956,17 +4959,19 @@ function renderTidesSheetCurve(points, extremes, isToday, now) {
     var color = e.type === 'high' ? '#4DD4A8' : '#E89B3C';
     var timeLabel = new Date(e.time).toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
     var ty = e.type === 'high' ? y - 14 : y + 22;
-    return '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="4" fill="' + color + '" stroke="#0A1520" stroke-width="2"/>' +
-      '<text x="' + x.toFixed(1) + '" y="' + ty.toFixed(1) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" fill="' + color + '" font-weight="700">' + timeLabel + '</text>' +
-      '<text x="' + x.toFixed(1) + '" y="' + (ty + 11).toFixed(1) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="' + color + '" opacity="0.7">' + e.height.toFixed(1) + 'm</text>';
+    var ty2 = e.type === 'high' ? y - 24 : y + 38;
+    var ty3 = e.type === 'high' ? y - 8 : y + 22;
+    return '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="6" fill="' + color + '" stroke="#0A1520" stroke-width="2.5"/>' +
+      '<text x="' + x.toFixed(1) + '" y="' + ty3.toFixed(1) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="14" fill="' + color + '" font-weight="700">' + timeLabel + '</text>' +
+      '<text x="' + x.toFixed(1) + '" y="' + ty2.toFixed(1) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="11" fill="' + color + '" opacity="0.7">' + e.height.toFixed(1) + 'm</text>';
   }).join('');
 
   var nowLine = '';
   if (isToday) {
     var nowX = pad + ((now.getHours() * 60 + now.getMinutes()) / 1440) * (w - pad * 2);
     nowLine =
-      '<line x1="' + nowX.toFixed(1) + '" y1="' + pad + '" x2="' + nowX.toFixed(1) + '" y2="' + (h - pad) + '" stroke="#C94A3D" stroke-width="2" stroke-dasharray="4,3"/>' +
-      '<circle cx="' + nowX.toFixed(1) + '" cy="' + pad + '" r="5" fill="#C94A3D"/>' +
+      '<line x1="' + nowX.toFixed(1) + '" y1="80" x2="' + nowX.toFixed(1) + '" y2="' + (h - 80) + '" stroke="#C94A3D" stroke-width="2" stroke-dasharray="4,3"/>' +
+      '<circle cx="' + nowX.toFixed(1) + '" cy="80" r="6" fill="#C94A3D"/>' +
       '<text x="' + nowX.toFixed(1) + '" y="' + (pad - 8) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" fill="#C94A3D" font-weight="700" letter-spacing="0.08em">MAINTENANT</text>';
   }
 
@@ -4977,7 +4982,7 @@ function renderTidesSheetCurve(points, extremes, isToday, now) {
     hourLabels += '<text x="' + x.toFixed(1) + '" y="' + (h - pad + 16) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" fill="rgba(255,255,255,0.5)">' + hr + 'h</text>';
   });
 
-  var xAxis = '<line x1="' + pad + '" y1="' + (h - pad) + '" x2="' + (w - pad) + '" y2="' + (h - pad) + '" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>';
+  var xAxis = '<line x1="' + pad + '" y1="' + (h - 80) + '" x2="' + (w - pad) + '" y2="' + (h - 80) + '" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>';
 
   var svg = '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block;">' +
     chassableBands +
