@@ -5372,7 +5372,7 @@ window.closeSheetCompletely = function() {
     }
   }, { passive: true });
 })();
-// Swipe-down pour fermer le drawer spot (mobile)
+// Swipe-down pour fermer le drawer spot (mobile) - écoute sur tout le drawer
 (function() {
   var spotDrawer = document.getElementById('spotDrawer');
   if (!spotDrawer) return;
@@ -5380,35 +5380,40 @@ window.closeSheetCompletely = function() {
   var startY = 0;
   var currentY = 0;
   var isDragging = false;
-  var swipeZone = null;
+  var startScrollTop = 0;
   
-  // On utilise le header du drawer comme zone de swipe (la barre du haut)
-  function setupSwipe() {
-    swipeZone = spotDrawer.querySelector('.drawer-head');
-    if (!swipeZone) return;
-    
-    swipeZone.addEventListener('touchstart', function(e) {
-      if (window.innerWidth > 768) return; // mobile only
-      if (!spotDrawer.classList.contains('open')) return;
-      startY = e.touches[0].clientY;
-      isDragging = true;
-    }, { passive: true });
-    
-    swipeZone.addEventListener('touchmove', function(e) {
-      if (!isDragging) return;
-      currentY = e.touches[0].clientY;
-    }, { passive: true });
-    
-    swipeZone.addEventListener('touchend', function(e) {
-      if (!isDragging) return;
-      isDragging = false;
-      var deltaY = currentY - startY;
-      if (deltaY > 70) {
-        // Swipe down > 70px = ferme le drawer
-        closeSpotPopup();
-      }
-    }, { passive: true });
-  }
+  spotDrawer.addEventListener('touchstart', function(e) {
+    if (window.innerWidth > 768) return;
+    if (!spotDrawer.classList.contains('open')) return;
+    // On ne tracke que si l'utilisateur est tout en haut du drawer (sinon il scrolle)
+    var body = spotDrawer.querySelector('.drawer-body');
+    startScrollTop = body ? body.scrollTop : 0;
+    if (startScrollTop > 0) return; // si déjà scrollé, on laisse le scroll naturel
+    startY = e.touches[0].clientY;
+    currentY = startY;
+    isDragging = true;
+  }, { passive: true });
   
-  setupSwipe();
+  spotDrawer.addEventListener('touchmove', function(e) {
+    if (!isDragging) return;
+    currentY = e.touches[0].clientY;
+    var deltaY = currentY - startY;
+    // Feedback visuel : on suit le doigt légèrement
+    if (deltaY > 0) {
+      spotDrawer.style.transform = 'translateY(' + Math.min(deltaY, 200) + 'px)';
+      spotDrawer.style.transition = 'none';
+    }
+  }, { passive: true });
+  
+  spotDrawer.addEventListener('touchend', function(e) {
+    if (!isDragging) return;
+    isDragging = false;
+    var deltaY = currentY - startY;
+    // Reset transitions
+    spotDrawer.style.transform = '';
+    spotDrawer.style.transition = '';
+    if (deltaY > 80) {
+      closeSpotPopup();
+    }
+  }, { passive: true });
 })();
