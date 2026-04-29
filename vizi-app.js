@@ -3892,45 +3892,141 @@ if (document.readyState === 'loading') {
 // Peek <-> Half sur desktop, Peek -> Half -> Full sur mobile
 // ============================================================
 
-(function injectSheetTableCSS() {
-  if (document.getElementById('vzSheetTableCSS')) return;
-  var css = `
-    .vz-sheet-cond-wrap { padding: 16px 18px 24px; color: var(--vz-text-on-dark); }
-    .vz-sheet-cond-meta { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--vz-text-on-dark-faint); letter-spacing: 0.06em; margin-bottom: 14px; }
-    .vz-cond-table { width: 100%; border-collapse: separate; border-spacing: 0; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: var(--vz-text-on-dark); }
-    .vz-cond-table th, .vz-cond-table td { padding: 0 9px; height: 32px; text-align: center; white-space: nowrap; border-right: 1px solid rgba(255,255,255,0.06); border-bottom: 1px solid rgba(255,255,255,0.06); }
-    .vz-cond-rowlabel { font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600; color: var(--vz-accent); text-transform: uppercase; letter-spacing: 0.08em; text-align: left !important; padding: 0 14px !important; min-width: 120px; position: sticky; left: 0; background: var(--vz-bg-deep); z-index: 3; border-right: 1px solid var(--vz-accent-border) !important; }
-    .vz-cond-cornerlabel, .vz-cond-cornerhour { position: sticky; left: 0; background: var(--vz-bg-deep); z-index: 3; border-right: 1px solid var(--vz-accent-border) !important; min-width: 120px; }
-    .vz-cond-dayhead { font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700; color: var(--vz-text-on-dark); text-transform: uppercase; letter-spacing: 0.08em; background: rgba(255,255,255,0.04); border-bottom: 1px solid var(--vz-accent-border) !important; padding: 8px !important; }
-    .vz-cond-hourhead { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--vz-text-on-dark-faint); background: rgba(255,255,255,0.02); letter-spacing: 0.04em; }
+var css = `
+    .vz-sheet-cond-wrap { padding: 16px 20px 24px; color: var(--vz-text-on-dark); }
+    .vz-sheet-cond-meta {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      color: var(--vz-text-on-dark-faint);
+      letter-spacing: 0.06em;
+      margin-bottom: 16px;
+    }
+    .vz-cond-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 13px;
+      color: var(--vz-text-on-dark);
+    }
+    .vz-cond-table th, .vz-cond-table td {
+      padding: 0 10px;
+      height: 40px;
+      text-align: center;
+      white-space: nowrap;
+      border-right: 1px solid rgba(255,255,255,0.05);
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .vz-cond-rowlabel {
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--vz-accent);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      text-align: left !important;
+      padding: 0 16px !important;
+      min-width: 130px;
+      position: sticky;
+      left: 0;
+      background: var(--vz-bg-deep);
+      z-index: 3;
+      border-right: 1px solid var(--vz-accent-border) !important;
+    }
+    .vz-cond-cornerlabel, .vz-cond-cornerhour {
+      position: sticky;
+      left: 0;
+      background: var(--vz-bg-deep);
+      z-index: 3;
+      border-right: 1px solid var(--vz-accent-border) !important;
+      min-width: 130px;
+    }
+    .vz-cond-dayhead {
+      font-family: 'Inter', sans-serif;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--vz-text-on-dark);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      background: rgba(255,255,255,0.04);
+      border-bottom: 1px solid var(--vz-accent-border) !important;
+      padding: 10px !important;
+      height: auto;
+    }
+    .vz-cond-hourhead {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--vz-text-on-dark-muted);
+      background: rgba(255,255,255,0.02);
+      letter-spacing: 0.04em;
+      height: 32px;
+    }
     .vz-cond-dayboundary { border-left: 1px solid var(--vz-accent-border) !important; }
-    .vz-cond-now { background: rgba(77,212,168,0.08) !important; border-left: 2px solid var(--vz-accent) !important; border-right: 1px solid var(--vz-accent) !important; }
-    .vz-cond-now-header { background: rgba(77,212,168,0.18) !important; color: var(--vz-accent) !important; font-weight: 700 !important; border-left: 2px solid var(--vz-accent) !important; }
-    .vz-cond-row-vis td { font-weight: 700; color: #fff; cursor: pointer; }
-    .vz-cond-vis-0 { background: rgba(201,74,61,0.78); }
-    .vz-cond-vis-1 { background: rgba(232,155,60,0.72); }
-    .vz-cond-vis-2 { background: rgba(216,200,74,0.65); color: #1A2535 !important; }
-    .vz-cond-vis-3 { background: rgba(77,212,168,0.55); color: #1A2535 !important; }
-    .vz-cond-vis-4 { background: rgba(45,168,136,0.78); }
-    .vz-cond-row-wind td, .vz-cond-row-gusts td { font-weight: 600; }
+    .vz-cond-now {
+      background: rgba(77,212,168,0.10) !important;
+      box-shadow: inset 2px 0 0 var(--vz-accent), inset -1px 0 0 var(--vz-accent);
+    }
+    .vz-cond-now-header {
+      background: rgba(77,212,168,0.20) !important;
+      color: var(--vz-accent) !important;
+      font-weight: 700 !important;
+      box-shadow: inset 2px 0 0 var(--vz-accent);
+    }
+    /* Visi : grosse typo Inter, couleurs saturées */
+    .vz-cond-row-vis td {
+      font-family: 'Inter', sans-serif !important;
+      font-size: 14px !important;
+      font-weight: 700 !important;
+      color: #fff !important;
+      cursor: pointer;
+      letter-spacing: 0;
+      transition: filter 0.15s;
+    }
+    .vz-cond-row-vis td:hover { filter: brightness(1.15); }
+    .vz-cond-vis-0 { background: rgba(201,74,61,0.92) !important; }
+    .vz-cond-vis-1 { background: rgba(232,155,60,0.85) !important; }
+    .vz-cond-vis-2 { background: rgba(216,200,74,0.75) !important; color: #1A2535 !important; }
+    .vz-cond-vis-3 { background: rgba(77,212,168,0.65) !important; color: #1A2535 !important; }
+    .vz-cond-vis-4 { background: rgba(45,168,136,0.92) !important; }
+    /* Vent : Inter 600 */
+    .vz-cond-row-wind td, .vz-cond-row-gusts td {
+      font-family: 'Inter', sans-serif;
+      font-weight: 600;
+      font-size: 13px;
+    }
     .vz-cond-w-0 { background: rgba(77,212,168,0.10); }
     .vz-cond-w-1 { background: rgba(77,212,168,0.20); }
     .vz-cond-w-2 { background: rgba(216,200,74,0.20); }
-    .vz-cond-w-3 { background: rgba(232,155,60,0.25); }
-    .vz-cond-w-4 { background: rgba(232,155,60,0.40); }
-    .vz-cond-w-5 { background: rgba(201,74,61,0.45); }
-    .vz-cond-w-6 { background: rgba(201,74,61,0.65); }
-    .vz-cond-coef-low { color: var(--vz-text-on-dark-faint); }
+    .vz-cond-w-3 { background: rgba(232,155,60,0.30); }
+    .vz-cond-w-4 { background: rgba(232,155,60,0.50); }
+    .vz-cond-w-5 { background: rgba(201,74,61,0.55); }
+    .vz-cond-w-6 { background: rgba(201,74,61,0.75); color: #fff; }
+    /* Coef */
+    .vz-cond-coef-low { color: var(--vz-text-on-dark-muted); }
     .vz-cond-coef-mid { color: var(--vz-medium); font-weight: 600; }
     .vz-cond-coef-high { color: var(--vz-warning); font-weight: 700; }
-    .vz-cond-footer { margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08); font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--vz-text-on-dark-faint); letter-spacing: 0.04em; line-height: 1.6; display: flex; gap: 18px; flex-wrap: wrap; }
-    .vz-cond-footer strong { color: var(--vz-accent); }
+    .vz-cond-footer {
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      color: var(--vz-text-on-dark-faint);
+      letter-spacing: 0.05em;
+      line-height: 1.7;
+      display: flex;
+      gap: 22px;
+      flex-wrap: wrap;
+    }
+    .vz-cond-footer strong { color: var(--vz-accent); font-weight: 600; }
     @media (max-width: 768px) {
       .vz-sheet-cond-wrap { padding: 12px 12px 20px; }
-      .vz-cond-table { font-size: 11px; }
-      .vz-cond-table th, .vz-cond-table td { padding: 0 6px; height: 28px; }
-      .vz-cond-rowlabel { min-width: 88px; padding: 0 10px !important; font-size: 10px; }
-      .vz-cond-cornerlabel, .vz-cond-cornerhour { min-width: 88px; }
+      .vz-cond-table { font-size: 12px; }
+      .vz-cond-table th, .vz-cond-table td { padding: 0 7px; height: 34px; }
+      .vz-cond-rowlabel { min-width: 96px; padding: 0 12px !important; font-size: 10px; }
+      .vz-cond-cornerlabel, .vz-cond-cornerhour { min-width: 96px; }
+      .vz-cond-row-vis td { font-size: 13px !important; }
     }
   `;
   var style = document.createElement('style');
@@ -3983,6 +4079,14 @@ function updateSheetHeader(modeLabel, spotLabel) {
 // ============================================================
 
 window.openConditionsInSheet = function() {
+  // Toggle : si déjà en mode cond et ouvert, on ferme
+  if (VZ_SHEET.mode === 'cond' && VZ_SHEET.state !== 'peek') {
+    setSheetState('peek');
+    var tabCond0 = document.getElementById('vzTabCond');
+    if (tabCond0) tabCond0.classList.remove('active');
+    return;
+  }
+
   VZ_SHEET.mode = 'cond';
 
   var tabCond = document.getElementById('vzTabCond');
@@ -4071,21 +4175,36 @@ function loadSheetConditions(spot) {
     : (typeof fetchRealDepth === 'function'
         ? fetchRealDepth(spot.lat, spot.lng).catch(function(){ return null; })
         : Promise.resolve(null));
+  var tidesPromise = fetchSheetTides(spot);
 
-  Promise.all([meteoPromise, depthPromise]).then(function(results) {
+  Promise.all([meteoPromise, depthPromise, tidesPromise]).then(function(results) {
     if (VZ_SHEET.mode !== 'cond') return;
     var meteo = results[0];
     var depth = results[1];
+    var tides = results[2];
     if (!meteo || !meteo.time) {
       document.getElementById('vzSheetBody').innerHTML = '<div class="vz-sheet-loading">Données météo indisponibles</div>';
       return;
     }
-    VZ_SHEET.data = { meteo: meteo, depth: depth, spot: spot };
+    VZ_SHEET.data = { meteo: meteo, depth: depth, tides: tides, spot: spot };
     renderSheetTable();
   }).catch(function(err) {
     console.error('[Sheet] erreur chargement', err);
     document.getElementById('vzSheetBody').innerHTML = '<div class="vz-sheet-loading">Erreur de chargement</div>';
   });
+}
+
+// Récupère les hauteurs de marée sur 5 jours via le GAS proxy existant
+function fetchSheetTides(spot) {
+  var near = (typeof findApiMareeSiteNear === 'function') ? findApiMareeSiteNear(spot.lat, spot.lng) : null;
+  if (!near) return Promise.resolve(null);
+  var today = new Date();
+  var fromStr = today.toISOString().slice(0, 10);
+  var url = GAS_URL + '?action=tides_range&site=' + near.siteId + '&from=' + fromStr + '&days=5';
+  return fetch(url).then(function(r) { return r.json(); }).then(function(data) {
+    if (!data || !data.data) return null;
+    return { points: data.data, port: near };
+  }).catch(function() { return null; });
 }
 
 // Réutilise AROME + ARPEGE comme dans loadForecast (haute res 0-48h + ARPEGE 48h-5j)
@@ -4254,9 +4373,18 @@ function renderSheetTable() {
     };
   });
 
-  // Marée (m) — pas de données de marée en synchrone, on met "—" pour l'instant (étape suivante)
+  // Marée (m) — interpolation depuis les hauteurs SHOM
+  var tideData = VZ_SHEET.data.tides;
   html += renderRow('Marée (m)', null, function(s) {
-    return { cls: '', html: '—' };
+    if (!tideData || !tideData.points) return { cls: '', html: '—' };
+    var target = s.time.getTime();
+    var best = null, bestDiff = Infinity;
+    for (var k = 0; k < tideData.points.length; k++) {
+      var diff = Math.abs(new Date(tideData.points[k].time).getTime() - target);
+      if (diff < bestDiff) { bestDiff = diff; best = tideData.points[k]; }
+    }
+    if (!best || bestDiff > 1800000) return { cls: '', html: '—' }; // > 30min
+    return { cls: '', html: best.height.toFixed(1) };
   });
 
   // Coef
@@ -4313,11 +4441,16 @@ window.vzSheetCellClick = function(timeStr) {
       var dateInput = document.getElementById('spotDate');
       var timeInput = document.getElementById('spotTime');
       if (dateInput && timeInput) {
-        dateInput.value = timeStr.slice(0,10);
-        timeInput.value = timeStr.slice(11,16);
-        if (typeof refreshSpotPopup === 'function') refreshSpotPopup();
+        // timeStr est au format "2026-04-29T15:00" (heure locale Open-Meteo)
+        dateInput.value = timeStr.slice(0, 10);
+        var hh = timeStr.slice(11, 13);
+        timeInput.value = hh + ':00';
+        if (typeof refreshSpotPopup === 'function') {
+          // Petit délai pour que l'API spot ait le temps de répondre
+          setTimeout(refreshSpotPopup, 600);
+        }
       }
-    }, 300);
+    }, 200);
   }
 };
 
