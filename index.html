@@ -296,40 +296,48 @@
     @keyframes chPulse { 0% { opacity:0.8; transform:translate(-50%,-50%) scale(1); } 100% { opacity:0; transform:translate(-50%,-50%) scale(2); } }
     #mobileAnalyzeBtn { display:none; position:fixed; bottom:28px; left:50%; transform:translateX(-50%); z-index:960; padding:14px 32px; background:#1A2535; border:2px solid #A8E63D; border-radius:40px; color:#A8E63D; font-family:'Inter', sans-serif; font-size:15px; font-weight:700; letter-spacing:0.04em; cursor:pointer; box-shadow:0 4px 24px rgba(0,0,0,0.3); white-space:nowrap; transition:all 0.2s; }
     #mobileShareBtn { display:none; position:fixed; bottom:88px; left:50%; transform:translateX(-50%); z-index:960; padding:13px 28px; background:rgba(26,37,53,0.92); border:1.5px solid rgba(168,230,61,0.5); border-radius:40px; color:rgba(168,230,61,0.85); font-family:'Inter', sans-serif; font-size:14px; font-weight:600; cursor:pointer; box-shadow:0 4px 20px rgba(0,0,0,0.2); white-space:nowrap; }
-    /* ============================================================
-   MAREES dans le bandeau bas - Style Talisker (v5 - 2 colonnes)
+/* ============================================================
+   MAREES dans le bandeau bas - Style Talisker (v7 - 2 colonnes pleine hauteur)
    ============================================================ */
 .vz-tides-wrap {
   padding: 8px 16px 14px;
   color: var(--vz-text-on-dark);
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
   gap: 12px;
   height: 100%;
   min-height: 0;
 }
 
-/* === Coef card unifiée (port + coef + nav date) === */
+/* === Colonne gauche : coef card + créneaux === */
+.vz-tides-leftcol {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+/* Coef card compacte (carte d'identité du jour) */
 .vz-tides-coefcard {
   display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 12px 16px;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 14px;
   background: var(--vz-bg-surface);
   border: 0.5px solid var(--vz-border-glass);
   border-radius: var(--vz-radius-card);
   flex-shrink: 0;
 }
 .vz-tides-coefbig {
-  width: 56px;
-  height: 56px;
-  border: 2.5px solid;
+  width: 48px;
+  height: 48px;
+  border: 2px solid;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: 'Inter', sans-serif;
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 700;
   line-height: 1;
   flex-shrink: 0;
@@ -339,19 +347,19 @@
 .vz-tides-coefinfo {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
   flex: 1;
   min-width: 0;
 }
 .vz-tides-coeftop {
   display: flex;
   align-items: baseline;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 .vz-tides-portname {
   font-family: 'Inter', sans-serif;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--vz-text-on-dark);
   line-height: 1.2;
@@ -359,33 +367,32 @@
 }
 .vz-tides-coeflabel {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
 .vz-tides-coefdesc {
   font-family: 'Inter', sans-serif;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--vz-text-on-dark-muted);
   line-height: 1.3;
 }
 
-/* === Nav date à droite dans la coef card === */
+/* Nav date intégrée dans la coef card (en dessous) */
 .vz-tides-datenav {
   display: flex;
   align-items: center;
-  gap: 6px;
-  flex-shrink: 0;
-  padding-left: 14px;
-  border-left: 0.5px solid var(--vz-border-glass);
+  gap: 5px;
+  margin-top: 4px;
+  width: 100%;
 }
 .vz-tides-datebtn {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   background: rgba(255,255,255,0.05);
   border: 0.5px solid rgba(255,255,255,0.15);
-  border-radius: 7px;
+  border-radius: 5px;
   color: var(--vz-text-on-dark);
   cursor: pointer;
   transition: all 0.15s;
@@ -402,16 +409,17 @@
 }
 .vz-tides-datepicker {
   position: relative;
-  padding: 4px 12px;
+  padding: 3px 8px;
   background: rgba(255,255,255,0.05);
   border: 0.5px solid rgba(255,255,255,0.15);
-  border-radius: 7px;
+  border-radius: 5px;
   cursor: pointer;
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1px;
-  min-width: 100px;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
   transition: border-color 0.15s;
 }
 .vz-tides-datepicker:hover {
@@ -419,7 +427,7 @@
 }
 .vz-tides-datepicker-display {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--vz-text-on-dark);
   letter-spacing: 0.02em;
@@ -427,7 +435,7 @@
 }
 .vz-tides-datepicker-day {
   font-family: 'Inter', sans-serif;
-  font-size: 9px;
+  font-size: 8px;
   color: var(--vz-text-on-dark-faint);
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -443,20 +451,12 @@
   height: 100%;
 }
 
-/* === Layout 2 colonnes : créneaux gauche + courbe droite === */
-.vz-tides-cols {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
-  gap: 12px;
-  flex: 1;
-  min-height: 0;
-}
-
-/* === Colonne créneaux === */
+/* Créneaux 2x2 */
 .vz-tides-windowscol {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
+  flex: 1;
   min-height: 0;
 }
 .vz-tides-sectiontitle {
@@ -472,17 +472,17 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   grid-template-rows: 1fr 1fr;
-  gap: 8px;
+  gap: 6px;
   flex: 1;
   min-height: 0;
 }
 .vz-tides-windowcard {
-  padding: 10px 12px;
+  padding: 8px 10px;
   border-radius: var(--vz-radius-card);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 5px;
+  gap: 3px;
   background: var(--vz-bg-surface);
   border: 0.5px solid var(--vz-border-glass);
   transition: border-color 0.15s;
@@ -500,11 +500,11 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
 }
 .vz-tides-windowtype {
   font-family: 'Inter', sans-serif;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.04em;
   display: inline-flex;
@@ -512,7 +512,7 @@
 }
 .vz-tides-windowetale {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px;
+  font-size: 9px;
   color: var(--vz-text-on-dark-faint);
   letter-spacing: 0.02em;
 }
@@ -520,22 +520,22 @@
   background: var(--vz-accent);
   color: var(--vz-bg-deep);
   font-family: 'Inter', sans-serif;
-  font-size: 8px;
+  font-size: 7px;
   font-weight: 700;
-  padding: 2px 5px;
+  padding: 1px 4px;
   border-radius: 3px;
-  margin-left: 5px;
+  margin-left: 4px;
   letter-spacing: 0.08em;
   line-height: 1;
 }
 .vz-tides-windowrange {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   font-family: 'IBM Plex Mono', monospace;
 }
 .vz-tides-windowtime {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--vz-text-on-dark);
   letter-spacing: 0.02em;
@@ -543,23 +543,23 @@
 }
 .vz-tides-windowarrow {
   color: var(--vz-text-on-dark-faint);
-  font-size: 12px;
+  font-size: 11px;
 }
 .vz-tides-agendabtn {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 5px 8px;
+  gap: 3px;
+  padding: 3px 6px;
   background: var(--vz-accent-strong);
   border: none;
-  border-radius: 6px;
+  border-radius: 4px;
   color: var(--vz-bg-deep);
   font-family: 'Inter', sans-serif;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -567,14 +567,14 @@
   background: var(--vz-accent);
   transform: translateY(-1px);
 }
-.vz-tides-agendabtn svg { width: 10px; height: 10px; }
+.vz-tides-agendabtn svg { width: 9px; height: 9px; }
 
-/* === Colonne courbe === */
+/* === Colonne droite : courbe pleine hauteur === */
 .vz-tides-curvewrap {
   background: var(--vz-bg-surface);
   border: 0.5px solid var(--vz-border-glass);
   border-radius: var(--vz-radius-card);
-  padding: 10px 16px 10px;
+  padding: 12px 18px 14px;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -582,14 +582,13 @@
 .vz-tides-curveinner {
   flex: 1;
   min-height: 0;
-  margin-top: 4px;
 }
 .vz-tides-curvelegend {
   display: flex;
-  gap: 12px;
-  margin-top: 4px;
+  gap: 14px;
+  margin-top: 6px;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 9px;
+  font-size: 10px;
   color: var(--vz-text-on-dark-faint);
   flex-wrap: wrap;
   letter-spacing: 0.04em;
@@ -616,27 +615,21 @@
 
 /* === Mobile : retour en colonne unique === */
 @media (max-width: 768px) {
-  .vz-tides-wrap { padding: 8px 12px 14px; gap: 10px; }
-  .vz-tides-coefcard { gap: 10px; padding: 10px 12px; flex-wrap: wrap; }
-  .vz-tides-coefbig { width: 48px; height: 48px; font-size: 20px; border-width: 2px; }
-  .vz-tides-portname { font-size: 14px; }
-  .vz-tides-coefdesc { font-size: 11px; }
-  .vz-tides-datenav {
-    padding-left: 0;
-    border-left: none;
-    width: 100%;
-    justify-content: space-between;
-    padding-top: 8px;
-    border-top: 0.5px solid var(--vz-border-glass);
-  }
-  .vz-tides-cols {
+  .vz-tides-wrap {
     grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
+    grid-template-rows: auto auto 1fr;
+    padding: 8px 12px 14px;
+    gap: 8px;
   }
+  .vz-tides-coefcard { padding: 10px 12px; }
+  .vz-tides-coefbig { width: 44px; height: 44px; font-size: 17px; }
+  .vz-tides-portname { font-size: 13px; }
+  .vz-tides-coefdesc { font-size: 11px; }
   .vz-tides-windowsgrid { gap: 6px; }
   .vz-tides-windowtime { font-size: 13px; }
   .vz-tides-curvewrap { min-height: 200px; }
 }
+
     @media (max-width: 768px) {
       #header { padding:10px 12px; flex-wrap:wrap; gap:8px; }
       .logo-mark { width:38px; height:38px; }
