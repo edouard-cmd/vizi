@@ -202,17 +202,24 @@
     .sed-legend-row { display:flex; align-items:center; gap:9px; margin-bottom:6px; font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--text-2); }
     .sed-legend-row:last-child { margin-bottom:0; }
     .sed-swatch { width:16px; height:16px; border-radius:3px; flex-shrink:0; border:1px solid rgba(0,0,0,0.08); }
-    /* ============================================================
+  /* ============================================================
    DRAWER SPOT - Refonte Talisker (dark mode glassmorphism)
-   Override des règles claires existantes
+   Drawer flottant avec marges + arrondi global
    ============================================================ */
 #spotDrawer {
+  top: 16px !important;
+  right: 16px !important;
+  bottom: 16px !important;
+  height: auto !important;
+  width: 360px !important;
   background: var(--vz-bg-glass-strong) !important;
   backdrop-filter: blur(var(--vz-blur));
   -webkit-backdrop-filter: blur(var(--vz-blur));
-  border-left: 0.5px solid var(--vz-accent-border) !important;
-  box-shadow: -8px 0 40px rgba(0,0,0,0.5) !important;
+  border: 0.5px solid var(--vz-accent-border) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5) !important;
   color: var(--vz-text-on-dark);
+  overflow: hidden;
 }
 
 /* Header drawer */
@@ -485,12 +492,16 @@
   border-color: rgba(255,255,255,0.2) !important;
 }
 
-/* Boutons d'action en bas */
-#spotDrawer .drawer-body > div[style*="background:var(--surface)"]:last-of-type,
-#spotDrawer .drawer-body > div[style*="background:var(--surface);"]:last-of-type {
+/* Boutons d'action en bas - dark Talisker */
+#spotDrawer .drawer-body > div[style*="background:var(--surface)"],
+#spotDrawer .drawer-body > div[style*="background:var(--surface);"],
+#spotDrawer .drawer-body > div[style*="display:flex; flex-direction:column"] {
   background: transparent !important;
   border-bottom: 0.5px solid var(--vz-border-glass) !important;
   padding: 14px 18px !important;
+}
+#spotDrawer .drawer-body > div > button {
+  border-radius: var(--vz-radius-btn) !important;
 }
 #spotDrawer .drawer-body > div > button[onclick*="openObsSheet"] {
   background: var(--vz-accent) !important;
@@ -1146,7 +1157,7 @@
       .controls { flex-wrap:nowrap; overflow-x:auto; gap:5px; width:100%; padding-bottom:2px; scrollbar-width:none; }
       .controls::-webkit-scrollbar { display:none; }
       .ctrl-btn { padding:6px 10px; font-size:11px; flex-shrink:0; }
-      #spotDrawer { width:100% !important; top:auto !important; bottom:0; left:0; right:0; height:85vh; border-left:none; border-top:1px solid var(--border); border-radius:16px 16px 0 0; transform:translateY(100%); }
+      #spotDrawer { width:auto !important; left:8px !important; right:8px !important; top:auto !important; bottom:8px !important; height:88vh !important; border:0.5px solid var(--vz-accent-border) !important; border-radius:18px !important; transform:translateY(calc(100% + 16px)); }
       .spot-close { position:fixed !important; top:84px !important; right:14px !important; z-index:1200 !important; background:rgba(26,37,53,0.85) !important; color:white !important; width:40px !important; height:40px !important; box-shadow:0 4px 14px rgba(0,0,0,0.25) !important; }
       #spotDrawer.open { transform:translateY(0); }
       #mobileCrosshair { display:block; }
