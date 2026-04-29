@@ -4785,19 +4785,17 @@ function renderTidesSheetContent() {
   var today = now.toISOString().split('T')[0];
   var isToday = selDate === today;
 
-  // Format JJ/MM/YYYY pour l'affichage
   var dd = String(dateObj.getUTCDate()).padStart(2, '0');
   var mm = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
   var yyyy = dateObj.getUTCFullYear();
   var dateDisplay = dd + '/' + mm + '/' + yyyy;
   var dayShort = dateObj.toLocaleDateString('fr', { weekday: 'long' });
 
-  // Mise à jour du header du bandeau (mode label seul)
   updateSheetHeader('Marées', '');
 
   var html = '<div class="vz-tides-wrap">';
 
-  // Coef card unifiée : 75 (rond) + port + coef + desc + nav date
+  // Coef card unifiée (haut)
   if (isMed) {
     html += '<div class="vz-tides-coefcard">' +
       '<div class="vz-tides-coefinfo">' +
@@ -4823,10 +4821,14 @@ function renderTidesSheetContent() {
     '</div>';
   }
 
-  // Créneaux
+  // Layout 2 colonnes
+  html += '<div class="vz-tides-cols">';
+
+  // Colonne gauche : créneaux 2x2
+  html += '<div class="vz-tides-windowscol">';
+  html += '<div class="vz-tides-sectiontitle">Créneaux chassables</div>';
+
   if (dayExtremes && dayExtremes.length > 0) {
-    html += '<div class="vz-tides-windowsblock">';
-    html += '<div class="vz-tides-sectiontitle">Créneaux chassables</div>';
     html += '<div class="vz-tides-windowsgrid">';
     dayExtremes.forEach(function(e) {
       var etaleTime = new Date(e.time);
@@ -4836,7 +4838,6 @@ function renderTidesSheetContent() {
       var isCurrent = isToday && now >= startTime && now <= endTime;
 
       var typeColor = e.type === 'high' ? 'var(--vz-accent)' : '#E89B3C';
-      var typeLabel = e.type === 'high' ? 'Pleine mer' : 'Basse mer';
       var typeShort = e.type === 'high' ? 'PM' : 'BM';
       var startStr = startTime.toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
       var endStr = endTime.toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
@@ -4867,7 +4868,7 @@ function renderTidesSheetContent() {
 
       html += '<div class="' + cardClass + '">' +
         '<div class="vz-tides-windowtop">' +
-          '<div class="vz-tides-windowtype" style="color:' + typeColor + ';">' + typeShort + ' — ' + typeLabel + badge + '</div>' +
+          '<div class="vz-tides-windowtype" style="color:' + typeColor + ';">' + typeShort + badge + '</div>' +
           '<div class="vz-tides-windowetale">' + etaleStr + '</div>' +
         '</div>' +
         '<div class="vz-tides-windowrange">' +
@@ -4878,17 +4879,18 @@ function renderTidesSheetContent() {
         agendaBtn +
       '</div>';
     });
-    html += '</div></div>';
+    html += '</div>';
   }
+  html += '</div>'; // fin colonne gauche
 
-  // Courbe (étirée sur tout l'espace restant)
+  // Colonne droite : courbe étirée
   html += renderTidesSheetCurve(dayPoints, dayExtremes, isToday, now);
 
-  html += '</div>';
+  html += '</div>'; // fin .vz-tides-cols
+  html += '</div>'; // fin .vz-tides-wrap
   body.innerHTML = html;
 }
 
-// Helper : nav date intégrée à droite de la coef card
 function renderTidesDateNav(selDate, dateDisplay, dayShort) {
   return '<div class="vz-tides-datenav">' +
     '<button class="vz-tides-datebtn" onclick="shiftTidesSheetDate(-1)">' +
@@ -4991,10 +4993,10 @@ function renderTidesSheetCurve(points, extremes, isToday, now) {
     '<div class="vz-tides-sectiontitle" style="flex-shrink:0;">Courbe de marée — 24h</div>' +
     '<div class="vz-tides-curveinner">' + svg + '</div>' +
     '<div class="vz-tides-curvelegend">' +
-      '<span><span class="legend-band"></span>créneau chassable (±2h autour de l\'étale)</span>' +
-      '<span style="color:#4DD4A8">● Pleine mer</span>' +
-      '<span style="color:#E89B3C">● Basse mer</span>' +
-      (isToday ? '<span style="color:#C94A3D">● maintenant</span>' : '') +
+      '<span><span class="legend-band"></span>±2h étale</span>' +
+      '<span style="color:#4DD4A8">● PM</span>' +
+      '<span style="color:#E89B3C">● BM</span>' +
+      (isToday ? '<span style="color:#C94A3D">● now</span>' : '') +
     '</div>' +
   '</div>';
 }
