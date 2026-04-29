@@ -140,7 +140,8 @@
   visibility: hidden !important;
   opacity: 0 !important;
 }
-    #btnBasemapSat, #btnIso, #btnWebcams, #btnWind, #btnTidesPage {
+   #btnBasemapSat, #btnIso, #btnWebcams, #btnWind, #btnTidesPage,
+#btnHeatmap, #btnSed {
   display: none !important;
 }
 
@@ -968,6 +969,32 @@
 .vz-layers-row:hover { background: rgba(255,255,255,0.06); }
 .vz-layers-row.active { color: var(--vz-accent); }
 .vz-layers-row.disabled { opacity: 0.4; cursor: not-allowed; }
+    .vz-units-toggle {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 8px;
+}
+.vz-units-btn {
+  flex: 1;
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--vz-text-on-dark-muted);
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.vz-units-btn:hover { color: var(--vz-text-on-dark); }
+.vz-units-btn.active {
+  background: var(--vz-accent-glow);
+  color: var(--vz-accent);
+  font-weight: 600;
+}
 .vz-layers-radio, .vz-layers-check {
   width: 16px; height: 16px;
   border: 1.5px solid var(--vz-text-on-dark-muted);
@@ -1223,9 +1250,16 @@
       <div class="vz-layers-check"></div>
       <span>Repères marins</span>
     </div>
-    <div class="vz-layers-row disabled">
+   <div class="vz-layers-row disabled">
       <div class="vz-layers-check"></div>
       <span>Vagues (bientôt)</span>
+    </div>
+  </div>
+  <div>
+    <div class="vz-layers-section-title">Unités</div>
+    <div class="vz-units-toggle">
+      <button class="vz-units-btn" id="vzUnitKt" onclick="setWindUnit('kt')">noeuds</button>
+      <button class="vz-units-btn" id="vzUnitKmh" onclick="setWindUnit('kmh')">km/h</button>
     </div>
   </div>
 </div>
@@ -1619,6 +1653,11 @@ function selectBasemap(type) {
   switchBasemap(type);
   syncLayersPopover();
 }
+    function setWindUnit(unit) {
+  if (unit === S_windUnit) return;
+  toggleWindUnit();
+  syncLayersPopover();
+}
 function syncLayersPopover() {
   var current = S.currentBasemap || 'sat';
   document.getElementById('vzRowSat').classList.toggle('active', current === 'sat');
@@ -1626,6 +1665,8 @@ function syncLayersPopover() {
   document.getElementById('vzRowHeatmap').classList.toggle('active', S.showHeatmap);
   document.getElementById('vzRowSed').classList.toggle('active', S.showSed);
   document.getElementById('vzRowIso').classList.toggle('active', S.showIso);
+  document.getElementById('vzUnitKt').classList.toggle('active', S_windUnit === 'kt');
+  document.getElementById('vzUnitKmh').classList.toggle('active', S_windUnit === 'kmh');
 }
     setInterval(function() {
   var pop = document.getElementById('vzLayersPopover');
