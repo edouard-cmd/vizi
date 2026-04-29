@@ -3699,7 +3699,7 @@ function renderTidesDrawerCurve(points, extremes, isToday, now) {
     nowLine =
       '<line x1="' + nowX.toFixed(1) + '" y1="' + pad + '" x2="' + nowX.toFixed(1) + '" y2="' + (h - pad) + '" stroke="#DC2626" stroke-width="2" stroke-dasharray="4,3"/>' +
       '<circle cx="' + nowX.toFixed(1) + '" cy="' + pad + '" r="5" fill="#DC2626"/>' +
-      '<text x="' + nowX.toFixed(1) + '" y="' + (pad - 8) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="11" fill="#DC2626" font-weight="700">MAINTENANT</text>';
+      '<text x="' + nowX.toFixed(1) + '" y="' + (pad - 6) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="#C94A3D" font-weight="700" letter-spacing="0.08em">NOW</text>';
   }
 
   var hourLabels = '';
@@ -4899,7 +4899,7 @@ window.openAgendaModalFromSheet = function(btn) {
 function renderTidesSheetCurve(points, extremes, isToday, now) {
   if (points.length === 0) return '';
 
-  var w = 800, h = 220, pad = 40;
+  var w = 800, h = 140, pad = 28;
   var heights = points.map(function(p){ return p.height; });
   var minH = Math.min.apply(null, heights);
   var maxH = Math.max.apply(null, heights);
@@ -4936,9 +4936,9 @@ function renderTidesSheetCurve(points, extremes, isToday, now) {
     var color = e.type === 'high' ? '#4DD4A8' : '#E89B3C';
     var timeLabel = new Date(e.time).toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
     var ty = e.type === 'high' ? y - 14 : y + 22;
-    return '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="5.5" fill="' + color + '" stroke="#0A1520" stroke-width="2.5"/>' +
-      '<text x="' + x.toFixed(1) + '" y="' + ty.toFixed(1) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="12" fill="' + color + '" font-weight="700">' + timeLabel + '</text>' +
-      '<text x="' + x.toFixed(1) + '" y="' + (ty + 13).toFixed(1) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" fill="' + color + '" opacity="0.7">' + e.height.toFixed(1) + 'm</text>';
+    return '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="4" fill="' + color + '" stroke="#0A1520" stroke-width="2"/>' +
+      '<text x="' + x.toFixed(1) + '" y="' + ty.toFixed(1) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" fill="' + color + '" font-weight="700">' + timeLabel + '</text>' +
+      '<text x="' + x.toFixed(1) + '" y="' + (ty + 11).toFixed(1) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="' + color + '" opacity="0.7">' + e.height.toFixed(1) + 'm</text>';
   }).join('');
 
   var nowLine = '';
@@ -4954,7 +4954,7 @@ function renderTidesSheetCurve(points, extremes, isToday, now) {
   [0, 3, 6, 9, 12, 15, 18, 21, 24].forEach(function(hr) {
     var x = pad + (hr * 60 / 1440) * (w - pad * 2);
     hourLabels += '<line x1="' + x.toFixed(1) + '" y1="' + (h - pad) + '" x2="' + x.toFixed(1) + '" y2="' + (h - pad + 5) + '" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>';
-    hourLabels += '<text x="' + x.toFixed(1) + '" y="' + (h - pad + 20) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="11" fill="rgba(255,255,255,0.5)">' + hr + 'h</text>';
+    hourLabels += '<text x="' + x.toFixed(1) + '" y="' + (h - pad + 16) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" fill="rgba(255,255,255,0.5)">' + hr + 'h</text>';
   });
 
   var xAxis = '<line x1="' + pad + '" y1="' + (h - pad) + '" x2="' + (w - pad) + '" y2="' + (h - pad) + '" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>';
