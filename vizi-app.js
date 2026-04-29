@@ -4399,13 +4399,7 @@ function renderSheetTable() {
 
   // Header avec profondeur en valeur principale
   var depthLabel = depth != null ? Math.round(depth) : '—';
-  var depthColor = '#4DD4A8'; // vert par défaut
-  if (depth != null) {
-    if (depth < 3) depthColor = '#C94A3D';      // rouge : très peu profond, brassage facile
-    else if (depth < 8) depthColor = '#E89B3C';  // orange : peu profond
-    else if (depth < 15) depthColor = '#D8C84A'; // jaune : moyen
-    else depthColor = '#4DD4A8';                  // vert : profond, décante vite
-  }
+  var depthColor = '#4DD4A8'; // vert Talisker pour toutes les profondeurs
 
   html += '<div class="vz-sheet-cond-header">';
   html += '<div class="vz-sheet-depth-block">';
