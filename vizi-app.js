@@ -4799,24 +4799,40 @@ function renderTidesSheetContent() {
   var today = now.toISOString().split('T')[0];
   var isToday = selDate === today;
 
-  // ===== Détecter le prochain créneau =====
+// ===== Soleil pour filtrer les créneaux nuit =====
+  var sunTimes = getSunTimesForDate(selDate);
+  function isDaytimeSlot(timeStr) {
+    var t = new Date(timeStr);
+    var hh = t.getHours();
+    var mm = t.getMinutes();
+    var slotMinutes = hh * 60 + mm;
+    var srParts = sunTimes.sunrise.split(':');
+    var ssParts = sunTimes.sunset.split(':');
+    if (srParts.length < 2 || ssParts.length < 2) return true;
+    var sunriseMin = parseInt(srParts[0]) * 60 + parseInt(srParts[1]);
+    var sunsetMin = parseInt(ssParts[0]) * 60 + parseInt(ssParts[1]);
+    return slotMinutes >= sunriseMin && slotMinutes <= sunsetMin;
+  }
+
+  // ===== Détecter le prochain créneau (uniquement de jour, futur) =====
   var nextExtremeIdx = -1;
-  if (isToday && dayExtremes && dayExtremes.length > 0) {
+  if (dayExtremes && dayExtremes.length > 0) {
     for (var i = 0; i < dayExtremes.length; i++) {
-      var endT = new Date(new Date(dayExtremes[i].time).getTime() + 120 * 60000);
-      if (endT > now) {
+      if (!isDaytimeSlot(dayExtremes[i].time)) continue;
+      if (isToday) {
+        var endT = new Date(new Date(dayExtremes[i].time).getTime() + 120 * 60000);
+        if (endT > now) { nextExtremeIdx = i; break; }
+      } else {
         nextExtremeIdx = i;
         break;
       }
     }
-  } else if (!isToday && dayExtremes && dayExtremes.length > 0) {
-    nextExtremeIdx = 0; // sur date future, premier créneau = "principal"
   }
 
   // ===== Phase actuelle (mer montante / descendante) =====
   var phase = computeTidalPhase(dayPoints, now, isToday);
 
-  updateSheetHeader('Marées', port.name);
+  updateSheetHeader('', '');
 
 var html = '<div class="vz-tides-wrap">';
 
@@ -4863,6 +4879,7 @@ var html = '<div class="vz-tides-wrap">';
       var endTime = new Date(etaleTime.getTime() + 120 * 60000);
       var isPast = isToday && endTime < now;
       var isNext = (idx === nextExtremeIdx);
+      var isNight = !isDaytimeSlot(e.time);
 
       var typeColor = e.type === 'high' ? 'var(--vz-accent)' : '#E89B3C';
       var typeShort = e.type === 'high' ? 'PM' : 'BM';
@@ -4873,6 +4890,7 @@ var html = '<div class="vz-tides-wrap">';
       var cardClass = 'vz-tides-windowcard';
       if (isNext) cardClass += ' is-next';
       if (isPast) cardClass += ' is-past';
+      if (isNight) cardClass += ' is-night';
 
       // Badge "PROCHAIN" en débordement
       var nextBadge = isNext ? '<div class="vz-tides-windownext-badge">PROCHAIN</div>' : '';
@@ -4914,6 +4932,8 @@ var html = '<div class="vz-tides-wrap">';
         footerEl = '<div class="vz-tides-windownow-chip">' + inLabel + '</div>';
       } else if (isPast) {
         footerEl = '<div class="vz-tides-windowpast-tag">Passé</div>';
+      } else if (isNight) {
+        footerEl = '<div class="vz-tides-windowpast-tag" style="color:#6B8AA8;">Nuit</div>';
       }
 
       html += '<div class="' + cardClass + '">' +
@@ -5092,8 +5112,8 @@ function getSunTimesForDate(isoDate) {
 function renderTidesSheetCurve(dayPoints, dayExtremes, isToday, now, nextExtremeIdx) {
   if (!dayPoints || dayPoints.length === 0) return '';
 
-  var w = 800, h = 480;
-  var padL = 50, padR = 30, padT = 60, padB = 80;
+  var w = 1200, h = 520;
+  var padL = 56, padR = 24, padT = 50, padB = 70;
 
   var heights = dayPoints.map(function(p){ return p.height; });
   var maxH = Math.max.apply(null, heights);
@@ -5105,15 +5125,26 @@ function renderTidesSheetCurve(dayPoints, dayExtremes, isToday, now, nextExtreme
   var dayEnd = new Date(dayStart.getTime() + 24 * 3600000);
   var totalMs = dayEnd - dayStart;
 
+  // Récupère lever/coucher pour cette date
+  var selDate = TIDES_DRAWER.selectedDate;
+  var sunTimes = getSunTimesForDate(selDate);
+  var srParts = sunTimes.sunrise.split(':');
+  var ssParts = sunTimes.sunset.split(':');
+  var sunriseMin = parseInt(srParts[0]) * 60 + parseInt(srParts[1]);
+  var sunsetMin = parseInt(ssParts[0]) * 60 + parseInt(ssParts[1]);
+
   function xOf(time) {
     var t = new Date(time).getTime() - dayStart.getTime();
     return padL + (t / totalMs) * (w - padL - padR);
+  }
+  function xOfMin(min) {
+    return padL + (min / 1440) * (w - padL - padR);
   }
   function yOf(height) {
     return padT + (1 - (height - minH) / rangeH) * (h - padT - padB);
   }
 
-  var svg = '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="xMidYMid meet" style="width:100%;height:100%;display:block;">';
+  var svg = '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" style="width:100%;height:100%;display:block;">';
 
   // === Defs : gradient sous courbe ===
   svg += '<defs>' +
@@ -5123,31 +5154,48 @@ function renderTidesSheetCurve(dayPoints, dayExtremes, isToday, now, nextExtreme
     '</linearGradient>' +
   '</defs>';
 
+  // === Zones de NUIT (avant lever + après coucher) ===
+  var xSunrise = xOfMin(sunriseMin);
+  var xSunset = xOfMin(sunsetMin);
+  // Bande nuit du matin (0h -> sunrise)
+  svg += '<rect x="' + padL + '" y="' + padT + '" width="' + (xSunrise - padL).toFixed(1) + '" height="' + (h - padT - padB) + '" fill="#000" fill-opacity="0.35"/>';
+  // Bande nuit du soir (sunset -> 24h)
+  svg += '<rect x="' + xSunset.toFixed(1) + '" y="' + padT + '" width="' + (w - padR - xSunset).toFixed(1) + '" height="' + (h - padT - padB) + '" fill="#000" fill-opacity="0.35"/>';
+
+  // Labels lever / coucher
+  svg += '<text x="' + xSunrise.toFixed(1) + '" y="' + (padT - 8) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="13" fill="#FBBF24" font-weight="600">☀ ' + sunTimes.sunrise + '</text>';
+  svg += '<line x1="' + xSunrise.toFixed(1) + '" y1="' + padT + '" x2="' + xSunrise.toFixed(1) + '" y2="' + (h - padB) + '" stroke="#FBBF24" stroke-width="1" stroke-dasharray="2,3" opacity="0.4"/>';
+  svg += '<text x="' + xSunset.toFixed(1) + '" y="' + (padT - 8) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="13" fill="#FBBF24" font-weight="600">☾ ' + sunTimes.sunset + '</text>';
+  svg += '<line x1="' + xSunset.toFixed(1) + '" y1="' + padT + '" x2="' + xSunset.toFixed(1) + '" y2="' + (h - padB) + '" stroke="#FBBF24" stroke-width="1" stroke-dasharray="2,3" opacity="0.4"/>';
+
   // === Grille horizontale (3 lignes) ===
   for (var g = 0; g < 3; g++) {
     var gy = padT + (g / 2) * (h - padT - padB);
-    svg += '<line x1="' + padL + '" y1="' + gy + '" x2="' + (w - padR) + '" y2="' + gy + '" stroke="rgba(255,255,255,0.04)" stroke-dasharray="2,4"/>';
+    svg += '<line x1="' + padL + '" y1="' + gy + '" x2="' + (w - padR) + '" y2="' + gy + '" stroke="rgba(255,255,255,0.05)" stroke-dasharray="2,4"/>';
   }
 
-  // === Bandes ±2h autour des extrêmes (colorées par type) ===
+  // === Bandes ±2h autour des extrêmes (colorées par type, atténuées si nuit) ===
   if (dayExtremes && dayExtremes.length > 0) {
     dayExtremes.forEach(function(e) {
       var et = new Date(e.time);
+      var slotMin = et.getHours() * 60 + et.getMinutes();
+      var isNight = slotMin < sunriseMin || slotMin > sunsetMin;
+      if (isNight) return; // pas de bande sur les créneaux nuit
       var bs = new Date(et.getTime() - 120 * 60000);
       var be = new Date(et.getTime() + 120 * 60000);
       var bx1 = Math.max(padL, xOf(bs));
       var bx2 = Math.min(w - padR, xOf(be));
       if (bx2 <= bx1) return;
       var bandColor = e.type === 'high' ? '#4DD4A8' : '#E89B3C';
-      var bandOp = e.type === 'high' ? 0.10 : 0.07;
+      var bandOp = e.type === 'high' ? 0.14 : 0.10;
       svg += '<rect x="' + bx1.toFixed(1) + '" y="' + padT + '" width="' + (bx2 - bx1).toFixed(1) + '" height="' + (h - padT - padB) + '" fill="' + bandColor + '" fill-opacity="' + bandOp + '"/>';
     });
   }
 
   // === Axe X ===
-  svg += '<line x1="' + padL + '" y1="' + (h - padB) + '" x2="' + (w - padR) + '" y2="' + (h - padB) + '" stroke="rgba(255,255,255,0.15)" stroke-width="1"/>';
+  svg += '<line x1="' + padL + '" y1="' + (h - padB) + '" x2="' + (w - padR) + '" y2="' + (h - padB) + '" stroke="rgba(255,255,255,0.18)" stroke-width="1"/>';
 
-  // === Construction path courbe (smooth via points consécutifs) ===
+  // === Construction path courbe ===
   var pathD = '';
   var areaD = '';
   dayPoints.forEach(function(p, i) {
@@ -5164,30 +5212,27 @@ function renderTidesSheetCurve(dayPoints, dayExtremes, isToday, now, nextExtreme
   var lastX = xOf(dayPoints[dayPoints.length - 1].time);
   areaD += ' L ' + lastX.toFixed(1) + ' ' + (h - padB) + ' Z';
 
-  // Aire
   svg += '<path d="' + areaD + '" fill="url(#vzTideFill)"/>';
-  // Trait
-  svg += '<path d="' + pathD + '" fill="none" stroke="#4DD4A8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>';
+  svg += '<path d="' + pathD + '" fill="none" stroke="#4DD4A8" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>';
 
   // === Labels Y (max / mid / min) ===
-  svg += '<text x="' + (padL - 8) + '" y="' + (padT + 4) + '" text-anchor="end" font-family="IBM Plex Mono,monospace" font-size="11" fill="rgba(255,255,255,0.4)">' + maxH.toFixed(1) + 'm</text>';
-  svg += '<text x="' + (padL - 8) + '" y="' + (padT + (h - padT - padB) / 2 + 4) + '" text-anchor="end" font-family="IBM Plex Mono,monospace" font-size="11" fill="rgba(255,255,255,0.4)">' + ((maxH + minH) / 2).toFixed(1) + 'm</text>';
-  svg += '<text x="' + (padL - 8) + '" y="' + (h - padB + 4) + '" text-anchor="end" font-family="IBM Plex Mono,monospace" font-size="11" fill="rgba(255,255,255,0.4)">' + minH.toFixed(1) + 'm</text>';
+  svg += '<text x="' + (padL - 12) + '" y="' + (padT + 5) + '" text-anchor="end" font-family="IBM Plex Mono,monospace" font-size="14" fill="rgba(255,255,255,0.55)">' + maxH.toFixed(1) + 'm</text>';
+  svg += '<text x="' + (padL - 12) + '" y="' + (padT + (h - padT - padB) / 2 + 5) + '" text-anchor="end" font-family="IBM Plex Mono,monospace" font-size="14" fill="rgba(255,255,255,0.55)">' + ((maxH + minH) / 2).toFixed(1) + 'm</text>';
+  svg += '<text x="' + (padL - 12) + '" y="' + (h - padB + 5) + '" text-anchor="end" font-family="IBM Plex Mono,monospace" font-size="14" fill="rgba(255,255,255,0.55)">' + minH.toFixed(1) + 'm</text>';
 
   // === Labels X (heures) ===
   [0, 3, 6, 9, 12, 15, 18, 21, 24].forEach(function(hr) {
     var x = padL + (hr / 24) * (w - padL - padR);
-    svg += '<line x1="' + x.toFixed(1) + '" y1="' + (h - padB) + '" x2="' + x.toFixed(1) + '" y2="' + (h - padB + 5) + '" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>';
-    svg += '<text x="' + x.toFixed(1) + '" y="' + (h - padB + 22) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="13" fill="rgba(255,255,255,0.5)">' + hr + 'h</text>';
+    svg += '<line x1="' + x.toFixed(1) + '" y1="' + (h - padB) + '" x2="' + x.toFixed(1) + '" y2="' + (h - padB + 6) + '" stroke="rgba(255,255,255,0.25)" stroke-width="1"/>';
+    svg += '<text x="' + x.toFixed(1) + '" y="' + (h - padB + 26) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="15" fill="rgba(255,255,255,0.6)" font-weight="500">' + hr + 'h</text>';
   });
 
   // === Cursor NOW (ligne rouge dashed + label) ===
   if (isToday) {
     var nowX = xOf(now);
     if (nowX >= padL && nowX <= w - padR) {
-      // Trouver Y de la courbe au "now" (interpolation simple)
       var nowMs = now.getTime();
-      var nowY = padT + (h - padT - padB) / 2; // fallback
+      var nowY = padT + (h - padT - padB) / 2;
       for (var k = 0; k < dayPoints.length - 1; k++) {
         var t1 = new Date(dayPoints[k].time).getTime();
         var t2 = new Date(dayPoints[k + 1].time).getTime();
@@ -5199,55 +5244,56 @@ function renderTidesSheetCurve(dayPoints, dayExtremes, isToday, now, nextExtreme
         }
       }
 
-      svg += '<line x1="' + nowX.toFixed(1) + '" y1="' + padT + '" x2="' + nowX.toFixed(1) + '" y2="' + (h - padB) + '" stroke="#C94A3D" stroke-width="1.5" stroke-dasharray="4,3"/>';
-      svg += '<circle cx="' + nowX.toFixed(1) + '" cy="' + nowY.toFixed(1) + '" r="6" fill="#C94A3D" stroke="#0A1520" stroke-width="2"/>';
+      svg += '<line x1="' + nowX.toFixed(1) + '" y1="' + padT + '" x2="' + nowX.toFixed(1) + '" y2="' + (h - padB) + '" stroke="#C94A3D" stroke-width="2" stroke-dasharray="5,4"/>';
+      svg += '<circle cx="' + nowX.toFixed(1) + '" cy="' + nowY.toFixed(1) + '" r="7" fill="#C94A3D" stroke="#0A1520" stroke-width="2.5"/>';
 
       var nowLabel = now.toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
-      var labelX = Math.max(padL + 30, Math.min(w - padR - 30, nowX));
-      svg += '<rect x="' + (labelX - 32).toFixed(1) + '" y="' + (padT - 24) + '" width="64" height="18" rx="3" fill="#C94A3D"/>';
-      svg += '<text x="' + labelX.toFixed(1) + '" y="' + (padT - 11) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" fill="#FFFFFF" font-weight="700" letter-spacing="0.08em">' + nowLabel + ' NOW</text>';
+      var labelX = Math.max(padL + 40, Math.min(w - padR - 40, nowX));
+      svg += '<rect x="' + (labelX - 38).toFixed(1) + '" y="' + (padT + 8) + '" width="76" height="22" rx="4" fill="#C94A3D"/>';
+      svg += '<text x="' + labelX.toFixed(1) + '" y="' + (padT + 23) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="12" fill="#FFFFFF" font-weight="700" letter-spacing="0.08em">' + nowLabel + ' NOW</text>';
     }
   }
 
-  // === Points extrêmes + labels (PM teal / BM orange) ===
+  // === Points extrêmes + labels (PM teal / BM orange, atténués si nuit) ===
   if (dayExtremes && dayExtremes.length > 0) {
     dayExtremes.forEach(function(e, idx) {
       var x = xOf(e.time);
       var y = yOf(e.height);
       var color = e.type === 'high' ? '#4DD4A8' : '#E89B3C';
-      var isPast = isToday && new Date(new Date(e.time).getTime() + 120 * 60000) < now;
+      var et = new Date(e.time);
+      var slotMin = et.getHours() * 60 + et.getMinutes();
+      var isNight = slotMin < sunriseMin || slotMin > sunsetMin;
+      var isPast = isToday && new Date(et.getTime() + 120 * 60000) < now;
       var isNext = (idx === nextExtremeIdx);
 
-      var opacity = isPast ? 0.4 : 1;
-      var radius = isNext ? 7 : 5;
-      var strokeW = isNext ? 2.5 : 2;
-      var labelTime = new Date(e.time).toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
+      var opacity = isNight ? 0.35 : (isPast ? 0.45 : 1);
+      var radius = isNext ? 8 : 6;
+      var strokeW = isNext ? 3 : 2.5;
+      var labelTime = et.toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
 
-      // Position labels : au-dessus pour PM, en-dessous pour BM
       var ty1, ty2;
       if (e.type === 'high') {
-        ty1 = y - 22;  // hauteur
-        ty2 = y - 8;   // heure
+        ty1 = y - 28; ty2 = y - 12;
       } else {
-        ty1 = y + 30;  // hauteur
-        ty2 = y + 18;  // heure
+        ty1 = y + 36; ty2 = y + 22;
       }
-      var fontSize = isNext ? 13 : 11;
-      var fontSizeH = isNext ? 11 : 10;
+      var fontSize = isNext ? 16 : 14;
+      var fontSizeH = isNext ? 13 : 12;
 
       svg += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="' + radius + '" fill="' + color + '" stroke="#0A1520" stroke-width="' + strokeW + '" opacity="' + opacity + '"/>';
       svg += '<text x="' + x.toFixed(1) + '" y="' + ty2.toFixed(1) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="' + fontSize + '" fill="' + color + '" font-weight="700" opacity="' + opacity + '">' + labelTime + '</text>';
-      svg += '<text x="' + x.toFixed(1) + '" y="' + ty1.toFixed(1) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="' + fontSizeH + '" fill="' + color + '" opacity="' + (opacity * 0.7) + '">' + e.height.toFixed(1) + 'm</text>';
+      svg += '<text x="' + x.toFixed(1) + '" y="' + ty1.toFixed(1) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="' + fontSizeH + '" fill="' + color + '" opacity="' + (opacity * 0.75) + '">' + e.height.toFixed(1) + 'm</text>';
     });
   }
 
   svg += '</svg>';
 
-  // === Légende compacte ===
   var legendHtml = '<div class="vz-tides-curvelegend">' +
     '<span><span class="legend-band"></span>±2h étale</span>' +
     '<span><span class="legend-dot" style="background:#4DD4A8;"></span>PM</span>' +
     '<span><span class="legend-dot" style="background:#E89B3C;"></span>BM</span>' +
+    '<span style="color:#FBBF24;">☀ jour</span>' +
+    '<span style="color:rgba(255,255,255,0.4);">▮ nuit</span>' +
     (isToday ? '<span><span class="legend-line"></span>maintenant</span>' : '') +
   '</div>';
 
