@@ -45,6 +45,55 @@
     --vz-radius-btn: 10px;
     --vz-blur: 14px;
     }
+    /* === REFONTE V2 - Composants flottants glassmorphism === */
+.vz-logo-pill {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: var(--vz-bg-glass);
+  backdrop-filter: blur(var(--vz-blur));
+  -webkit-backdrop-filter: blur(var(--vz-blur));
+  border: 0.5px solid var(--vz-accent-border);
+  border-radius: var(--vz-radius-pill);
+  pointer-events: all;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.vz-logo-pill:hover {
+  background: var(--vz-bg-glass-strong);
+  border-color: var(--vz-accent);
+}
+.vz-logo-pill-mark {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.vz-logo-pill-mark svg {
+  width: 26px;
+  height: 26px;
+}
+.vz-logo-pill-text {
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--vz-text-on-dark);
+  letter-spacing: 0.12em;
+  line-height: 1;
+}
+
+#header .logo {
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
     * { margin:0; padding:0; box-sizing:border-box; }
     html, body { width:100%; height:100%; overflow:hidden; font-family:'Inter', system-ui, sans-serif; background:var(--bg); color:var(--text); }
     #header { position:absolute; top:0; left:0; right:0; z-index:1000; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 24px; background:#1A2535; border-bottom:1px solid rgba(255,255,255,0.06); pointer-events:none; }
