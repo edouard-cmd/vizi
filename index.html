@@ -1178,6 +1178,276 @@
     max-width: none;
   }
 }
+
+/* ============================================================
+   DRAWER CONDITIONS - Tableau dense Talisker dark
+   60% droite sur desktop, plein écran mobile
+   ============================================================ */
+#vzCondDrawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1100;
+  width: 60%;
+  max-width: 980px;
+  background: var(--vz-bg-deep);
+  border-left: 0.5px solid var(--vz-accent-border);
+  box-shadow: -8px 0 40px rgba(0,0,0,0.5);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.32s cubic-bezier(.4,0,.2,1);
+  overflow: hidden;
+}
+#vzCondDrawer.open { transform: translateX(0); }
+
+.vz-cond-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 22px;
+  background: var(--vz-bg-surface);
+  border-bottom: 0.5px solid var(--vz-border-glass);
+  flex-shrink: 0;
+}
+.vz-cond-head-left { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.vz-cond-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--vz-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 600;
+}
+.vz-cond-spot {
+  font-family: 'Inter', sans-serif;
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--vz-text-on-dark);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vz-cond-meta {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--vz-text-on-dark-faint);
+}
+.vz-cond-close {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.06);
+  border: 0.5px solid var(--vz-border-glass);
+  color: var(--vz-text-on-dark-muted);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+.vz-cond-close:hover {
+  background: rgba(255,255,255,0.12);
+  color: var(--vz-text-on-dark);
+}
+
+.vz-cond-body {
+  flex: 1;
+  overflow: auto;
+  padding: 0;
+  background: var(--vz-bg-deep);
+}
+.vz-cond-loading {
+  padding: 80px 20px;
+  text-align: center;
+  color: var(--vz-text-on-dark-faint);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+
+/* Tableau dense */
+.vz-cond-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  white-space: nowrap;
+  min-width: 100%;
+}
+.vz-cond-table td, .vz-cond-table th {
+  padding: 0 10px;
+  text-align: center;
+  border-right: 0.5px solid rgba(255,255,255,0.04);
+  border-bottom: 0.5px solid rgba(255,255,255,0.04);
+  height: 28px;
+  vertical-align: middle;
+  color: var(--vz-text-on-dark);
+}
+
+/* Sticky left column (labels) */
+.vz-cond-rowlabel {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: var(--vz-bg-surface) !important;
+  text-align: left !important;
+  padding: 0 14px !important;
+  min-width: 130px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--vz-text-on-dark-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-right: 0.5px solid var(--vz-border-glass) !important;
+}
+
+/* Headers jour + heure (sticky top) */
+.vz-cond-dayhead {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  background: var(--vz-bg-surface) !important;
+  color: var(--vz-text-on-dark) !important;
+  font-family: 'Inter', sans-serif !important;
+  font-size: 11px !important;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  height: 30px !important;
+  border-bottom: 0.5px solid var(--vz-accent-border) !important;
+}
+.vz-cond-hourhead {
+  position: sticky;
+  top: 30px;
+  z-index: 4;
+  background: var(--vz-bg-surface) !important;
+  color: var(--vz-text-on-dark-muted) !important;
+  font-size: 10px !important;
+  font-family: 'IBM Plex Mono', monospace;
+  height: 26px !important;
+  border-bottom: 0.5px solid var(--vz-border-glass) !important;
+}
+.vz-cond-cornerlabel {
+  position: sticky;
+  left: 0;
+  top: 0;
+  z-index: 5;
+  background: var(--vz-bg-surface) !important;
+  border-right: 0.5px solid var(--vz-border-glass) !important;
+  border-bottom: 0.5px solid var(--vz-accent-border) !important;
+}
+.vz-cond-cornerhour {
+  position: sticky;
+  left: 0;
+  top: 30px;
+  z-index: 5;
+  background: var(--vz-bg-surface) !important;
+  border-right: 0.5px solid var(--vz-border-glass) !important;
+  border-bottom: 0.5px solid var(--vz-border-glass) !important;
+}
+
+/* Frontière de jour */
+.vz-cond-dayboundary {
+  border-left: 1.5px solid rgba(255,255,255,0.18) !important;
+}
+
+/* Colonne "now" */
+.vz-cond-now {
+  background: var(--vz-accent-glow) !important;
+  border-left: 2px solid var(--vz-accent) !important;
+  border-right: 2px solid var(--vz-accent) !important;
+}
+.vz-cond-now-header {
+  color: var(--vz-accent) !important;
+  font-weight: 700 !important;
+}
+
+/* Ligne visibilité (la killer feature) */
+.vz-cond-row-vis td:not(.vz-cond-rowlabel) {
+  height: 44px;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 0.02em;
+}
+.vz-cond-row-vis .vz-cond-rowlabel {
+  background: var(--vz-bg-elevated) !important;
+  color: var(--vz-accent) !important;
+  font-weight: 700;
+}
+
+/* Color-coding visi (5 paliers) */
+.vz-cond-vis-0 { background: var(--vz-danger); }       /* < 1m */
+.vz-cond-vis-1 { background: var(--vz-warning); }      /* 1-2m */
+.vz-cond-vis-2 { background: var(--vz-medium); color: var(--vz-bg-deep) !important; }  /* 2-4m */
+.vz-cond-vis-3 { background: var(--vz-accent-strong); }/* 4-8m */
+.vz-cond-vis-4 { background: var(--vz-accent); color: var(--vz-bg-deep) !important; }  /* +8m */
+
+/* Color-coding vent / rafales (7 paliers progressifs) */
+.vz-cond-w-0 { background: rgba(77,212,168,0.10); }
+.vz-cond-w-1 { background: rgba(77,212,168,0.20); }
+.vz-cond-w-2 { background: rgba(216,200,74,0.20); }
+.vz-cond-w-3 { background: rgba(232,155,60,0.25); }
+.vz-cond-w-4 { background: rgba(232,155,60,0.40); }
+.vz-cond-w-5 { background: rgba(201,74,61,0.45); }
+.vz-cond-w-6 { background: rgba(201,74,61,0.65); }
+
+.vz-cond-row-wind td:not(.vz-cond-rowlabel),
+.vz-cond-row-gusts td:not(.vz-cond-rowlabel) {
+  font-weight: 600;
+}
+
+/* Coef coloré */
+.vz-cond-coef-low { color: var(--vz-good); }
+.vz-cond-coef-mid { color: var(--vz-warning); }
+.vz-cond-coef-high { color: var(--vz-danger); }
+
+/* Cellule cliquable (ligne visi) */
+.vz-cond-row-vis td:not(.vz-cond-rowlabel) {
+  cursor: pointer;
+  transition: filter 0.12s;
+}
+.vz-cond-row-vis td:not(.vz-cond-rowlabel):hover {
+  filter: brightness(1.15);
+}
+
+/* Footer source modèles */
+.vz-cond-footer {
+  padding: 12px 22px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--vz-text-on-dark-faint);
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  border-top: 0.5px solid var(--vz-border-glass);
+  background: var(--vz-bg-surface);
+}
+.vz-cond-footer strong { color: var(--vz-accent); font-weight: 600; }
+
+/* Mobile : drawer plein écran */
+@media (max-width: 900px) {
+  #vzCondDrawer {
+    width: 100% !important;
+    max-width: none !important;
+    top: auto !important;
+    bottom: 0; left: 0; right: 0;
+    height: 92vh;
+    border-left: none;
+    border-top: 0.5px solid var(--vz-accent-border);
+    border-radius: 16px 16px 0 0;
+    transform: translateY(100%);
+  }
+  #vzCondDrawer.open { transform: translateY(0); }
+  .vz-cond-head { padding: 12px 16px; }
+  .vz-cond-spot { font-size: 16px; }
+  .vz-cond-rowlabel { min-width: 110px; font-size: 9px; }
+  .vz-cond-table td { padding: 0 7px; font-size: 11px; }
+}
   </style>
 </head>
 <body>
@@ -1196,13 +1466,12 @@
   <div class="vz-logo-pill-text">VISIMER</div>
     </div>
 <div class="vz-tab-segmented">
-  <button class="vz-tab-btn" id="vzTabWind" onclick="toggleForecastPanel()">
+  <button class="vz-tab-btn" id="vzTabCond" onclick="openCondDrawer()">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M9.59 4.59A2 2 0 1111 8H2"/>
-      <path d="M12.59 19.41A2 2 0 1014 16H2"/>
-      <path d="M17.73 7.73A2.5 2.5 0 1119.5 12H2"/>
+      <path d="M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/>
     </svg>
-    Vent
+    Conditions
   </button>
   <button class="vz-tab-btn" id="vzTabTides" onclick="openTidesDrawer()">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1666,6 +1935,24 @@
   </div>
 </div>
 
+<!-- ============================================================
+     DRAWER CONDITIONS - Tableau dense Talisker (refonte v2)
+     Remplace l'ancien forecastPanel
+     ============================================================ -->
+<div id="vzCondDrawer">
+  <div class="vz-cond-head">
+    <div class="vz-cond-head-left">
+      <div class="vz-cond-label">Conditions</div>
+      <div class="vz-cond-spot" id="vzCondSpot">Détection du spot...</div>
+      <div class="vz-cond-meta" id="vzCondMeta">—</div>
+    </div>
+    <button class="vz-cond-close" onclick="closeCondDrawer()">&#10005;</button>
+  </div>
+  <div class="vz-cond-body" id="vzCondBody">
+    <div class="vz-cond-loading">Chargement des conditions...</div>
+  </div>
+</div>
+
 <div id="geoBanner">
   <div class="geo-banner-icon">
     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#A8E63D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1723,7 +2010,9 @@ function syncLayersPopover() {
   var spotOpen = document.getElementById('spotDrawer').classList.contains('open');
   var tidesOpen = document.getElementById('tidesDrawer').classList.contains('open');
   var carnetOpen = document.getElementById('carnetDrawer').classList.contains('open');
-  if (fab) fab.style.display = (spotOpen || tidesOpen || carnetOpen) ? 'none' : 'flex';
+  var condEl = document.getElementById('vzCondDrawer');
+  var condOpen = condEl ? condEl.classList.contains('open') : false;
+  if (fab) fab.style.display = (spotOpen || tidesOpen || carnetOpen || condOpen) ? 'none' : 'flex';
 }, 200);
 document.addEventListener('click', function(e) {
   var pop = document.getElementById('vzLayersPopover');
@@ -1738,7 +2027,6 @@ document.addEventListener('click', function(e) {
 // Sync visuel V2 ↔ V1 (les anciens boutons sont masqués mais gardent l'état réel)
 (function() {
   const syncMap = [
-    { v2: 'vzTabWind',     v1: 'btnWind' },
     { v2: 'vzTabTides',    v1: 'btnTidesPage' },
     { v2: 'vzTabWebcams',  v1: 'btnWebcams' }
   ];
