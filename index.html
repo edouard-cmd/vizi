@@ -321,12 +321,10 @@
 .vz-tides-coefcard {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  padding: 10px 14px;
-  background: var(--vz-bg-surface);
-  border: 0.5px solid var(--vz-border-glass);
-  border-radius: var(--vz-radius-card);
-  flex-shrink: 0;
+  gap: 10px;
+  padding: 10px 12px;
+  flex-wrap: nowrap;
+  overflow: hidden;
 }
 .vz-tides-coefbig {
   width: 48px;
@@ -354,8 +352,9 @@
 .vz-tides-coeftop {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
+  min-width: 0;
 }
 .vz-tides-portname {
   font-family: 'Inter', sans-serif;
@@ -364,6 +363,9 @@
   color: var(--vz-text-on-dark);
   line-height: 1.2;
   letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .vz-tides-coeflabel {
   font-family: 'IBM Plex Mono', monospace;
