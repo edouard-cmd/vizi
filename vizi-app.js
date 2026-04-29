@@ -4839,11 +4839,11 @@ var html = '<div class="vz-tides-wrap">';
   // ====== COLONNE GAUCHE ======
   html += '<div class="vz-tides-leftcol">';
 
-  // --- Titre interne colonne gauche (style mockup) ---
+  // --- Titre interne colonne gauche (style Conditions) ---
   html += '<div class="vz-tides-colheader">' +
     '<span class="vz-tides-colheader-title">Marées</span>' +
     '<span class="vz-tides-colheader-sep">·</span>' +
-    '<span class="vz-tides-colheader-port">' + (port.name || '').toUpperCase() + '</span>' +
+    '<span class="vz-tides-colheader-port">' + (port.name || '') + '</span>' +
   '</div>';
 
   // --- Bloc coef ---
