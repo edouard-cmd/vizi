@@ -1207,6 +1207,21 @@
       .controls::-webkit-scrollbar { display:none; }
       .ctrl-btn { padding:6px 10px; font-size:11px; flex-shrink:0; }
       #spotDrawer { width:auto !important; left:8px !important; right:8px !important; top:auto !important; bottom:8px !important; height:88vh !important; border:0.5px solid var(--vz-accent-border) !important; border-radius:18px !important; transform:translateY(calc(100% + 16px)); }
+      /* Handle bar visuel pour indiquer le swipe-down sur mobile */
+      #spotDrawer .drawer-head {
+        position: relative;
+      }
+      #spotDrawer .drawer-head::before {
+        content: '';
+        position: absolute;
+        top: 6px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 40px;
+        height: 4px;
+        background: rgba(255,255,255,0.25);
+        border-radius: 2px;
+      }
       .spot-close { position:fixed !important; top:84px !important; right:14px !important; z-index:1200 !important; background:rgba(26,37,53,0.85) !important; color:white !important; width:40px !important; height:40px !important; box-shadow:0 4px 14px rgba(0,0,0,0.25) !important; }
       #spotDrawer.open { transform:translateY(0); }
       #mobileCrosshair { display:block; }
@@ -2363,13 +2378,6 @@
 <div id="turbBadge">
   <div class="tb-dot"></div>
   <div class="tb-text" id="turbBadgeText">-</div>
-</div>
-
-<div id="mobileCrosshair">
-  <div class="ch-ring"></div>
-  <div class="ch-line-h"></div>
-  <div class="ch-line-v"></div>
-  <div class="ch-dot"></div>
 </div>
 
 <button id="mobileAnalyzeBtn" onclick="analyzeCenterPoint()">Analyser ce point</button>
