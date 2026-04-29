@@ -1135,6 +1135,40 @@ function toggleForecastPanel() {
   S_forecastOpen = !S_forecastOpen;
   document.getElementById('btnWind').classList.toggle('active', S_forecastOpen);
   document.getElementById('forecastPanel').style.display = S_forecastOpen ? 'block' : 'none';
+  
+  // Si on ouvre le panneau et qu'on n'a pas encore charge de previsions, on charge automatiquement
+  if (S_forecastOpen && !S_lastForecastData) {
+    var refLat = null, refLon = null, refName = null;
+    
+    // Priorite 1 : point clique sur la carte
+    if (S.clickLatLng) {
+      refLat = S.clickLatLng.lat;
+      refLon = S.clickLatLng.lng;
+    }
+    // Priorite 2 : position GPS de l'utilisateur
+    else if (GEO_STATE.userLatLng) {
+      refLat = GEO_STATE.userLatLng.lat;
+      refLon = GEO_STATE.userLatLng.lon;
+    }
+    
+    // Si on a une reference, on cherche le port le plus proche
+    if (refLat !== null) {
+      var nearest = findNearestPort(refLat, refLon);
+      if (nearest) {
+        refLat = nearest.spot.lat;
+        refLon = nearest.spot.lon;
+        refName = nearest.spot.name;
+      }
+      loadForecast(refLat, refLon, refName);
+    }
+    // Sinon, port par defaut (Cherbourg)
+    else {
+      var defaultPort = SPOTS.find(function(s){ return s.id === 'cherbourg'; }) || SPOTS[0];
+      if (defaultPort) {
+        loadForecast(defaultPort.lat, defaultPort.lon, defaultPort.name);
+      }
+    }
+  }
 }
 
 function closeForecast() {
