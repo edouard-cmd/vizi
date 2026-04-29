@@ -914,14 +914,19 @@ S.basemapSat = L.layerGroup([
     S.spotMarkers[spot.id] = m;
   });
 
-  S.map.on('click', function(e) {
+S.map.on('click', function(e) {
+    // Si le bandeau bas est déployé, le clic sur la carte le ferme et stop
+    var sheet = document.getElementById('vzSheet');
+    if (sheet && (sheet.classList.contains('sheet-half') || sheet.classList.contains('sheet-full'))) {
+      closeSheetCompletely();
+      return;
+    }
     isOnSea(e.latlng.lat, e.latlng.lng, function(onSea) {
       if (!onSea) { showLandMessage(e.latlng); return; }
       openSpotPopup(e.latlng, null);
       if (S_forecastOpen) loadForecast(e.latlng.lat, e.latlng.lng, null);
     });
   });
-}
 
 function toggleLayer(type) {
   if (type === 'heatmap') {
@@ -5331,3 +5336,39 @@ window.closeSheetCompletely = function() {
     if (el) el.classList.remove('active');
   });
 };
+// Swipe-down pour fermer le bandeau bas (mobile)
+(function() {
+  var sheet = document.getElementById('vzSheet');
+  if (!sheet) return;
+  var handle = sheet.querySelector('.vz-sheet-handle');
+  if (!handle) return;
+  
+  var startY = 0;
+  var currentY = 0;
+  var isDragging = false;
+  
+  handle.addEventListener('touchstart', function(e) {
+    if (sheet.classList.contains('sheet-peek')) return;
+    startY = e.touches[0].clientY;
+    isDragging = true;
+  }, { passive: true });
+  
+  handle.addEventListener('touchmove', function(e) {
+    if (!isDragging) return;
+    currentY = e.touches[0].clientY;
+  }, { passive: true });
+  
+  handle.addEventListener('touchend', function(e) {
+    if (!isDragging) return;
+    isDragging = false;
+    var deltaY = currentY - startY;
+    if (deltaY > 60) {
+      // Swipe down > 60px = ferme
+      if (sheet.classList.contains('sheet-full')) {
+        setSheetState('half');
+      } else if (sheet.classList.contains('sheet-half')) {
+        closeSheetCompletely();
+      }
+    }
+  }, { passive: true });
+})();
