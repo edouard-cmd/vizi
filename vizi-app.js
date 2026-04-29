@@ -1479,6 +1479,20 @@ function openSpotPopup(latlng, name) {
   fetchSpotMarineAndSun(latlng.lat, latlng.lng);
   loadDrawerTides(latlng.lat, latlng.lng);
   fetchSedimentType(latlng.lat, latlng.lng);
+    // Si le bandeau Conditions est ouvert, on le rafraîchit avec le nouveau spot
+  if (typeof VZ_SHEET !== 'undefined' && VZ_SHEET.mode === 'cond') {
+    var newSpot = {
+      lat: latlng.lat,
+      lng: latlng.lng,
+      name: name || getSpotDisplayName(latlng.lat, latlng.lng),
+      depth: S._spotDepth || null
+    };
+    VZ_SHEET.spot = newSpot;
+    updateSheetHeader('Prévisions 5 jours', newSpot.name);
+    var bodySheet = document.getElementById('vzSheetBody');
+    if (bodySheet) bodySheet.innerHTML = '<div class="vz-sheet-loading">Chargement des prévisions...</div>';
+    loadSheetConditions(newSpot);
+  }
 }
 
 function closeSpotPopup() {
