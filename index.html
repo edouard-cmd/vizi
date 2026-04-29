@@ -1522,8 +1522,15 @@
         <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--text);" id="sedimentType">-</div>
       </div>
     </div>
-    <div style="padding:12px 16px; border-bottom:1px solid var(--border); background:var(--surface);">
-      <button onclick="openSessionModal()" style="width:100%; padding:11px; background:#1A2535; border:1.5px solid #A8E63D; border-radius:10px; color:#A8E63D; font-family:'Inter',sans-serif; font-size:13px; font-weight:700; cursor:pointer;">Enregistrer ma session</button>
+    <div style="padding:12px 16px; border-bottom:1px solid var(--border); background:var(--surface); display:flex; flex-direction:column; gap:8px;">
+      <button onclick="openObsSheet()" style="width:100%; padding:13px; background:#0BA888; border:none; border-radius:10px; color:white; font-family:'Inter',sans-serif; font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"></path>
+        </svg>
+        Partager la visibilité
+      </button>
+      <button onclick="openSessionModal()" style="width:100%; padding:9px; background:transparent; border:1px solid var(--border2); border-radius:10px; color:var(--text-2); font-family:'Inter',sans-serif; font-size:12px; font-weight:500; cursor:pointer;">Enregistrer ma session</button>
     </div>
     <div id="drawerTides">
       <div style="padding:18px;text-align:center;color:var(--text-3);font-family:'IBM Plex Mono',monospace;font-size:11px;">Clique sur un point en mer pour voir les marees</div>
@@ -1710,6 +1717,13 @@ function syncLayersPopover() {
     setInterval(function() {
   var pop = document.getElementById('vzLayersPopover');
   if (pop && pop.classList.contains('open')) syncLayersPopover();
+}, 200);
+    setInterval(function() {
+  var fab = document.getElementById('vzFabImprove');
+  var spotOpen = document.getElementById('spotDrawer').classList.contains('open');
+  var tidesOpen = document.getElementById('tidesDrawer').classList.contains('open');
+  var carnetOpen = document.getElementById('carnetDrawer').classList.contains('open');
+  if (fab) fab.style.display = (spotOpen || tidesOpen || carnetOpen) ? 'none' : 'flex';
 }, 200);
 document.addEventListener('click', function(e) {
   var pop = document.getElementById('vzLayersPopover');
