@@ -838,20 +838,94 @@
       #locateBtn { width: 32px; height: 32px; }
     }
 
-    #zoomControls {
-      position: absolute; top: 120px; left: 14px; z-index: 950;
-      display: flex; flex-direction: column; gap: 6px; background: transparent;
-    }
-    .zoom-btn {
-      width: 44px; height: 44px; background: #FFFFFF;
-      border: 1px solid #E2E8F0; border-radius: 10px;
-      color: #1A2535; cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      transition: all 0.15s; box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-      padding: 0;
-    }
-    .zoom-btn:hover { border-color: #A8E63D; color: #0BA888; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-    .zoom-btn:active { transform: translateY(0); background: #F7FAFC; }
+#zoomControls {
+  position: fixed;
+  top: 80px;
+  left: 16px;
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+  background: var(--vz-bg-glass);
+  backdrop-filter: blur(var(--vz-blur));
+  -webkit-backdrop-filter: blur(var(--vz-blur));
+  border: 0.5px solid var(--vz-border-glass);
+  border-radius: 12px;
+}
+.zoom-btn {
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--vz-text-on-dark);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  padding: 0;
+  position: relative;
+}
+.zoom-btn:hover { background: rgba(255,255,255,0.08); color: var(--vz-accent); }
+.zoom-btn:active { background: rgba(255,255,255,0.15); }
+.zoom-btn + .zoom-btn::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: 6px;
+  right: 6px;
+  height: 0.5px;
+  background: rgba(255,255,255,0.1);
+}
+
+.vz-stack-side {
+  position: fixed;
+  top: 168px;
+  left: 16px;
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+  background: var(--vz-bg-glass);
+  backdrop-filter: blur(var(--vz-blur));
+  -webkit-backdrop-filter: blur(var(--vz-blur));
+  border: 0.5px solid var(--vz-border-glass);
+  border-radius: 12px;
+}
+.vz-side-btn {
+  width: 36px;
+  height: 36px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--vz-text-on-dark-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  padding: 0;
+  position: relative;
+}
+.vz-side-btn:hover { background: rgba(255,255,255,0.08); color: var(--vz-text-on-dark); }
+.vz-side-btn.active { color: var(--vz-accent); background: var(--vz-accent-glow); }
+.vz-side-btn svg { width: 18px; height: 18px; }
+.vz-side-btn + .vz-side-btn::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: 6px;
+  right: 6px;
+  height: 0.5px;
+  background: rgba(255,255,255,0.1);
+}
+
+#locateBtn, #btnBasemapIGN, #authBtn {
+  display: none !important;
+}
     @media (max-width: 768px) { #zoomControls { display: none; } }
     /* ============================================================
    WEBCAMS - Marker camera + popup integree
@@ -1023,6 +1097,29 @@
   <button class="zoom-btn" onclick="zoomMapOut()" title="Dezoomer">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
       <line x1="5" y1="12" x2="19" y2="12"></line>
+    </svg>
+  </button>
+</div>
+  <div class="vz-stack-side">
+  <button class="vz-side-btn" id="vzBtnLocate" onclick="geolocateUser(true)" title="Me localiser">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"></circle>
+      <circle cx="12" cy="12" r="3" fill="currentColor"></circle>
+      <line x1="12" y1="2" x2="12" y2="5"></line>
+      <line x1="12" y1="19" x2="12" y2="22"></line>
+      <line x1="2" y1="12" x2="5" y2="12"></line>
+      <line x1="19" y1="12" x2="22" y2="12"></line>
+    </svg>
+  </button>
+  <button class="vz-side-btn" id="vzBtnIGN" onclick="switchBasemap('ign')" title="Plan IGN">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+    </svg>
+  </button>
+  <button class="vz-side-btn" id="vzBtnCarnet" onclick="handleAuthClick()" title="Mon carnet">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 19.5A2.5 2.5 0 016.5 17H20"/>
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
     </svg>
   </button>
 </div>
