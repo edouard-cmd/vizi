@@ -297,19 +297,19 @@
     #mobileAnalyzeBtn { display:none; position:fixed; bottom:28px; left:50%; transform:translateX(-50%); z-index:960; padding:14px 32px; background:#1A2535; border:2px solid #A8E63D; border-radius:40px; color:#A8E63D; font-family:'Inter', sans-serif; font-size:15px; font-weight:700; letter-spacing:0.04em; cursor:pointer; box-shadow:0 4px 24px rgba(0,0,0,0.3); white-space:nowrap; transition:all 0.2s; }
     #mobileShareBtn { display:none; position:fixed; bottom:88px; left:50%; transform:translateX(-50%); z-index:960; padding:13px 28px; background:rgba(26,37,53,0.92); border:1.5px solid rgba(168,230,61,0.5); border-radius:40px; color:rgba(168,230,61,0.85); font-family:'Inter', sans-serif; font-size:14px; font-weight:600; cursor:pointer; box-shadow:0 4px 20px rgba(0,0,0,0.2); white-space:nowrap; }
 /* ============================================================
-   MAREES dans le bandeau bas - Style Talisker (v7 - 2 colonnes pleine hauteur)
+   MAREES dans le bandeau bas - Style Talisker (v8 final)
    ============================================================ */
 .vz-tides-wrap {
   padding: 8px 16px 14px;
   color: var(--vz-text-on-dark);
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
-  gap: 12px;
+  grid-template-columns: minmax(0, 460px) minmax(0, 1fr);
+  gap: 16px;
   height: 100%;
   min-height: 0;
 }
 
-/* === Colonne gauche : coef card + créneaux === */
+/* === Colonne gauche === */
 .vz-tides-leftcol {
   display: flex;
   flex-direction: column;
@@ -317,25 +317,23 @@
   min-height: 0;
 }
 
-/* Coef card compacte (carte d'identité du jour) */
-.vz-tides-coefcard {
+/* Bloc coef compact (haut) */
+.vz-tides-coefbloc {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 12px;
-  flex-wrap: nowrap;
-  overflow: hidden;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
 }
 .vz-tides-coefbig {
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
   border: 2px solid;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: 'Inter', sans-serif;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
   line-height: 1;
   flex-shrink: 0;
@@ -345,105 +343,82 @@
 .vz-tides-coefinfo {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   flex: 1;
   min-width: 0;
 }
-.vz-tides-coeftop {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  flex-wrap: wrap;
-  min-width: 0;
-}
-.vz-tides-portname {
+.vz-tides-coeftitle {
   font-family: 'Inter', sans-serif;
   font-size: 14px;
   font-weight: 600;
   color: var(--vz-text-on-dark);
   line-height: 1.2;
   letter-spacing: 0.01em;
+}
+.vz-tides-coefmeta {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--vz-text-on-dark-faint);
+  line-height: 1.3;
+  letter-spacing: 0.02em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.vz-tides-coeflabel {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 9px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-}
-.vz-tides-coefdesc {
-  font-family: 'Inter', sans-serif;
-  font-size: 11px;
-  color: var(--vz-text-on-dark-muted);
-  line-height: 1.3;
-}
 
-/* Nav date intégrée dans la coef card (en dessous) */
-.vz-tides-datenav {
+/* Date chips */
+.vz-tides-datechips {
   display: flex;
   align-items: center;
-  gap: 5px;
-  margin-top: 4px;
-  width: 100%;
+  gap: 8px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
 }
-.vz-tides-datebtn {
-  width: 24px;
-  height: 24px;
-  background: rgba(255,255,255,0.05);
+.vz-tides-datechip {
+  padding: 6px 12px;
+  background: transparent;
   border: 0.5px solid rgba(255,255,255,0.15);
-  border-radius: 5px;
-  color: var(--vz-text-on-dark);
+  border-radius: 14px;
+  color: var(--vz-text-on-dark-muted);
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.15s;
+  white-space: nowrap;
+  line-height: 1;
+}
+.vz-tides-datechip:hover {
+  border-color: var(--vz-accent-border);
+  color: var(--vz-text-on-dark);
+}
+.vz-tides-datechip.active {
+  background: var(--vz-accent-glow);
+  border-color: rgba(77,212,168,0.6);
+  color: var(--vz-accent);
+  font-weight: 600;
+}
+.vz-tides-datepicker-btn {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: 0.5px solid rgba(255,255,255,0.15);
+  border-radius: 8px;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0;
+  color: var(--vz-text-on-dark-muted);
+  transition: all 0.15s;
   flex-shrink: 0;
+  padding: 0;
 }
-.vz-tides-datebtn:hover {
-  border-color: var(--vz-accent);
-  color: var(--vz-accent);
-  background: var(--vz-accent-glow);
-}
-.vz-tides-datepicker {
-  position: relative;
-  padding: 3px 8px;
-  background: rgba(255,255,255,0.05);
-  border: 0.5px solid rgba(255,255,255,0.15);
-  border-radius: 5px;
-  cursor: pointer;
-  display: flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: 6px;
-  flex: 1;
-  min-width: 0;
-  transition: border-color 0.15s;
-}
-.vz-tides-datepicker:hover {
+.vz-tides-datepicker-btn:hover {
   border-color: var(--vz-accent-border);
+  color: var(--vz-accent);
 }
-.vz-tides-datepicker-display {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--vz-text-on-dark);
-  letter-spacing: 0.02em;
-  line-height: 1;
-}
-.vz-tides-datepicker-day {
-  font-family: 'Inter', sans-serif;
-  font-size: 8px;
-  color: var(--vz-text-on-dark-faint);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  line-height: 1;
-}
-.vz-tides-datepicker input[type=date] {
+.vz-tides-datepicker-btn input[type=date] {
   position: absolute;
   inset: 0;
   opacity: 0;
@@ -453,14 +428,7 @@
   height: 100%;
 }
 
-/* Créneaux 2x2 */
-.vz-tides-windowscol {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  flex: 1;
-  min-height: 0;
-}
+/* Section title */
 .vz-tides-sectiontitle {
   font-family: 'Inter', sans-serif;
   font-size: 10px;
@@ -469,114 +437,217 @@
   text-transform: uppercase;
   letter-spacing: 0.12em;
   flex-shrink: 0;
+  margin-top: 4px;
 }
+
+/* Grid créneaux 2x2 */
 .vz-tides-windowsgrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   grid-template-rows: 1fr 1fr;
-  gap: 6px;
+  gap: 8px;
   flex: 1;
   min-height: 0;
 }
+
+/* Card créneau standard */
 .vz-tides-windowcard {
-  padding: 8px 10px;
+  position: relative;
+  padding: 10px 12px;
   border-radius: var(--vz-radius-card);
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  gap: 3px;
+  gap: 6px;
   background: var(--vz-bg-surface);
   border: 0.5px solid var(--vz-border-glass);
-  transition: border-color 0.15s;
+  transition: all 0.15s;
   min-height: 0;
 }
 .vz-tides-windowcard:hover {
   border-color: rgba(255,255,255,0.2);
 }
-.vz-tides-windowcard.is-current {
-  border: 1px solid var(--vz-accent);
+
+/* Card créneau "prochain" : focus fort */
+.vz-tides-windowcard.is-next {
   background: var(--vz-accent-glow);
+  border: 1.5px solid var(--vz-accent);
 }
-.vz-tides-windowcard.is-past { opacity: 0.4; }
+.vz-tides-windowcard.is-past {
+  opacity: 0.35;
+}
+
+/* Badge "PROCHAIN" en débordement haut */
+.vz-tides-windownext-badge {
+  position: absolute;
+  top: -7px;
+  left: 12px;
+  background: var(--vz-accent);
+  color: var(--vz-bg-deep);
+  font-family: 'Inter', sans-serif;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 3px;
+  letter-spacing: 0.1em;
+  line-height: 1;
+}
+
+/* Header de card : type + heure étale + bouton agenda */
 .vz-tides-windowtop {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 .vz-tides-windowtype {
   font-family: 'Inter', sans-serif;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.04em;
-  display: inline-flex;
-  align-items: center;
+  flex-shrink: 0;
 }
 .vz-tides-windowetale {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 9px;
+  font-size: 10px;
   color: var(--vz-text-on-dark-faint);
   letter-spacing: 0.02em;
+  flex: 1;
+  text-align: right;
 }
-.vz-tides-windowbadge {
-  background: var(--vz-accent);
-  color: var(--vz-bg-deep);
-  font-family: 'Inter', sans-serif;
-  font-size: 7px;
-  font-weight: 700;
-  padding: 1px 4px;
-  border-radius: 3px;
-  margin-left: 4px;
-  letter-spacing: 0.08em;
-  line-height: 1;
-}
-.vz-tides-windowrange {
+
+/* Bouton agenda discret (icône seule) */
+.vz-tides-agendabtn {
+  width: 22px;
+  height: 22px;
+  background: transparent;
+  border: 0.5px solid rgba(255,255,255,0.15);
+  border-radius: 5px;
+  color: var(--vz-text-on-dark-faint);
+  cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+  padding: 0;
+}
+.vz-tides-agendabtn:hover {
+  border-color: var(--vz-accent);
+  color: var(--vz-accent);
+  background: var(--vz-accent-glow);
+}
+.vz-tides-agendabtn svg { width: 12px; height: 12px; }
+.vz-tides-windowcard.is-next .vz-tides-agendabtn {
+  border-color: rgba(77,212,168,0.5);
+  color: var(--vz-accent);
+}
+
+/* Range horaire */
+.vz-tides-windowrange {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
   font-family: 'IBM Plex Mono', monospace;
 }
 .vz-tides-windowtime {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--vz-text-on-dark);
   letter-spacing: 0.02em;
   line-height: 1;
 }
+.vz-tides-windowcard.is-next .vz-tides-windowtime {
+  font-size: 16px;
+}
 .vz-tides-windowarrow {
   color: var(--vz-text-on-dark-faint);
-  font-size: 11px;
+  font-size: 12px;
 }
-.vz-tides-agendabtn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  padding: 3px 6px;
-  background: var(--vz-accent-strong);
-  border: none;
-  border-radius: 4px;
+
+/* Chip "Dans 2h45" sur la card prochain */
+.vz-tides-windownow-chip {
+  background: var(--vz-accent);
   color: var(--vz-bg-deep);
   font-family: 'Inter', sans-serif;
   font-size: 9px;
   font-weight: 700;
+  padding: 3px 7px;
+  border-radius: 3px;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  align-self: flex-start;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  cursor: pointer;
-  transition: all 0.15s ease;
 }
-.vz-tides-agendabtn:hover {
-  background: var(--vz-accent);
-  transform: translateY(-1px);
+.vz-tides-windowpast-tag {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  color: var(--vz-text-on-dark-faint);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  align-self: flex-end;
 }
-.vz-tides-agendabtn svg { width: 9px; height: 9px; }
+
+/* Footer info contextuelle (phase / courant / soleil) */
+.vz-tides-contextfooter {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 10px 14px;
+  background: var(--vz-bg-surface);
+  border: 0.5px solid var(--vz-border-glass);
+  border-radius: var(--vz-radius-card);
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+.vz-tides-ctxitem {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 10px;
+  min-width: 0;
+}
+.vz-tides-ctxitem:first-child { padding-left: 0; }
+.vz-tides-ctxitem:last-child { padding-right: 0; }
+.vz-tides-ctxitem + .vz-tides-ctxitem {
+  border-left: 0.5px solid rgba(255,255,255,0.08);
+}
+.vz-tides-ctxlabel {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  color: var(--vz-text-on-dark-faint);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.vz-tides-ctxvalue {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--vz-text-on-dark);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vz-tides-ctxvalue.is-mono {
+  font-family: 'IBM Plex Mono', monospace;
+  letter-spacing: 0.02em;
+}
+.vz-tides-ctxvalue svg {
+  width: 12px;
+  height: 12px;
+  color: var(--vz-accent);
+  flex-shrink: 0;
+}
 
 /* === Colonne droite : courbe pleine hauteur === */
 .vz-tides-curvewrap {
   background: var(--vz-bg-surface);
   border: 0.5px solid var(--vz-border-glass);
   border-radius: var(--vz-radius-card);
-  padding: 12px 18px 14px;
+  padding: 14px 18px 12px;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -595,6 +666,7 @@
   flex-wrap: wrap;
   letter-spacing: 0.04em;
   flex-shrink: 0;
+  align-items: center;
 }
 .vz-tides-curvelegend .legend-band {
   display: inline-block;
@@ -602,9 +674,25 @@
   height: 6px;
   background: var(--vz-accent);
   opacity: 0.4;
-  margin-right: 3px;
+  margin-right: 4px;
   vertical-align: middle;
   border-radius: 2px;
+}
+.vz-tides-curvelegend .legend-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+.vz-tides-curvelegend .legend-line {
+  display: inline-block;
+  width: 12px;
+  height: 1.5px;
+  background: var(--vz-danger);
+  margin-right: 4px;
+  vertical-align: middle;
 }
 .vz-tides-loading {
   padding: 40px 20px;
@@ -619,17 +707,20 @@
 @media (max-width: 768px) {
   .vz-tides-wrap {
     grid-template-columns: 1fr;
-    grid-template-rows: auto auto 1fr;
+    grid-template-rows: auto 1fr;
     padding: 8px 12px 14px;
-    gap: 8px;
+    gap: 10px;
   }
-  .vz-tides-coefcard { padding: 10px 12px; }
-  .vz-tides-coefbig { width: 44px; height: 44px; font-size: 17px; }
-  .vz-tides-portname { font-size: 13px; }
-  .vz-tides-coefdesc { font-size: 11px; }
+  .vz-tides-coefbig { width: 40px; height: 40px; font-size: 15px; }
+  .vz-tides-coeftitle { font-size: 13px; }
+  .vz-tides-coefmeta { font-size: 10px; }
   .vz-tides-windowsgrid { gap: 6px; }
   .vz-tides-windowtime { font-size: 13px; }
-  .vz-tides-curvewrap { min-height: 200px; }
+  .vz-tides-windowcard.is-next .vz-tides-windowtime { font-size: 15px; }
+  .vz-tides-curvewrap { min-height: 220px; }
+  .vz-tides-contextfooter { padding: 8px 10px; }
+  .vz-tides-ctxitem { padding: 0 6px; }
+  .vz-tides-ctxvalue { font-size: 11px; }
 }
 
     @media (max-width: 768px) {
