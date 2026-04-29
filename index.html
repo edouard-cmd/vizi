@@ -297,29 +297,29 @@
     #mobileAnalyzeBtn { display:none; position:fixed; bottom:28px; left:50%; transform:translateX(-50%); z-index:960; padding:14px 32px; background:#1A2535; border:2px solid #A8E63D; border-radius:40px; color:#A8E63D; font-family:'Inter', sans-serif; font-size:15px; font-weight:700; letter-spacing:0.04em; cursor:pointer; box-shadow:0 4px 24px rgba(0,0,0,0.3); white-space:nowrap; transition:all 0.2s; }
     #mobileShareBtn { display:none; position:fixed; bottom:88px; left:50%; transform:translateX(-50%); z-index:960; padding:13px 28px; background:rgba(26,37,53,0.92); border:1.5px solid rgba(168,230,61,0.5); border-radius:40px; color:rgba(168,230,61,0.85); font-family:'Inter', sans-serif; font-size:14px; font-weight:600; cursor:pointer; box-shadow:0 4px 20px rgba(0,0,0,0.2); white-space:nowrap; }
     /* ============================================================
-   MAREES dans le bandeau bas - Style Talisker
+   MAREES dans le bandeau bas - Style Talisker (compact)
    ============================================================ */
 .vz-tides-wrap {
-  padding: 16px 18px 22px;
+  padding: 12px 16px 16px;
   color: var(--vz-text-on-dark);
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
 }
 
 /* Navigation date */
 .vz-tides-datenav {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding-bottom: 14px;
+  gap: 8px;
+  padding-bottom: 10px;
   border-bottom: 1px solid var(--vz-border-glass);
 }
 .vz-tides-datebtn {
-  width: 36px; height: 36px;
+  width: 30px; height: 30px;
   background: rgba(255,255,255,0.05);
   border: 0.5px solid var(--vz-border-glass);
-  border-radius: var(--vz-radius-btn);
+  border-radius: 8px;
   color: var(--vz-text-on-dark-muted);
   cursor: pointer;
   transition: all 0.15s;
@@ -328,12 +328,12 @@
 }
 .vz-tides-datebtn:hover { border-color: var(--vz-accent); color: var(--vz-accent); }
 .vz-tides-datepicker {
-  padding: 9px 14px;
+  padding: 6px 10px;
   background: rgba(255,255,255,0.05);
   border: 0.5px solid var(--vz-border-glass);
-  border-radius: var(--vz-radius-btn);
+  border-radius: 8px;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--vz-text-on-dark);
   outline: none;
   cursor: pointer;
@@ -341,13 +341,13 @@
 }
 .vz-tides-datepicker:focus { border-color: var(--vz-accent); }
 .vz-tides-todaybtn {
-  padding: 8px 14px;
+  padding: 6px 12px;
   background: var(--vz-accent-glow);
   border: 0.5px solid var(--vz-accent-border);
-  border-radius: var(--vz-radius-btn);
+  border-radius: 8px;
   color: var(--vz-accent);
   font-family: 'Inter', sans-serif;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
   flex-shrink: 0;
@@ -356,56 +356,56 @@
 .vz-tides-datelabel {
   margin-left: auto;
   font-family: 'Inter', sans-serif;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--vz-text-on-dark-muted);
   text-transform: capitalize;
   letter-spacing: 0.01em;
 }
 
-/* Carte coefficient */
+/* Carte coefficient compacte */
 .vz-tides-coefcard {
   display: flex;
   align-items: center;
-  gap: 22px;
-  padding: 20px 24px;
+  gap: 16px;
+  padding: 12px 16px;
   background: var(--vz-bg-surface);
   border: 0.5px solid var(--vz-border-glass);
-  border-radius: var(--vz-radius-card);
+  border-radius: 10px;
 }
 .vz-tides-coefbig {
-  width: 96px;
-  height: 96px;
-  border: 3px solid;
+  width: 64px;
+  height: 64px;
+  border: 2.5px solid;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: 'Inter', sans-serif;
-  font-size: 42px;
+  font-size: 26px;
   font-weight: 700;
   line-height: 1;
   flex-shrink: 0;
   background: var(--vz-bg-deep);
   letter-spacing: -0.02em;
 }
-.vz-tides-coefinfo { display: flex; flex-direction: column; gap: 5px; }
+.vz-tides-coefinfo { display: flex; flex-direction: column; gap: 2px; }
 .vz-tides-coeflabel {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
 .vz-tides-coefdesc {
   font-family: 'Inter', sans-serif;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--vz-text-on-dark);
 }
 .vz-tides-coefmarnage {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--vz-text-on-dark-faint);
   letter-spacing: 0.04em;
 }
@@ -413,26 +413,26 @@
 /* Section title */
 .vz-tides-sectiontitle {
   font-family: 'Inter', sans-serif;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   color: var(--vz-accent);
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 
-/* Créneaux grid */
+/* Créneaux grid compacte */
 .vz-tides-windowsgrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
 }
 .vz-tides-windowcard {
-  padding: 14px 16px;
-  border-radius: var(--vz-radius-card);
+  padding: 10px 12px;
+  border-radius: 10px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   background: var(--vz-bg-surface);
   border: 0.5px solid var(--vz-border-glass);
 }
@@ -442,61 +442,62 @@
 }
 .vz-tides-windowcard.is-past { opacity: 0.4; }
 .vz-tides-windowtop {
-  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  display: flex; justify-content: space-between; align-items: center; gap: 6px;
+  flex-wrap: wrap;
 }
 .vz-tides-windowtype {
   font-family: 'Inter', sans-serif;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.02em;
 }
 .vz-tides-windowetale {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
+  font-size: 10px;
   color: var(--vz-text-on-dark-faint);
 }
 .vz-tides-windowbadge {
   background: var(--vz-accent);
   color: var(--vz-bg-deep);
   font-family: 'Inter', sans-serif;
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 4px;
-  margin-left: 6px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: 4px;
   letter-spacing: 0.06em;
 }
 .vz-tides-windowrange {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 6px;
   font-family: 'IBM Plex Mono', monospace;
 }
 .vz-tides-windowtime {
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--vz-text-on-dark);
   letter-spacing: 0.02em;
 }
 .vz-tides-windowarrow {
   color: var(--vz-text-on-dark-faint);
-  font-size: 14px;
+  font-size: 12px;
 }
 
-/* Bouton agenda */
+/* Bouton agenda compact */
 .vz-tides-agendabtn {
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-  margin-top: 4px;
-  padding: 8px 12px;
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  margin-top: 2px;
+  padding: 5px 8px;
   background: var(--vz-accent-strong);
   border: none;
-  border-radius: var(--vz-radius-btn);
+  border-radius: 6px;
   color: var(--vz-bg-deep);
   font-family: 'Inter', sans-serif;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   cursor: pointer;
   transition: all 0.15s ease;
 }
@@ -504,35 +505,36 @@
   background: var(--vz-accent);
   transform: translateY(-1px);
 }
+.vz-tides-agendabtn svg { width: 10px; height: 10px; }
 
-/* Courbe */
+/* Courbe compacte */
 .vz-tides-curvewrap {
   background: var(--vz-bg-surface);
   border: 0.5px solid var(--vz-border-glass);
-  border-radius: var(--vz-radius-card);
-  padding: 16px 20px 20px;
+  border-radius: 10px;
+  padding: 10px 14px 12px;
 }
 .vz-tides-curvelegend {
   display: flex;
-  gap: 18px;
-  margin-top: 12px;
+  gap: 14px;
+  margin-top: 6px;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px;
+  font-size: 9px;
   color: var(--vz-text-on-dark-faint);
   flex-wrap: wrap;
   letter-spacing: 0.04em;
 }
 .vz-tides-curvelegend .legend-band {
   display: inline-block;
-  width: 12px; height: 8px;
+  width: 10px; height: 6px;
   background: var(--vz-accent);
   opacity: 0.4;
-  margin-right: 4px;
+  margin-right: 3px;
   vertical-align: middle;
   border-radius: 2px;
 }
 .vz-tides-loading {
-  padding: 50px 20px;
+  padding: 40px 20px;
   text-align: center;
   color: var(--vz-text-on-dark-faint);
   font-family: 'IBM Plex Mono', monospace;
@@ -542,11 +544,12 @@
 
 /* Mobile */
 @media (max-width: 768px) {
-  .vz-tides-wrap { padding: 12px 14px 20px; gap: 14px; }
-  .vz-tides-coefcard { flex-direction: column; text-align: center; gap: 12px; padding: 18px; }
-  .vz-tides-coefbig { width: 84px; height: 84px; font-size: 36px; }
+  .vz-tides-wrap { padding: 10px 12px 14px; gap: 8px; }
+  .vz-tides-coefcard { gap: 12px; padding: 10px 12px; }
+  .vz-tides-coefbig { width: 52px; height: 52px; font-size: 22px; border-width: 2px; }
   .vz-tides-datelabel { display: none; }
-  .vz-tides-windowsgrid { grid-template-columns: 1fr; }
+  .vz-tides-windowsgrid { grid-template-columns: 1fr 1fr; gap: 6px; }
+  .vz-tides-windowtime { font-size: 13px; }
 }
     @media (max-width: 768px) {
       #header { padding:10px 12px; flex-wrap:wrap; gap:8px; }
