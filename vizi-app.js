@@ -4791,9 +4791,10 @@ function renderTidesSheetContent() {
   var dateDisplay = dd + '/' + mm + '/' + yyyy;
   var dayShort = dateObj.toLocaleDateString('fr', { weekday: 'long' });
 
-  updateSheetHeader('Marées', '');
+updateSheetHeader('Marées', '');
 
   var html = '<div class="vz-tides-wrap">';
+  html += '<div class="vz-tides-leftcol">';
 
   // Coef card unifiée (haut)
   if (isMed) {
@@ -4821,10 +4822,7 @@ function renderTidesSheetContent() {
     '</div>';
   }
 
-  // Layout 2 colonnes
-  html += '<div class="vz-tides-cols">';
-
-  // Colonne gauche : créneaux 2x2
+ // Créneaux 2x2 (toujours dans la colonne gauche)
   html += '<div class="vz-tides-windowscol">';
   html += '<div class="vz-tides-sectiontitle">Créneaux chassables</div>';
 
@@ -4881,14 +4879,13 @@ function renderTidesSheetContent() {
     });
     html += '</div>';
   }
-  html += '</div>'; // fin colonne gauche
+ html += '</div>'; // fin .vz-tides-windowscol
+  html += '</div>'; // fin .vz-tides-leftcol
 
-  // Colonne droite : courbe étirée
+  // Colonne droite : courbe étirée (enfant direct du grid)
   html += renderTidesSheetCurve(dayPoints, dayExtremes, isToday, now);
 
-  html += '</div>'; // fin .vz-tides-cols
   html += '</div>'; // fin .vz-tides-wrap
-  body.innerHTML = html;
 }
 
 function renderTidesDateNav(selDate, dateDisplay, dayShort) {
