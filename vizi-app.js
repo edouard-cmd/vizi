@@ -4863,16 +4863,30 @@ var html = '<div class="vz-tides-wrap">';
   // --- Section title ---
   html += '<div class="vz-tides-sectiontitle">Créneaux chassables</div>';
 
-  // --- Grid 2x2 ---
-  if (dayExtremes && dayExtremes.length > 0) {
+// --- Grid 2x2 (créneaux jour uniquement, fenêtre ±2h chevauchant le jour ≥30 min) ---
+  function slotOverlapsDay(timeStr) {
+    var t = new Date(timeStr);
+    var startMin = t.getHours() * 60 + t.getMinutes() - 120;
+    var endMin = t.getHours() * 60 + t.getMinutes() + 120;
+    var srParts = sunTimes.sunrise.split(':');
+    var ssParts = sunTimes.sunset.split(':');
+    if (srParts.length < 2 || ssParts.length < 2) return true;
+    var sunriseMin = parseInt(srParts[0]) * 60 + parseInt(srParts[1]);
+    var sunsetMin = parseInt(ssParts[0]) * 60 + parseInt(ssParts[1]);
+    var overlap = Math.min(endMin, sunsetMin) - Math.max(startMin, sunriseMin);
+    return overlap >= 30;
+  }
+  var dayOnlyExtremes = dayExtremes.filter(function(e){ return slotOverlapsDay(e.time); });
+  if (dayOnlyExtremes && dayOnlyExtremes.length > 0) {
     html += '<div class="vz-tides-windowsgrid">';
-    dayExtremes.forEach(function(e, idx) {
+    dayOnlyExtremes.forEach(function(e, idx) {
       var etaleTime = new Date(e.time);
       var startTime = new Date(etaleTime.getTime() - 120 * 60000);
       var endTime = new Date(etaleTime.getTime() + 120 * 60000);
       var isPast = isToday && endTime < now;
-      var isNext = (idx === nextExtremeIdx);
-      var isNight = !isDaytimeSlot(e.time);
+      var origIdx = dayExtremes.indexOf(e);
+      var isNext = (origIdx === nextExtremeIdx);
+      var isNight = false;
 
       var typeColor = e.type === 'high' ? 'var(--vz-accent)' : '#E89B3C';
       var typeShort = e.type === 'high' ? 'PM' : 'BM';
@@ -4925,9 +4939,6 @@ var html = '<div class="vz-tides-wrap">';
         footerEl = '<div class="vz-tides-windownow-chip">' + inLabel + '</div>';
       } else if (isPast) {
         footerEl = '<div class="vz-tides-windowpast-tag">Passé</div>';
-      } else if (isNight) {
-        footerEl = '<div class="vz-tides-windowpast-tag" style="color:#6B8AA8;">Nuit</div>';
-      }
 
       html += '<div class="' + cardClass + '">' +
         nextBadge +
