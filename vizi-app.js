@@ -4078,14 +4078,12 @@ function updateSheetHeader(modeLabel, spotLabel) {
 // ============================================================
 
 window.openConditionsInSheet = function() {
-  // Toggle : si déjà en mode cond et ouvert, on ferme
-  if (VZ_SHEET.mode === 'cond' && VZ_SHEET.state !== 'peek') {
-    setSheetState('peek');
-    var tabCond0 = document.getElementById('vzTabCond');
-    if (tabCond0) tabCond0.classList.remove('active');
+  // Toggle : si déjà en mode cond, on ferme complètement
+  if (VZ_SHEET.mode === 'cond') {
+    closeCondDrawer();
     return;
   }
-
+  
   VZ_SHEET.mode = 'cond';
 
   var tabCond = document.getElementById('vzTabCond');
@@ -4118,7 +4116,11 @@ window.closeCondDrawer = function() {
   VZ_SHEET.mode = null;
   var tabCond = document.getElementById('vzTabCond');
   if (tabCond) tabCond.classList.remove('active');
+  // Cache complètement le bandeau
+  var sheet = document.getElementById('vzSheet');
+  if (sheet) sheet.style.display = 'none';
 };
+
 
 // ----- Récupère le spot courant -----
 function resolveSheetSpot() {
