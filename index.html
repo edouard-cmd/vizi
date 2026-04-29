@@ -400,18 +400,36 @@
   flex-wrap: wrap;
 }
 .vz-tides-datechip {
-  padding: 6px 12px;
+  padding: 7px 14px;
   background: transparent;
   border: 0.5px solid rgba(255,255,255,0.15);
   border-radius: 14px;
   color: var(--vz-text-on-dark-muted);
   font-family: 'Inter', sans-serif;
-  font-size: 11px;
-  font-weight: 500;
   cursor: pointer;
   transition: all 0.15s;
   white-space: nowrap;
-  line-height: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  line-height: 1.1;
+}
+.vz-tides-datechip-main {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.vz-tides-datechip-sub {
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--vz-text-on-dark-faint);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.vz-tides-datechip.active .vz-tides-datechip-sub {
+  color: var(--vz-accent);
+  opacity: 0.8;
 }
 .vz-tides-datechip:hover {
   border-color: var(--vz-accent-border);
