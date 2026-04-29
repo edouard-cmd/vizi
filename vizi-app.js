@@ -3888,126 +3888,601 @@ if (document.readyState === 'loading') {
   boot();
 }
 // ============================================================
-// DRAWER CONDITIONS - Tableau dense Talisker (refonte v2)
-// Remplace l'ancien forecastPanel par un tableau 7 lignes x 40 colonnes
-// (3h x 5j) avec visi color-codée, marées, vent, ciel
+// BANDEAU BAS UNIFIÉ - Conditions + Marées (3 états : peek/half/full)
+// Phase 2 - remplace l'ancien drawer latéral Conditions
 // ============================================================
 
-var VZ_COND = {
-  isOpen: false,
-  lat: null,
-  lon: null,
-  spotName: null,
-  weather: null,
-  modelMap: null,
-  depth: null,
-  tides: null,
-  coefs: null
+(function injectSheetTableCSS() {
+  // CSS du tableau Conditions injecté dynamiquement (au cas où supprimé)
+  if (document.getElementById('vzSheetTableCSS')) return;
+  var css = `
+    .vz-sheet-cond-wrap { padding: 16px 18px 24px; color: var(--vz-text-on-dark); }
+    .vz-sheet-cond-meta {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      color: var(--vz-text-on-dark-faint);
+      letter-spacing: 0.06em;
+      margin-bottom: 14px;
+    }
+    .vz-cond-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      color: var(--vz-text-on-dark);
+    }
+    .vz-cond-table th, .vz-cond-table td {
+      padding: 0 9px;
+      height: 32px;
+      text-align: center;
+      white-space: nowrap;
+      border-right: 1px solid rgba(255,255,255,0.06);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .vz-cond-rowlabel {
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--vz-accent);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      text-align: left !important;
+      padding: 0 14px !important;
+      min-width: 120px;
+      position: sticky;
+      left: 0;
+      background: var(--vz-bg-deep);
+      z-index: 3;
+      border-right: 1px solid var(--vz-accent-border) !important;
+    }
+    .vz-cond-cornerlabel, .vz-cond-cornerhour {
+      position: sticky;
+      left: 0;
+      background: var(--vz-bg-deep);
+      z-index: 3;
+      border-right: 1px solid var(--vz-accent-border) !important;
+    }
+    .vz-cond-dayhead {
+      font-family: 'Inter', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--vz-text-on-dark);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      background: rgba(255,255,255,0.04);
+      border-bottom: 1px solid var(--vz-accent-border) !important;
+      padding: 8px !important;
+    }
+    .vz-cond-hourhead {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      color: var(--vz-text-on-dark-faint);
+      background: rgba(255,255,255,0.02);
+      letter-spacing: 0.04em;
+    }
+    .vz-cond-dayboundary { border-left: 1px solid var(--vz-accent-border) !important; }
+    .vz-cond-now {
+      background: rgba(77,212,168,0.08) !important;
+      border-left: 2px solid var(--vz-accent) !important;
+      border-right: 1px solid var(--vz-accent) !important;
+    }
+    .vz-cond-now-header {
+      background: rgba(77,212,168,0.18) !important;
+      color: var(--vz-accent) !important;
+      font-weight: 700 !important;
+      border-left: 2px solid var(--vz-accent) !important;
+    }
+    /* Visi : 5 niveaux Talisker */
+    .vz-cond-row-vis td { font-weight: 700; color: #fff; }
+    .vz-cond-vis-0 { background: rgba(201,74,61,0.78); }   /* nulle */
+    .vz-cond-vis-1 { background: rgba(232,155,60,0.72); }  /* faible */
+    .vz-cond-vis-2 { background: rgba(216,200,74,0.65); color: #1A2535 !important; } /* moyenne */
+    .vz-cond-vis-3 { background: rgba(77,212,168,0.55); color: #1A2535 !important; } /* bonne */
+    .vz-cond-vis-4 { background: rgba(45,168,136,0.78); } /* excellente */
+    /* Vent : 7 niveaux */
+    .vz-cond-row-wind td, .vz-cond-row-gusts td { font-weight: 600; }
+    .vz-cond-w-0 { background: rgba(77,212,168,0.10); }
+    .vz-cond-w-1 { background: rgba(77,212,168,0.20); }
+    .vz-cond-w-2 { background: rgba(216,200,74,0.20); }
+    .vz-cond-w-3 { background: rgba(232,155,60,0.25); }
+    .vz-cond-w-4 { background: rgba(232,155,60,0.40); }
+    .vz-cond-w-5 { background: rgba(201,74,61,0.45); }
+    .vz-cond-w-6 { background: rgba(201,74,61,0.65); }
+    /* Coef */
+    .vz-cond-coef-low { color: var(--vz-text-on-dark-faint); }
+    .vz-cond-coef-mid { color: var(--vz-medium); font-weight: 600; }
+    .vz-cond-coef-high { color: var(--vz-warning); font-weight: 700; }
+    .vz-cond-footer {
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      color: var(--vz-text-on-dark-faint);
+      letter-spacing: 0.04em;
+      line-height: 1.6;
+    }
+    .vz-cond-footer strong { color: var(--vz-accent); }
+    /* Mobile */
+    @media (max-width: 768px) {
+      .vz-sheet-cond-wrap { padding: 12px 12px 20px; }
+      .vz-cond-table { font-size: 11px; }
+      .vz-cond-table th, .vz-cond-table td { padding: 0 6px; height: 28px; }
+      .vz-cond-rowlabel { min-width: 88px; padding: 0 10px !important; font-size: 10px; }
+    }
+  `;
+  var style = document.createElement('style');
+  style.id = 'vzSheetTableCSS';
+  style.textContent = css;
+  document.head.appendChild(style);
+})();
+
+// État global du bandeau
+window.VZ_SHEET = {
+  state: 'peek',           // 'peek' | 'half' | 'full'
+  mode: null,              // 'cond' | 'tides' | null
+  spot: null,              // { lat, lng, name }
+  data: null               // données chargées
 };
 
-function openCondDrawer() {
-  var drawer = document.getElementById('vzCondDrawer');
-  if (!drawer) return;
-  drawer.classList.add('open');
-  VZ_COND.isOpen = true;
-  var tab = document.getElementById('vzTabCond');
-  if (tab) tab.classList.add('active');
+// ----- Cycle des états : peek -> half -> full -> peek -----
+window.cycleSheetState = function() {
+  var sheet = document.getElementById('vzSheet');
+  if (!sheet) return;
+  var current = VZ_SHEET.state;
+  var next;
+  if (current === 'peek')      next = 'half';
+  else if (current === 'half') next = 'full';
+  else                         next = 'peek';
+  setSheetState(next);
+};
 
-  // Choix du point analysé : priorité clic > GPS > Cherbourg
-  var lat = null, lon = null, name = null;
-  if (S.clickLatLng) {
-    lat = S.clickLatLng.lat;
-    lon = S.clickLatLng.lng;
-    var nearest = findNearestPort(lat, lon);
-    if (nearest && nearest.distanceKm < 10) name = nearest.spot.name;
-  } else if (typeof GEO_STATE !== 'undefined' && GEO_STATE.userLatLng) {
-    var nearestGeo = findNearestPort(GEO_STATE.userLatLng.lat, GEO_STATE.userLatLng.lon);
-    if (nearestGeo) {
-      lat = nearestGeo.spot.lat;
-      lon = nearestGeo.spot.lon;
-      name = nearestGeo.spot.name;
+window.setSheetState = function(state) {
+  var sheet = document.getElementById('vzSheet');
+  if (!sheet) return;
+  sheet.classList.remove('sheet-peek', 'sheet-half', 'sheet-full');
+  sheet.classList.add('sheet-' + state);
+  VZ_SHEET.state = state;
+};
+
+// ----- Mise à jour du header du bandeau -----
+function updateSheetHeader(modeLabel, spotLabel) {
+  var modeEl = document.getElementById('vzSheetModeLabel');
+  var spotEl = document.getElementById('vzSheetSpotLabel');
+  if (modeEl) modeEl.textContent = modeLabel || '';
+  if (spotEl) spotEl.textContent = spotLabel ? '· ' + spotLabel : '';
+}
+
+// ============================================================
+// CONDITIONS dans le bandeau
+// ============================================================
+
+window.openConditionsInSheet = function() {
+  VZ_SHEET.mode = 'cond';
+
+  // Sync visuel des tabs
+  var tabCond = document.getElementById('vzTabCond');
+  var tabTides = document.getElementById('vzTabTides');
+  if (tabCond) tabCond.classList.add('active');
+  if (tabTides) tabTides.classList.remove('active');
+
+  // Si on était en peek, on passe en half
+  if (VZ_SHEET.state === 'peek') setSheetState('half');
+
+  // Détermine le spot
+  var spot = resolveCurrentSpot();
+  VZ_SHEET.spot = spot;
+
+  updateSheetHeader('Prévisions 5 jours', spot ? spot.name : 'Choisis un point en mer');
+
+  var body = document.getElementById('vzSheetBody');
+  if (!body) return;
+
+  if (!spot) {
+    body.innerHTML = '<div class="vz-sheet-loading">Clique un point en mer ou un port pour afficher les prévisions</div>';
+    return;
+  }
+
+  body.innerHTML = '<div class="vz-sheet-loading">Chargement des prévisions...</div>';
+  loadConditionsData(spot);
+};
+
+// Alias pour le tab Conditions (l'ancien onclick="openCondDrawer()" reste compatible)
+window.openCondDrawer = function() {
+  openConditionsInSheet();
+};
+window.closeCondDrawer = function() {
+  // Plus de drawer à fermer, on bascule juste en peek
+  setSheetState('peek');
+  VZ_SHEET.mode = null;
+  var tabCond = document.getElementById('vzTabCond');
+  if (tabCond) tabCond.classList.remove('active');
+};
+
+// ----- Détermine le spot courant (drawer spot ouvert > port marées > centre carte) -----
+function resolveCurrentSpot() {
+  // 1) Drawer spot ouvert
+  var spotDrawer = document.getElementById('spotDrawer');
+  if (spotDrawer && spotDrawer.classList.contains('open')) {
+    if (typeof S !== 'undefined' && S.spotLat != null && S.spotLng != null) {
+      return {
+        lat: S.spotLat,
+        lng: S.spotLng,
+        name: getSpotDisplayName(S.spotLat, S.spotLng)
+      };
     }
   }
-  if (lat === null) {
-    var cherbourg = SPOTS.find(function(s){ return s.id === 'cherbourg'; });
-    if (cherbourg) { lat = cherbourg.lat; lon = cherbourg.lon; name = cherbourg.name; }
+  // 2) Centre de la carte (fallback)
+  if (typeof map !== 'undefined' && map && map.getCenter) {
+    var c = map.getCenter();
+    return {
+      lat: c.lat,
+      lng: c.lng,
+      name: getSpotDisplayName(c.lat, c.lng)
+    };
   }
-
-  VZ_COND.lat = lat;
-  VZ_COND.lon = lon;
-  VZ_COND.spotName = name;
-
-  document.getElementById('vzCondSpot').textContent = name || (lat.toFixed(3) + ', ' + lon.toFixed(3));
-  document.getElementById('vzCondMeta').textContent = lat.toFixed(3) + 'N ' + Math.abs(lon).toFixed(3) + 'O — chargement profondeur...';
-  document.getElementById('vzCondBody').innerHTML = '<div class="vz-cond-loading">Chargement des conditions...</div>';
-
-  loadCondData();
+  return null;
 }
 
-function closeCondDrawer() {
-  var drawer = document.getElementById('vzCondDrawer');
-  if (drawer) drawer.classList.remove('open');
-  VZ_COND.isOpen = false;
-  var tab = document.getElementById('vzTabCond');
-  if (tab) tab.classList.remove('active');
+function getSpotDisplayName(lat, lng) {
+  // Cherche le port le plus proche pour nommer le spot
+  if (typeof findNearestPort === 'function') {
+    try {
+      var p = findNearestPort(lat, lng);
+      if (p && p.name) return p.name;
+    } catch(e) {}
+  }
+  return lat.toFixed(3) + ', ' + lng.toFixed(3);
 }
 
-function loadCondData() {
-  var lat = VZ_COND.lat;
-  var lon = VZ_COND.lon;
+// ----- Chargement parallèle des données conditions -----
+function loadConditionsData(spot) {
+  var promises = [];
 
-  // 1. Météo : AROME + ARPEGE fusionnés (5 jours)
-  var aromeUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon
-    + '&hourly=windspeed_10m,winddirection_10m,windgusts_10m,wave_height,precipitation,cloud_cover'
-    + '&wind_speed_unit=kmh&timezone=Europe/Paris&past_days=0&forecast_days=2'
-    + '&models=meteofrance_arome_france';
-  var arpegeUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon
-    + '&hourly=windspeed_10m,winddirection_10m,windgusts_10m,wave_height,precipitation,cloud_cover'
-    + '&wind_speed_unit=kmh&timezone=Europe/Paris&past_days=0&forecast_days=5'
-    + '&models=meteofrance_arpege_europe';
+  // 1) Forecast météo (AROME + ARPEGE) sur 5 jours
+  var meteoPromise = fetchMeteoForecastForSheet(spot.lat, spot.lng);
 
-  // 2. Profondeur EMODnet
-  var depthPromise = fetchRealDepth(lat, lon).then(function(d) {
-    return d !== null ? d : Math.max(2, estimateDistanceToCoast(lat, lon) * 0.004 + 1.5);
-  });
+  // 2) Profondeur
+  var depthPromise = (typeof fetchRealDepth === 'function')
+    ? fetchRealDepth(spot.lat, spot.lng).catch(function() { return null; })
+    : Promise.resolve(null);
 
-  // 3. Marées (port le plus proche, 5 jours)
-  var tidesNear = findApiMareeSiteNear(lat, lon);
-  var tidesPromise;
-  if (tidesNear) {
-    var today = new Date().toISOString().split('T')[0];
-    tidesPromise = gasGet('tides_range', { site: tidesNear.siteId, from: today, days: 6 });
-  } else {
-    tidesPromise = Promise.resolve(null);
-  }
+  // 3) Marées (port le plus proche, 5 jours)
+  var tidesPromise = fetchTidesForSheet(spot);
 
-  Promise.all([
-    fetch(aromeUrl).then(function(r){ return r.json(); }),
-    fetch(arpegeUrl).then(function(r){ return r.json(); }),
-    depthPromise,
-    tidesPromise
-  ]).then(function(results) {
-    var arome = results[0];
-    var arpege = results[1];
-    var depth = results[2];
-    var tidesData = results[3];
-
-    var fused = fuseForecasts(arome.hourly || null, arpege.hourly || null);
-    VZ_COND.weather = fused.h;
-    VZ_COND.modelMap = fused.modelMap;
-    VZ_COND.depth = depth;
-    VZ_COND.tides = (tidesData && tidesData.data) ? tidesData.data : null;
-
-    document.getElementById('vzCondMeta').textContent =
-      VZ_COND.lat.toFixed(3) + 'N ' + Math.abs(VZ_COND.lon).toFixed(3) + 'O — fond ~' + Math.round(depth) + 'm';
-
-    renderCondTable();
+  Promise.all([meteoPromise, depthPromise, tidesPromise]).then(function(results) {
+    if (VZ_SHEET.mode !== 'cond') return; // user a switché entre temps
+    VZ_SHEET.data = {
+      meteo: results[0],
+      depth: results[1],
+      tides: results[2],
+      spot: spot
+    };
+    renderConditionsTable();
   }).catch(function(err) {
-    console.error('[VZ_COND] erreur:', err);
-    document.getElementById('vzCondBody').innerHTML =
-      '<div class="vz-cond-loading" style="color:var(--vz-danger)">Erreur de chargement : ' + err.message + '</div>';
+    console.error('[Sheet Conditions] erreur', err);
+    var body = document.getElementById('vzSheetBody');
+    if (body) body.innerHTML = '<div class="vz-sheet-loading">Erreur de chargement. Réessaie plus tard.</div>';
   });
 }
+
+function fetchMeteoForecastForSheet(lat, lng) {
+  // Réutilise fuseForecasts si dispo, sinon fetch direct Open-Meteo best_match
+  if (typeof fuseForecasts === 'function') {
+    return fuseForecasts(lat, lng).catch(function(){ return null; });
+  }
+  // Fallback : fetch direct
+  var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat
+          + '&longitude=' + lng
+          + '&hourly=wind_speed_10m,wind_gusts_10m,wind_direction_10m,weather_code'
+          + '&wind_speed_unit=kn&forecast_days=5&models=best_match';
+  return fetch(url).then(function(r){ return r.json(); }).catch(function(){ return null; });
+}
+
+function fetchTidesForSheet(spot) {
+  if (typeof findApiMareeSiteNear !== 'function') return Promise.resolve(null);
+  try {
+    var port = findApiMareeSiteNear(spot.lat, spot.lng);
+    if (!port) return Promise.resolve(null);
+    if (typeof gasGet !== 'function') return Promise.resolve({ port: port, days: null });
+
+    // Récupère 5 jours de marées via le GAS proxy
+    var d0 = new Date();
+    var dates = [];
+    for (var i = 0; i < 5; i++) {
+      var d = new Date(d0.getTime() + i * 86400000);
+      dates.push(d.toISOString().slice(0,10));
+    }
+    var promises = dates.map(function(date) {
+      return gasGet({ action: 'tides', port: port.id || port.name, date: date })
+        .catch(function() { return null; });
+    });
+    return Promise.all(promises).then(function(daysData) {
+      return { port: port, days: daysData, dates: dates };
+    });
+  } catch(e) {
+    return Promise.resolve(null);
+  }
+}
+
+// ============================================================
+// RENDU DU TABLEAU CONDITIONS (7 lignes × 5 jours × 8 créneaux/jour)
+// ============================================================
+
+function renderConditionsTable() {
+  var body = document.getElementById('vzSheetBody');
+  if (!body || !VZ_SHEET.data) return;
+
+  var data = VZ_SHEET.data;
+  var meteo = data.meteo;
+  var depth = data.depth;
+  var tides = data.tides;
+  var spot = data.spot;
+
+  if (!meteo || !meteo.hourly) {
+    body.innerHTML = '<div class="vz-sheet-loading">Données météo indisponibles pour ce point</div>';
+    return;
+  }
+
+  // Construit les 5 jours x 8 créneaux (00,03,06,09,12,15,18,21)
+  var hours = meteo.hourly.time || [];
+  var winds = meteo.hourly.wind_speed_10m || [];
+  var gusts = meteo.hourly.wind_gusts_10m || [];
+  var dirs  = meteo.hourly.wind_direction_10m || [];
+  var codes = meteo.hourly.weather_code || [];
+
+  // Filtre toutes les 3h (00,03,06,...)
+  var slots = [];
+  for (var i = 0; i < hours.length; i++) {
+    var dt = new Date(hours[i]);
+    if (dt.getHours() % 3 === 0) {
+      slots.push({
+        time: dt,
+        wind: winds[i],
+        gust: gusts[i],
+        dir: dirs[i],
+        code: codes[i]
+      });
+    }
+  }
+  // Limite à 5 jours = 40 créneaux
+  slots = slots.slice(0, 40);
+
+  // Now : trouve l'index du créneau actuel
+  var nowMs = Date.now();
+  var nowIdx = -1;
+  var minDelta = Infinity;
+  slots.forEach(function(s, idx) {
+    var delta = Math.abs(s.time.getTime() - nowMs);
+    if (delta < minDelta) { minDelta = delta; nowIdx = idx; }
+  });
+
+  // Groupe par jour pour les en-têtes
+  var dayGroups = []; // [{label, startIdx, count}]
+  var currentDay = null;
+  slots.forEach(function(s, idx) {
+    var dayKey = s.time.toDateString();
+    if (dayKey !== currentDay) {
+      currentDay = dayKey;
+      dayGroups.push({
+        label: formatDayLabel(s.time),
+        startIdx: idx,
+        count: 1
+      });
+    } else {
+      dayGroups[dayGroups.length - 1].count++;
+    }
+  });
+
+  // ---- Construction HTML ----
+  var html = '<div class="vz-sheet-cond-wrap">';
+  html += '<div class="vz-sheet-cond-meta">';
+  html += spot.lat.toFixed(4) + 'N ' + spot.lng.toFixed(4) + 'E';
+  if (depth != null) html += '  —  fond ~' + Math.abs(Math.round(depth)) + 'm';
+  html += '</div>';
+
+  html += '<div style="overflow-x:auto;">';
+  html += '<table class="vz-cond-table">';
+
+  // Ligne 1 : en-têtes JOURS
+  html += '<tr>';
+  html += '<th class="vz-cond-cornerlabel"></th>';
+  dayGroups.forEach(function(g, gIdx) {
+    var cls = 'vz-cond-dayhead';
+    if (gIdx > 0) cls += ' vz-cond-dayboundary';
+    html += '<th class="' + cls + '" colspan="' + g.count + '">' + g.label + '</th>';
+  });
+  html += '</tr>';
+
+  // Ligne 2 : en-têtes HEURES
+  html += '<tr>';
+  html += '<th class="vz-cond-cornerhour"></th>';
+  slots.forEach(function(s, idx) {
+    var h = String(s.time.getHours()).padStart(2,'0') + 'h';
+    var cls = 'vz-cond-hourhead';
+    if (idx === nowIdx) cls += ' vz-cond-now-header';
+    if (idx > 0 && s.time.toDateString() !== slots[idx-1].time.toDateString()) {
+      cls += ' vz-cond-dayboundary';
+    }
+    html += '<th class="' + cls + '">' + h + '</th>';
+  });
+  html += '</tr>';
+
+  // Ligne VISIBILITÉ
+  html += renderRow('Visibilité', slots, nowIdx, function(s) {
+    var vis = computeVisForSlot(s, depth, spot);
+    return {
+      cls: 'vz-cond-vis-' + vis.tier,
+      txt: vis.label
+    };
+  }, 'vz-cond-row-vis');
+
+  // Ligne MARÉE (m)
+  html += renderRow('Marée (m)', slots, nowIdx, function(s) {
+    var h = getTideHeightForSlot(tides, s.time);
+    return { cls: '', txt: h != null ? h.toFixed(1) : '—' };
+  });
+
+  // Ligne COEF
+  html += renderRow('Coef', slots, nowIdx, function(s) {
+    var c = getCoefForSlot(s.time);
+    if (c == null) return { cls: 'vz-cond-coef-low', txt: '—' };
+    var cls = c < 50 ? 'vz-cond-coef-low' : (c < 80 ? 'vz-cond-coef-mid' : 'vz-cond-coef-high');
+    return { cls: cls, txt: String(c) };
+  });
+
+  // Ligne VENT (nds)
+  html += renderRow('Vent (nds)', slots, nowIdx, function(s) {
+    var v = Math.round(s.wind || 0);
+    return { cls: windTierClass(v), txt: String(v) };
+  }, 'vz-cond-row-wind');
+
+  // Ligne RAFALES (nds)
+  html += renderRow('Rafales (nds)', slots, nowIdx, function(s) {
+    var v = Math.round(s.gust || 0);
+    return { cls: windTierClass(v), txt: String(v) };
+  }, 'vz-cond-row-gusts');
+
+  // Ligne DIRECTION
+  html += renderRow('Direction', slots, nowIdx, function(s) {
+    return { cls: '', txt: dirArrow(s.dir) };
+  });
+
+  // Ligne CIEL
+  html += renderRow('Ciel', slots, nowIdx, function(s) {
+    return { cls: '', txt: weatherIcon(s.code) };
+  });
+
+  html += '</table>';
+  html += '</div>';
+
+  // Footer
+  html += '<div class="vz-cond-footer">';
+  html += '<strong>AROME</strong> 1.3km (0-48h)  ';
+  html += '<strong>ARPEGE</strong> Europe (48h-5j)  ';
+  html += 'Marées : SHOM via WorldTides  ';
+  html += 'Algo visi calibré Courseulles 04/26';
+  html += '</div>';
+
+  html += '</div>';
+
+  body.innerHTML = html;
+}
+
+function renderRow(label, slots, nowIdx, valueFn, rowExtraCls) {
+  var html = '<tr' + (rowExtraCls ? ' class="' + rowExtraCls + '"' : '') + '>';
+  html += '<td class="vz-cond-rowlabel">' + label + '</td>';
+  slots.forEach(function(s, idx) {
+    var v = valueFn(s);
+    var cls = v.cls || '';
+    if (idx === nowIdx) cls += ' vz-cond-now';
+    if (idx > 0 && s.time.toDateString() !== slots[idx-1].time.toDateString()) {
+      cls += ' vz-cond-dayboundary';
+    }
+    var clickAttr = ' onclick="vzSheetCellClick(\'' + s.time.toISOString() + '\')"';
+    html += '<td class="' + cls.trim() + '"' + clickAttr + ' style="cursor:pointer;">' + v.txt + '</td>';
+  });
+  html += '</tr>';
+  return html;
+}
+
+// Click sur une cellule → ouvre le drawer spot avec date/heure
+window.vzSheetCellClick = function(isoTime) {
+  if (!VZ_SHEET.spot) return;
+  var dt = new Date(isoTime);
+  if (typeof openSpotPopup === 'function') {
+    openSpotPopup(VZ_SHEET.spot.lat, VZ_SHEET.spot.lng, dt);
+  }
+};
+
+// ============================================================
+// HELPERS de calcul
+// ============================================================
+
+function formatDayLabel(date) {
+  var jours = ['DIM.', 'LUN.', 'MAR.', 'MER.', 'JEU.', 'VEN.', 'SAM.'];
+  var mois = ['JANV', 'FÉV', 'MARS', 'AVR', 'MAI', 'JUIN', 'JUIL', 'AOÛT', 'SEPT', 'OCT', 'NOV', 'DÉC'];
+  return jours[date.getDay()] + ' ' + date.getDate() + ' ' + mois[date.getMonth()];
+}
+
+function computeVisForSlot(slot, depth, spot) {
+  // Réutilise visScoreV2 si dispo
+  if (typeof visScoreV2 === 'function') {
+    try {
+      var dirFactor = (typeof getDirFactorForPoint === 'function')
+        ? getDirFactorForPoint(spot.lat, spot.lng, slot.dir)
+        : 1.0;
+      var d = (depth != null) ? Math.abs(depth) : 8;
+      var score = visScoreV2(slot.wind || 0, slot.gust || 0, dirFactor, d);
+      var visM = score.vis || 0;
+      // Tiers : 0=<1m, 1=1-2m, 2=2-4m, 3=4-6m, 4=>6m
+      var tier = visM < 1 ? 0 : (visM < 2 ? 1 : (visM < 4 ? 2 : (visM < 6 ? 3 : 4)));
+      var label = visM < 1 ? '<1m' : (visM < 10 ? Math.round(visM) + 'm' : '+10m');
+      return { tier: tier, label: label, vis: visM };
+    } catch(e) { console.warn('visScoreV2 err', e); }
+  }
+  // Fallback grossier
+  var w = slot.wind || 0;
+  var tier = w < 8 ? 4 : (w < 12 ? 3 : (w < 18 ? 2 : (w < 25 ? 1 : 0)));
+  var labels = ['<1m', '1m', '2m', '4m', '+6m'];
+  return { tier: tier, label: labels[tier] };
+}
+
+function windTierClass(v) {
+  if (v < 5)  return 'vz-cond-w-0';
+  if (v < 10) return 'vz-cond-w-1';
+  if (v < 15) return 'vz-cond-w-2';
+  if (v < 20) return 'vz-cond-w-3';
+  if (v < 25) return 'vz-cond-w-4';
+  if (v < 35) return 'vz-cond-w-5';
+  return 'vz-cond-w-6';
+}
+
+function dirArrow(deg) {
+  if (deg == null) return '—';
+  // Direction du vent : on dessine d'où il vient
+  var arrows = ['↓','↙','←','↖','↑','↗','→','↘'];
+  var idx = Math.round(((deg % 360) / 45)) % 8;
+  return arrows[idx];
+}
+
+function weatherIcon(code) {
+  if (code == null) return '—';
+  if (code === 0)            return '☀';
+  if (code <= 2)             return '⛅';
+  if (code === 3)            return '☁';
+  if (code >= 45 && code <= 48) return '🌫';
+  if (code >= 51 && code <= 67) return '🌧';
+  if (code >= 71 && code <= 77) return '❄';
+  if (code >= 80 && code <= 82) return '🌧';
+  if (code >= 95)            return '⛈';
+  return '☁';
+}
+
+function getCoefForSlot(date) {
+  if (typeof getCoefForDate === 'function') {
+    try { return getCoefForDate(date); } catch(e) { return null; }
+  }
+  return null;
+}
+
+function getTideHeightForSlot(tides, date) {
+  if (!tides || !tides.days) return null;
+  // Cherche le jour matching
+  var dateStr = date.toISOString().slice(0,10);
+  var dayIdx = (tides.dates || []).indexOf(dateStr);
+  if (dayIdx < 0) return null;
+  var dayData = tides.days[dayIdx];
+  if (!dayData || !dayData.heights) return null;
+  // Cherche l'heure la plus proche
+  var hh = date.getHours();
+  var heights = dayData.heights;
+  if (heights[hh] != null) return heights[hh];
+  return null;
+}
+
+console.log('[VZ_SHEET] Bandeau bas Conditions initialisé');
 
 function renderCondTable() {
   var h = VZ_COND.weather;
