@@ -3907,7 +3907,7 @@ if (document.readyState === 'loading') {
 // ============================================================
 
 var css = `
-    .vz-sheet-cond-wrap { padding: 16px 20px 24px; color: var(--vz-text-on-dark); }
+    .vz-sheet-cond-wrap { padding: 12px 18px 18px; color: var(--vz-text-on-dark); }
     .vz-sheet-cond-meta {
       font-family: 'IBM Plex Mono', monospace;
       font-size: 11px;
@@ -3917,59 +3917,54 @@ var css = `
     }
     .vz-sheet-cond-header {
       display: flex;
-      align-items: center;
-      gap: 24px;
-      margin-bottom: 18px;
-      padding-bottom: 14px;
+      align-items: baseline;
+      gap: 18px;
+      margin-bottom: 12px;
+      padding-bottom: 10px;
       border-bottom: 1px solid rgba(255,255,255,0.08);
+      flex-wrap: wrap;
     }
-    .vz-sheet-depth-block {
+    .vz-sheet-depth-inline {
       display: flex;
-      flex-direction: column;
-      align-items: flex-start;
-      padding-right: 24px;
-      border-right: 1px solid rgba(255,255,255,0.12);
+      align-items: baseline;
+      gap: 8px;
     }
-    .vz-sheet-depth-label {
+    .vz-sheet-depth-mini {
       font-family: 'Inter', sans-serif;
       font-size: 10px;
       font-weight: 700;
       color: var(--vz-text-on-dark-faint);
       letter-spacing: 0.14em;
       text-transform: uppercase;
-      margin-bottom: 4px;
     }
-    .vz-sheet-depth-value {
+    .vz-sheet-depth-num {
       font-family: 'Inter', sans-serif;
-      font-size: 32px;
+      font-size: 22px;
       font-weight: 700;
       line-height: 1;
       letter-spacing: -0.02em;
+      color: #4DD4A8;
     }
-    .vz-sheet-depth-unit {
-      font-size: 16px;
-      font-weight: 500;
-      margin-left: 2px;
-      opacity: 0.7;
-    }
-    .vz-sheet-coords-block {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-    .vz-sheet-coords-line {
-      font-family: 'IBM Plex Mono', monospace;
+    .vz-sheet-depth-unit-mini {
+      font-family: 'Inter', sans-serif;
       font-size: 13px;
       font-weight: 500;
+      color: #4DD4A8;
+      opacity: 0.75;
+    }
+    .vz-sheet-coords-inline {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
       color: var(--vz-text-on-dark);
       letter-spacing: 0.04em;
     }
-    .vz-sheet-coords-source {
+    .vz-sheet-source-inline {
       font-family: 'IBM Plex Mono', monospace;
       font-size: 10px;
       color: var(--vz-text-on-dark-faint);
       letter-spacing: 0.06em;
       text-transform: uppercase;
+      margin-left: auto;
     }
     .vz-cond-table {
       width: 100%;
@@ -4013,7 +4008,7 @@ var css = `
     }
     .vz-cond-dayhead {
       font-family: 'Inter', sans-serif;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 700;
       color: var(--vz-text-on-dark);
       text-transform: uppercase;
@@ -4397,19 +4392,13 @@ function renderSheetTable() {
   // ---- Build HTML ----
   var html = '<div class="vz-sheet-cond-wrap">';
 
-  // Header avec profondeur en valeur principale
+// Header sur une seule ligne : profondeur + coords + source
   var depthLabel = depth != null ? Math.round(depth) : '—';
-  var depthColor = '#4DD4A8'; // vert Talisker pour toutes les profondeurs
 
   html += '<div class="vz-sheet-cond-header">';
-  html += '<div class="vz-sheet-depth-block">';
-  html += '<div class="vz-sheet-depth-label">FOND</div>';
-  html += '<div class="vz-sheet-depth-value" style="color:' + depthColor + ';">' + depthLabel + '<span class="vz-sheet-depth-unit">m</span></div>';
-  html += '</div>';
-  html += '<div class="vz-sheet-coords-block">';
-  html += '<div class="vz-sheet-coords-line">' + spot.lat.toFixed(4) + 'N · ' + Math.abs(spot.lng).toFixed(4) + (spot.lng < 0 ? 'O' : 'E') + '</div>';
-  html += '<div class="vz-sheet-coords-source">EMODnet bathymétrie ~115m</div>';
-  html += '</div>';
+  html += '<div class="vz-sheet-depth-inline"><span class="vz-sheet-depth-mini">FOND</span><span class="vz-sheet-depth-num">' + depthLabel + '</span><span class="vz-sheet-depth-unit-mini">m</span></div>';
+  html += '<div class="vz-sheet-coords-inline">' + spot.lat.toFixed(4) + 'N · ' + Math.abs(spot.lng).toFixed(4) + (spot.lng < 0 ? 'O' : 'E') + '</div>';
+  html += '<div class="vz-sheet-source-inline">EMODnet ~115m</div>';
   html += '</div>';
 
   html += '<div style="overflow-x:auto;">';
