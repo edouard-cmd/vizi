@@ -202,6 +202,357 @@
     .sed-legend-row { display:flex; align-items:center; gap:9px; margin-bottom:6px; font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--text-2); }
     .sed-legend-row:last-child { margin-bottom:0; }
     .sed-swatch { width:16px; height:16px; border-radius:3px; flex-shrink:0; border:1px solid rgba(0,0,0,0.08); }
+    /* ============================================================
+   DRAWER SPOT - Refonte Talisker (dark mode glassmorphism)
+   Override des règles claires existantes
+   ============================================================ */
+#spotDrawer {
+  background: var(--vz-bg-glass-strong) !important;
+  backdrop-filter: blur(var(--vz-blur));
+  -webkit-backdrop-filter: blur(var(--vz-blur));
+  border-left: 0.5px solid var(--vz-accent-border) !important;
+  box-shadow: -8px 0 40px rgba(0,0,0,0.5) !important;
+  color: var(--vz-text-on-dark);
+}
+
+/* Header drawer */
+#spotDrawer .drawer-head {
+  background: transparent !important;
+  border-bottom: 0.5px solid var(--vz-border-glass) !important;
+  padding: 16px 18px 14px;
+}
+#spotDrawer .spot-coords {
+  color: var(--vz-accent) !important;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+#spotDrawer .spot-meta {
+  color: var(--vz-text-on-dark-faint) !important;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  margin-top: 4px;
+  letter-spacing: 0.02em;
+}
+#spotDrawer .spot-close {
+  background: rgba(255,255,255,0.08) !important;
+  color: var(--vz-text-on-dark) !important;
+  border: 0.5px solid var(--vz-border-glass);
+}
+#spotDrawer .spot-close:hover {
+  background: rgba(255,255,255,0.15) !important;
+  border-color: var(--vz-accent-border);
+}
+
+/* Date/time picker */
+#spotDrawer .drawer-datetime {
+  background: transparent !important;
+  border-bottom: 0.5px solid var(--vz-border-glass) !important;
+  padding: 12px 18px;
+  gap: 6px;
+}
+#spotDrawer .drawer-datetime input {
+  background: rgba(255,255,255,0.06) !important;
+  border: 0.5px solid var(--vz-border-glass) !important;
+  color: var(--vz-text-on-dark) !important;
+  font-family: 'IBM Plex Mono', monospace;
+  border-radius: var(--vz-radius-btn);
+  color-scheme: dark;
+  padding: 9px 12px;
+}
+#spotDrawer .drawer-datetime input:focus {
+  border-color: var(--vz-accent) !important;
+}
+#spotDrawer .spot-date-arrow {
+  background: rgba(255,255,255,0.06);
+  border: 0.5px solid var(--vz-border-glass);
+  color: var(--vz-text-on-dark-muted);
+  border-radius: var(--vz-radius-btn);
+  width: 32px;
+  height: 36px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  transition: all 0.15s;
+}
+#spotDrawer .spot-date-arrow:hover {
+  border-color: var(--vz-accent);
+  color: var(--vz-accent);
+}
+#spotDrawer .spot-date-arrow:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Bandeau d'alerte décantation */
+#spotDrawer .decant-banner-v2 {
+  margin: 14px 18px 0;
+  padding: 12px 14px;
+  border-radius: var(--vz-radius-card);
+  border: 0.5px solid;
+}
+#spotDrawer .decant-banner-v2.degradation {
+  background: rgba(201,74,61,0.15) !important;
+  border-color: rgba(201,74,61,0.4) !important;
+}
+#spotDrawer .decant-banner-v2.decantation {
+  background: var(--vz-accent-glow) !important;
+  border-color: var(--vz-accent-border) !important;
+}
+#spotDrawer .decant-banner-v2.neutre {
+  background: rgba(255,255,255,0.04) !important;
+  border-color: var(--vz-border-glass) !important;
+}
+#spotDrawer .decant-v2-title {
+  color: var(--vz-text-on-dark);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+}
+#spotDrawer .decant-v2-sub {
+  color: var(--vz-text-on-dark-muted);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+}
+#spotDrawer .decant-v2-detail {
+  background: rgba(255,255,255,0.05);
+  color: var(--vz-text-on-dark-muted);
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  border-radius: var(--vz-radius-btn);
+  padding: 10px 12px;
+  margin-top: 10px;
+}
+#spotDrawer .decant-v2-info-btn {
+  background: rgba(255,255,255,0.1) !important;
+  border: 0.5px solid rgba(255,255,255,0.2) !important;
+  color: var(--vz-text-on-dark) !important;
+}
+
+/* Bloc visibilité estimée */
+#spotDrawer .spot-vis-block {
+  padding: 16px 18px 14px;
+  border-bottom: 0.5px solid var(--vz-border-glass) !important;
+}
+#spotDrawer .spot-vis-label {
+  color: var(--vz-text-on-dark-faint) !important;
+  font-family: 'Inter', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-bottom: 12px;
+}
+#spotDrawer .spot-vis-badge {
+  border-radius: var(--vz-radius-card);
+  padding: 18px 0;
+}
+#spotDrawer .spot-vis-badge-text {
+  font-family: 'Inter', sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.01em;
+}
+#spotDrawer .spot-vis-segments {
+  margin-bottom: 8px;
+}
+#spotDrawer .spot-vis-seg {
+  background: rgba(255,255,255,0.08);
+}
+#spotDrawer .spot-vis-ticks {
+  color: var(--vz-text-on-dark-muted) !important;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  font-weight: 500;
+}
+#spotDrawer .spot-trend-arrow {
+  background: rgba(255,255,255,0.06) !important;
+  border: 0.5px solid var(--vz-border-glass) !important;
+}
+
+/* Blocs vent / mer / sea */
+#spotDrawer .spot-wind-block,
+#spotDrawer .spot-sea-block {
+  background: transparent !important;
+  border-bottom: 0.5px solid var(--vz-border-glass) !important;
+}
+#spotDrawer .spot-wind-cell,
+#spotDrawer .spot-sea-cell {
+  border-right: 0.5px solid var(--vz-border-glass) !important;
+}
+#spotDrawer .spot-wind-cell:last-child,
+#spotDrawer .spot-sea-cell:last-child {
+  border-right: none !important;
+}
+#spotDrawer .spot-wind-lbl,
+#spotDrawer .spot-sea-lbl {
+  color: var(--vz-text-on-dark-faint) !important;
+  font-family: 'Inter', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+#spotDrawer .spot-wind-val {
+  color: var(--vz-text-on-dark) !important;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 32px;
+  font-weight: 600;
+}
+#spotDrawer .spot-wind-unit {
+  color: var(--vz-text-on-dark-faint) !important;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+}
+#spotDrawer .spot-wind-dir {
+  color: var(--vz-text-on-dark) !important;
+}
+#spotDrawer .spot-wind-dir svg path {
+  stroke: var(--vz-text-on-dark) !important;
+}
+#spotDrawer .spot-sea-val {
+  color: var(--vz-text-on-dark) !important;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* Facteurs de calcul (debug visi - on garde) */
+#spotDrawer #spotFactors {
+  background: rgba(255,255,255,0.02) !important;
+  border-bottom: 0.5px solid var(--vz-border-glass) !important;
+  padding: 12px 18px 14px;
+}
+#spotDrawer #spotFactors > div {
+  color: var(--vz-text-on-dark-muted) !important;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+}
+
+/* Bloc paliers */
+#spotDrawer #spotPaliersBlock {
+  background: transparent !important;
+  border-bottom: 0.5px solid var(--vz-border-glass) !important;
+  padding: 14px 18px;
+}
+#spotDrawer #spotPaliersBlock > div:first-child > div:first-child {
+  color: var(--vz-text-on-dark-faint) !important;
+  font-family: 'Inter', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+#spotDrawer #spotPaliersBlock button {
+  background: rgba(255,255,255,0.06) !important;
+  border: 0.5px solid var(--vz-border-glass) !important;
+  color: var(--vz-text-on-dark-muted) !important;
+}
+#spotDrawer #spotPaliersList > div {
+  border-bottom: 0.5px solid var(--vz-border-glass) !important;
+  color: var(--vz-text-on-dark-muted) !important;
+  font-family: 'IBM Plex Mono', monospace;
+}
+#spotDrawer #spotPaliersList > div span:first-child {
+  color: var(--vz-text-on-dark) !important;
+  font-weight: 700;
+}
+#spotDrawer #spotPaliersInfo {
+  background: rgba(255,255,255,0.04) !important;
+  color: var(--vz-text-on-dark-muted) !important;
+  border-radius: var(--vz-radius-btn);
+}
+
+/* Nature du fond */
+#spotDrawer .drawer-body > div[style*="background:var(--surface2)"] {
+  background: rgba(255,255,255,0.02) !important;
+  border-bottom: 0.5px solid var(--vz-border-glass) !important;
+  padding: 12px 18px !important;
+}
+#spotDrawer #sedimentType {
+  color: var(--vz-text-on-dark) !important;
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 600;
+}
+#spotDrawer .drawer-body > div[style*="background:var(--surface2)"] > div:nth-child(2) > div:first-child {
+  color: var(--vz-text-on-dark-faint) !important;
+}
+#spotDrawer #sedSwatchColor {
+  border-color: rgba(255,255,255,0.2) !important;
+}
+
+/* Boutons d'action en bas */
+#spotDrawer .drawer-body > div[style*="background:var(--surface)"]:last-of-type,
+#spotDrawer .drawer-body > div[style*="background:var(--surface);"]:last-of-type {
+  background: transparent !important;
+  border-bottom: 0.5px solid var(--vz-border-glass) !important;
+  padding: 14px 18px !important;
+}
+#spotDrawer .drawer-body > div > button[onclick*="openObsSheet"] {
+  background: var(--vz-accent) !important;
+  color: var(--vz-bg-deep) !important;
+  border-radius: var(--vz-radius-btn) !important;
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
+}
+#spotDrawer .drawer-body > div > button[onclick*="openObsSheet"]:hover {
+  background: var(--vz-accent-strong) !important;
+}
+#spotDrawer .drawer-body > div > button[onclick*="openSessionModal"] {
+  background: transparent !important;
+  border: 0.5px solid var(--vz-border-glass) !important;
+  color: var(--vz-text-on-dark-muted) !important;
+  border-radius: var(--vz-radius-btn) !important;
+}
+#spotDrawer .drawer-body > div > button[onclick*="openSessionModal"]:hover {
+  border-color: var(--vz-accent-border) !important;
+  color: var(--vz-accent) !important;
+}
+
+/* Drawer marées intégré (#drawerTides) */
+#spotDrawer #drawerTides {
+  background: transparent !important;
+  padding: 14px 18px;
+}
+#spotDrawer .tides-label {
+  color: var(--vz-text-on-dark-faint) !important;
+  font-family: 'Inter', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+#spotDrawer .tides-port-name {
+  color: var(--vz-text-on-dark) !important;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 14px;
+  font-weight: 600;
+}
+#spotDrawer #tideDaySummary {
+  background: rgba(255,255,255,0.04) !important;
+  border: 0.5px solid var(--vz-border-glass) !important;
+  border-radius: var(--vz-radius-card);
+}
+
+/* Scrollbar dark */
+#spotDrawer::-webkit-scrollbar,
+#spotDrawer .drawer-body::-webkit-scrollbar {
+  width: 6px;
+  background: transparent;
+}
+#spotDrawer::-webkit-scrollbar-thumb,
+#spotDrawer .drawer-body::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.15);
+  border-radius: 3px;
+}
+#spotDrawer::-webkit-scrollbar-thumb:hover,
+#spotDrawer .drawer-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.25);
+}
     #spotDrawer { position:fixed; top:73px; right:0; bottom:0; z-index:1100; width:340px; background:var(--surface); border-left:1px solid var(--border); box-shadow:-8px 0 40px rgba(0,0,0,0.12); display:flex; flex-direction:column; transform:translateX(100%); transition:transform 0.28s cubic-bezier(.4,0,.2,1); overflow:hidden; }
     #spotDrawer.open { transform:translateX(0); }
     .drawer-head { padding:14px 16px 12px; background:var(--surface2); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:flex-start; flex-shrink:0; }
