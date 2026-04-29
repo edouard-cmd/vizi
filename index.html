@@ -684,14 +684,21 @@
   background: var(--vz-bg-surface);
   border: 0.5px solid var(--vz-border-glass);
   border-radius: var(--vz-radius-card);
-  padding: 14px 18px 12px;
+  padding: 18px 22px 14px;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  height: 100%;
 }
 .vz-tides-curveinner {
   flex: 1;
-  min-height: 0;
+  min-height: 320px;
+  width: 100%;
+  display: flex;
+}
+.vz-tides-curveinner svg {
+  width: 100% !important;
+  height: 100% !important;
 }
 .vz-tides-curvelegend {
   display: flex;
