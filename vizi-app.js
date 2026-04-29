@@ -4990,15 +4990,26 @@ function renderTidesDateChips(selDate) {
   var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   var html = '<div class="vz-tides-datechips">';
 
-  var labels = ['Aujourd\'hui', 'Demain', '+2j', '+3j'];
+  var joursShort = ['Dim.', 'Lun.', 'Mar.', 'Mer.', 'Jeu.', 'Ven.', 'Sam.'];
+
   for (var offset = 0; offset < 4; offset++) {
     var d = new Date(today.getTime() + offset * 86400000);
     var iso = d.getFullYear() + '-' +
       String(d.getMonth() + 1).padStart(2, '0') + '-' +
       String(d.getDate()).padStart(2, '0');
     var isActive = (iso === selDate);
-    html += '<button class="vz-tides-datechip' + (isActive ? ' active' : '') + '" ' +
-      'onclick="onTidesSheetDateChange(\'' + iso + '\')">' + labels[offset] + '</button>';
+    var isToday = (offset === 0);
+
+    var dayNum = d.getDate();
+    var dayLabel = (dayNum === 1) ? '1er' : dayNum;
+    var chipLabel = joursShort[d.getDay()] + ' ' + dayLabel;
+    var subLabel = isToday ? "<span class='vz-tides-datechip-sub'>Aujourd'hui</span>" : '';
+
+    html += '<button class="vz-tides-datechip' + (isActive ? ' active' : '') + (isToday ? ' is-today' : '') + '" ' +
+      'onclick="onTidesSheetDateChange(\'' + iso + '\')">' +
+      '<span class="vz-tides-datechip-main">' + chipLabel + '</span>' +
+      subLabel +
+      '</button>';
   }
 
   // Bouton picker custom
