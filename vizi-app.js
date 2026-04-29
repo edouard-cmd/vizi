@@ -4102,26 +4102,67 @@ window.closeCondDrawer = function() {
 
 // ----- Détermine le spot courant (drawer spot ouvert > port marées > centre carte) -----
 function resolveCurrentSpot() {
-  // 1) Drawer spot ouvert
+  // 1) Drawer spot ouvert : essaie plusieurs noms de variables
   var spotDrawer = document.getElementById('spotDrawer');
   if (spotDrawer && spotDrawer.classList.contains('open')) {
-    if (typeof S !== 'undefined' && S.spotLat != null && S.spotLng != null) {
+    var lat = null, lng = null;
+    
+    // Essai 1 : S.spotLat / S.spotLng
+    if (typeof S !== 'undefined') {
+      if (S.spotLat != null && S.spotLng != null) {
+        lat = S.spotLat; lng = S.spotLng;
+      } else if (S.currentLat != null && S.currentLng != null) {
+        lat = S.currentLat; lng = S.currentLng;
+      } else if (S.lat != null && S.lng != null) {
+        lat = S.lat; lng = S.lng;
+      } else if (S.spot && S.spot.lat != null) {
+        lat = S.spot.lat; lng = S.spot.lng;
+      }
+    }
+    
+    // Essai 2 : variables globales classiques du projet
+    if (lat == null) {
+      if (typeof currentSpotLat !== 'undefined' && currentSpotLat != null) {
+        lat = currentSpotLat; lng = currentSpotLng;
+      } else if (typeof selectedLat !== 'undefined' && selectedLat != null) {
+        lat = selectedLat; lng = selectedLng;
+      }
+    }
+    
+    // Essai 3 : parse depuis le DOM (#spotCoords contient "49.3367N, 0.46000E" ou similaire)
+    if (lat == null) {
+      var coordsEl = document.getElementById('spotCoords');
+      if (coordsEl) {
+        var m = coordsEl.textContent.match(/(-?\d+\.?\d*)\s*[NS°,]?\s*[-,]?\s*(-?\d+\.?\d*)/);
+        if (m) {
+          lat = parseFloat(m[1]);
+          lng = parseFloat(m[2]);
+        }
+      }
+    }
+    
+    if (lat != null && lng != null && !isNaN(lat) && !isNaN(lng)) {
+      console.log('[VZ_SHEET] spot drawer trouvé:', lat, lng);
       return {
-        lat: S.spotLat,
-        lng: S.spotLng,
-        name: getSpotDisplayName(S.spotLat, S.spotLng)
+        lat: lat,
+        lng: lng,
+        name: getSpotDisplayName(lat, lng)
       };
     }
   }
-  // 2) Centre de la carte (fallback)
+  
+  // 4) Centre de la carte (fallback)
   if (typeof map !== 'undefined' && map && map.getCenter) {
     var c = map.getCenter();
+    console.log('[VZ_SHEET] fallback centre carte:', c.lat, c.lng);
     return {
       lat: c.lat,
       lng: c.lng,
       name: getSpotDisplayName(c.lat, c.lng)
     };
   }
+  
+  console.log('[VZ_SHEET] aucun spot trouvable');
   return null;
 }
 
