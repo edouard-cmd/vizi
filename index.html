@@ -243,19 +243,7 @@
    DRAWER SPOT - Refonte Talisker (dark mode glassmorphism)
    Drawer flottant avec marges + arrondi global
    ============================================================ */
-#spotDrawer {
-  display: flex;
-  flex-direction: column;
-}
-#spotDrawer .drawer-head,
-#spotDrawer .drawer-datetime {
-  flex-shrink: 0;
-}
-#spotDrawer .drawer-body {
-  flex: 1;
-  overflow-y: auto;
-  min-height: 0;
-}
+
 
 
 /* Header drawer */
@@ -2620,8 +2608,8 @@
   opacity: 0;
 }
 .vz-explain-panel.open {
-  max-height: 2000px;
-  overflow: visible;
+  max-height: 300px;
+  overflow-y: auto;
   margin-top: 8px;
   opacity: 1;
 }
