@@ -2740,6 +2740,55 @@
   border: 0.5px solid var(--vz-border-glass);
   border-radius: var(--vz-radius-card);
 }
+    /* ============================================================
+   DRAWER SPOT v4 - Bloc PROFONDEUR / COEF MARÉE densifié
+   ============================================================ */
+
+.spot-depth-coef-block {
+  display: flex;
+  border-bottom: 0.5px solid var(--vz-border-glass) !important;
+  background: transparent !important;
+}
+.spot-depth-coef-cell {
+  flex: 1;
+  padding: 14px 0;
+  text-align: center;
+  border-right: 0.5px solid var(--vz-border-glass);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.spot-depth-coef-cell:last-child {
+  border-right: none;
+}
+.spot-depth-coef-lbl {
+  font-family: 'Inter', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--vz-text-on-dark-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+.spot-depth-coef-val {
+  font-family: 'Inter', sans-serif;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--vz-accent);
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+.spot-depth-coef-unit {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--vz-text-on-dark-faint);
+}
+/* Coef coloré sémantique */
+.spot-depth-coef-val.coef-low { color: var(--vz-good); }
+.spot-depth-coef-val.coef-mid { color: var(--vz-medium); }
+.spot-depth-coef-val.coef-high { color: var(--vz-warning); }
+.spot-depth-coef-val.coef-vhigh { color: var(--vz-danger); }
+.spot-depth-coef-val.coef-na { color: var(--vz-text-on-dark-faint); font-size: 14px; font-weight: 500; }
   </style>
 </head>
 <body>
@@ -3027,11 +3076,7 @@
 </div>
 
 <div id="spotDrawer">
-  <div class="drawer-head">
-    <div>
-      <div class="spot-coords" id="spotCoords">-</div>
-      <div class="spot-meta" id="spotMeta">-</div>
-    </div>
+<div class="drawer-head" style="justify-content:flex-end;padding:8px 12px;">
     <button class="spot-close" onclick="closeSpotPopup()">&#10005;</button>
   </div>
   <div class="drawer-datetime">
@@ -3076,6 +3121,18 @@
         <div class="spot-wind-unit" id="spotWindDeg">-</div>
       </div>
     </div>
+    <div class="spot-depth-coef-block">
+      <div class="spot-depth-coef-cell">
+        <div class="spot-depth-coef-lbl">Profondeur</div>
+        <div class="spot-depth-coef-val" id="spotDepthVal">-</div>
+        <div class="spot-depth-coef-unit">mètres</div>
+      </div>
+      <div class="spot-depth-coef-cell">
+        <div class="spot-depth-coef-lbl">Coef marée</div>
+        <div class="spot-depth-coef-val" id="spotCoefVal">-</div>
+        <div class="spot-depth-coef-unit" id="spotCoefDesc">-</div>
+      </div>
+    </div>
     <div class="spot-sea-block">
       <div class="spot-sea-cell">
         <div class="spot-sea-lbl">Temp. mer</div>
@@ -3090,7 +3147,15 @@
         <div class="spot-sea-val" id="spotSunset">-</div>
       </div>
     </div>
-<button class="vz-explain-trigger" id="vzExplainTrigger" onclick="toggleVisExplain()">
+
+
+    <div class="vz-pmbm-block" id="vzPmBmBlock">
+      <div class="vz-pmbm-label">Marées du jour</div>
+      <div id="vzPmBmContent">
+        <div class="vz-pmbm-empty">Chargement...</div>
+      </div>
+    </div>
+      <button class="vz-explain-trigger" id="vzExplainTrigger" onclick="toggleVisExplain()">
       <span class="vz-explain-trigger-label">
         <svg class="vz-explain-trigger-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="10"></circle>
@@ -3103,22 +3168,8 @@
         <polyline points="6 9 12 15 18 9"/>
       </svg>
     </button>
-    <div class="vz-explain-panel" id="vzExplainPanel">
+   <div class="vz-explain-panel" id="vzExplainPanel">
       <div class="vz-explain-content" id="vzExplainContent"></div>
-    </div>
-
-    <div class="vz-pmbm-block" id="vzPmBmBlock">
-      <div class="vz-pmbm-label">Marées du jour</div>
-      <div id="vzPmBmContent">
-        <div class="vz-pmbm-empty">Chargement...</div>
-      </div>
-    </div>
-    <div style="padding:12px 16px;border-bottom:1px solid var(--border);background:var(--surface2);display:flex;align-items:center;gap:10px;">
-      <div style="width:14px;height:14px;border-radius:3px;flex-shrink:0;border:1px solid rgba(0,0,0,0.1);" id="sedSwatchColor"></div>
-      <div>
-        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:2px;">Nature du fond</div>
-        <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--text);" id="sedimentType">-</div>
-      </div>
     </div>
     <div style="padding:12px 16px; border-bottom:1px solid var(--border); background:var(--surface); display:flex; flex-direction:column; gap:8px;">
       <button onclick="openObsSheet()" style="width:100%; padding:13px; background:#0BA888; border:none; border-radius:10px; color:white; font-family:'Inter',sans-serif; font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;">
@@ -3129,9 +3180,6 @@
         Partager la visibilité
       </button>
       <button onclick="openSessionModal()" style="width:100%; padding:9px; background:transparent; border:1px solid var(--border2); border-radius:10px; color:var(--text-2); font-family:'Inter',sans-serif; font-size:12px; font-weight:500; cursor:pointer;">Enregistrer ma session</button>
-    </div>
-    <div id="drawerTides">
-      <div style="padding:18px;text-align:center;color:var(--text-3);font-family:'IBM Plex Mono',monospace;font-size:11px;">Clique sur un point en mer pour voir les marees</div>
     </div>
   </div>
 </div>
