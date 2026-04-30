@@ -2131,43 +2131,6 @@ function visScoreV2(h, idx, depth, lat, lon) {
   return Math.max(0, Math.min(100, 100 - penaliteFinale));
 }
 
-  function formatPalierDate(d) {
-    var dayShort = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'][d.getDay()];
-    var monthShort = ['janv', 'fevr', 'mars', 'avr', 'mai', 'juin', 'juil', 'aout', 'sept', 'oct', 'nov', 'dec'][d.getMonth()];
-    var dayNum = d.getDate();
-    var hh = d.getHours().toString().padStart(2, '0');
-    return dayShort + ' ' + dayNum + ' ' + monthShort + ' ' + hh + 'h';
-  }
-
-  var html = results.map(function(r) {
-    var rowStyle = 'display:grid;grid-template-columns:40px 1fr auto;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);align-items:center;font-family:IBM Plex Mono,monospace;font-size:12px;';
-    var labelStyle = 'font-weight:700;color:var(--text);';
-    if (r.current) {
-      return '<div style="' + rowStyle + '">' +
-        '<span style="' + labelStyle + '">' + r.label + '</span>' +
-        '<span style="color:#0F6E56;font-weight:600;">atteint maintenant</span>' +
-        '<span style="color:var(--text-3);font-size:10px;text-align:right;">&mdash;</span>' +
-      '</div>';
-    }
-    if (r.na) {
-      return '<div style="' + rowStyle + '">' +
-        '<span style="' + labelStyle + ';opacity:0.5;">' + r.label + '</span>' +
-        '<span style="color:var(--text-3);font-style:italic;">non atteint dans 5j</span>' +
-        '<span></span>' +
-      '</div>';
-    }
-    return '<div style="' + rowStyle + '">' +
-      '<span style="' + labelStyle + '">' + r.label + '</span>' +
-      '<span style="color:var(--text-2);">' + formatPalierDate(r.time) + '</span>' +
-      '<span style="color:var(--text-3);font-size:10px;text-align:right;">dans ' + r.hoursAhead + 'h</span>' +
-    '</div>';
-  }).join('');
-
-  html = html.replace(/border-bottom:1px solid var\(--border\);(?=[^;]*$)/, 'border-bottom:none;');
-  list.innerHTML = html;
-  block.style.display = 'block';
-}
-
 function findZoneAtPoint(lat, lon) {
   if (!VIZI_ZONES_DATA || !VIZI_ZONES_DATA.features) return null;
   for (var i = 0; i < VIZI_ZONES_DATA.features.length; i++) {
