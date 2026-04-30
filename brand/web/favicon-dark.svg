@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Visimer">
+  <rect width="32" height="32" rx="6" fill="#0A1520"></rect><g fill="none" stroke="#4DD4A8" stroke-linecap="round">
+    <path d="M 4 10 Q 16 4 28 10" stroke-width="1.6"></path>
+    <path d="M 4 17 Q 16 12 28 17" stroke-width="1"></path>
+    <path d="M 4 24 Q 16 20 28 24" stroke-width="0.5"></path>
+  </g>
+</svg>

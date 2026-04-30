@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" width="180" height="180" role="img" aria-label="Visimer">
+  <rect width="180" height="180" fill="#0A1520"></rect>
+  <g fill="none" stroke="#4DD4A8" stroke-linecap="round" transform="translate(30, 30)">
+    <path d="M 4 24 Q 60 0 116 24" stroke-width="4.5"></path>
+    <path d="M 4 60 Q 60 36 116 60" stroke-width="2.8"></path>
+    <path d="M 4 96 Q 60 80 116 96" stroke-width="1.4"></path>
+  </g>
+</svg>

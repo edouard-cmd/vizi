@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 120" width="480" height="120" role="img" aria-label="Visimer">
+  <g fill="none" stroke="#FFFFFF" stroke-linecap="round">
+    <path d="M 14 38 Q 60 14 106 38" stroke-width="3.2"></path>
+    <path d="M 14 64 Q 60 46 106 64" stroke-width="2"></path>
+    <path d="M 14 90 Q 60 78 106 90" stroke-width="1"></path>
+  </g>
+  <text x="148" y="76" font-family="Inter, &#39;Helvetica Neue&#39;, Arial, sans-serif" font-weight="700" font-size="52" letter-spacing="4" fill="#FFFFFF">VISIMER</text>
+</svg>
