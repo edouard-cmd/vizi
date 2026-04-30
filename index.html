@@ -2447,6 +2447,100 @@
     animation: vz-word-reveal 0.3s ease 0.1s forwards;
   }
 }
+    /* === MARQUEUR DE MESURE VISIMER === */
+.vz-pulse-marker {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  pointer-events: none;
+}
+
+/* Cercle sombre central (lisible sur fond clair) */
+.vz-pulse-core {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 14px;
+  height: 14px;
+  background: #0A1520;
+  border: 2px solid #4DD4A8;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.4),
+              0 2px 8px rgba(0,0,0,0.5);
+  z-index: 3;
+}
+
+/* Point blanc au centre (le repère exact) */
+.vz-pulse-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 4px;
+  height: 4px;
+  background: #FFFFFF;
+  border-radius: 50%;
+  z-index: 4;
+  box-shadow: 0 0 6px rgba(77, 212, 168, 0.9);
+}
+
+/* 3 ondes Cascade qui pulsent vers le bas */
+.vz-pulse-wave {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 36px;
+  height: 18px;
+  transform: translate(-50%, 0);
+  border-bottom: 2px solid #4DD4A8;
+  border-left: 2px solid transparent;
+  border-right: 2px solid transparent;
+  border-radius: 0 0 50% 50% / 0 0 100% 100%;
+  opacity: 0;
+  filter: drop-shadow(0 0 3px rgba(10, 21, 32, 0.7));
+  animation: vz-wave-pulse 2.4s ease-out infinite;
+}
+
+.vz-pulse-wave-1 {
+  animation-delay: 0s;
+}
+.vz-pulse-wave-2 {
+  animation-delay: 0.4s;
+  border-bottom-width: 1.5px;
+}
+.vz-pulse-wave-3 {
+  animation-delay: 0.8s;
+  border-bottom-width: 1px;
+}
+
+@keyframes vz-wave-pulse {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 0) scale(0.4);
+  }
+  20% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, 8px) scale(1.6);
+  }
+}
+
+/* Cercle de mire externe (subtil, pour densifier sur fonds très uniformes) */
+.vz-pulse-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(77, 212, 168, 0.4);
+  border-radius: 50%;
+  filter: drop-shadow(0 0 2px rgba(0,0,0,0.5));
+  z-index: 2;
+}
   </style>
 </head>
 <body>
