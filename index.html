@@ -3214,6 +3214,135 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
   .vz-explain-overlay { padding: 12px; align-items: flex-end; }
   .vz-explain-modal { max-height: 90vh; border-radius: 18px; }
 }  
+    /* ============================================================
+   MARQUEURS OBSERVATIONS COMMUNAUTAIRES (masque de plongee)
+   ============================================================ */
+.vz-obs-marker {
+  background: transparent !important;
+  border: none !important;
+}
+.vz-obs-marker-inner {
+  width: 32px;
+  height: 32px;
+  background: var(--vz-warning);
+  border: 2px solid rgba(255,255,255,0.95);
+  border-radius: 50%;
+  box-shadow: 0 3px 10px rgba(232, 155, 60, 0.5), 0 0 0 4px rgba(232, 155, 60, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.15s;
+  position: relative;
+}
+.vz-obs-marker-inner:hover {
+  transform: scale(1.12);
+}
+.vz-obs-marker-inner svg {
+  width: 18px;
+  height: 18px;
+  color: #0A1520;
+}
+.vz-obs-marker.fresh .vz-obs-marker-inner {
+  animation: vz-obs-pulse 2.4s ease-in-out infinite;
+}
+.vz-obs-marker.recent .vz-obs-marker-inner { opacity: 0.85; }
+.vz-obs-marker.dated .vz-obs-marker-inner { opacity: 0.5; }
+@keyframes vz-obs-pulse {
+  0%, 100% { box-shadow: 0 3px 10px rgba(232, 155, 60, 0.5), 0 0 0 4px rgba(232, 155, 60, 0.15); }
+  50% { box-shadow: 0 3px 14px rgba(232, 155, 60, 0.75), 0 0 0 10px rgba(232, 155, 60, 0.05); }
+}
+
+/* Popup observation */
+.vz-obs-popup .leaflet-popup-content-wrapper {
+  background: var(--vz-bg-glass-strong);
+  backdrop-filter: blur(var(--vz-blur));
+  -webkit-backdrop-filter: blur(var(--vz-blur));
+  border: 0.5px solid var(--vz-warning);
+  border-radius: 14px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.45);
+  color: var(--vz-text-on-dark);
+  padding: 0;
+}
+.vz-obs-popup .leaflet-popup-content {
+  margin: 0;
+  padding: 0;
+  width: 260px !important;
+}
+.vz-obs-popup .leaflet-popup-tip {
+  background: var(--vz-bg-glass-strong);
+  border: 0.5px solid var(--vz-warning);
+}
+.vz-obs-popup .leaflet-popup-close-button {
+  color: var(--vz-text-on-dark-muted) !important;
+  font-size: 18px !important;
+  padding: 6px 8px !important;
+}
+.vz-obs-pop-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px 10px;
+  border-bottom: 0.5px solid var(--vz-border-glass);
+}
+.vz-obs-pop-pseudo {
+  flex: 1;
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--vz-text-on-dark);
+}
+.vz-obs-pop-when {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--vz-warning);
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+.vz-obs-pop-body { padding: 12px 16px 14px; }
+.vz-obs-pop-vis {
+  font-family: 'Inter', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  letter-spacing: 0.01em;
+}
+.vz-obs-pop-vis-sub {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--vz-text-on-dark-muted);
+  letter-spacing: 0.04em;
+  margin-bottom: 10px;
+}
+.vz-obs-pop-fond {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-family: 'Inter', sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: rgba(77,212,168,0.12);
+  color: var(--vz-accent);
+  border: 0.5px solid rgba(77,212,168,0.3);
+}
+.vz-obs-pop-fond.no {
+  background: rgba(201,74,61,0.12);
+  color: #E89B8C;
+  border-color: rgba(201,74,61,0.3);
+}
+.vz-obs-pop-comment {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.04);
+  border-radius: 8px;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  color: var(--vz-text-on-dark);
+  line-height: 1.5;
+  font-style: italic;
+}
   </style>
 </head>
 <body>
