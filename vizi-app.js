@@ -2208,13 +2208,12 @@ function fallbackSediment() {
 
 function loadDrawerTides(lat, lon) {
   var near = findApiMareeSiteNear(lat, lon);
-  var container = document.getElementById('drawerTides');
-  if (!container) return;
-
   if (!near) {
-    container.innerHTML =
-      '<div style="padding:18px;text-align:center;color:var(--text-3);font-family:IBM Plex Mono,monospace;font-size:12px;">' +
-      'Marees non disponibles<br><span style="font-size:10px">(marnage negligeable en Mediterranee)</span></div>';
+    TIDES.siteId = null;
+    TIDES.data = null;
+    TIDES.extremes = null;
+    renderPmBmDuJour();
+    if (S_spotWeatherCache) renderSpotPopup();
     return;
   }
 
@@ -2227,7 +2226,6 @@ function loadDrawerTides(lat, lon) {
   TIDES.selectedDate = today.toISOString().split('T')[0];
   TIDES.from = TIDES.selectedDate;
 
-  renderTidesShell();
   fetchTidesRange();
 }
 
@@ -2252,26 +2250,21 @@ function fetchTidesRange() {
   TIDES.from = fromStr;
   TIDES.days = 14;
 
-  document.getElementById('tideCurve').innerHTML =
-    '<div style="padding:30px;text-align:center;color:var(--text-3);font-family:IBM Plex Mono,monospace;font-size:11px;">Chargement marees...</div>';
-
   var url = GAS_URL + '?action=tides_range&site=' + TIDES.siteId + '&from=' + fromStr + '&days=' + TIDES.days;
 
   fetch(url).then(function(r){ return r.json(); }).then(function(data) {
     if (!data.data || data.error) {
-      document.getElementById('tideCurve').innerHTML =
-        '<div style="padding:14px;color:var(--bad);font-family:IBM Plex Mono,monospace;font-size:11px;">Erreur : ' + (data.error || 'pas de donnees') + '</div>';
+      console.error('[VIZI] Erreur marées :', data.error || 'pas de données');
       return;
     }
     TIDES.data = data.data;
     TIDES.extremes = data.extremes || [];
-    renderTidesForSelectedDate();
+    renderPmBmDuJour();
+    if (S_spotWeatherCache) renderSpotPopup();
   }).catch(function(err) {
-    document.getElementById('tideCurve').innerHTML =
-      '<div style="padding:14px;color:var(--bad);font-family:IBM Plex Mono,monospace;font-size:11px;">Erreur reseau</div>';
+    console.error('[VIZI] Erreur réseau marées :', err);
   });
 }
-
 function onTideDateChange(newDate) {
   TIDES.selectedDate = newDate;
   if (!isDateInLoadedRange(newDate)) {
