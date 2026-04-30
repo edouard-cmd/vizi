@@ -2614,12 +2614,22 @@ function openObsSheet() {
   var now = new Date();
   var latlng = isMobile() ? S.map.getCenter() : (S.clickLatLng || S.map.getCenter());
   document.getElementById('obsSheetDate').value = now.toISOString().split('T')[0];
-  document.getElementById('obsSheetTime').value = now.getHours().toString().padStart(2, '0') + ':00';
-  document.getElementById('obsSheetCoords').textContent = latlng.lat.toFixed(4) + 'N - ' + Math.abs(latlng.lng).toFixed(4) + 'O';
-  document.getElementById('obsSheetVisSlider').value = 8;
-  updateObsSheetVis(8);
+  document.getElementById('obsSheetTime').value = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+  document.getElementById('obsSheetCoords').textContent = latlng.lat.toFixed(4) + 'N · ' + Math.abs(latlng.lng).toFixed(4) + (latlng.lng < 0 ? 'O' : 'E');
+  document.getElementById('obsSheetVisSlider').value = 4;
+  updateObsSheetVis(4);
   setObsFond(true);
-  document.getElementById('obsSheetSpecies').value = '';
+  document.getElementById('obsSheetNote').value = '';
+  document.getElementById('obsNoteCount').textContent = '0';
+  // Reset pseudo en mode anonyme
+  var anonBtn = document.getElementById('obsAnonToggle');
+  var pseudoInput = document.getElementById('obsSheetPseudo');
+  if (!anonBtn.classList.contains('on')) {
+    anonBtn.classList.add('on');
+    anonBtn.innerHTML = anonBtn.innerHTML.replace('Signer', 'Anonyme');
+    pseudoInput.disabled = true;
+    pseudoInput.value = '';
+  }
   document.getElementById('obsSheetSubmit').style.display = 'block';
   document.getElementById('obsSheetSubmit').disabled = false;
   document.getElementById('obsSheetSuccess').style.display = 'none';
@@ -2633,14 +2643,45 @@ function closeObsSheet() {
   OBS_SUBMITTING = false;
 }
 
+// Échelle visi 5 paliers (aligné drawer spot)
+var OBS_VIS_LEVELS = [
+  { v: 1,  label: 'Nulle',      color: '#C94A3D' },
+  { v: 2,  label: 'Faible',     color: '#E89B3C' },
+  { v: 4,  label: 'Moyenne',    color: '#D8C84A' },
+  { v: 6,  label: 'Bonne',      color: '#2DA888' },
+  { v: 10, label: 'Excellente', color: '#4DD4A8' }
+];
+
 function updateObsSheetVis(idx) {
   idx = parseInt(idx);
-  var v = VIS[idx];
+  var v = OBS_VIS_LEVELS[idx];
   var el = document.getElementById('obsSheetVisVal');
-  el.textContent = v.l;
-  el.style.color = v.c;
+  el.textContent = v.label;
+  el.style.color = v.color;
 }
 
+function updateNoteCounter() {
+  var note = document.getElementById('obsSheetNote');
+  var counter = document.getElementById('obsNoteCount');
+  if (note && counter) counter.textContent = note.value.length;
+}
+
+function toggleObsAnon() {
+  var btn = document.getElementById('obsAnonToggle');
+  var input = document.getElementById('obsSheetPseudo');
+  var isAnon = btn.classList.contains('on');
+  if (isAnon) {
+    btn.classList.remove('on');
+    btn.innerHTML = btn.innerHTML.replace('Anonyme', 'Signer');
+    input.disabled = false;
+    input.focus();
+  } else {
+    btn.classList.add('on');
+    btn.innerHTML = btn.innerHTML.replace('Signer', 'Anonyme');
+    input.disabled = true;
+    input.value = '';
+  }
+}
 function setObsFond(val) {
   OBS_FOND = val;
   document.getElementById('obsSheetFondOui').classList.toggle('on', val);
@@ -2655,26 +2696,30 @@ function submitObsSheet() {
   btn.textContent = 'Envoi...';
   var latlng = isMobile() ? S.map.getCenter() : (S.clickLatLng || S.map.getCenter());
   var idx = parseInt(document.getElementById('obsSheetVisSlider').value);
-  var visLevel = VIS[idx];
+  var visLevel = OBS_VIS_LEVELS[idx];
+  var note = document.getElementById('obsSheetNote').value.trim();
+  var anonBtn = document.getElementById('obsAnonToggle');
+  var pseudo = anonBtn.classList.contains('on') ? '' : document.getElementById('obsSheetPseudo').value.trim();
   gasGet('submit_observation', {
     lat: latlng.lat, lon: latlng.lng,
     date: document.getElementById('obsSheetDate').value,
     time: document.getElementById('obsSheetTime').value,
     visibility_m: visLevel.v,
-    visibility_label: visLevel.l,
+    visibility_label: visLevel.label,
     bottom_visible: OBS_FOND,
-    comment: document.getElementById('obsSheetSpecies').value
+    comment: note,
+    pseudo: pseudo || 'Anonyme'
   }).then(function(result) {
     OBS_SUBMITTING = false;
     if (result && result.success) {
       btn.style.display = 'none';
-      document.getElementById('obsSheetSuccessMsg').textContent = 'Merci ! Observation enregistree.';
-      document.getElementById('obsSheetSuccessSub').textContent = 'Ton spot reste secret.';
+      document.getElementById('obsSheetSuccessMsg').textContent = 'Merci !';
+      document.getElementById('obsSheetSuccessSub').textContent = 'Ton observation aide la communauté.';
       document.getElementById('obsSheetSuccess').style.display = 'block';
-      setTimeout(closeObsSheet, 2500);
+      setTimeout(closeObsSheet, 2200);
     } else {
       btn.disabled = false;
-      btn.textContent = 'Partager';
+      btn.textContent = 'Partager à la communauté';
       alert('Erreur envoi.');
     }
   });
