@@ -5639,29 +5639,44 @@ function renderObservationMarkers(observations) {
   OBS_MARKERS_LAYER = L.layerGroup();
 
   observations.forEach(function(obs) {
-    var ageMs = Date.now() - new Date(obs.timestamp).getTime();
-    var ageH = ageMs / (1000 * 60 * 60);
-    var freshness = ageH < 6 ? 'fresh' : (ageH < 24 ? 'recent' : 'dated');
+  var ageMs = Date.now() - new Date(obs.timestamp).getTime();
+  var ageH = ageMs / (1000 * 60 * 60);
+  var freshness = ageH < 6 ? 'fresh' : (ageH < 24 ? 'recent' : 'dated');
 
-    var maskSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8.5c0-1 .8-1.5 1.8-1.5h12.4c1 0 1.8.5 1.8 1.5v4c0 1-.5 1.5-1.5 1.5h-2.5l-1.5 2h-5l-1.5-2h-2.5c-1 0-1.5-.5-1.5-1.5v-4z" fill="currentColor" fill-opacity="0.15"></path><circle cx="9" cy="10.5" r="1.8" fill="currentColor"></circle><circle cx="15" cy="10.5" r="1.8" fill="currentColor"></circle><path d="M11.5 11h1"></path><path d="M4 9 L2 7.5 M20 9 L22 7.5"></path></svg>';
+  // Couleur selon la visibilité
+  var visColor = '#4DD4A8'; // défaut excellent
+  var label = obs.visibility_label || '';
+  if (/null|nulle/i.test(label)) visColor = '#C94A3D';
+  else if (/faible/i.test(label)) visColor = '#E89B3C';
+  else if (/moyen/i.test(label)) visColor = '#D8C84A';
+  else if (/bonne/i.test(label)) visColor = '#2DA888';
+  else if (/excellente/i.test(label)) visColor = '#4DD4A8';
+  // Fallback sur visibility_m si label pas reconnu (anciennes obs "1m", "2m", etc.)
+  else if (obs.visibility_m <= 1) visColor = '#C94A3D';
+  else if (obs.visibility_m <= 2) visColor = '#E89B3C';
+  else if (obs.visibility_m <= 4) visColor = '#D8C84A';
+  else if (obs.visibility_m <= 6) visColor = '#2DA888';
+  else visColor = '#4DD4A8';
 
-    var icon = L.divIcon({
-      className: 'vz-obs-marker ' + freshness,
-      html: '<div class="vz-obs-marker-inner">' + maskSvg + '</div>',
-      iconSize: [32, 32],
-      iconAnchor: [16, 16]
-    });
+  var maskSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8.5c0-1 .8-1.5 1.8-1.5h12.4c1 0 1.8.5 1.8 1.5v4c0 1-.5 1.5-1.5 1.5h-2.5l-1.5 2h-5l-1.5-2h-2.5c-1 0-1.5-.5-1.5-1.5v-4z" fill="currentColor" fill-opacity="0.15"></path><circle cx="9" cy="10.5" r="1.8" fill="currentColor"></circle><circle cx="15" cy="10.5" r="1.8" fill="currentColor"></circle><path d="M11.5 11h1"></path><path d="M4 9 L2 7.5 M20 9 L22 7.5"></path></svg>';
 
-    var marker = L.marker([obs.lat, obs.lon], { icon: icon });
-    marker.bindPopup(buildObsPopupHTML(obs), {
-      className: 'vz-obs-popup',
-      maxWidth: 280,
-      minWidth: 260,
-      closeButton: true,
-      autoPan: true
-    });
-    marker.addTo(OBS_MARKERS_LAYER);
+  var icon = L.divIcon({
+    className: 'vz-obs-marker ' + freshness,
+    html: '<div class="vz-obs-marker-inner" style="background:' + visColor + '; box-shadow: 0 3px 10px ' + hexToRgba(visColor, 0.5) + ', 0 0 0 4px ' + hexToRgba(visColor, 0.15) + ';">' + maskSvg + '</div>',
+    iconSize: [32, 32],
+    iconAnchor: [16, 16]
   });
+
+  var marker = L.marker([obs.lat, obs.lon], { icon: icon });
+  marker.bindPopup(buildObsPopupHTML(obs), {
+    className: 'vz-obs-popup',
+    maxWidth: 280,
+    minWidth: 260,
+    closeButton: true,
+    autoPan: true
+  });
+  marker.addTo(OBS_MARKERS_LAYER);
+});
 
   OBS_MARKERS_LAYER.addTo(S.map);
 }
@@ -5698,7 +5713,12 @@ function buildObsPopupHTML(obs) {
            comment +
          '</div>';
 }
-
+function hexToRgba(hex, alpha) {
+  var r = parseInt(hex.slice(1, 3), 16);
+  var g = parseInt(hex.slice(3, 5), 16);
+  var b = parseInt(hex.slice(5, 7), 16);
+  return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+}
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, function(c) {
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
