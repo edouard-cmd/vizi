@@ -1695,7 +1695,51 @@ function renderSpotPopup() {
   buildVisExplanation(h, idx, depth, dir, dirFactor, bathyFactor, wind, gusts, wave, score, visLabel, lat, lon);
   renderPmBmDuJour();
 }
+function renderDepthCoefBlock(depth, lat, lon) {
+  var depthEl = document.getElementById('spotDepthVal');
+  var coefEl = document.getElementById('spotCoefVal');
+  var coefDescEl = document.getElementById('spotCoefDesc');
+  if (!depthEl || !coefEl) return;
 
+  // Profondeur (toujours teal)
+  if (depth && depth > 0) {
+    depthEl.textContent = '~' + Math.round(depth);
+    depthEl.className = 'spot-depth-coef-val';
+  } else {
+    depthEl.textContent = '-';
+    depthEl.className = 'spot-depth-coef-val';
+  }
+
+  // Coef de marée du jour
+  var dateVal = document.getElementById('spotDate').value;
+  var nearPort = findApiMareeSiteNear(lat, lon);
+  var isMed = false;
+  if (nearPort && nearPort.spot && nearPort.spot.region === 'Mediterranee') isMed = true;
+
+  if (isMed || !nearPort) {
+    coefEl.textContent = 'N/A';
+    coefEl.className = 'spot-depth-coef-val coef-na';
+    if (coefDescEl) coefDescEl.textContent = 'Méditerranée';
+    return;
+  }
+
+  var coef = getCoefForDate(dateVal);
+  coefEl.textContent = coef;
+  // Couleur selon coef
+  var coefClass = 'coef-low';
+  if (coef >= 95) coefClass = 'coef-vhigh';
+  else if (coef >= 70) coefClass = 'coef-high';
+  else if (coef >= 45) coefClass = 'coef-mid';
+  coefEl.className = 'spot-depth-coef-val ' + coefClass;
+
+  // Description courte
+  var desc = '';
+  if (coef >= 95) desc = 'Très élevé';
+  else if (coef >= 70) desc = 'Élevé';
+  else if (coef >= 45) desc = 'Moyen';
+  else desc = 'Faible';
+  if (coefDescEl) coefDescEl.textContent = desc;
+}
 function windColorClass(windKt) {
   if (windKt < 10) return 'vz-wind-calm';
   if (windKt < 15) return 'vz-wind-watch';
