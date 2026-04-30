@@ -4107,6 +4107,9 @@ function boot() {
     windBtn.style.color = S_windUnit === 'kt' ? '#A8E63D' : 'rgba(255,255,255,0.7)';
     windBtn.style.borderColor = S_windUnit === 'kt' ? '#A8E63D' : 'rgba(255,255,255,0.15)';
   }
+  // Charge les observations communautaires + auto-refresh 5min
+  loadCommunityObservations();
+  OBS_REFRESH_INTERVAL = setInterval(loadCommunityObservations, 5 * 60 * 1000);
   initGeolocationFlow();
 }
 
