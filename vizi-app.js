@@ -2621,15 +2621,20 @@ function openObsSheet() {
   setObsFond(true);
   document.getElementById('obsSheetNote').value = '';
   document.getElementById('obsNoteCount').textContent = '0';
-  // Reset pseudo en mode anonyme
+// Pseudo activé par défaut, anonyme désactivé (encourage la signature)
   var anonBtn = document.getElementById('obsAnonToggle');
   var pseudoInput = document.getElementById('obsSheetPseudo');
-  if (!anonBtn.classList.contains('on')) {
-    anonBtn.classList.add('on');
-    anonBtn.innerHTML = anonBtn.innerHTML.replace('Signer', 'Anonyme');
-    pseudoInput.disabled = true;
-    pseudoInput.value = '';
+  if (anonBtn.classList.contains('on')) {
+    anonBtn.classList.remove('on');
+    anonBtn.innerHTML = anonBtn.innerHTML.replace('Anonyme', 'Anonyme'); // garde le label
   }
+  pseudoInput.disabled = false;
+  // Restaure le pseudo précédent si stocké
+  try {
+    var savedPseudo = localStorage.getItem('vizi_pseudo');
+    if (savedPseudo) pseudoInput.value = savedPseudo;
+    else pseudoInput.value = '';
+  } catch(e) { pseudoInput.value = ''; }
   document.getElementById('obsSheetSubmit').style.display = 'block';
   document.getElementById('obsSheetSubmit').disabled = false;
   document.getElementById('obsSheetSuccess').style.display = 'none';
