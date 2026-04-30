@@ -1611,23 +1611,15 @@ function renderSpotPopup() {
   var lon = S.clickLatLng ? S.clickLatLng.lng : -0.5;
 
   var bathyFactor = depth <= 2 ? 4.0 : depth <= 5 ? 3.0 : depth <= 10 ? 2.0 : depth <= 20 ? 1.3 : 1.0;
-
-  // NOUVEAU : facteur direction base sur orientation locale de la cote
   var dirFactor = getDirFactorForPoint(dir, lat, lon);
-
-  var windPenalty = Math.min(Math.max(wind - 5, 0) / 20, 1) * 55 * dirFactor;
-  var gustPenalty = Math.min(Math.max(gusts - 10, 0) / 25, 1) * 30 * dirFactor;
-  var wavePenalty = Math.min(wave / 1.2, 1) * 35;
   var score = visScoreV2(h, idx, depth, lat, lon);
-  var totalPenalty = 100 - score;
 
   var visLabel = score >= 80 ? 'Excellente' : score >= 60 ? 'Bonne' : score >= 40 ? 'Moyenne' : score >= 20 ? 'Faible' : 'Nulle';
-  var badgeColors = { 'Nulle': '#DC2626', 'Faible': '#EA580C', 'Moyenne': '#CA8A04', 'Bonne': '#16A34A', 'Excellente': '#0BA888' };
-  var segColors = ['#DC2626', '#EA580C', '#CA8A04', '#16A34A', '#0BA888'];
+  var badgeColors = { 'Nulle': '#C94A3D', 'Faible': '#E89B3C', 'Moyenne': '#D8C84A', 'Bonne': '#2DA888', 'Excellente': '#4DD4A8' };
+  var segColors = ['#C94A3D', '#E89B3C', '#D8C84A', '#2DA888', '#4DD4A8'];
   var levelIdx = ['Nulle', 'Faible', 'Moyenne', 'Bonne', 'Excellente'].indexOf(visLabel);
-  document.getElementById('spotVisBadge').style.background = badgeColors[visLabel] || '#CA8A04';
+  document.getElementById('spotVisBadge').style.background = badgeColors[visLabel] || '#D8C84A';
 
-  // Calcule label actuel et label dans 24h pour determiner si on affiche fleche
   function scoreToLabelKey(s) {
     if (s >= 80) return 4;
     if (s >= 60) return 3;
@@ -1646,19 +1638,18 @@ function renderSpotPopup() {
   var labelMinKey = scoreToLabelKey(futureMinScore);
   var labelMaxKey = scoreToLabelKey(futureMaxScore);
 
-  // Affiche fleche seulement si le label change dans les 24h
   var trendArrowEl = document.getElementById('spotTrendArrow');
   if (trendArrowEl) {
     if (labelMinKey < labelNowKey) {
-      trendArrowEl.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="7" x2="17" y2="17"/><polyline points="17 7 17 17 7 17"/></svg>';
+      trendArrowEl.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#C94A3D" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="7" x2="17" y2="17"/><polyline points="17 7 17 17 7 17"/></svg>';
       trendArrowEl.style.display = 'flex';
-      trendArrowEl.style.background = '#FCEBEB';
-      trendArrowEl.style.borderColor = '#F09595';
+      trendArrowEl.style.background = 'rgba(201,74,61,0.12)';
+      trendArrowEl.style.borderColor = 'rgba(201,74,61,0.4)';
     } else if (labelMaxKey > labelNowKey) {
-      trendArrowEl.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0BA888" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="17 17 17 7 7 7"/></svg>';
+      trendArrowEl.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4DD4A8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="17 17 17 7 7 7"/></svg>';
       trendArrowEl.style.display = 'flex';
-      trendArrowEl.style.background = '#E1F5EE';
-      trendArrowEl.style.borderColor = '#5DCAA5';
+      trendArrowEl.style.background = 'var(--vz-accent-glow)';
+      trendArrowEl.style.borderColor = 'var(--vz-accent-border)';
     } else {
       trendArrowEl.style.display = 'none';
     }
@@ -1666,46 +1657,216 @@ function renderSpotPopup() {
   document.getElementById('spotVisLabel').textContent = visLabel;
   for (var si = 0; si < 5; si++) {
     var seg = document.getElementById('visSeg' + si);
-    if (seg) seg.style.background = si <= levelIdx ? segColors[si] : 'var(--border)';
+    if (seg) seg.style.background = si <= levelIdx ? segColors[si] : 'rgba(255,255,255,0.08)';
   }
+
   var windDisp = S_windUnit === 'kt' ? toKt(wind) : wind;
   var gustDisp = S_windUnit === 'kt' ? toKt(gusts) : gusts;
   var unitDisp = S_windUnit === 'kt' ? 'noeuds' : 'km/h';
-  document.getElementById('spotWindSpeed').textContent = windDisp;
-  document.getElementById('spotWindGusts').textContent = gustDisp;
+  var windKt = S_windUnit === 'kt' ? windDisp : toKt(wind);
+  var gustKt = S_windUnit === 'kt' ? gustDisp : toKt(gusts);
+
+  var windEl = document.getElementById('spotWindSpeed');
+  windEl.textContent = windDisp;
+  windEl.className = 'spot-wind-val ' + windColorClass(windKt);
+
+  var gustEl = document.getElementById('spotWindGusts');
+  gustEl.textContent = gustDisp;
+  gustEl.className = 'spot-wind-val ' + windColorClass(gustKt - 5);
+
   document.querySelectorAll('.spot-wind-unit').forEach(function(el, i) {
     if (i < 2) el.textContent = unitDisp;
   });
-var fromNames = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
+
+  var fromNames = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
   var aidx = Math.round(dir / 45) % 8;
   var dirName = (dir !== null && dir !== undefined) ? fromNames[aidx] : '-';
   var dirEl = document.getElementById('spotWindDir');
+  var dirClass = '';
+  if (dirFactor < 0.4) dirClass = 'vz-dir-offshore';
+  else if (dirFactor < 0.85) dirClass = 'vz-dir-lateral';
+  else dirClass = 'vz-dir-onshore';
+
   if (dir !== null && dir !== undefined) {
+    dirEl.className = 'spot-wind-dir ' + dirClass;
     dirEl.innerHTML = '<svg width="32" height="32" viewBox="0 0 20 20" style="transform:rotate(' + dir + 'deg);display:inline-block;vertical-align:middle;">'
-      + '<path d="M10 2 L10 16 M10 16 L6 12 M10 16 L14 12" stroke="#1A2535" stroke-width="2" stroke-linecap="round" fill="none"/>'
+      + '<path d="M10 2 L10 16 M10 16 L6 12 M10 16 L14 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>'
       + '</svg>';
   } else {
     dirEl.textContent = '-';
   }
-  document.getElementById('spotWindDeg').textContent = dir !== null ? dirName + ' ' + Math.round(dir) + ' deg' : '-';
+  document.getElementById('spotWindDeg').textContent = dir !== null ? dirName + ' ' + Math.round(dir) + 'deg' : '-';
 
-  // Affichage du facteur direction pour transparence
-  var offshoreLabel = '';
-  if (dirFactor <= 0.3) offshoreLabel = ' - offshore';
-  else if (dirFactor >= 1.0) offshoreLabel = ' - onshore';
-  else offshoreLabel = ' - lateral';
-
-  var factors = [];
-  factors.push({ label: 'Vent ' + windDisp + ' ' + unitDisp + ' (' + dirName + ')' + offshoreLabel, impact: Math.round(windPenalty) });
-  if (wavePenalty > 3) factors.push({ label: 'Vagues ' + wave.toFixed(1) + 'm', impact: Math.round(wavePenalty) });
-  factors.push({ label: 'Fond ~' + Math.round(depth) + 'm (x' + bathyFactor.toFixed(1) + ')', impact: null });
-  var factorsEl = document.getElementById('spotFactors');
-  factorsEl.innerHTML = factors.map(function(f) {
-    var impactStr = f.impact !== null ? (f.impact > 0 ? '-' + f.impact : 'ok') : '';
-    return '<div style="display:flex;align-items:center;gap:8px;font-family:IBM Plex Mono,monospace;font-size:11px;color:#4A6080;"><span style="flex:1">' + f.label + '</span><span style="font-weight:600">' + impactStr + '</span></div>';
-  }).join('');
   renderDecantation(h, idx, depth, dir, S.clickLatLng);
-  renderPaliersTimeline(h, idx, depth, S.clickLatLng);
+  buildVisExplanation(h, idx, depth, dir, dirFactor, bathyFactor, wind, gusts, wave, score, visLabel, lat, lon);
+  renderPmBmDuJour();
+}
+
+function windColorClass(windKt) {
+  if (windKt < 10) return 'vz-wind-calm';
+  if (windKt < 15) return 'vz-wind-watch';
+  if (windKt < 22) return 'vz-wind-strong';
+  return 'vz-wind-danger';
+}
+
+function toggleVisExplain() {
+  var trigger = document.getElementById('vzExplainTrigger');
+  var panel = document.getElementById('vzExplainPanel');
+  if (!trigger || !panel) return;
+  trigger.classList.toggle('open');
+  panel.classList.toggle('open');
+}
+
+function buildVisExplanation(h, idx, depth, dir, dirFactor, bathyFactor, wind, gusts, wave, score, visLabel, lat, lon) {
+  var content = document.getElementById('vzExplainContent');
+  if (!content) return;
+
+  var fromNames = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
+  var dirName = (dir !== null && dir !== undefined) ? fromNames[Math.round(dir / 45) % 8] : '?';
+
+  var dirQual, dirImpact;
+  if (dirFactor < 0.4) {
+    dirQual = '<strong>offshore</strong> (de la terre vers la mer)';
+    dirImpact = 'protège la côte, l\'eau reste relativement claire malgré le vent';
+  } else if (dirFactor < 0.85) {
+    dirQual = '<strong>latéral</strong> à la côte';
+    dirImpact = 'agite la surface mais brasse moins le sédiment qu\'un vent de mer';
+  } else {
+    dirQual = '<strong>onshore</strong> (de la mer vers la côte)';
+    dirImpact = 'pousse la houle directement contre le fond, brasse fort';
+  }
+
+  var windKt = S_windUnit === 'kt' ? wind : toKt(wind);
+  var gustKt = S_windUnit === 'kt' ? gusts : toKt(gusts);
+  var windQual;
+  if (windKt < 10) windQual = 'faible';
+  else if (windKt < 15) windQual = 'modéré';
+  else if (windKt < 22) windQual = 'soutenu';
+  else windQual = 'fort';
+
+  var depthQual, depthImpact;
+  if (depth <= 2) {
+    depthQual = '<strong>très peu profond</strong> (' + Math.round(depth) + 'm)';
+    depthImpact = 'la moindre agitation se transmet au sédiment et trouble l\'eau (amplification ×4)';
+  } else if (depth <= 5) {
+    depthQual = '<strong>peu profond</strong> (' + Math.round(depth) + 'm)';
+    depthImpact = 'le brassage atteint le fond facilement (amplification ×3)';
+  } else if (depth <= 10) {
+    depthQual = '<strong>moyen</strong> (' + Math.round(depth) + 'm)';
+    depthImpact = 'le sédiment est moins remué qu\'à faible profondeur (amplification ×2)';
+  } else if (depth <= 20) {
+    depthQual = '<strong>profond</strong> (' + Math.round(depth) + 'm)';
+    depthImpact = 'l\'agitation se dissipe avant d\'atteindre le fond (amplification ×1.3)';
+  } else {
+    depthQual = '<strong>profond</strong> (' + Math.round(depth) + 'm)';
+    depthImpact = 'l\'eau reste claire même par vent soutenu (pas d\'amplification)';
+  }
+
+  var energie = energieResiduelle(h, idx, depth, lat, lon);
+  var tau = decantTau(depth);
+  var brassageMsg;
+  if (energie > 30) {
+    brassageMsg = 'Le vent souffle dans cette config depuis plusieurs heures. L\'énergie de brassage s\'est <strong>accumulée</strong> dans la colonne d\'eau et n\'a pas eu le temps de décanter (il faudrait environ <span class="vz-explain-num">' + Math.round(tau) + 'h</span> de calme à cette profondeur pour s\'éclaircir).';
+  } else if (energie > 10) {
+    brassageMsg = 'Le brassage des dernières heures laisse encore des particules en suspension. La décantation est en cours mais incomplète.';
+  } else if (energie > 2) {
+    brassageMsg = 'L\'eau a eu le temps de décanter en partie depuis le dernier coup de vent. Les conditions s\'améliorent.';
+  } else {
+    brassageMsg = 'Aucun brassage récent significatif. L\'eau a eu le temps de se clarifier.';
+  }
+
+  var verdict;
+  if (score >= 80) {
+    verdict = 'Conditions <strong>excellentes</strong>. C\'est le moment de sortir.';
+  } else if (score >= 60) {
+    verdict = 'Conditions <strong>bonnes</strong>. Spot chassable, visi suffisante pour traquer.';
+  } else if (score >= 40) {
+    verdict = 'Conditions <strong>moyennes</strong>. Visi limitée, mais ça reste possible si tu connais ton spot.';
+  } else if (score >= 20) {
+    verdict = 'Conditions <strong>faibles</strong>. Visi à peine d\'1-2m. Pour gagner un cran, il faudrait que le vent tombe sous 8 nds pendant ' + Math.round(tau) + 'h, ou que tu trouves un spot abrité avec fond > 8m.';
+  } else {
+    verdict = 'Conditions <strong>nulles</strong>. Pas la peine de mouiller la combi ici. Cherche un spot offshore (sous le vent de la côte) ou attends l\'accalmie.';
+  }
+
+  var html =
+    '<div class="vz-explain-section">' +
+      '<div class="vz-explain-section-title">Le vent</div>' +
+      '<div class="vz-explain-section-body">' +
+        'Vent de <strong>' + dirName + '</strong> à <span class="vz-explain-num">' + windKt + ' nds</span> (rafales <span class="vz-explain-num">' + gustKt + ' nds</span>), ' + windQual + '. Sur ce point, il arrive ' + dirQual + ' : il ' + dirImpact + '.' +
+      '</div>' +
+    '</div>' +
+
+    '<div class="vz-explain-section">' +
+      '<div class="vz-explain-section-title">Le fond</div>' +
+      '<div class="vz-explain-section-body">' +
+        'Tu es sur un fond ' + depthQual + '. À cette profondeur, ' + depthImpact + '.' +
+      '</div>' +
+    '</div>' +
+
+    '<div class="vz-explain-section">' +
+      '<div class="vz-explain-section-title">Brassage cumulé</div>' +
+      '<div class="vz-explain-section-body">' +
+        brassageMsg +
+      '</div>' +
+    '</div>' +
+
+    '<div class="vz-explain-verdict">' +
+      verdict +
+    '</div>';
+
+  content.innerHTML = html;
+}
+
+function renderPmBmDuJour() {
+  var content = document.getElementById('vzPmBmContent');
+  if (!content) return;
+
+  if (typeof TIDES === 'undefined' || !TIDES.extremes || !TIDES.selectedDate) {
+    content.innerHTML = '<div class="vz-pmbm-empty">Marées non disponibles ici</div>';
+    return;
+  }
+
+  var selDate = TIDES.selectedDate;
+  var dayExtremes = TIDES.extremes.filter(function(e){ return e.time.slice(0,10) === selDate; });
+
+  if (dayExtremes.length === 0) {
+    content.innerHTML = '<div class="vz-pmbm-empty">Pas de données pour cette date</div>';
+    return;
+  }
+
+  var sunrise = S._sunriseTime || '06:00';
+  var sunset = S._sunsetTime || '21:00';
+  var srMin = parseInt(sunrise.slice(0,2)) * 60 + parseInt(sunrise.slice(3,5));
+  var ssMin = parseInt(sunset.slice(0,2)) * 60 + parseInt(sunset.slice(3,5));
+
+  var dayOnly = dayExtremes.filter(function(e) {
+    var t = new Date(e.time);
+    var min = t.getHours() * 60 + t.getMinutes();
+    return min >= srMin && min <= ssMin;
+  });
+
+  if (dayOnly.length === 0) {
+    content.innerHTML = '<div class="vz-pmbm-empty">Toutes les marées sont de nuit aujourd\'hui</div>';
+    return;
+  }
+
+  var html = '<div class="vz-pmbm-grid">';
+  dayOnly.forEach(function(e) {
+    var t = new Date(e.time);
+    var timeStr = t.toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
+    var typeShort = e.type === 'high' ? 'PM' : 'BM';
+    var typeClass = e.type === 'high' ? 'is-pm' : 'is-bm';
+    html += '<div class="vz-pmbm-card">' +
+      '<div class="vz-pmbm-card-top">' +
+        '<span class="vz-pmbm-type ' + typeClass + '">' + typeShort + '</span>' +
+        '<span class="vz-pmbm-height">' + e.height.toFixed(1) + 'm</span>' +
+      '</div>' +
+      '<div class="vz-pmbm-time">' + timeStr + '</div>' +
+    '</div>';
+  });
+  html += '</div>';
+
+  content.innerHTML = html;
 }
 function renderDecantation(h, currentIdx, depth, currentDir, latlng) {
   var banner = document.getElementById('decantBannerV2');
@@ -1970,35 +2131,6 @@ function visScoreV2(h, idx, depth, lat, lon) {
   return Math.max(0, Math.min(100, 100 - penaliteFinale));
 }
 
-function renderPaliersTimeline(h, currentIdx, depth, latlng) {
-  var block = document.getElementById('spotPaliersBlock');
-  var list = document.getElementById('spotPaliersList');
-  if (!block || !list || !h || !h.windspeed_10m) return;
-  var lat = latlng.lat;
-  var lon = latlng.lng;
-
-  var currentScore = visScoreV2(h, currentIdx, depth, lat, lon);
-  var paliers = [
-    { label: '2m', minScore: 20 },
-    { label: '4m', minScore: 40 },
-    { label: '6m', minScore: 60 },
-    { label: '8m', minScore: 80 }
-  ];
-  var maxLookahead = Math.min(120, h.time.length - currentIdx - 1);
-  var results = paliers.map(function(p) {
-    if (currentScore >= p.minScore) {
-      return { label: p.label, current: true };
-    }
-    for (var i = currentIdx + 1; i <= currentIdx + maxLookahead; i++) {
-      if (visScoreV2(h, i, depth, lat, lon) >= p.minScore) {
-        var t = new Date(h.time[i]);
-        var hoursAhead = i - currentIdx;
-        return { label: p.label, time: t, hoursAhead: hoursAhead };
-      }
-    }
-    return { label: p.label, na: true };
-  });
-
   function formatPalierDate(d) {
     var dayShort = ['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'][d.getDay()];
     var monthShort = ['janv', 'fevr', 'mars', 'avr', 'mai', 'juin', 'juil', 'aout', 'sept', 'oct', 'nov', 'dec'][d.getMonth()];
@@ -2036,10 +2168,6 @@ function renderPaliersTimeline(h, currentIdx, depth, latlng) {
   block.style.display = 'block';
 }
 
-function togglePaliersInfo() {
-  var info = document.getElementById('spotPaliersInfo');
-  if (info) info.style.display = info.style.display === 'none' ? 'block' : 'none';
-}
 function findZoneAtPoint(lat, lon) {
   if (!VIZI_ZONES_DATA || !VIZI_ZONES_DATA.features) return null;
   for (var i = 0; i < VIZI_ZONES_DATA.features.length; i++) {
