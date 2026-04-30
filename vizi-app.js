@@ -1493,7 +1493,6 @@ function openSpotPopup(latlng, name) {
   fetchSpotWeather(latlng.lat, latlng.lng);
   fetchSpotMarineAndSun(latlng.lat, latlng.lng);
   loadDrawerTides(latlng.lat, latlng.lng);
-  fetchSedimentType(latlng.lat, latlng.lng);
     // Si le bandeau Conditions est ouvert, on le rafraîchit avec le nouveau spot
   if (typeof VZ_SHEET !== 'undefined' && VZ_SHEET.mode === 'cond') {
     var newSpot = {
