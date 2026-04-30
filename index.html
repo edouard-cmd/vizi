@@ -658,31 +658,331 @@
     .visim-tooltip::before { display:none !important; }
     #landToast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%) translateY(20px); z-index:1200; background:#1A2535; color:white; padding:14px 22px; border-radius:12px; font-family:'IBM Plex Mono', monospace; font-size:13px; box-shadow:0 8px 30px rgba(0,0,0,0.2); opacity:0; pointer-events:none; transition:opacity 0.2s, transform 0.2s; white-space:nowrap; max-width:90vw; text-align:center; }
     #landToast.show { opacity:1; transform:translateX(-50%) translateY(0); }
-    #obsSheet { position:fixed; bottom:0; left:0; right:0; z-index:1200; background:var(--surface); border-radius:20px 20px 0 0; border-top:1px solid var(--border); box-shadow:0 -8px 40px rgba(0,0,0,0.18); transform:translateY(100%); transition:transform 0.3s cubic-bezier(.4,0,.2,1); max-height:75vh; overflow-y:auto; padding-bottom:env(safe-area-inset-bottom, 16px); }
-    #obsSheet.open { transform:translateY(0); }
-    .obs-sheet-handle { width:36px; height:4px; background:var(--border2); border-radius:2px; margin:12px auto 0; }
-    .obs-sheet-head { display:flex; align-items:center; justify-content:space-between; padding:16px 20px 12px; border-bottom:1px solid var(--border); }
-    .obs-sheet-title { font-family:'Inter', sans-serif; font-size:17px; font-weight:700; color:var(--text); }
-    .obs-sheet-coords { font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--accent); margin-top:2px; }
-    .obs-sheet-close { width:30px; height:30px; background:var(--border); border:none; border-radius:50%; color:var(--text-2); cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-    .obs-sheet-body { padding:12px 16px 20px; display:flex; flex-direction:column; gap:12px; }
-    .obs-field-label { font-family:'IBM Plex Mono', monospace; font-size:10px; font-weight:600; color:var(--text-3); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:5px; display:block; }
-    .obs-datetime-row { display:flex; gap:8px; }
-    .obs-datetime-row input { flex:1; padding:8px 10px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:'IBM Plex Mono', monospace; font-size:13px; outline:none; }
-    .obs-vis-row { display:flex; flex-direction:column; gap:6px; }
-    .obs-vis-top { display:flex; justify-content:space-between; align-items:center; }
-    .obs-vis-val { font-family:'IBM Plex Mono', monospace; font-size:17px; font-weight:700; }
-    input[type=range].obs-vis-slider { width:100%; height:5px; border-radius:3px; outline:none; cursor:pointer; background:linear-gradient(to right, #DC2626, #CA8A04, #16A34A, #0BA888); -webkit-appearance:none; appearance:none; }
-    input[type=range].obs-vis-slider::-webkit-slider-thumb { -webkit-appearance:none; width:22px; height:22px; border-radius:50%; background:white; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.2); border:2px solid var(--accent); }
-    .obs-vis-ticks { display:flex; justify-content:space-between; font-family:'IBM Plex Mono', monospace; font-size:9px; color:var(--text-3); }
-    .obs-toggle-row { display:flex; gap:8px; }
-    .obs-tog { flex:1; padding:9px 8px; border:1.5px solid var(--border); border-radius:9px; background:var(--surface); color:var(--text-2); cursor:pointer; font-family:'Inter', sans-serif; font-size:13px; font-weight:600; transition:all 0.15s; text-align:center; }
-    .obs-tog.on { border-color:var(--accent); color:var(--accent); background:var(--accent-bg); }
-    .obs-species-input { width:100%; padding:9px 12px; background:var(--surface2); border:1px solid var(--border); border-radius:9px; color:var(--text); font-family:'Inter', sans-serif; font-size:13px; outline:none; transition:border-color 0.15s; }
-    .obs-submit-btn { width:100%; padding:13px; background:var(--accent); border:none; border-radius:12px; color:white; font-family:'Inter', sans-serif; font-size:15px; font-weight:700; cursor:pointer; transition:opacity 0.15s; letter-spacing:0.02em; }
-    .obs-submit-btn:hover { opacity:0.88; }
-    .obs-success-msg { display:none; text-align:center; padding:14px; font-family:'Inter', sans-serif; font-size:17px; font-weight:700; color:var(--accent); line-height:1.5; }
-    .obs-success-sub { font-size:12px; color:var(--text-3); font-family:'IBM Plex Mono', monospace; margin-top:5px; font-weight:400; }
+    /* ============================================================
+   SHEET "MON OBSERVATION" - Refonte Talisker glassmorphism
+   ============================================================ */
+#obsSheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1200;
+  background: var(--vz-bg-glass-strong);
+  backdrop-filter: blur(var(--vz-blur));
+  -webkit-backdrop-filter: blur(var(--vz-blur));
+  border: 0.5px solid var(--vz-accent-border);
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -12px 50px rgba(0,0,0,0.5);
+  transform: translateY(100%);
+  transition: transform 0.32s cubic-bezier(.4,0,.2,1);
+  max-height: 85vh;
+  overflow-y: auto;
+  padding-bottom: env(safe-area-inset-bottom, 16px);
+  color: var(--vz-text-on-dark);
+}
+#obsSheet.open { transform: translateY(0); }
+
+#obsSheet::-webkit-scrollbar { width: 6px; }
+#obsSheet::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.15);
+  border-radius: 3px;
+}
+
+.obs-sheet-handle {
+  width: 40px;
+  height: 4px;
+  background: rgba(255,255,255,0.25);
+  border-radius: 2px;
+  margin: 12px auto 0;
+}
+
+.obs-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 22px 14px;
+  border-bottom: 0.5px solid var(--vz-border-glass);
+}
+.obs-sheet-title {
+  font-family: 'Inter', sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--vz-text-on-dark);
+  letter-spacing: 0.01em;
+}
+.obs-sheet-coords {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--vz-accent);
+  margin-top: 3px;
+  letter-spacing: 0.04em;
+}
+.obs-sheet-close {
+  width: 32px;
+  height: 32px;
+  background: rgba(255,255,255,0.08);
+  border: 0.5px solid var(--vz-border-glass);
+  border-radius: 50%;
+  color: var(--vz-text-on-dark-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s;
+  padding: 0;
+}
+.obs-sheet-close:hover {
+  background: rgba(255,255,255,0.15);
+  color: var(--vz-text-on-dark);
+  border-color: var(--vz-accent-border);
+}
+
+.obs-sheet-body {
+  padding: 16px 22px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.obs-field-label {
+  font-family: 'Inter', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--vz-text-on-dark-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.obs-datetime-row { display: flex; gap: 8px; }
+.obs-datetime-row input {
+  flex: 1;
+  padding: 11px 12px;
+  background: rgba(255,255,255,0.06);
+  border: 0.5px solid var(--vz-border-glass);
+  border-radius: var(--vz-radius-btn);
+  color: var(--vz-text-on-dark);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 14px;
+  outline: none;
+  cursor: pointer;
+  color-scheme: dark;
+  transition: border-color 0.15s;
+}
+.obs-datetime-row input:focus { border-color: var(--vz-accent); }
+
+/* Visibilité - 5 paliers */
+.obs-vis-row { display: flex; flex-direction: column; gap: 10px; }
+.obs-vis-top { display: flex; justify-content: space-between; align-items: center; }
+.obs-vis-val {
+  font-family: 'Inter', sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+input[type=range].obs-vis-slider {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+  background: linear-gradient(to right, #C94A3D 0%, #E89B3C 25%, #D8C84A 50%, #2DA888 75%, #4DD4A8 100%);
+  -webkit-appearance: none;
+  appearance: none;
+}
+input[type=range].obs-vis-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--vz-bg-deep);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  border: 2.5px solid var(--vz-accent);
+}
+.obs-vis-ticks {
+  display: flex;
+  justify-content: space-between;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--vz-text-on-dark-faint);
+  letter-spacing: 0.04em;
+  padding: 0 2px;
+}
+
+/* Fond visible toggle */
+.obs-toggle-row { display: flex; gap: 8px; }
+.obs-tog {
+  flex: 1;
+  padding: 11px 8px;
+  border: 0.5px solid var(--vz-border-glass);
+  border-radius: var(--vz-radius-btn);
+  background: rgba(255,255,255,0.04);
+  color: var(--vz-text-on-dark-muted);
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.15s;
+  text-align: center;
+}
+.obs-tog:hover {
+  background: rgba(255,255,255,0.08);
+  color: var(--vz-text-on-dark);
+}
+.obs-tog.on {
+  border-color: var(--vz-accent);
+  color: var(--vz-accent);
+  background: var(--vz-accent-glow);
+}
+
+/* Note libre */
+.obs-note-input {
+  width: 100%;
+  padding: 11px 14px;
+  background: rgba(255,255,255,0.06);
+  border: 0.5px solid var(--vz-border-glass);
+  border-radius: var(--vz-radius-btn);
+  color: var(--vz-text-on-dark);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  outline: none;
+  resize: none;
+  height: 70px;
+  line-height: 1.5;
+  transition: border-color 0.15s;
+}
+.obs-note-input:focus { border-color: var(--vz-accent); }
+.obs-note-input::placeholder { color: var(--vz-text-on-dark-faint); }
+.obs-note-counter {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--vz-text-on-dark-faint);
+  text-align: right;
+  margin-top: 4px;
+  letter-spacing: 0.04em;
+}
+
+/* Pseudo / Anonyme */
+.obs-pseudo-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.obs-pseudo-input {
+  flex: 1;
+  padding: 11px 14px;
+  background: rgba(255,255,255,0.06);
+  border: 0.5px solid var(--vz-border-glass);
+  border-radius: var(--vz-radius-btn);
+  color: var(--vz-text-on-dark);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  outline: none;
+  transition: all 0.15s;
+}
+.obs-pseudo-input:focus { border-color: var(--vz-accent); }
+.obs-pseudo-input:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.obs-pseudo-input::placeholder { color: var(--vz-text-on-dark-faint); }
+.obs-anon-toggle {
+  padding: 0 16px;
+  background: rgba(255,255,255,0.04);
+  border: 0.5px solid var(--vz-border-glass);
+  border-radius: var(--vz-radius-btn);
+  color: var(--vz-text-on-dark-muted);
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  transition: all 0.15s;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.obs-anon-toggle:hover {
+  background: rgba(255,255,255,0.08);
+  color: var(--vz-text-on-dark);
+}
+.obs-anon-toggle.on {
+  border-color: var(--vz-accent);
+  color: var(--vz-accent);
+  background: var(--vz-accent-glow);
+}
+.obs-anon-toggle svg { width: 14px; height: 14px; }
+
+/* Submit */
+.obs-submit-btn {
+  width: 100%;
+  padding: 14px;
+  background: var(--vz-accent);
+  border: none;
+  border-radius: var(--vz-radius-btn);
+  color: var(--vz-bg-deep);
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.02em;
+  margin-top: 4px;
+}
+.obs-submit-btn:hover {
+  background: var(--vz-accent-strong);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(77,212,168,0.3);
+}
+.obs-submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.obs-success-msg {
+  display: none;
+  text-align: center;
+  padding: 18px;
+  font-family: 'Inter', sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--vz-accent);
+  line-height: 1.5;
+}
+.obs-success-sub {
+  font-size: 12px;
+  color: var(--vz-text-on-dark-muted);
+  font-family: 'IBM Plex Mono', monospace;
+  margin-top: 6px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+}
+
+@media (min-width: 769px) {
+  #obsSheet {
+    max-width: 460px;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%) translateY(100%);
+    border-radius: 20px 20px 0 0;
+  }
+  #obsSheet.open { transform: translateX(-50%) translateY(0); }
+}
+
+#obsSheetOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1199;
+  background: rgba(10, 21, 32, 0.6);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
     @media (min-width: 769px) {
       #obsSheet { max-width:480px; left:50%; right:auto; transform:translateX(-50%) translateY(100%); border-radius:16px 16px 0 0; }
       #obsSheet.open { transform:translateX(-50%) translateY(0); }
@@ -3157,30 +3457,37 @@
   <div class="obs-sheet-handle"></div>
   <div class="obs-sheet-head">
     <div>
-      <div class="obs-sheet-title">Mon observation</div>
+      <div class="obs-sheet-title">Partager ma visibilité</div>
       <div class="obs-sheet-coords" id="obsSheetCoords">-</div>
     </div>
-    <button class="obs-sheet-close" onclick="closeObsSheet()">&#10005;</button>
+    <button class="obs-sheet-close" onclick="closeObsSheet()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    </button>
   </div>
   <div class="obs-sheet-body">
+
     <div>
-      <span class="obs-field-label">Date - Heure</span>
+      <span class="obs-field-label">Date · Heure</span>
       <div class="obs-datetime-row">
         <input type="date" id="obsSheetDate">
         <input type="time" id="obsSheetTime" step="600">
       </div>
     </div>
+
     <div class="obs-vis-row">
       <div class="obs-vis-top">
-        <span class="obs-field-label" style="margin-bottom:0">Visibilite</span>
-        <span class="obs-vis-val" id="obsSheetVisVal" style="color:#0BA888">+10m</span>
+        <span class="obs-field-label" style="margin-bottom:0">Visibilité observée</span>
+        <span class="obs-vis-val" id="obsSheetVisVal" style="color:#4DD4A8">Excellente</span>
       </div>
-      <input type="range" class="obs-vis-slider" id="obsSheetVisSlider" min="0" max="8" step="1" value="8" oninput="updateObsSheetVis(this.value)">
+      <input type="range" class="obs-vis-slider" id="obsSheetVisSlider" min="0" max="4" step="1" value="4" oninput="updateObsSheetVis(this.value)">
       <div class="obs-vis-ticks">
-        <span>0m</span><span>0.5</span><span>1m</span><span>2m</span>
-        <span>3m</span><span>4m</span><span>5m</span><span>8m</span><span>+10m</span>
+        <span>1m</span><span>2m</span><span>4m</span><span>6m</span><span>8m+</span>
       </div>
     </div>
+
     <div>
       <span class="obs-field-label">Fond visible ?</span>
       <div class="obs-toggle-row">
@@ -3188,11 +3495,29 @@
         <button class="obs-tog" id="obsSheetFondNon" onclick="setObsFond(false)">Non</button>
       </div>
     </div>
+
     <div>
-      <span class="obs-field-label">Especes observees</span>
-      <input type="text" class="obs-species-input" id="obsSheetSpecies" placeholder="bar, daurade, seiche, homard...">
+      <span class="obs-field-label">Note (optionnel)</span>
+      <textarea class="obs-note-input" id="obsSheetNote" placeholder="vase remuée près du fond, mieux à -8m, bars vus..." maxlength="200" oninput="updateNoteCounter()"></textarea>
+      <div class="obs-note-counter"><span id="obsNoteCount">0</span>/200</div>
     </div>
-    <button class="obs-submit-btn" id="obsSheetSubmit" onclick="submitObsSheet()">Partager</button>
+
+    <div>
+      <span class="obs-field-label">Signer mon observation</span>
+      <div class="obs-pseudo-row">
+        <input type="text" class="obs-pseudo-input" id="obsSheetPseudo" placeholder="Mon pseudo" maxlength="20" disabled>
+        <button class="obs-anon-toggle on" id="obsAnonToggle" onclick="toggleObsAnon()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+          Anonyme
+        </button>
+      </div>
+    </div>
+
+    <button class="obs-submit-btn" id="obsSheetSubmit" onclick="submitObsSheet()">Partager à la communauté</button>
+
     <div class="obs-success-msg" id="obsSheetSuccess">
       <div id="obsSheetSuccessMsg">Merci !</div>
       <div class="obs-success-sub" id="obsSheetSuccessSub"></div>
