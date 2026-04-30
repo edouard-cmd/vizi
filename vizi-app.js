@@ -1474,6 +1474,11 @@ function openSpotPopup(latlng, name) {
   var depthEstimate = Math.max(1.5, Math.min(30, distToCoastMeters * 0.004 + 1.5));
   S._spotDepth = depthEstimate;
   S._distToCoast = distToCoastMeters;
+  // Skeleton loader pendant le fetch de la profondeur reelle
+  var depthEl = document.getElementById('spotDepthVal');
+  var coefEl = document.getElementById('spotCoefVal');
+  if (depthEl) { depthEl.textContent = ''; depthEl.className = 'spot-depth-coef-val is-loading'; }
+  if (coefEl) { coefEl.textContent = ''; coefEl.className = 'spot-depth-coef-val is-loading'; }
 fetchRealDepth(latlng.lat, latlng.lng).then(function(realDepth) {
     if (realDepth !== null && realDepth > 0) {
       S._spotDepth = realDepth;
