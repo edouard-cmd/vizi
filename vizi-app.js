@@ -1474,9 +1474,15 @@ function openSpotPopup(latlng, name) {
   var depthEstimate = Math.max(1.5, Math.min(30, distToCoastMeters * 0.004 + 1.5));
   S._spotDepth = depthEstimate;
   S._distToCoast = distToCoastMeters;
-  fetchRealDepth(latlng.lat, latlng.lng).then(function(realDepth) {
+fetchRealDepth(latlng.lat, latlng.lng).then(function(realDepth) {
     if (realDepth !== null && realDepth > 0) {
       S._spotDepth = realDepth;
+    }
+    // Met a jour PROFONDEUR/COEF immediatement, meme si la meteo n'est pas encore arrivee
+    var lat = S.clickLatLng ? S.clickLatLng.lat : latlng.lat;
+    var lon = S.clickLatLng ? S.clickLatLng.lng : latlng.lng;
+    if (typeof renderDepthCoefBlock === 'function') {
+      renderDepthCoefBlock(S._spotDepth, lat, lon);
     }
     if (S_spotWeatherCache) renderSpotPopup();
   });
