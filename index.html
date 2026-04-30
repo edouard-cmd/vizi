@@ -2815,6 +2815,105 @@
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
 }
+  /* ============================================================
+   MODALE EXPLICATION VISI - Pattern Talisker
+   ============================================================ */
+.vz-explain-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 2500;
+  background: rgba(10, 21, 32, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+.vz-explain-overlay.open {
+  display: flex;
+  opacity: 1;
+}
+.vz-explain-modal {
+  width: 100%;
+  max-width: 480px;
+  max-height: 85vh;
+  background: var(--vz-bg-glass-strong);
+  backdrop-filter: blur(var(--vz-blur));
+  -webkit-backdrop-filter: blur(var(--vz-blur));
+  border: 0.5px solid var(--vz-accent-border);
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform: translateY(20px) scale(0.97);
+  transition: transform 0.3s cubic-bezier(.4,0,.2,1);
+}
+.vz-explain-overlay.open .vz-explain-modal {
+  transform: translateY(0) scale(1);
+}
+.vz-explain-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px;
+  border-bottom: 0.5px solid var(--vz-border-glass);
+  flex-shrink: 0;
+}
+.vz-explain-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--vz-accent);
+  letter-spacing: 0.01em;
+}
+.vz-explain-modal-title svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.vz-explain-modal-close {
+  width: 32px;
+  height: 32px;
+  background: rgba(255,255,255,0.06);
+  border: 0.5px solid var(--vz-border-glass);
+  border-radius: 50%;
+  color: var(--vz-text-on-dark-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  flex-shrink: 0;
+  padding: 0;
+}
+.vz-explain-modal-close:hover {
+  background: rgba(255,255,255,0.12);
+  color: var(--vz-text-on-dark);
+  border-color: var(--vz-accent-border);
+}
+.vz-explain-modal-close svg { width: 14px; height: 14px; }
+.vz-explain-modal-body {
+  padding: 20px 22px 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+.vz-explain-modal-body::-webkit-scrollbar { width: 6px; }
+.vz-explain-modal-body::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.15);
+  border-radius: 3px;
+}
+@media (max-width: 768px) {
+  .vz-explain-overlay { padding: 12px; align-items: flex-end; }
+  .vz-explain-modal { max-height: 90vh; border-radius: 18px; }
+}  
   </style>
 </head>
 <body>
@@ -3501,6 +3600,26 @@ onAuthStateChanged(auth, (user) => {
   if (window.handleAuthStateChange) window.handleAuthStateChange(user);
 });
 </script>
-
+<div class="vz-explain-overlay" id="vzExplainOverlay" onclick="if(event.target===this) closeVisExplain()">
+  <div class="vz-explain-modal">
+    <div class="vz-explain-modal-head">
+      <div class="vz-explain-modal-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="16" x2="12" y2="12"></line>
+          <line x1="12" y1="8" x2="12.01" y2="8"></line>
+        </svg>
+        <span>Pourquoi cette visibilité ?</span>
+      </div>
+      <button class="vz-explain-modal-close" onclick="closeVisExplain()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+    <div class="vz-explain-modal-body" id="vzExplainModalContent"></div>
+  </div>
+</div>
 </body>
 </html>
