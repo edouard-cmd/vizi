@@ -1459,7 +1459,14 @@ function openSpotPopup(latlng, name) {
   if (S.clickMarker) S.map.removeLayer(S.clickMarker);
   var pulseIcon = L.divIcon({
     className: '',
-    html: '<div class="visim-pulse-marker"><div class="visim-pulse-ring"></div><div class="visim-pulse-ring visim-pulse-ring2"></div><div class="visim-pulse-dot"></div></div>',
+    html: '<div class="vz-pulse-marker">' +
+            '<div class="vz-pulse-ring"></div>' +
+            '<div class="vz-pulse-wave vz-pulse-wave-1"></div>' +
+            '<div class="vz-pulse-wave vz-pulse-wave-2"></div>' +
+            '<div class="vz-pulse-wave vz-pulse-wave-3"></div>' +
+            '<div class="vz-pulse-core"></div>' +
+            '<div class="vz-pulse-dot"></div>' +
+          '</div>',
     iconSize: [40, 40], iconAnchor: [20, 20]
   });
   S.clickMarker = L.marker([latlng.lat, latlng.lng], { icon: pulseIcon, interactive: false }).addTo(S.map);
