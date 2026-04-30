@@ -2291,10 +2291,197 @@
 #vzSheet.sheet-full ~ #mobileShareBtn {
   display: none !important;
 }
+    /* ============= SPLASH SCREEN VISIMER ============= */
+.vz-splash {
+  position: fixed;
+  inset: 0;
+  background: #0A1520;
+  z-index: 99999;
+  overflow: hidden;
+  pointer-events: none;
+  animation: vz-splash-out 0.4s ease 3.0s forwards;
+}
+
+.vz-fish {
+  position: absolute;
+  fill: #4DD4A8;
+  transform-origin: center;
+  will-change: transform, opacity;
+  opacity: 0;
+}
+
+.vz-splash .vz-r1 { left: 50%; top: 38%; animation: vz-flee-r1 2.6s cubic-bezier(0.6,0,0.85,0.3) forwards; }
+.vz-splash .vz-r2 { left: 50%; top: 48%; animation: vz-flee-r2 2.6s cubic-bezier(0.6,0,0.85,0.3) 60ms forwards; }
+.vz-splash .vz-r3 { left: 50%; top: 58%; animation: vz-flee-r3 2.6s cubic-bezier(0.6,0,0.85,0.3) 30ms forwards; }
+.vz-splash .vz-r4 { left: 50%; top: 44%; animation: vz-flee-r4 2.6s cubic-bezier(0.6,0,0.85,0.3) 100ms forwards; }
+.vz-splash .vz-r5 { left: 50%; top: 64%; animation: vz-flee-r5 2.6s cubic-bezier(0.6,0,0.85,0.3) 140ms forwards; }
+
+.vz-splash .vz-l1 { left: 50%; top: 36%; animation: vz-flee-l1 2.6s cubic-bezier(0.6,0,0.85,0.3) 20ms forwards; }
+.vz-splash .vz-l2 { left: 50%; top: 50%; animation: vz-flee-l2 2.6s cubic-bezier(0.6,0,0.85,0.3) 80ms forwards; }
+.vz-splash .vz-l3 { left: 50%; top: 42%; animation: vz-flee-l3 2.6s cubic-bezier(0.6,0,0.85,0.3) 120ms forwards; }
+.vz-splash .vz-l4 { left: 50%; top: 60%; animation: vz-flee-l4 2.6s cubic-bezier(0.6,0,0.85,0.3) 160ms forwards; }
+.vz-splash .vz-l5 { left: 50%; top: 56%; animation: vz-flee-l5 2.6s cubic-bezier(0.6,0,0.85,0.3) 50ms forwards; }
+
+@keyframes vz-flee-r1 {
+  0%   { opacity: 0; transform: translate(-50%, -50%) rotate(2deg) scale(1); }
+  12%  { opacity: 1; transform: translate(-50%, -50%) rotate(2deg) scale(1); }
+  100% { opacity: 0; transform: translate(560%, -120%) rotate(8deg) scale(0.8); }
+}
+@keyframes vz-flee-r2 {
+  0%   { opacity: 0; transform: translate(-50%, -50%) rotate(0deg) scale(1.1); }
+  12%  { opacity: 1; transform: translate(-50%, -50%) rotate(0deg) scale(1.1); }
+  100% { opacity: 0; transform: translate(620%, 30%) rotate(4deg) scale(0.9); }
+}
+@keyframes vz-flee-r3 {
+  0%   { opacity: 0; transform: translate(-50%, -50%) rotate(-2deg) scale(0.85); }
+  12%  { opacity: 1; transform: translate(-50%, -50%) rotate(-2deg) scale(0.85); }
+  100% { opacity: 0; transform: translate(540%, 200%) rotate(-10deg) scale(0.7); }
+}
+@keyframes vz-flee-r4 {
+  0%   { opacity: 0; transform: translate(-50%, -50%) rotate(3deg) scale(0.7); }
+  12%  { opacity: 1; transform: translate(-50%, -50%) rotate(3deg) scale(0.7); }
+  100% { opacity: 0; transform: translate(580%, -260%) rotate(14deg) scale(0.55); }
+}
+@keyframes vz-flee-r5 {
+  0%   { opacity: 0; transform: translate(-50%, -50%) rotate(-1deg) scale(0.95); }
+  12%  { opacity: 1; transform: translate(-50%, -50%) rotate(-1deg) scale(0.95); }
+  100% { opacity: 0; transform: translate(550%, 150%) rotate(-6deg) scale(0.75); }
+}
+
+@keyframes vz-flee-l1 {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scaleX(-1) rotate(2deg) scale(1); }
+  12%  { opacity: 1; transform: translate(-50%, -50%) scaleX(-1) rotate(2deg) scale(1); }
+  100% { opacity: 0; transform: translate(-620%, -180%) scaleX(-1) rotate(-8deg) scale(0.85); }
+}
+@keyframes vz-flee-l2 {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scaleX(-1) rotate(0deg) scale(1.05); }
+  12%  { opacity: 1; transform: translate(-50%, -50%) scaleX(-1) rotate(0deg) scale(1.05); }
+  100% { opacity: 0; transform: translate(-580%, 60%) scaleX(-1) rotate(3deg) scale(0.9); }
+}
+@keyframes vz-flee-l3 {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scaleX(-1) rotate(-3deg) scale(0.75); }
+  12%  { opacity: 1; transform: translate(-50%, -50%) scaleX(-1) rotate(-3deg) scale(0.75); }
+  100% { opacity: 0; transform: translate(-560%, -90%) scaleX(-1) rotate(-12deg) scale(0.6); }
+}
+@keyframes vz-flee-l4 {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scaleX(-1) rotate(2deg) scale(0.95); }
+  12%  { opacity: 1; transform: translate(-50%, -50%) scaleX(-1) rotate(2deg) scale(0.95); }
+  100% { opacity: 0; transform: translate(-540%, 220%) scaleX(-1) rotate(10deg) scale(0.7); }
+}
+@keyframes vz-flee-l5 {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scaleX(-1) rotate(-1deg) scale(0.9); }
+  12%  { opacity: 1; transform: translate(-50%, -50%) scaleX(-1) rotate(-1deg) scale(0.9); }
+  100% { opacity: 0; transform: translate(-600%, 130%) scaleX(-1) rotate(-5deg) scale(0.75); }
+}
+
+.vz-splash-logo {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  opacity: 0;
+  pointer-events: none;
+  animation: vz-logo-reveal 1.4s ease 1.5s forwards;
+}
+
+.vz-splash-mark {
+  width: 140px;
+  height: 140px;
+  display: block;
+}
+.vz-splash-mark path {
+  stroke-dasharray: 110;
+  stroke-dashoffset: 110;
+}
+.vz-splash-w1 { animation: vz-stroke-draw 0.7s ease-out 1.6s forwards; }
+.vz-splash-w2 { animation: vz-stroke-draw 0.7s ease-out 1.75s forwards; }
+.vz-splash-w3 { animation: vz-stroke-draw 0.7s ease-out 1.9s forwards; }
+
+.vz-splash-wordmark {
+  font-family: 'Inter', -apple-system, sans-serif;
+  font-weight: 700;
+  font-size: 28px;
+  letter-spacing: 0.32em;
+  color: #FFFFFF;
+  opacity: 0;
+  padding-left: 0.32em;
+  animation: vz-word-reveal 0.7s ease 2.2s forwards;
+}
+
+@keyframes vz-logo-reveal {
+  0%   { opacity: 0; transform: scale(0.92); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes vz-stroke-draw {
+  to { stroke-dashoffset: 0; }
+}
+@keyframes vz-word-reveal {
+  0%   { opacity: 0; transform: translateY(8px); letter-spacing: 0.42em; }
+  100% { opacity: 1; transform: translateY(0); letter-spacing: 0.32em; }
+}
+
+@keyframes vz-splash-out {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vz-splash {
+    animation: vz-splash-out 0.2s ease 0.5s forwards;
+  }
+  .vz-fish {
+    display: none;
+  }
+  .vz-splash-logo {
+    animation: vz-logo-reveal 0.3s ease forwards;
+  }
+  .vz-splash-mark path {
+    stroke-dashoffset: 0;
+  }
+  .vz-splash-wordmark {
+    animation: vz-word-reveal 0.3s ease 0.1s forwards;
+  }
+}
   </style>
 </head>
 <body>
+<!-- SVG symbol pour le splash screen -->
+<svg width="0" height="0" style="position:absolute;" aria-hidden="true">
+  <defs>
+    <symbol id="vz-bass" viewBox="0 0 100 40">
+      <path d="M 88 20 C 86 12, 75 6, 60 6 C 42 6, 26 9, 14 13 L 4 7 C 2 6, 0 8, 1 11 L 4 18 L 2 20 L 4 22 L 1 29 C 0 32, 2 34, 4 33 L 14 27 C 26 31, 42 34, 60 34 C 75 34, 86 28, 88 20 Z"/>
+    </symbol>
+  </defs>
+</svg>
 
+<!-- Splash screen Visimer -->
+<div id="visimerSplash" class="vz-splash">
+  <svg class="vz-fish vz-r1" width="84" height="34"><use href="#vz-bass"/></svg>
+  <svg class="vz-fish vz-r2" width="96" height="38"><use href="#vz-bass"/></svg>
+  <svg class="vz-fish vz-r3" width="60" height="24"><use href="#vz-bass"/></svg>
+  <svg class="vz-fish vz-r4" width="48" height="20"><use href="#vz-bass"/></svg>
+  <svg class="vz-fish vz-r5" width="72" height="29"><use href="#vz-bass"/></svg>
+  <svg class="vz-fish vz-l1" width="78" height="32"><use href="#vz-bass"/></svg>
+  <svg class="vz-fish vz-l2" width="90" height="36"><use href="#vz-bass"/></svg>
+  <svg class="vz-fish vz-l3" width="54" height="22"><use href="#vz-bass"/></svg>
+  <svg class="vz-fish vz-l4" width="68" height="27"><use href="#vz-bass"/></svg>
+  <svg class="vz-fish vz-l5" width="44" height="18"><use href="#vz-bass"/></svg>
+  <div class="vz-splash-logo">
+    <svg class="vz-splash-mark" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+      <g fill="none" stroke="#4DD4A8" stroke-linecap="round">
+        <path class="vz-splash-w1" d="M 14 38 Q 60 14 106 38" stroke-width="3.2"/>
+        <path class="vz-splash-w2" d="M 14 64 Q 60 46 106 64" stroke-width="2"/>
+        <path class="vz-splash-w3" d="M 14 90 Q 60 78 106 90" stroke-width="1"/>
+      </g>
+    </svg>
+    <div class="vz-splash-wordmark">VISIMER</div>
+  </div>
+</div>
 <div id="map"></div>
   <div class="vz-logo-pill" title="Visimer">
   <div class="vz-logo-pill-mark">
