@@ -2789,6 +2789,27 @@
 .spot-depth-coef-val.coef-high { color: var(--vz-warning); }
 .spot-depth-coef-val.coef-vhigh { color: var(--vz-danger); }
 .spot-depth-coef-val.coef-na { color: var(--vz-text-on-dark-faint); font-size: 14px; font-weight: 500; }
+    /* Skeleton loader pour Profondeur/Coef */
+.spot-depth-coef-val.is-loading {
+  display: inline-block;
+  width: 50px;
+  height: 28px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, 
+    rgba(77,212,168,0.06) 0%, 
+    rgba(77,212,168,0.18) 50%, 
+    rgba(77,212,168,0.06) 100%);
+  background-size: 200% 100%;
+  animation: vz-skeleton-shimmer 1.4s ease-in-out infinite;
+  color: transparent !important;
+}
+.spot-depth-coef-val.is-loading::before {
+  content: '\00a0';
+}
+@keyframes vz-skeleton-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
   </style>
 </head>
 <body>
