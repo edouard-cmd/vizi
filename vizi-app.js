@@ -5614,3 +5614,90 @@ window.closeSheetCompletely = function() {
     }
   }, { passive: true });
 })();
+// ============================================================
+// OBSERVATIONS COMMUNAUTAIRES - Affichage carte
+// ============================================================
+
+var OBS_MARKERS_LAYER = null;
+var OBS_REFRESH_INTERVAL = null;
+
+function loadCommunityObservations() {
+  return gasGet('get_observations', {}).then(function(result) {
+    if (!result || !result.observations) return;
+    renderObservationMarkers(result.observations);
+  }).catch(function(err) {
+    console.error('Erreur chargement observations:', err);
+  });
+}
+
+function renderObservationMarkers(observations) {
+  if (!S.map) return;
+  if (OBS_MARKERS_LAYER) S.map.removeLayer(OBS_MARKERS_LAYER);
+  OBS_MARKERS_LAYER = L.layerGroup();
+
+  observations.forEach(function(obs) {
+    var ageMs = Date.now() - new Date(obs.timestamp).getTime();
+    var ageH = ageMs / (1000 * 60 * 60);
+    var freshness = ageH < 6 ? 'fresh' : (ageH < 24 ? 'recent' : 'dated');
+
+    var maskSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9c0-1 .5-2 2-2h14c1.5 0 2 1 2 2v3c0 4-3 6-7 6h-4c-4 0-7-2-7-6V9z"></path><circle cx="8.5" cy="11" r="1.5" fill="currentColor"></circle><circle cx="15.5" cy="11" r="1.5" fill="currentColor"></circle><path d="M3 8 L1 6 M21 8 L23 6"></path></svg>';
+
+    var icon = L.divIcon({
+      className: 'vz-obs-marker ' + freshness,
+      html: '<div class="vz-obs-marker-inner">' + maskSvg + '</div>',
+      iconSize: [32, 32],
+      iconAnchor: [16, 16]
+    });
+
+    var marker = L.marker([obs.lat, obs.lon], { icon: icon });
+    marker.bindPopup(buildObsPopupHTML(obs), {
+      className: 'vz-obs-popup',
+      maxWidth: 280,
+      minWidth: 260,
+      closeButton: true,
+      autoPan: true
+    });
+    marker.addTo(OBS_MARKERS_LAYER);
+  });
+
+  OBS_MARKERS_LAYER.addTo(S.map);
+}
+
+function buildObsPopupHTML(obs) {
+  var ageMs = Date.now() - new Date(obs.timestamp).getTime();
+  var ageH = ageMs / (1000 * 60 * 60);
+  var when;
+  if (ageH < 1) when = 'Il y a ' + Math.max(1, Math.round(ageH * 60)) + ' min';
+  else if (ageH < 24) when = 'Il y a ' + Math.round(ageH) + ' h';
+  else when = 'Il y a ' + Math.round(ageH / 24) + ' j';
+
+  var visColor = '#4DD4A8';
+  var label = obs.visibility_label || '';
+  if (/null|nulle/i.test(label)) visColor = '#C94A3D';
+  else if (/faible/i.test(label)) visColor = '#E89B3C';
+  else if (/moyen/i.test(label)) visColor = '#D8C84A';
+  else if (/bonne/i.test(label)) visColor = '#2DA888';
+  else if (/excellente/i.test(label)) visColor = '#4DD4A8';
+
+  var visM = obs.visibility_m ? obs.visibility_m + ' m' : '-';
+  var fondClass = obs.bottom_visible ? '' : 'no';
+  var fondText = obs.bottom_visible ? '✓ Fond visible' : '✕ Fond invisible';
+  var comment = (obs.comment && obs.comment.trim()) ? '<div class="vz-obs-pop-comment">« ' + escapeHtml(obs.comment) + ' »</div>' : '';
+
+  return '<div class="vz-obs-pop-head">' +
+           '<div class="vz-obs-pop-pseudo">' + escapeHtml(obs.pseudo || 'Anonyme') + '</div>' +
+           '<div class="vz-obs-pop-when">' + when + '</div>' +
+         '</div>' +
+         '<div class="vz-obs-pop-body">' +
+           '<div class="vz-obs-pop-vis" style="color:' + visColor + '">' + (label || '-') + '</div>' +
+           '<div class="vz-obs-pop-vis-sub">Visibilite ' + visM + '</div>' +
+           '<div class="vz-obs-pop-fond ' + fondClass + '">' + fondText + '</div>' +
+           comment +
+         '</div>';
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, function(c) {
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  });
+}
