@@ -5643,7 +5643,7 @@ function renderObservationMarkers(observations) {
     var ageH = ageMs / (1000 * 60 * 60);
     var freshness = ageH < 6 ? 'fresh' : (ageH < 24 ? 'recent' : 'dated');
 
-    var maskSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9c0-1 .5-2 2-2h14c1.5 0 2 1 2 2v3c0 4-3 6-7 6h-4c-4 0-7-2-7-6V9z"></path><circle cx="8.5" cy="11" r="1.5" fill="currentColor"></circle><circle cx="15.5" cy="11" r="1.5" fill="currentColor"></circle><path d="M3 8 L1 6 M21 8 L23 6"></path></svg>';
+    var maskSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8.5c0-1 .8-1.5 1.8-1.5h12.4c1 0 1.8.5 1.8 1.5v4c0 1-.5 1.5-1.5 1.5h-2.5l-1.5 2h-5l-1.5-2h-2.5c-1 0-1.5-.5-1.5-1.5v-4z" fill="currentColor" fill-opacity="0.15"></path><circle cx="9" cy="10.5" r="1.8" fill="currentColor"></circle><circle cx="15" cy="10.5" r="1.8" fill="currentColor"></circle><path d="M11.5 11h1"></path><path d="M4 9 L2 7.5 M20 9 L22 7.5"></path></svg>';
 
     var icon = L.divIcon({
       className: 'vz-obs-marker ' + freshness,
