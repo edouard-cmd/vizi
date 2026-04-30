@@ -2567,7 +2567,7 @@
   width: calc(100% - 36px);
   margin: 12px 18px 0;
   padding: 12px 14px;
-  background: rgba(255,255,255,0.04);
+  background: var(--vz-bg-deep);
   border: 0.5px solid var(--vz-border-glass);
   border-radius: var(--vz-radius-card);
   color: var(--vz-text-on-dark-muted);
@@ -2577,6 +2577,9 @@
   cursor: pointer;
   transition: all 0.2s ease;
   text-align: left;
+  position: sticky;
+  top: 0;
+  z-index: 5;
 }
 .vz-explain-trigger:hover {
   background: rgba(255,255,255,0.07);
