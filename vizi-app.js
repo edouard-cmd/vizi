@@ -1759,11 +1759,16 @@ function windColorClass(windKt) {
 }
 
 function toggleVisExplain() {
-  var trigger = document.getElementById('vzExplainTrigger');
-  var panel = document.getElementById('vzExplainPanel');
-  if (!trigger || !panel) return;
-  trigger.classList.toggle('open');
-  panel.classList.toggle('open');
+  var content = document.getElementById('vzExplainContent');
+  var modalContent = document.getElementById('vzExplainModalContent');
+  if (modalContent && content) {
+    modalContent.innerHTML = content.innerHTML;
+  }
+  document.getElementById('vzExplainOverlay').classList.add('open');
+}
+
+function closeVisExplain() {
+  document.getElementById('vzExplainOverlay').classList.remove('open');
 }
 
 function buildVisExplanation(h, idx, depth, dir, dirFactor, bathyFactor, wind, gusts, wave, score, visLabel, lat, lon) {
