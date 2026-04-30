@@ -1470,18 +1470,13 @@ function openSpotPopup(latlng, name) {
     iconSize: [40, 40], iconAnchor: [20, 20]
   });
   S.clickMarker = L.marker([latlng.lat, latlng.lng], { icon: pulseIcon, interactive: false }).addTo(S.map);
-  document.getElementById('spotCoords').textContent = latlng.lat.toFixed(4) + 'N - ' + Math.abs(latlng.lng).toFixed(4) + 'O' + (name ? ' - ' + name : '');
   var distToCoastMeters = estimateDistanceToCoast(latlng.lat, latlng.lng);
   var depthEstimate = Math.max(1.5, Math.min(30, distToCoastMeters * 0.004 + 1.5));
   S._spotDepth = depthEstimate;
   S._distToCoast = distToCoastMeters;
-  document.getElementById('spotMeta').textContent = 'Profondeur en cours...';
   fetchRealDepth(latlng.lat, latlng.lng).then(function(realDepth) {
     if (realDepth !== null && realDepth > 0) {
       S._spotDepth = realDepth;
-      document.getElementById('spotMeta').textContent = '~' + Math.round(realDepth) + 'm - EMODnet (115m)';
-    } else {
-      document.getElementById('spotMeta').textContent = '~' + Math.round(depthEstimate) + 'm - estimation';
     }
     if (S_spotWeatherCache) renderSpotPopup();
   });
