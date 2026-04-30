@@ -244,7 +244,21 @@
    Drawer flottant avec marges + arrondi global
    ============================================================ */
 
-
+#spotDrawer {
+  top: 16px !important;
+  right: 16px !important;
+  bottom: 16px !important;
+  height: auto !important;
+  width: 360px !important;
+  background: var(--vz-bg-glass-strong) !important;
+  backdrop-filter: blur(var(--vz-blur));
+  -webkit-backdrop-filter: blur(var(--vz-blur));
+  border: 0.5px solid var(--vz-accent-border) !important;
+  border-radius: 18px !important;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5) !important;
+  color: var(--vz-text-on-dark);
+  overflow: hidden;
+}
 
 /* Header drawer */
 #spotDrawer .drawer-head {
