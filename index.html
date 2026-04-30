@@ -2485,21 +2485,19 @@
   box-shadow: 0 0 6px rgba(77, 212, 168, 0.9);
 }
 
-/* 3 ondes Cascade qui pulsent vers le bas */
+/* 3 ondes sonar 360° qui pulsent autour du point */
 .vz-pulse-wave {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 36px;
+  width: 18px;
   height: 18px;
-  transform: translate(-50%, 0);
-  border-bottom: 2px solid #4DD4A8;
-  border-left: 2px solid transparent;
-  border-right: 2px solid transparent;
-  border-radius: 0 0 50% 50% / 0 0 100% 100%;
+  transform: translate(-50%, -50%) scale(0.4);
+  border: 2px solid #4DD4A8;
+  border-radius: 50%;
   opacity: 0;
   filter: drop-shadow(0 0 3px rgba(10, 21, 32, 0.7));
-  animation: vz-wave-pulse 2.4s ease-out infinite;
+  animation: vz-sonar-pulse 2.4s ease-out infinite;
 }
 
 .vz-pulse-wave-1 {
@@ -2507,24 +2505,24 @@
 }
 .vz-pulse-wave-2 {
   animation-delay: 0.4s;
-  border-bottom-width: 1.5px;
+  border-width: 1.5px;
 }
 .vz-pulse-wave-3 {
   animation-delay: 0.8s;
-  border-bottom-width: 1px;
+  border-width: 1px;
 }
 
-@keyframes vz-wave-pulse {
+@keyframes vz-sonar-pulse {
   0% {
     opacity: 0;
-    transform: translate(-50%, 0) scale(0.4);
+    transform: translate(-50%, -50%) scale(0.4);
   }
-  20% {
+  15% {
     opacity: 0.9;
   }
   100% {
     opacity: 0;
-    transform: translate(-50%, 8px) scale(1.6);
+    transform: translate(-50%, -50%) scale(2.6);
   }
 }
 
