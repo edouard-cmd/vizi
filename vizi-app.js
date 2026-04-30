@@ -5658,7 +5658,7 @@ function renderObservationMarkers(observations) {
   else if (obs.visibility_m <= 6) visColor = '#2DA888';
   else visColor = '#4DD4A8';
 
-  var maskSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8.5c0-1 .8-1.5 1.8-1.5h12.4c1 0 1.8.5 1.8 1.5v4c0 1-.5 1.5-1.5 1.5h-2.5l-1.5 2h-5l-1.5-2h-2.5c-1 0-1.5-.5-1.5-1.5v-4z" fill="currentColor" fill-opacity="0.15"></path><circle cx="9" cy="10.5" r="1.8" fill="currentColor"></circle><circle cx="15" cy="10.5" r="1.8" fill="currentColor"></circle><path d="M11.5 11h1"></path><path d="M4 9 L2 7.5 M20 9 L22 7.5"></path></svg>';
+  var maskSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
 
   var icon = L.divIcon({
     className: 'vz-obs-marker ' + freshness,
