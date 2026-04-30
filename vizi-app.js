@@ -2626,14 +2626,12 @@ function openObsSheet() {
   var pseudoInput = document.getElementById('obsSheetPseudo');
   if (anonBtn.classList.contains('on')) {
     anonBtn.classList.remove('on');
-    anonBtn.innerHTML = anonBtn.innerHTML.replace('Anonyme', 'Anonyme'); // garde le label
   }
   pseudoInput.disabled = false;
   // Restaure le pseudo précédent si stocké
   try {
     var savedPseudo = localStorage.getItem('vizi_pseudo');
-    if (savedPseudo) pseudoInput.value = savedPseudo;
-    else pseudoInput.value = '';
+    pseudoInput.value = savedPseudo || '';
   } catch(e) { pseudoInput.value = ''; }
   document.getElementById('obsSheetSubmit').style.display = 'block';
   document.getElementById('obsSheetSubmit').disabled = false;
@@ -2705,6 +2703,10 @@ function submitObsSheet() {
   var note = document.getElementById('obsSheetNote').value.trim();
   var anonBtn = document.getElementById('obsAnonToggle');
   var pseudo = anonBtn.classList.contains('on') ? '' : document.getElementById('obsSheetPseudo').value.trim();
+// Mémorise le pseudo pour les prochaines obs
+if (pseudo) {
+  try { localStorage.setItem('vizi_pseudo', pseudo); } catch(e) {}
+}
   gasGet('submit_observation', {
     lat: latlng.lat, lon: latlng.lng,
     date: document.getElementById('obsSheetDate').value,
