@@ -3425,6 +3425,735 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
   }
   .geo-btn-skip, .geo-btn-primary { flex: 1; }
 }
+    /* ============================================================
+   VIZIMER MOCKUP V4 — REFONTE DRAWER MOBILE (Talisker)
+   À COLLER à la fin du bloc <style> de index.html
+   Tout est wrappé dans @media (max-width: 768px) → AUCUN impact desktop
+   ============================================================ */
+
+@media (max-width: 768px) {
+
+  /* === Drawer mobile v4 === */
+  #spotDrawerMobile {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    background: var(--vz-bg-glass-strong);
+    backdrop-filter: blur(var(--vz-blur));
+    -webkit-backdrop-filter: blur(var(--vz-blur));
+    border-top: 0.5px solid var(--vz-accent-border);
+    border-radius: 24px 24px 0 0;
+    z-index: 1100;
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.4);
+    will-change: transform;
+    transform: translateY(100%);
+    transition: transform 0.4s cubic-bezier(0.32, 0.72, 0, 1);
+    display: flex;
+    flex-direction: column;
+    height: 95vh;
+    color: var(--vz-text-on-dark);
+    font-family: 'Inter', sans-serif;
+  }
+
+  #spotDrawerMobile.vzm-dragging { transition: none; }
+  #spotDrawerMobile.vzm-closed { transform: translateY(100%); }
+  #spotDrawerMobile.vzm-peek { transform: translateY(calc(100% - 38vh)); }
+  #spotDrawerMobile.vzm-mid { transform: translateY(calc(100% - 70vh)); }
+  #spotDrawerMobile.vzm-full { transform: translateY(calc(100% - 95vh)); }
+
+  /* Handle drag */
+  .vzm-handle {
+    flex-shrink: 0;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    touch-action: none;
+  }
+  .vzm-handle::before {
+    content: '';
+    width: 40px;
+    height: 5px;
+    border-radius: 999px;
+    background: var(--vz-text-on-dark-faint);
+  }
+
+  /* Bouton fermer */
+  .vzm-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    z-index: 2;
+    width: 32px;
+    height: 32px;
+    background: rgba(255,255,255,0.08);
+    border: 0.5px solid var(--vz-border-glass);
+    border-radius: 50%;
+    color: var(--vz-text-on-dark-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+  .vzm-close svg { width: 14px; height: 14px; }
+
+  .vzm-content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  .vzm-content::-webkit-scrollbar { display: none; }
+
+  /* === HEADER SPOT === */
+  .vzm-spot-header { padding: 0 20px 16px; }
+
+  .vzm-spot-name {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    padding-right: 40px;
+  }
+  .vzm-spot-name h2 {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--vz-text-on-dark);
+  }
+  .vzm-spot-distance {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--vz-text-on-dark-muted);
+    letter-spacing: 0.05em;
+  }
+
+  /* === VERDICT === */
+  .vzm-verdict {
+    border-radius: var(--vz-radius-card);
+    padding: 16px;
+    margin-bottom: 14px;
+    transition: all 0.4s ease;
+  }
+  .vzm-verdict.vzm-nulle {
+    background: linear-gradient(135deg, rgba(201,74,61,0.12) 0%, rgba(201,74,61,0.04) 100%);
+    border: 1px solid rgba(201,74,61,0.25);
+  }
+  .vzm-verdict.vzm-faible {
+    background: linear-gradient(135deg, rgba(232,155,60,0.12) 0%, rgba(232,155,60,0.04) 100%);
+    border: 1px solid rgba(232,155,60,0.25);
+  }
+  .vzm-verdict.vzm-correcte,
+  .vzm-verdict.vzm-moyenne {
+    background: linear-gradient(135deg, rgba(216,200,74,0.12) 0%, rgba(216,200,74,0.04) 100%);
+    border: 1px solid rgba(216,200,74,0.25);
+  }
+  .vzm-verdict.vzm-bonne {
+    background: linear-gradient(135deg, rgba(77,212,168,0.12) 0%, rgba(77,212,168,0.04) 100%);
+    border: 1px solid rgba(77,212,168,0.25);
+  }
+  .vzm-verdict.vzm-excellente {
+    background: linear-gradient(135deg, rgba(77,212,168,0.18) 0%, rgba(77,212,168,0.06) 100%);
+    border: 1px solid rgba(77,212,168,0.35);
+  }
+
+  .vzm-verdict-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 10px;
+  }
+  .vzm-verdict-badge {
+    flex-shrink: 0;
+    padding: 8px 14px;
+    color: white;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    border-radius: var(--vz-radius-btn);
+  }
+  .vzm-verdict.vzm-nulle .vzm-verdict-badge { background: var(--vz-danger); box-shadow: 0 4px 12px rgba(201,74,61,0.35); }
+  .vzm-verdict.vzm-faible .vzm-verdict-badge { background: var(--vz-warning); color: var(--vz-bg-deep); box-shadow: 0 4px 12px rgba(232,155,60,0.35); }
+  .vzm-verdict.vzm-correcte .vzm-verdict-badge,
+  .vzm-verdict.vzm-moyenne .vzm-verdict-badge { background: var(--vz-medium); color: var(--vz-bg-deep); box-shadow: 0 4px 12px rgba(216,200,74,0.35); }
+  .vzm-verdict.vzm-bonne .vzm-verdict-badge { background: var(--vz-accent-strong); color: var(--vz-bg-deep); box-shadow: 0 4px 12px rgba(45,168,136,0.35); }
+  .vzm-verdict.vzm-excellente .vzm-verdict-badge { background: var(--vz-accent); color: var(--vz-bg-deep); box-shadow: 0 4px 12px rgba(77,212,168,0.4); }
+
+  .vzm-verdict-meta {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .vzm-verdict-label {
+    font-size: 11px;
+    color: var(--vz-text-on-dark-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .vzm-verdict-value {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--vz-text-on-dark);
+  }
+  .vzm-verdict-explain {
+    font-size: 13px;
+    color: var(--vz-text-on-dark-muted);
+    line-height: 1.55;
+  }
+  .vzm-verdict-explain strong {
+    color: var(--vz-text-on-dark);
+    font-weight: 500;
+  }
+
+  /* === FRISE 7 JOURS === */
+  .vzm-forecast {
+    padding: 14px 16px;
+    background: rgba(20, 48, 74, 0.4);
+    border: 0.5px solid var(--vz-border-glass);
+    border-radius: var(--vz-radius-card);
+    margin: 0 4px 8px;
+  }
+  .vzm-forecast-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .vzm-forecast-title {
+    font-size: 11px;
+    color: var(--vz-text-on-dark-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .vzm-forecast-subtitle {
+    font-size: 11px;
+    color: var(--vz-text-on-dark-faint);
+  }
+  .vzm-forecast-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+  }
+
+  .vzm-day {
+    background: rgba(10, 21, 32, 0.5);
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 8px 4px 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    min-height: 116px;
+    justify-content: flex-start;
+  }
+  .vzm-day:active { transform: scale(0.96); }
+  .vzm-day.vzm-selected {
+    background: rgba(77, 212, 168, 0.08);
+    border-color: var(--vz-accent-border);
+  }
+  .vzm-day.vzm-today .vzm-day-name {
+    color: var(--vz-accent);
+    font-weight: 600;
+  }
+
+  .vzm-day-name {
+    font-size: 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    letter-spacing: 0.05em;
+    color: var(--vz-text-on-dark-muted);
+    text-transform: uppercase;
+  }
+  .vzm-day-date {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--vz-text-on-dark);
+    font-family: 'IBM Plex Mono', monospace;
+    line-height: 1;
+  }
+  .vzm-day-pill {
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    margin-top: 2px;
+    margin-bottom: 2px;
+  }
+  .vzm-day-pill.vzm-nulle { background: var(--vz-danger); }
+  .vzm-day-pill.vzm-faible { background: var(--vz-warning); }
+  .vzm-day-pill.vzm-correcte,
+  .vzm-day-pill.vzm-moyenne { background: var(--vz-medium); }
+  .vzm-day-pill.vzm-bonne { background: var(--vz-accent-strong); }
+  .vzm-day-pill.vzm-excellente { background: var(--vz-accent); }
+
+  .vzm-day-coef {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 700;
+    line-height: 1;
+    background: rgba(107,132,153,0.15);
+    color: var(--vz-text-on-dark);
+    border: 1.5px solid rgba(107,132,153,0.35);
+    margin-top: 2px;
+  }
+  .vzm-day-coef.vzm-coef-very-low {
+    background: rgba(77,212,168,0.15);
+    color: var(--vz-accent);
+    border-color: rgba(77,212,168,0.45);
+  }
+  .vzm-day-coef.vzm-coef-low {
+    background: rgba(216,200,74,0.12);
+    color: var(--vz-medium);
+    border-color: rgba(216,200,74,0.35);
+  }
+  .vzm-day-coef.vzm-coef-high {
+    background: rgba(232,155,60,0.15);
+    color: var(--vz-warning);
+    border-color: rgba(232,155,60,0.45);
+  }
+  .vzm-day-coef.vzm-coef-very-high {
+    background: rgba(201,74,61,0.18);
+    color: var(--vz-danger);
+    border-color: rgba(201,74,61,0.5);
+  }
+  .vzm-day-coef.vzm-coef-na {
+    color: var(--vz-text-on-dark-faint);
+    font-size: 10px;
+  }
+
+  .vzm-day-tide {
+    font-size: 11px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 500;
+    color: var(--vz-text-on-dark-muted);
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    white-space: nowrap;
+    margin-top: 4px;
+  }
+  .vzm-day-tide-arrow {
+    font-size: 10px;
+    color: var(--vz-accent);
+    line-height: 1;
+    font-weight: 700;
+  }
+  .vzm-day-tide-arrow.vzm-bm { color: var(--vz-warning); }
+  .vzm-day-tide-empty {
+    font-size: 11px;
+    color: var(--vz-text-on-dark-faint);
+    margin-top: 4px;
+    line-height: 1;
+  }
+
+  /* === EXPAND DETAIL === */
+  .vzm-day-detail {
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.4s ease, margin-top 0.4s ease, opacity 0.3s ease;
+    opacity: 0;
+  }
+  .vzm-day-detail.vzm-open {
+    max-height: 500px;
+    margin-top: 12px;
+    opacity: 1;
+  }
+  .vzm-day-detail-inner {
+    background: rgba(10,21,32,0.6);
+    border: 0.5px solid var(--vz-border-glass);
+    border-radius: var(--vz-radius-card);
+    padding: 14px;
+  }
+  .vzm-day-detail-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--vz-text-on-dark);
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .vzm-day-detail-viz {
+    font-size: 11px;
+    font-family: 'IBM Plex Mono', monospace;
+    padding: 3px 8px;
+    border-radius: var(--vz-radius-btn);
+    color: var(--vz-bg-deep);
+    font-weight: 600;
+  }
+  .vzm-day-detail-viz.vzm-nulle { background: var(--vz-danger); color: white; }
+  .vzm-day-detail-viz.vzm-faible { background: var(--vz-warning); }
+  .vzm-day-detail-viz.vzm-correcte,
+  .vzm-day-detail-viz.vzm-moyenne { background: var(--vz-medium); }
+  .vzm-day-detail-viz.vzm-bonne { background: var(--vz-accent-strong); color: var(--vz-bg-deep); }
+  .vzm-day-detail-viz.vzm-excellente { background: var(--vz-accent); }
+
+  .vzm-tide-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .vzm-tide-cell {
+    background: rgba(20,48,74,0.5);
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .vzm-tide-icon {
+    font-size: 18px;
+    line-height: 1;
+    color: var(--vz-accent);
+  }
+  .vzm-tide-icon.vzm-bm { color: var(--vz-warning); }
+  .vzm-tide-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .vzm-tide-type {
+    font-size: 9px;
+    color: var(--vz-text-on-dark-muted);
+    font-family: 'IBM Plex Mono', monospace;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .vzm-tide-time-h {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--vz-text-on-dark);
+  }
+  .vzm-tide-h {
+    font-size: 10px;
+    color: var(--vz-text-on-dark-muted);
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  /* === HINT TIER === */
+  .vzm-tier-hint {
+    text-align: center;
+    padding: 14px 20px 8px;
+    font-size: 11px;
+    color: var(--vz-text-on-dark-faint);
+    font-family: 'IBM Plex Mono', monospace;
+    letter-spacing: 0.05em;
+    transition: opacity 0.3s ease;
+  }
+  #spotDrawerMobile.vzm-full .vzm-tier-hint { display: none; }
+  .vzm-tier-hint-arrow {
+    display: inline-block;
+    color: var(--vz-accent);
+    margin-right: 6px;
+    animation: vzm-hint-bounce 2s ease-in-out infinite;
+  }
+  @keyframes vzm-hint-bounce {
+    0%, 100% { transform: translateY(0); opacity: 0.6; }
+    50% { transform: translateY(-3px); opacity: 1; }
+  }
+
+  /* === TIERS (mid / full) === */
+  #spotDrawerMobile.vzm-peek .vzm-content { overflow: hidden; }
+
+  .vzm-tier-mid {
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    transition: max-height 0.4s ease, opacity 0.3s ease;
+    pointer-events: none;
+  }
+  #spotDrawerMobile.vzm-mid .vzm-tier-mid,
+  #spotDrawerMobile.vzm-full .vzm-tier-mid {
+    max-height: 1000px;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .vzm-tier-full {
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    transition: max-height 0.4s ease, opacity 0.3s ease;
+    pointer-events: none;
+  }
+  #spotDrawerMobile.vzm-full .vzm-tier-full {
+    max-height: 2000px;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* === SECTIONS REPLIABLES === */
+  .vzm-section {
+    border-top: 0.5px solid var(--vz-border-glass);
+  }
+  .vzm-section-toggle {
+    width: 100%;
+    background: none;
+    border: none;
+    padding: 16px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    color: inherit;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .vzm-section-toggle-label {
+    font-size: 11px;
+    color: var(--vz-text-on-dark-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+  .vzm-section-toggle-icon {
+    color: var(--vz-text-on-dark-faint);
+    font-size: 12px;
+    transition: transform 0.3s;
+  }
+  .vzm-section.vzm-open .vzm-section-toggle-icon {
+    transform: rotate(180deg);
+  }
+  .vzm-section-body {
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.4s ease;
+  }
+  .vzm-section.vzm-open .vzm-section-body { max-height: 800px; }
+  .vzm-section-content { padding: 0 20px 20px; }
+
+  /* === STATS GRID 3x2 === */
+  .vzm-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1px;
+    background: var(--vz-border-glass);
+    border-radius: var(--vz-radius-card);
+    overflow: hidden;
+  }
+  .vzm-stat {
+    background: var(--vz-bg-surface);
+    padding: 14px 12px;
+    text-align: center;
+  }
+  .vzm-stat-label {
+    font-size: 10px;
+    color: var(--vz-text-on-dark-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-family: 'IBM Plex Mono', monospace;
+    margin-bottom: 6px;
+  }
+  .vzm-stat-value {
+    font-size: 22px;
+    font-weight: 600;
+    font-family: 'IBM Plex Mono', monospace;
+    line-height: 1.1;
+    color: var(--vz-text-on-dark);
+  }
+  .vzm-stat-value.vzm-accent { color: var(--vz-accent); }
+  .vzm-stat-unit {
+    font-size: 10px;
+    color: var(--vz-text-on-dark-muted);
+    margin-top: 3px;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+
+  /* === BLOC POURQUOI === */
+  .vzm-explain-content { padding: 0 20px 20px; }
+  .vzm-explain-card {
+    background: rgba(10,21,32,0.5);
+    border: 0.5px solid var(--vz-border-glass);
+    border-radius: var(--vz-radius-card);
+    padding: 14px 16px;
+  }
+  .vzm-explain-row {
+    display: flex;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 0.5px solid var(--vz-border-glass);
+  }
+  .vzm-explain-row:first-child { padding-top: 0; }
+  .vzm-explain-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .vzm-explain-label {
+    flex-shrink: 0;
+    width: 90px;
+    font-size: 10px;
+    color: var(--vz-text-on-dark-faint);
+    font-family: 'IBM Plex Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding-top: 2px;
+  }
+  .vzm-explain-text {
+    flex: 1;
+    font-size: 13px;
+    color: var(--vz-text-on-dark-muted);
+    line-height: 1.55;
+  }
+  .vzm-explain-text strong {
+    color: var(--vz-text-on-dark);
+    font-weight: 500;
+  }
+  .vzm-explain-verdict {
+    margin-top: 10px;
+    padding: 12px 14px;
+    background: var(--vz-accent-glow);
+    border: 0.5px solid var(--vz-accent-border);
+    border-radius: var(--vz-radius-btn);
+    font-size: 13px;
+    color: var(--vz-text-on-dark);
+    line-height: 1.55;
+  }
+  .vzm-explain-verdict strong {
+    color: var(--vz-accent);
+    font-weight: 600;
+  }
+
+  /* === BLOC MARÉES SEMAINE === */
+  .vzm-weektides-content { padding: 0 20px 20px; }
+  .vzm-weektide-day {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 0.5px solid var(--vz-border-glass);
+  }
+  .vzm-weektide-day:last-child { border-bottom: none; }
+  .vzm-weektide-date {
+    flex-shrink: 0;
+    width: 56px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+  .vzm-weektide-name {
+    font-size: 10px;
+    color: var(--vz-text-on-dark-muted);
+    font-family: 'IBM Plex Mono', monospace;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .vzm-weektide-num {
+    font-size: 13px;
+    color: var(--vz-text-on-dark);
+    font-weight: 600;
+    font-family: 'IBM Plex Mono', monospace;
+    line-height: 1;
+  }
+  .vzm-weektide-coef {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: 'IBM Plex Mono', monospace;
+    border: 1.5px solid;
+  }
+  .vzm-weektide-coef.vzm-coef-very-low {
+    background: rgba(77,212,168,0.15);
+    color: var(--vz-accent);
+    border-color: rgba(77,212,168,0.45);
+  }
+  .vzm-weektide-coef.vzm-coef-low {
+    background: rgba(216,200,74,0.12);
+    color: var(--vz-medium);
+    border-color: rgba(216,200,74,0.35);
+  }
+  .vzm-weektide-coef.vzm-coef-high {
+    background: rgba(232,155,60,0.15);
+    color: var(--vz-warning);
+    border-color: rgba(232,155,60,0.45);
+  }
+  .vzm-weektide-coef.vzm-coef-very-high {
+    background: rgba(201,74,61,0.18);
+    color: var(--vz-danger);
+    border-color: rgba(201,74,61,0.5);
+  }
+  .vzm-weektide-coef.vzm-coef-na {
+    color: var(--vz-text-on-dark-faint);
+    font-size: 9px;
+  }
+  .vzm-weektide-times {
+    flex: 1;
+    display: flex;
+    gap: 14px;
+  }
+  .vzm-weektide-time {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--vz-text-on-dark-muted);
+  }
+  .vzm-weektide-arrow {
+    color: var(--vz-accent);
+    font-weight: 700;
+  }
+  .vzm-weektide-arrow.vzm-bm { color: var(--vz-warning); }
+
+  /* === ACTIONS === */
+  .vzm-actions {
+    padding: 16px 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    border-top: 0.5px solid var(--vz-border-glass);
+  }
+  .vzm-btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: var(--vz-radius-btn);
+    font-size: 14px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.1s;
+    font-family: 'Inter', sans-serif;
+  }
+  .vzm-btn:active { transform: scale(0.98); }
+  .vzm-btn-secondary {
+    background: transparent;
+    color: var(--vz-accent);
+    border: 0.5px solid var(--vz-accent-border);
+  }
+  .vzm-btn-primary {
+    background: var(--vz-accent);
+    color: var(--vz-bg-deep);
+    font-weight: 700;
+  }
+
+  /* === MASQUER L'ANCIEN DRAWER MOBILE === */
+  /* L'ancien #spotDrawer existe toujours dans le DOM mais est invisible sur mobile */
+  /* On le garde pour que les fonctions JS existantes continuent d'écrire dedans sans erreur */
+  #spotDrawer {
+    display: none !important;
+  }
+
+} /* Fin @media (max-width: 768px) */
   </style>
 </head>
 <body>
