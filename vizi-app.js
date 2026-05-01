@@ -6616,3 +6616,143 @@ function escapeHtml(s) {
     vzmPatch5();
   }
 })();
+// ============================================================
+// VISIMER PATCH 6 — Drag propre 2 tiers (remplace définitivement)
+// À COLLER à la toute fin de vizi-app.js (après PATCH 5)
+// ============================================================
+
+(function() {
+  'use strict';
+
+  // On attend que le DOM soit prêt ET que les patchs précédents aient fini
+  function vzmPatch6() {
+    var drawer = document.getElementById('spotDrawerMobile');
+    if (!drawer) {
+      setTimeout(vzmPatch6, 200);
+      return;
+    }
+
+    // === ÉTAPE 1 : Détruire complètement les anciens handle et header (avec leurs listeners) ===
+    // On clone les éléments parents pour casser TOUS les listeners attachés
+    var oldHandle = document.getElementById('vzmHandle');
+    var oldHeader = drawer.querySelector('.vzm-spot-header');
+    
+    if (oldHandle) {
+      var newHandle = oldHandle.cloneNode(true);
+      oldHandle.parentNode.replaceChild(newHandle, oldHandle);
+    }
+    if (oldHeader) {
+      var newHeader = oldHeader.cloneNode(true);
+      oldHeader.parentNode.replaceChild(newHeader, oldHeader);
+    }
+
+    // Récupère les nouveaux éléments propres
+    var handle = document.getElementById('vzmHandle');
+    var header = drawer.querySelector('.vzm-spot-header');
+    if (!handle || !header) return;
+
+    // === ÉTAPE 2 : État partagé du drag ===
+    var startY = 0, startTranslate = 0, isDragging = false;
+    var velocity = 0, lastY = 0, lastTime = 0;
+
+    function getTranslate(snap) {
+      if (snap === 'closed') return window.innerHeight;
+      var pts = { peek: 38, mid: 70 };
+      return window.innerHeight - (pts[snap] * window.innerHeight / 100);
+    }
+
+    function getCurrentSnap() {
+      if (drawer.classList.contains('vzm-peek')) return 'peek';
+      return 'mid';
+    }
+
+    function findClosestSnap(currentTranslate, vel) {
+      var current = getCurrentSnap();
+      // Vélocité forte vers le bas
+      if (vel > 0.4) {
+        if (current === 'mid') return 'peek';
+        return 'closed';
+      }
+      // Vélocité forte vers le haut
+      if (vel < -0.4) {
+        return 'mid';
+      }
+      // Sans vélocité : snap au plus proche
+      var posPeek = getTranslate('peek');
+      var posMid = getTranslate('mid');
+      return Math.abs(currentTranslate - posPeek) < Math.abs(currentTranslate - posMid) ? 'peek' : 'mid';
+    }
+
+    function applySnap(snap) {
+      drawer.classList.remove('vzm-peek', 'vzm-mid', 'vzm-full', 'vzm-closed', 'vzm-dragging');
+      if (snap === 'closed') {
+        if (typeof closeSpotPopup === 'function') closeSpotPopup();
+        return;
+      }
+      drawer.classList.add('vzm-' + snap);
+      drawer.style.transform = '';
+    }
+
+    // === ÉTAPE 3 : Handlers communs pour handle ET header ===
+    function onStart(e) {
+      if (e.target.closest('button')) return;
+      isDragging = true;
+      startY = e.touches ? e.touches[0].clientY : e.clientY;
+      lastY = startY;
+      lastTime = Date.now();
+      velocity = 0;
+      startTranslate = getTranslate(getCurrentSnap());
+      drawer.classList.add('vzm-dragging');
+    }
+
+    function onMove(e) {
+      if (!isDragging) return;
+      var y = e.touches ? e.touches[0].clientY : e.clientY;
+      var now = Date.now();
+      var dt = now - lastTime;
+      if (dt > 0) velocity = (y - lastY) / dt;
+      lastY = y;
+      lastTime = now;
+      var delta = y - startY;
+      var newTranslate = startTranslate + delta;
+      // Limite : entre mid (le plus haut autorisé) et hors écran (le plus bas)
+      var minT = getTranslate('mid');
+      newTranslate = Math.max(minT, Math.min(window.innerHeight, newTranslate));
+      drawer.style.transform = 'translateY(' + newTranslate + 'px)';
+      if (e.cancelable) e.preventDefault();
+    }
+
+    function onEnd() {
+      if (!isDragging) return;
+      isDragging = false;
+      drawer.classList.remove('vzm-dragging');
+      // Lit la position actuelle depuis le transform
+      var transformStr = drawer.style.transform || '';
+      var match = transformStr.match(/translateY\(([-\d.]+)px\)/);
+      var currentTranslate = match ? parseFloat(match[1]) : getTranslate(getCurrentSnap());
+      var snap = findClosestSnap(currentTranslate, velocity);
+      applySnap(snap);
+    }
+
+    // === ÉTAPE 4 : Attache sur handle ET header ===
+    handle.addEventListener('touchstart', onStart, { passive: true });
+    handle.addEventListener('touchmove', onMove, { passive: false });
+    handle.addEventListener('touchend', onEnd);
+
+    header.addEventListener('touchstart', onStart, { passive: true });
+    header.addEventListener('touchmove', onMove, { passive: false });
+    header.addEventListener('touchend', onEnd);
+
+    console.log('[VZM Patch 6] Drag 2 tiers installé proprement');
+  }
+
+  // On lance APRÈS que tous les patchs précédents aient eu leur tour
+  // Délai 800ms pour être sûr que vzmInit + patch 2 + patch 5 aient fini
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+      setTimeout(vzmPatch6, 800);
+    });
+  } else {
+    setTimeout(vzmPatch6, 800);
+  }
+})();
