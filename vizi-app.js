@@ -5724,3 +5724,687 @@ function escapeHtml(s) {
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
   });
 }
+// ============================================================
+// VISIMER MOCKUP V4 — DRAWER MOBILE (LOGIQUE JS)
+// À COLLER à la toute fin de vizi-app.js
+// ============================================================
+
+(function() {
+  'use strict';
+
+  // === Helpers ===
+  function vzmCoefClass(coef) {
+    if (coef === null || coef === undefined || isNaN(coef)) return 'vzm-coef-na';
+    if (coef >= 95) return 'vzm-coef-very-high';
+    if (coef >= 70) return 'vzm-coef-high';
+    if (coef >= 45) return 'vzm-coef-low';
+    return 'vzm-coef-very-low';
+  }
+
+  function vzmVerdictKey(label) {
+    if (!label) return 'nulle';
+    var l = label.toLowerCase();
+    if (l.indexOf('excellente') !== -1) return 'excellente';
+    if (l.indexOf('bonne') !== -1) return 'bonne';
+    if (l.indexOf('moyenne') !== -1 || l.indexOf('correcte') !== -1) return 'correcte';
+    if (l.indexOf('faible') !== -1) return 'faible';
+    return 'nulle';
+  }
+
+  // Pour la frise : choisit l'étale du jour la plus pertinente (en journée, proche midi)
+  function vzmPickDayTide(extremesOfDay) {
+    if (!extremesOfDay || extremesOfDay.length === 0) return null;
+    function parseHour(t) {
+      var d = new Date(t);
+      return d.getHours() + d.getMinutes() / 60;
+    }
+    var dayOnes = extremesOfDay.filter(function(e) {
+      var h = parseHour(e.time);
+      return h >= 7 && h <= 20;
+    });
+    if (dayOnes.length === 0) return null;
+    if (dayOnes.length === 1) {
+      var e = dayOnes[0];
+      var d = new Date(e.time);
+      return {
+        type: e.type,
+        time: ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2),
+        arrow: e.type === 'high' ? '↑' : '↓'
+      };
+    }
+    // Plusieurs : on prend la plus proche de midi
+    dayOnes.sort(function(a, b) {
+      return Math.abs(parseHour(a.time) - 12) - Math.abs(parseHour(b.time) - 12);
+    });
+    var picked = dayOnes[0];
+    var pd = new Date(picked.time);
+    return {
+      type: picked.type,
+      time: ('0' + pd.getHours()).slice(-2) + ':' + ('0' + pd.getMinutes()).slice(-2),
+      arrow: picked.type === 'high' ? '↑' : '↓'
+    };
+  }
+
+  // === État interne du drawer mobile ===
+  var VZM = {
+    selectedDayIndex: -1,
+    currentSnap: 'mid',
+    forecastDays: []  // les 7 jours pour la frise
+  };
+
+  // === Utilité : check si on est en mobile (drawer mobile actif) ===
+  function vzmIsActive() {
+    return window.innerWidth <= 768;
+  }
+
+  // === Mise à jour du hint selon le tier ===
+  function vzmUpdateTierHint(snap) {
+    var hintText = document.getElementById('vzmTierHintText');
+    if (!hintText) return;
+    if (snap === 'peek') hintText.textContent = 'Tire vers le haut pour les conditions détaillées';
+    else if (snap === 'mid') hintText.textContent = 'Tire encore pour l\'analyse complète';
+    else hintText.textContent = '';
+  }
+
+  // === Drag handle peek/mid/full ===
+  var SNAP_POINTS = { peek: 38, mid: 70, full: 95 };
+  var isDragging = false;
+  var startY = 0, startTranslate = 0, currentTranslate = 0;
+  var velocity = 0, lastY = 0, lastTime = 0;
+
+  function vzmGetTranslateForSnap(snap) {
+    var drawer = document.getElementById('spotDrawerMobile');
+    if (!drawer) return window.innerHeight;
+    if (snap === 'closed') return window.innerHeight;
+    return window.innerHeight - (SNAP_POINTS[snap] * window.innerHeight / 100);
+  }
+
+  function vzmSetSnap(snap) {
+    var drawer = document.getElementById('spotDrawerMobile');
+    if (!drawer) return;
+    VZM.currentSnap = snap;
+    drawer.classList.remove('vzm-peek', 'vzm-mid', 'vzm-full', 'vzm-closed', 'vzm-dragging');
+    drawer.classList.add('vzm-' + snap);
+    drawer.style.transform = '';
+    vzmUpdateTierHint(snap);
+  }
+
+  function vzmFindClosestSnap(translate, vel) {
+    if (Math.abs(vel) > 0.6) {
+      if (vel > 0) {
+        if (VZM.currentSnap === 'full') return 'mid';
+        if (VZM.currentSnap === 'mid') return 'peek';
+        return 'closed';
+      } else {
+        if (VZM.currentSnap === 'peek') return 'mid';
+        if (VZM.currentSnap === 'mid') return 'full';
+        return 'full';
+      }
+    }
+    var positions = {
+      peek: vzmGetTranslateForSnap('peek'),
+      mid: vzmGetTranslateForSnap('mid'),
+      full: vzmGetTranslateForSnap('full')
+    };
+    var closest = 'mid', minDist = Infinity;
+    Object.keys(positions).forEach(function(key) {
+      var dist = Math.abs(translate - positions[key]);
+      if (dist < minDist) { minDist = dist; closest = key; }
+    });
+    return closest;
+  }
+
+  function vzmOnPointerDown(e) {
+    if (!vzmIsActive()) return;
+    isDragging = true;
+    startY = e.touches ? e.touches[0].clientY : e.clientY;
+    lastY = startY;
+    lastTime = Date.now();
+    velocity = 0;
+    startTranslate = vzmGetTranslateForSnap(VZM.currentSnap);
+    var drawer = document.getElementById('spotDrawerMobile');
+    if (drawer) drawer.classList.add('vzm-dragging');
+    e.preventDefault();
+  }
+
+  function vzmOnPointerMove(e) {
+    if (!isDragging) return;
+    var y = e.touches ? e.touches[0].clientY : e.clientY;
+    var now = Date.now();
+    var dt = now - lastTime;
+    if (dt > 0) velocity = (y - lastY) / dt;
+    lastY = y;
+    lastTime = now;
+    var delta = y - startY;
+    currentTranslate = startTranslate + delta;
+    var minTranslate = vzmGetTranslateForSnap('full');
+    var maxTranslate = window.innerHeight;
+    currentTranslate = Math.max(minTranslate, Math.min(maxTranslate, currentTranslate));
+    var drawer = document.getElementById('spotDrawerMobile');
+    if (drawer) drawer.style.transform = 'translateY(' + currentTranslate + 'px)';
+    e.preventDefault();
+  }
+
+  function vzmOnPointerUp() {
+    if (!isDragging) return;
+    isDragging = false;
+    var snap = vzmFindClosestSnap(currentTranslate, velocity);
+    if (snap === 'closed') {
+      // Ferme complètement le drawer (équivalent à closeSpotPopup)
+      if (typeof closeSpotPopup === 'function') closeSpotPopup();
+      return;
+    }
+    vzmSetSnap(snap);
+  }
+
+  // === Toggle expand d'un jour de la frise ===
+  function vzmToggleDayDetail(idx) {
+    var detail = document.getElementById('vzmDayDetail');
+    if (!detail) return;
+    if (VZM.selectedDayIndex === idx) {
+      VZM.selectedDayIndex = -1;
+      detail.classList.remove('vzm-open');
+      document.querySelectorAll('.vzm-day').forEach(function(d) {
+        d.classList.remove('vzm-selected');
+      });
+      return;
+    }
+    VZM.selectedDayIndex = idx;
+    document.querySelectorAll('.vzm-day').forEach(function(d, i) {
+      d.classList.toggle('vzm-selected', i === idx);
+    });
+    var day = VZM.forecastDays[idx];
+    if (!day) return;
+    var dateObj = new Date(day.dateISO + 'T12:00:00');
+    var jours = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+    var mois = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+    document.getElementById('vzmDetailDayLabel').textContent = jours[dateObj.getDay()] + ' ' + dateObj.getDate() + ' ' + mois[dateObj.getMonth()];
+    var vizEl = document.getElementById('vzmDetailViz');
+    var verdictKey = vzmVerdictKey(day.vizLabel);
+    vizEl.textContent = day.vizLabel || '—';
+    vizEl.className = 'vzm-day-detail-viz vzm-' + verdictKey;
+
+    var tidesHtml = '';
+    if (day.pm) {
+      tidesHtml += '<div class="vzm-tide-cell">' +
+        '<span class="vzm-tide-icon">↑</span>' +
+        '<div class="vzm-tide-info">' +
+          '<span class="vzm-tide-type">Pleine mer</span>' +
+          '<span class="vzm-tide-time-h">' + day.pm.time + '</span>' +
+          '<span class="vzm-tide-h">' + (day.pm.height ? day.pm.height.toFixed(1) + 'm' : '') + '</span>' +
+        '</div>' +
+      '</div>';
+    }
+    if (day.bm) {
+      tidesHtml += '<div class="vzm-tide-cell">' +
+        '<span class="vzm-tide-icon vzm-bm">↓</span>' +
+        '<div class="vzm-tide-info">' +
+          '<span class="vzm-tide-type">Basse mer</span>' +
+          '<span class="vzm-tide-time-h">' + day.bm.time + '</span>' +
+          '<span class="vzm-tide-h">' + (day.bm.height ? day.bm.height.toFixed(1) + 'm' : '') + '</span>' +
+        '</div>' +
+      '</div>';
+    }
+    document.getElementById('vzmDetailTides').innerHTML = tidesHtml || '<div style="color:var(--vz-text-on-dark-faint);font-size:11px;">Marées non disponibles</div>';
+    detail.classList.add('vzm-open');
+  }
+
+  // === Construction de la frise 7 jours ===
+  // Utilise S_spotWeatherCache (météo) et TIDES.extremes (marées) pour calculer chaque jour
+  function vzmBuildForecastDays() {
+    if (typeof S_spotWeatherCache === 'undefined' || !S_spotWeatherCache || !S_spotWeatherCache.time) {
+      return [];
+    }
+    var h = S_spotWeatherCache;
+    var depth = (typeof S !== 'undefined' && S._spotDepth) ? S._spotDepth : 5;
+    var lat = (typeof S !== 'undefined' && S.clickLatLng) ? S.clickLatLng.lat : 49.35;
+    var lon = (typeof S !== 'undefined' && S.clickLatLng) ? S.clickLatLng.lng : -0.5;
+
+    var today = new Date();
+    today.setHours(0, 0, 0, 0);
+    var days = [];
+    for (var d = 0; d < 7; d++) {
+      var date = new Date(today.getTime() + d * 86400000);
+      var dateISO = date.getFullYear() + '-' +
+        ('0' + (date.getMonth() + 1)).slice(-2) + '-' +
+        ('0' + date.getDate()).slice(-2);
+
+      // Indice météo : on prend midi du jour
+      var targetMs = new Date(dateISO + 'T12:00:00').getTime();
+      var bestIdx = 0, bestDelta = Infinity;
+      for (var i = 0; i < h.time.length; i++) {
+        var diff = Math.abs(new Date(h.time[i]).getTime() - targetMs);
+        if (diff < bestDelta) { bestDelta = diff; bestIdx = i; }
+      }
+      var score = (typeof visScoreV2 === 'function') ? visScoreV2(h, bestIdx, depth, lat, lon) : 50;
+      var vizLabel, vizKey;
+      if (score >= 80) { vizLabel = 'Excellente'; vizKey = 'excellente'; }
+      else if (score >= 60) { vizLabel = 'Bonne'; vizKey = 'bonne'; }
+      else if (score >= 40) { vizLabel = 'Moyenne'; vizKey = 'correcte'; }
+      else if (score >= 20) { vizLabel = 'Faible'; vizKey = 'faible'; }
+      else { vizLabel = 'Nulle'; vizKey = 'nulle'; }
+
+      // Coef du jour
+      var coef = null;
+      if (typeof getCoefForDate === 'function') {
+        try { coef = getCoefForDate(dateISO); } catch(e) { coef = null; }
+      }
+
+      // Marées du jour (extraites de TIDES.extremes)
+      var pm = null, bm = null;
+      if (typeof TIDES !== 'undefined' && TIDES.extremes) {
+        var dayExtremes = TIDES.extremes.filter(function(e) {
+          return e.time.slice(0, 10) === dateISO;
+        });
+        var pmEx = dayExtremes.filter(function(e) { return e.type === 'high'; });
+        var bmEx = dayExtremes.filter(function(e) { return e.type === 'low'; });
+        if (pmEx.length > 0) {
+          var pdt = new Date(pmEx[0].time);
+          pm = { time: ('0' + pdt.getHours()).slice(-2) + ':' + ('0' + pdt.getMinutes()).slice(-2), height: pmEx[0].height };
+        }
+        if (bmEx.length > 0) {
+          var bdt = new Date(bmEx[0].time);
+          bm = { time: ('0' + bdt.getHours()).slice(-2) + ':' + ('0' + bdt.getMinutes()).slice(-2), height: bmEx[0].height };
+        }
+      }
+
+      // Tide pour la frise (étale principale en journée)
+      var tideForFrise = null;
+      if (typeof TIDES !== 'undefined' && TIDES.extremes) {
+        var dayExt = TIDES.extremes.filter(function(e) {
+          return e.time.slice(0, 10) === dateISO;
+        });
+        tideForFrise = vzmPickDayTide(dayExt);
+      }
+
+      days.push({
+        dateISO: dateISO,
+        dayLabel: ['DIM','LUN','MAR','MER','JEU','VEN','SAM'][date.getDay()],
+        dayNum: ('0' + date.getDate()).slice(-2),
+        score: score,
+        vizLabel: vizLabel,
+        vizKey: vizKey,
+        coef: coef,
+        pm: pm,
+        bm: bm,
+        tideForFrise: tideForFrise
+      });
+    }
+    return days;
+  }
+
+  // === Rendu de la frise 7 jours ===
+  function vzmRenderForecast() {
+    var grid = document.getElementById('vzmForecastGrid');
+    if (!grid) return;
+    VZM.forecastDays = vzmBuildForecastDays();
+    grid.innerHTML = '';
+    VZM.forecastDays.forEach(function(day, i) {
+      var cClass = vzmCoefClass(day.coef);
+      var coefDisplay = (day.coef === null || day.coef === undefined) ? '—' : day.coef;
+      var tideHtml = '';
+      if (day.tideForFrise) {
+        tideHtml = '<div class="vzm-day-tide">' +
+          '<span class="vzm-day-tide-arrow ' + (day.tideForFrise.type === 'low' ? 'vzm-bm' : '') + '">' + day.tideForFrise.arrow + '</span>' +
+          day.tideForFrise.time +
+        '</div>';
+      } else {
+        tideHtml = '<div class="vzm-day-tide-empty">—</div>';
+      }
+      var el = document.createElement('div');
+      el.className = 'vzm-day' + (i === 0 ? ' vzm-today' : '') + (i === VZM.selectedDayIndex ? ' vzm-selected' : '');
+      el.innerHTML =
+        '<div class="vzm-day-name">' + day.dayLabel + '</div>' +
+        '<div class="vzm-day-date">' + day.dayNum + '</div>' +
+        '<div class="vzm-day-pill vzm-' + day.vizKey + '"></div>' +
+        '<div class="vzm-day-coef ' + cClass + '">' + coefDisplay + '</div>' +
+        tideHtml;
+      el.addEventListener('click', function() { vzmToggleDayDetail(i); });
+      grid.appendChild(el);
+    });
+  }
+
+  // === Rendu de la phrase explicative dans le verdict ===
+  function vzmBuildVerdictExplain(score, depth, wind, gusts, dir, dirFactor) {
+    var fromNames = ['N','NE','E','SE','S','SO','O','NO'];
+    var dirName = (dir !== null && dir !== undefined) ? fromNames[Math.round(dir / 45) % 8] : '?';
+    var windKt = (typeof toKt === 'function') ? toKt(wind) : Math.round(wind * 0.539957);
+
+    var parts = [];
+    // Vent
+    if (windKt >= 15) parts.push('<strong>vent ' + dirName + ' de ' + windKt + ' nœuds</strong>');
+    else if (windKt >= 10) parts.push('<strong>vent ' + dirName + ' modéré (' + windKt + ' nds)</strong>');
+    else if (windKt > 0) parts.push('vent ' + dirName + ' faible (' + windKt + ' nds)');
+
+    // Profondeur
+    var depthInt = Math.round(depth);
+    if (depth <= 5) parts.push('fond peu profond (' + depthInt + 'm)');
+    else if (depth <= 10) parts.push('fond moyen (' + depthInt + 'm)');
+    else parts.push('fond profond (' + depthInt + 'm)');
+
+    // Verdict
+    var verdict;
+    if (score >= 80) {
+      verdict = 'Conditions optimales : ' + parts.join(', ') + '. C\'est le moment de sortir.';
+    } else if (score >= 60) {
+      verdict = 'Bonnes conditions : ' + parts.join(', ') + '. Spot chassable.';
+    } else if (score >= 40) {
+      verdict = 'Conditions moyennes : ' + parts.join(', ') + '. Visi limitée mais possible.';
+    } else if (score >= 20) {
+      verdict = 'Conditions faibles : ' + parts.join(', ') + '. Visi très limitée.';
+    } else {
+      verdict = 'Conditions défavorables : ' + parts.join(', ') + '. Mieux vaut attendre.';
+    }
+    return verdict;
+  }
+
+  // === Rendu du bloc "Pourquoi cette visi" ===
+  function vzmBuildExplainContent(score, depth, wind, gusts, dir, dirFactor, lat, lon) {
+    var fromNames = ['N','NE','E','SE','S','SO','O','NO'];
+    var dirName = (dir !== null && dir !== undefined) ? fromNames[Math.round(dir / 45) % 8] : '?';
+    var windKt = (typeof toKt === 'function') ? toKt(wind) : Math.round(wind * 0.539957);
+
+    var windQual;
+    if (windKt < 10) windQual = 'faible';
+    else if (windKt < 15) windQual = 'modéré';
+    else if (windKt < 22) windQual = 'soutenu';
+    else windQual = 'fort';
+
+    var dirQual, dirImpact;
+    if (dirFactor < 0.4) {
+      dirQual = '<strong>offshore</strong> (de la terre vers la mer)';
+      dirImpact = 'protège la côte, l\'eau reste relativement claire malgré le vent';
+    } else if (dirFactor < 0.85) {
+      dirQual = '<strong>latéral</strong> à la côte';
+      dirImpact = 'agite la surface mais brasse moins le sédiment';
+    } else {
+      dirQual = '<strong>onshore</strong> (de la mer vers la côte)';
+      dirImpact = 'pousse la houle directement contre le fond, brasse fort';
+    }
+
+    var depthQual, depthImpact;
+    if (depth <= 2) {
+      depthQual = '<strong>très peu profond</strong> (' + Math.round(depth) + 'm)';
+      depthImpact = 'la moindre agitation se transmet au sédiment (amplification ×4)';
+    } else if (depth <= 5) {
+      depthQual = '<strong>peu profond</strong> (' + Math.round(depth) + 'm)';
+      depthImpact = 'le brassage atteint le fond facilement (amplification ×3)';
+    } else if (depth <= 10) {
+      depthQual = '<strong>moyen</strong> (' + Math.round(depth) + 'm)';
+      depthImpact = 'le sédiment est moins remué (amplification ×2)';
+    } else if (depth <= 20) {
+      depthQual = '<strong>profond</strong> (' + Math.round(depth) + 'm)';
+      depthImpact = 'l\'agitation se dissipe avant d\'atteindre le fond';
+    } else {
+      depthQual = '<strong>très profond</strong> (' + Math.round(depth) + 'm)';
+      depthImpact = 'l\'eau reste claire même par vent soutenu';
+    }
+
+    var brassageMsg;
+    if (score < 40) {
+      brassageMsg = 'Le vent souffle dans cette config depuis plusieurs heures. L\'énergie de brassage s\'est <strong>accumulée</strong> dans la colonne d\'eau et n\'a pas eu le temps de décanter.';
+    } else if (score < 60) {
+      brassageMsg = 'Le brassage des dernières heures laisse encore des particules en suspension. La décantation est en cours.';
+    } else if (score < 80) {
+      brassageMsg = 'L\'eau a eu le temps de décanter en partie. Les conditions s\'améliorent.';
+    } else {
+      brassageMsg = 'Aucun brassage récent significatif. L\'eau a eu le temps de se clarifier.';
+    }
+
+    var verdictMsg;
+    if (score >= 80) verdictMsg = 'Conditions <strong>excellentes</strong>. C\'est le moment de sortir.';
+    else if (score >= 60) verdictMsg = 'Conditions <strong>bonnes</strong>. Spot chassable, visi suffisante pour traquer.';
+    else if (score >= 40) verdictMsg = 'Conditions <strong>moyennes</strong>. Visi limitée mais ça reste possible si tu connais ton spot.';
+    else if (score >= 20) verdictMsg = 'Conditions <strong>faibles</strong>. Cherche un spot plus profond ou attends que le vent tombe.';
+    else verdictMsg = 'Conditions <strong>nulles</strong>. Pas la peine de mouiller la combi ici. Cherche un spot offshore ou attends l\'accalmie.';
+
+    return {
+      wind: 'Vent de <strong>' + dirName + ' à ' + windKt + ' nds</strong>, ' + windQual + '. Sur ce point, il arrive ' + dirQual + ' : il ' + dirImpact + '.',
+      bottom: 'Tu es sur un fond ' + depthQual + '. ' + depthImpact + '.',
+      brassage: brassageMsg,
+      verdict: verdictMsg
+    };
+  }
+
+  // === Rendu du bloc Marées de la semaine ===
+  function vzmRenderWeekTides() {
+    var container = document.getElementById('vzmWeektidesContent');
+    if (!container) return;
+    container.innerHTML = '';
+    if (!VZM.forecastDays || VZM.forecastDays.length === 0) {
+      container.innerHTML = '<div style="text-align:center;color:var(--vz-text-on-dark-faint);font-size:11px;padding:12px;">Marées non disponibles</div>';
+      return;
+    }
+    VZM.forecastDays.forEach(function(day) {
+      var cClass = vzmCoefClass(day.coef);
+      var coefDisplay = (day.coef === null || day.coef === undefined) ? 'N/A' : day.coef;
+      var pmStr = day.pm ? ('<span class="vzm-weektide-time"><span class="vzm-weektide-arrow">↑</span>' + day.pm.time + '</span>') : '';
+      var bmStr = day.bm ? ('<span class="vzm-weektide-time"><span class="vzm-weektide-arrow vzm-bm">↓</span>' + day.bm.time + '</span>') : '';
+      var row = document.createElement('div');
+      row.className = 'vzm-weektide-day';
+      row.innerHTML =
+        '<div class="vzm-weektide-date">' +
+          '<span class="vzm-weektide-name">' + day.dayLabel + '</span>' +
+          '<span class="vzm-weektide-num">' + day.dayNum + '</span>' +
+        '</div>' +
+        '<div class="vzm-weektide-coef ' + cClass + '">' + coefDisplay + '</div>' +
+        '<div class="vzm-weektide-times">' + pmStr + bmStr + '</div>';
+      container.appendChild(row);
+    });
+  }
+
+  // === Rendu principal du drawer mobile ===
+  // À appeler depuis renderSpotPopup() existant après que les données soient prêtes
+  window.vzmRenderSpotMobile = function() {
+    if (!vzmIsActive()) return;
+    var drawer = document.getElementById('spotDrawerMobile');
+    if (!drawer) return;
+
+    // Récupère les valeurs déjà calculées dans le drawer desktop (par renderSpotPopup)
+    var visLabel = document.getElementById('spotVisLabel');
+    var spotWindSpeed = document.getElementById('spotWindSpeed');
+    var spotWindGusts = document.getElementById('spotWindGusts');
+    var spotWindDeg = document.getElementById('spotWindDeg');
+    var spotDepth = document.getElementById('spotDepthVal');
+    var spotCoef = document.getElementById('spotCoefVal');
+    var spotCoefDesc = document.getElementById('spotCoefDesc');
+    var spotSeaTemp = document.getElementById('spotSeaTemp');
+
+    var label = visLabel ? visLabel.textContent.trim() : '—';
+    var verdictKey = vzmVerdictKey(label);
+
+    // Header spot
+    var titleEl = document.getElementById('vzmSpotTitle');
+    if (titleEl) {
+      var title = 'Point en mer';
+      if (S && S.clickLatLng) {
+        // Cherche un nom de port proche
+        if (typeof findNearestPort === 'function') {
+          var near = findNearestPort(S.clickLatLng.lat, S.clickLatLng.lng);
+          if (near && near.spot && near.distanceKm < 5) {
+            title = near.spot.name;
+          } else if (near) {
+            title = 'Point en mer';
+          }
+        }
+      }
+      titleEl.textContent = title;
+    }
+    var distEl = document.getElementById('vzmSpotDistance');
+    if (distEl && S && S.clickLatLng && typeof findNearestPort === 'function') {
+      var n = findNearestPort(S.clickLatLng.lat, S.clickLatLng.lng);
+      distEl.textContent = n ? (n.distanceKm.toFixed(1) + ' KM') : '—';
+    }
+
+    // Verdict
+    var verdict = document.getElementById('vzmVerdict');
+    if (verdict) {
+      verdict.classList.remove('vzm-nulle','vzm-faible','vzm-correcte','vzm-moyenne','vzm-bonne','vzm-excellente');
+      verdict.classList.add('vzm-' + verdictKey);
+    }
+    var badge = document.getElementById('vzmVerdictBadge');
+    if (badge) badge.textContent = label;
+
+    // Valeur visi en mètres approx (basée sur le label)
+    var valueText = '—';
+    if (verdictKey === 'excellente') valueText = '~ 8 m';
+    else if (verdictKey === 'bonne') valueText = '~ 6 m';
+    else if (verdictKey === 'correcte') valueText = '~ 4 m';
+    else if (verdictKey === 'faible') valueText = '~ 2 m';
+    else if (verdictKey === 'nulle') valueText = '~ 1 m';
+    var valueEl = document.getElementById('vzmVerdictValue');
+    if (valueEl) valueEl.textContent = valueText;
+
+    // Calcul des params pour la phrase explicative
+    var depth = (S && S._spotDepth) ? S._spotDepth : 5;
+    var lat = (S && S.clickLatLng) ? S.clickLatLng.lat : 49.35;
+    var lon = (S && S.clickLatLng) ? S.clickLatLng.lng : -0.5;
+    var wind = 0, gusts = 0, dir = null, dirFactor = 1.0, score = 50;
+    if (S_spotWeatherCache) {
+      var dateVal = document.getElementById('spotDate') ? document.getElementById('spotDate').value : '';
+      var timeVal = document.getElementById('spotTime') ? document.getElementById('spotTime').value : '12:00';
+      var targetStr = dateVal + 'T' + timeVal;
+      var idx = 0, best = Infinity;
+      S_spotWeatherCache.time.forEach(function(t, i) {
+        var d = Math.abs(new Date(t) - new Date(targetStr));
+        if (d < best) { best = d; idx = i; }
+      });
+      wind = Math.round(S_spotWeatherCache.windspeed_10m[idx] || 0);
+      gusts = Math.round(S_spotWeatherCache.windgusts_10m[idx] || 0);
+      dir = S_spotWeatherCache.winddirection_10m[idx];
+      if (typeof getDirFactorForPoint === 'function') {
+        dirFactor = getDirFactorForPoint(dir, lat, lon);
+      }
+      if (typeof visScoreV2 === 'function') {
+        score = visScoreV2(S_spotWeatherCache, idx, depth, lat, lon);
+      }
+    }
+
+    // Phrase explicative
+    var explainEl = document.getElementById('vzmVerdictExplain');
+    if (explainEl) {
+      explainEl.innerHTML = vzmBuildVerdictExplain(score, depth, wind, gusts, dir, dirFactor);
+    }
+
+    // Stats grid
+    var unitLabel = (typeof S_windUnit !== 'undefined' && S_windUnit === 'kt') ? 'nœuds' : 'km/h';
+    var conv = function(v) {
+      return (typeof S_windUnit !== 'undefined' && S_windUnit === 'kt' && typeof toKt === 'function') ? toKt(v) : Math.round(v);
+    };
+    var setText = function(id, v) { var el = document.getElementById(id); if (el) el.textContent = v; };
+    setText('vzmStatWind', conv(wind));
+    setText('vzmStatWindUnit', unitLabel);
+    setText('vzmStatGusts', conv(gusts));
+    setText('vzmStatGustsUnit', unitLabel);
+
+    var fromNames = ['N','NE','E','SE','S','SO','O','NO'];
+    if (dir !== null && dir !== undefined) {
+      var dirArrow = document.getElementById('vzmStatDir');
+      if (dirArrow) {
+        dirArrow.innerHTML = '<svg width="22" height="22" viewBox="0 0 20 20" style="transform:rotate(' + dir + 'deg);display:inline-block;vertical-align:middle;">' +
+          '<path d="M10 2 L10 16 M10 16 L6 12 M10 16 L14 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/>' +
+          '</svg>';
+      }
+      setText('vzmStatDirLabel', fromNames[Math.round(dir / 45) % 8] + ' ' + Math.round(dir) + '°');
+    } else {
+      setText('vzmStatDir', '—');
+      setText('vzmStatDirLabel', '—');
+    }
+    setText('vzmStatDepth', '~' + Math.round(depth));
+    setText('vzmStatCoef', spotCoef ? spotCoef.textContent : '—');
+    setText('vzmStatCoefDesc', spotCoefDesc ? spotCoefDesc.textContent : '');
+    setText('vzmStatTemp', spotSeaTemp ? spotSeaTemp.textContent : '—');
+
+    // Bloc Pourquoi
+    var explainBlock = vzmBuildExplainContent(score, depth, wind, gusts, dir, dirFactor, lat, lon);
+    var setHTML = function(id, v) { var el = document.getElementById(id); if (el) el.innerHTML = v; };
+    setHTML('vzmExplainWind', explainBlock.wind);
+    setHTML('vzmExplainBottom', explainBlock.bottom);
+    setHTML('vzmExplainBrassage', explainBlock.brassage);
+    setHTML('vzmExplainVerdict', explainBlock.verdict);
+
+    // Frise + marées semaine
+    vzmRenderForecast();
+    vzmRenderWeekTides();
+  };
+
+  // === Ouverture/fermeture du drawer mobile ===
+  // Hook sur openSpotPopup et closeSpotPopup existants
+  var _origOpenSpot = window.openSpotPopup;
+  window.openSpotPopup = function(latlng, name) {
+    if (typeof _origOpenSpot === 'function') _origOpenSpot.call(this, latlng, name);
+    if (vzmIsActive()) {
+      var drawer = document.getElementById('spotDrawerMobile');
+      if (drawer) {
+        drawer.classList.remove('vzm-closed');
+        if (!drawer.classList.contains('vzm-peek') && !drawer.classList.contains('vzm-mid') && !drawer.classList.contains('vzm-full')) {
+          drawer.classList.add('vzm-mid');
+          VZM.currentSnap = 'mid';
+        }
+        vzmUpdateTierHint(VZM.currentSnap);
+      }
+    }
+  };
+
+  var _origCloseSpot = window.closeSpotPopup;
+  window.closeSpotPopup = function() {
+    if (typeof _origCloseSpot === 'function') _origCloseSpot.call(this);
+    var drawer = document.getElementById('spotDrawerMobile');
+    if (drawer) {
+      drawer.classList.remove('vzm-peek','vzm-mid','vzm-full');
+      drawer.classList.add('vzm-closed');
+      VZM.currentSnap = 'closed';
+      VZM.selectedDayIndex = -1;
+      var detail = document.getElementById('vzmDayDetail');
+      if (detail) detail.classList.remove('vzm-open');
+    }
+  };
+
+  // === Hook sur renderSpotPopup pour synchroniser le drawer mobile ===
+  var _origRenderSpot = window.renderSpotPopup;
+  window.renderSpotPopup = function() {
+    if (typeof _origRenderSpot === 'function') _origRenderSpot.apply(this, arguments);
+    if (typeof window.vzmRenderSpotMobile === 'function') {
+      try { window.vzmRenderSpotMobile(); } catch(e) { console.warn('[vzm] render mobile failed:', e); }
+    }
+  };
+
+  // === Sections repliables (toggle générique) ===
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.vzm-section-toggle');
+    if (!btn) return;
+    var section = btn.closest('.vzm-section');
+    if (section) section.classList.toggle('vzm-open');
+  });
+
+  // === Init au DOMContentLoaded ===
+  function vzmInit() {
+    var handle = document.getElementById('vzmHandle');
+    if (!handle) {
+      // Le DOM n'est pas prêt, on retente
+      setTimeout(vzmInit, 200);
+      return;
+    }
+    handle.addEventListener('touchstart', vzmOnPointerDown, { passive: false });
+    handle.addEventListener('touchmove', vzmOnPointerMove, { passive: false });
+    handle.addEventListener('touchend', vzmOnPointerUp);
+    handle.addEventListener('mousedown', vzmOnPointerDown);
+    document.addEventListener('mousemove', vzmOnPointerMove);
+    document.addEventListener('mouseup', vzmOnPointerUp);
+
+    // État initial fermé
+    var drawer = document.getElementById('spotDrawerMobile');
+    if (drawer) {
+      drawer.classList.remove('vzm-mid');
+      drawer.classList.add('vzm-closed');
+      VZM.currentSnap = 'closed';
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', vzmInit);
+  } else {
+    vzmInit();
+  }
+
+})();
