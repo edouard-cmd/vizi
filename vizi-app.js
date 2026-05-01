@@ -6378,27 +6378,16 @@ function escapeHtml(s) {
   });
 
   // === Init au DOMContentLoaded ===
-  function vzmInit() {
-    var handle = document.getElementById('vzmHandle');
-    if (!handle) {
-      // Le DOM n'est pas prêt, on retente
+function vzmInit() {
+    // PATCH : drag géré par PATCH 6, on garde juste l'état initial fermé
+    var drawer = document.getElementById('spotDrawerMobile');
+    if (!drawer) {
       setTimeout(vzmInit, 200);
       return;
     }
-    handle.addEventListener('touchstart', vzmOnPointerDown, { passive: false });
-    handle.addEventListener('touchmove', vzmOnPointerMove, { passive: false });
-    handle.addEventListener('touchend', vzmOnPointerUp);
-    handle.addEventListener('mousedown', vzmOnPointerDown);
-    document.addEventListener('mousemove', vzmOnPointerMove);
-    document.addEventListener('mouseup', vzmOnPointerUp);
-
-    // État initial fermé
-    var drawer = document.getElementById('spotDrawerMobile');
-    if (drawer) {
-      drawer.classList.remove('vzm-mid');
-      drawer.classList.add('vzm-closed');
-      VZM.currentSnap = 'closed';
-    }
+    drawer.classList.remove('vzm-mid');
+    drawer.classList.add('vzm-closed');
+    VZM.currentSnap = 'closed';
   }
 
   if (document.readyState === 'loading') {
