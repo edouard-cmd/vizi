@@ -1,0 +1,68 @@
+/* ──────────────────────────────────────────────────────────
+   Visimer · Observation freshness + semantic colors
+   ──────────────────────────────────────────────────────────
+   Apply these classes to the parent of the inline <svg> icon
+   (or directly on the <svg>). Icon must use stroke="currentColor".
+
+   Usage:
+     <span class="obs-fresh">{ marker-mask.svg inline }</span>
+     <span class="obs-recent">…</span>
+     <span class="obs-old">…</span>
+
+     <span class="obs-visi-good">…</span>   (5 semantic levels)
+   ────────────────────────────────────────────────────────── */
+
+:root {
+  --visimer-teal:      #4DD4A8;
+  --visimer-teal-mid:  #2DA888;
+  --visimer-yellow:    #D8C84A;
+  --visimer-orange:    #E89B3C;
+  --visimer-red:       #C94A3D;
+  --visimer-deep:      #0A1520;
+}
+
+/* ── Freshness ─────────────────────────────────────────── */
+
+.obs-fresh {
+  color: var(--visimer-teal);
+  position: relative;
+  display: inline-flex;
+}
+.obs-fresh::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border: 2px solid var(--visimer-teal);
+  border-radius: 50%;
+  opacity: 0.6;
+  animation: visimer-pulse 1.8s ease-out infinite;
+  pointer-events: none;
+}
+
+.obs-recent {
+  color: var(--visimer-teal);
+  opacity: 0.55;
+}
+
+.obs-old {
+  color: var(--visimer-teal);
+  opacity: 0.28;
+}
+
+@keyframes visimer-pulse {
+  0%   { transform: scale(0.85); opacity: 0.7; }
+  100% { transform: scale(1.6);  opacity: 0;   }
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .obs-fresh::after { animation: none; opacity: 0.4; }
+}
+
+/* ── Semantic visibility colors ────────────────────────── */
+
+.obs-visi-none      { color: var(--visimer-red); }       /* visi 0 */
+.obs-visi-poor      { color: var(--visimer-orange); }    /* visi 1 */
+.obs-visi-medium    { color: var(--visimer-yellow); }    /* visi 2 */
+.obs-visi-good      { color: var(--visimer-teal-mid); }  /* visi 3 */
+.obs-visi-excellent { color: var(--visimer-teal); }      /* visi 4 */

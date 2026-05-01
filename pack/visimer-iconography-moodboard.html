@@ -1,0 +1,721 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Visimer · Mood board iconographie</title>
+<link rel="icon" href="brand/web/favicon.svg" type="image/svg+xml" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --deep: #0A1520;
+    --surface: #0F2438;
+    --surface-2: #142E45;
+    --teal: #4DD4A8;
+    --teal-mid: #2DA888;
+    --teal-deep: #1A6657;
+    --line: rgba(77,212,168,0.22);
+    --line-soft: rgba(255,255,255,0.08);
+    --text: #FFFFFF;
+    --text-mid: rgba(255,255,255,0.65);
+    --text-low: rgba(255,255,255,0.42);
+    --danger: #C94A3D;
+    --warn: #E89B3C;
+    --med: #D8C84A;
+  }
+  *,*::before,*::after { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    background: var(--deep);
+    color: var(--text);
+    font-family: 'Inter', -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: 'IBM Plex Mono', monospace; letter-spacing: 0.08em; }
+  .caps { text-transform: uppercase; letter-spacing: 0.14em; }
+
+  .page { max-width: 1440px; margin: 0 auto; padding: 64px 56px 120px; }
+
+  /* HEADER */
+  .head {
+    display: flex; justify-content: space-between; align-items: flex-end;
+    padding-bottom: 36px; margin-bottom: 56px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .head .label { color: var(--teal); font-size: 11px; margin-bottom: 14px; }
+  .head h1 { font-weight: 800; font-size: 48px; line-height: 1.05; letter-spacing: -0.025em; margin: 0; max-width: 620px; }
+  .head .meta { text-align: right; color: var(--text-mid); font-size: 13px; line-height: 1.6; }
+  .head .meta strong { color: var(--text); font-weight: 600; }
+
+  /* INTRO */
+  .intro {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px;
+    margin-bottom: 80px;
+  }
+  .intro .cell {
+    border: 1px solid var(--line-soft);
+    border-radius: 10px;
+    padding: 22px 24px;
+    background: var(--surface);
+  }
+  .intro .k { font-size: 10px; color: var(--text-low); margin-bottom: 8px; }
+  .intro .v { font-size: 14px; line-height: 1.5; }
+  .intro .v strong { color: var(--teal); }
+
+  /* DIRECTION CARDS */
+  .direction {
+    margin-bottom: 88px;
+    border: 1px solid var(--line-soft);
+    border-radius: 14px;
+    overflow: hidden;
+    background: var(--surface);
+  }
+  .direction .top {
+    padding: 32px 40px;
+    border-bottom: 1px solid var(--line-soft);
+    display: grid;
+    grid-template-columns: 1.6fr 1fr;
+    gap: 48px;
+  }
+  .direction .badge { font-size: 11px; color: var(--teal); margin-bottom: 12px; }
+  .direction h2 {
+    font-size: 32px; font-weight: 700; letter-spacing: -0.02em;
+    margin: 0 0 14px;
+  }
+  .direction .pitch {
+    font-size: 16px; line-height: 1.55; color: var(--text-mid);
+    max-width: 540px;
+  }
+  .direction .pitch em { color: var(--teal); font-style: normal; }
+  .direction .specs-list {
+    display: flex; flex-direction: column; gap: 10px;
+    font-size: 12px;
+    align-self: end;
+  }
+  .direction .specs-list .row {
+    display: grid; grid-template-columns: 110px 1fr; gap: 12px;
+    padding: 8px 0;
+    border-top: 1px solid var(--line-soft);
+  }
+  .direction .specs-list .row:first-child { border-top: 0; }
+  .direction .specs-list .k { color: var(--text-low); text-transform: uppercase; letter-spacing: 0.12em; font-size: 10px; align-self: center; }
+  .direction .specs-list .v { color: var(--text); }
+  .direction .specs-list .v code { font-family: 'IBM Plex Mono', monospace; color: var(--teal); font-size: 11px; }
+
+  /* ICON GRID */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    background: var(--deep);
+  }
+  .cell {
+    aspect-ratio: 1;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 14px;
+    border-right: 1px solid var(--line-soft);
+    border-bottom: 1px solid var(--line-soft);
+    padding: 24px;
+    position: relative;
+  }
+  .cell:nth-child(8n) { border-right: 0; }
+  .cell .name {
+    font-size: 10px;
+    color: var(--text-mid);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    text-align: center;
+  }
+  .cell .ic { color: var(--teal); }
+  .cell.size-l .ic { transform: scale(1.6); transform-origin: center; }
+
+  /* SAMPLES STRIP */
+  .samples {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    border-top: 1px solid var(--line-soft);
+  }
+  .samples .stack {
+    padding: 28px 32px;
+    border-right: 1px solid var(--line-soft);
+    display: flex; flex-direction: column; gap: 18px;
+  }
+  .samples .stack:last-child { border-right: 0; }
+  .samples .stack .lbl { font-size: 10px; color: var(--text-low); text-transform: uppercase; letter-spacing: 0.14em; }
+  .samples .stack .row { display: flex; align-items: center; gap: 14px; }
+  .samples .stack .row .ic { color: var(--teal); display: flex; }
+  .samples .stack .row .nm { font-size: 13px; color: var(--text); }
+  .samples .stack .row .meta { margin-left: auto; font-size: 10px; color: var(--text-low); font-family: 'IBM Plex Mono', monospace; }
+
+  /* SAT BG TEST */
+  .sat {
+    border-top: 1px solid var(--line-soft);
+    background:
+      linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0)),
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='400' height='400'><defs><filter id='n'><feTurbulence baseFrequency='0.85' numOctaves='2' seed='5'/><feColorMatrix values='0 0 0 0 0.42  0 0 0 0 0.55  0 0 0 0 0.45  0 0 0 0.4 0'/></filter></defs><rect width='400' height='400' fill='%23617f6e'/><rect width='400' height='400' filter='url(%23n)'/><circle cx='100' cy='150' r='80' fill='%23a8b89a' opacity='0.35'/><circle cx='280' cy='280' r='110' fill='%23456b58' opacity='0.4'/></svg>");
+    background-size: cover;
+    padding: 24px 32px;
+    display: flex; align-items: center; gap: 32px;
+  }
+  .sat .lbl { font-size: 10px; color: rgba(0,0,0,0.6); text-transform: uppercase; letter-spacing: 0.14em; background: rgba(255,255,255,0.7); padding: 4px 8px; border-radius: 3px; font-weight: 600; }
+  .sat .marker {
+    width: 40px; height: 40px;
+    background: white;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+  .sat .marker.ring { background: var(--deep); border: 2px solid white; }
+  .sat .marker.ring .ic { color: var(--teal); }
+  .sat .marker .ic { color: var(--deep); }
+
+  /* PROS / CONS */
+  .pros-cons {
+    display: grid; grid-template-columns: 1fr 1fr;
+    border-top: 1px solid var(--line-soft);
+  }
+  .pros-cons .col {
+    padding: 24px 32px;
+  }
+  .pros-cons .col + .col { border-left: 1px solid var(--line-soft); }
+  .pros-cons h4 { margin: 0 0 14px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.14em; }
+  .pros-cons .pros h4 { color: var(--teal); }
+  .pros-cons .cons h4 { color: var(--warn); }
+  .pros-cons ul { margin: 0; padding: 0; list-style: none; }
+  .pros-cons ul li {
+    font-size: 13px; line-height: 1.55; color: var(--text-mid);
+    padding-left: 18px; position: relative; margin-bottom: 8px;
+  }
+  .pros-cons ul li::before {
+    content: ''; position: absolute; left: 0; top: 9px;
+    width: 8px; height: 1px;
+    background: var(--text-low);
+  }
+
+  /* RECOMMENDATION */
+  .reco {
+    background: linear-gradient(135deg, var(--surface) 0%, var(--surface-2) 100%);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 40px 48px;
+    display: grid; grid-template-columns: auto 1fr auto; gap: 32px;
+    align-items: center;
+  }
+  .reco .seal {
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    border: 1px solid var(--teal);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--teal);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    text-align: center;
+    line-height: 1.2;
+  }
+  .reco h3 { margin: 0 0 8px; font-size: 22px; font-weight: 700; letter-spacing: -0.015em; }
+  .reco p { margin: 0; color: var(--text-mid); font-size: 14px; line-height: 1.55; max-width: 720px; }
+  .reco .pick {
+    background: var(--teal);
+    color: var(--deep);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    padding: 12px 20px;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <header class="head">
+    <div>
+      <div class="mono caps label">MOOD BOARD · ICONOGRAPHIE</div>
+      <h1>Trois directions à comparer avant de produire les 56 icônes.</h1>
+    </div>
+    <div class="meta">
+      <strong>Échantillon test : 8 icônes représentatives</strong><br/>
+      Vague · Marée · Vent · Profondeur · Masque<br/>
+      Œil-visi · Pin GPS · Bouée<br/><br/>
+      Style retenu → production des 56 SVG
+    </div>
+  </header>
+
+  <!-- INTRO CONSTRAINTS -->
+  <section class="intro">
+    <div class="cell">
+      <div class="k mono caps">Format</div>
+      <div class="v"><strong>SVG 24×24</strong> (UI), 32×32 (marqueurs carte). Stroke 1.5px standard, 2px à 32-48px.</div>
+    </div>
+    <div class="cell">
+      <div class="k mono caps">Trait</div>
+      <div class="v"><strong>linecap & linejoin: round</strong>. 2 poids max. Pas de fill (sauf marqueurs).</div>
+    </div>
+    <div class="cell">
+      <div class="k mono caps">Contextes</div>
+      <div class="v">Fond <strong>Talisker #0A1520</strong> (UI) + fond <strong>satellite clair</strong> (carte). Doit fonctionner sur les deux.</div>
+    </div>
+    <div class="cell">
+      <div class="k mono caps">Interdits</div>
+      <div class="v">Pas de gradient, pas de filtre, pas de cartoon, pas de folklore. Outil de pro.</div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════ -->
+  <!-- DIRECTION A — GEOMETRIC PRECISION             -->
+  <!-- ════════════════════════════════════════════ -->
+  <section class="direction" id="dirA">
+    <div class="top">
+      <div>
+        <div class="mono caps badge">DIRECTION A · 01 / 03</div>
+        <h2>Précision géométrique</h2>
+        <p class="pitch">
+          Tracés <em>secs et calibrés</em>. Lignes droites, courbes épurées au minimum nécessaire. Inspiration : <em>instruments de mesure</em>, cartes marines IGN, tableau de bord cockpit. Chaque icône est un schéma technique. Confiance par la rigueur. Lecture rapide, mémorisation forte.
+        </p>
+      </div>
+      <div class="specs-list">
+        <div class="row"><div class="k">Stroke</div><div class="v"><code>1.5px</code> uniforme</div></div>
+        <div class="row"><div class="k">Géométrie</div><div class="v">Cercles, segments, angles 30/45/60°</div></div>
+        <div class="row"><div class="k">Courbes</div><div class="v">Quadratic bézier, contrôlées</div></div>
+        <div class="row"><div class="k">Densité</div><div class="v">Faible · 3-5 éléments / icône</div></div>
+        <div class="row"><div class="k">Référence</div><div class="v">Apple SF Symbols, Phosphor</div></div>
+      </div>
+    </div>
+
+    <!-- Icon grid -->
+    <div class="grid">
+      <!-- Vague -->
+      <div class="cell">
+        <svg class="ic" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 14 Q 7.5 8 12 11 T 21 12"/>
+          <path d="M3 18 Q 7.5 12 12 15 T 21 16" opacity="0.55"/>
+        </svg>
+        <div class="name">Vague</div>
+      </div>
+      <!-- Marée -->
+      <div class="cell">
+        <svg class="ic" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 12 Q 6 6 12 12 T 22 12"/>
+          <line x1="2" y1="20" x2="22" y2="20" opacity="0.4"/>
+        </svg>
+        <div class="name">Marée</div>
+      </div>
+      <!-- Vent -->
+      <div class="cell">
+        <svg class="ic" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="4" y1="12" x2="18" y2="12"/>
+          <polyline points="14,7 19,12 14,17"/>
+          <line x1="3" y1="7" x2="9" y2="7" opacity="0.5"/>
+          <line x1="3" y1="17" x2="9" y2="17" opacity="0.5"/>
+        </svg>
+        <div class="name">Vent</div>
+      </div>
+      <!-- Profondeur -->
+      <div class="cell">
+        <svg class="ic" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="3" x2="12" y2="20"/>
+          <polyline points="7,15 12,20 17,15"/>
+          <line x1="6" y1="6" x2="9" y2="6" opacity="0.5"/>
+          <line x1="6" y1="10" x2="9" y2="10" opacity="0.5"/>
+          <line x1="6" y1="14" x2="9" y2="14" opacity="0.5"/>
+        </svg>
+        <div class="name">Profondeur</div>
+      </div>
+      <!-- Masque (signature) -->
+      <div class="cell">
+        <svg class="ic" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="4" y="8" width="16" height="9" rx="2"/>
+          <line x1="12" y1="8" x2="12" y2="17" opacity="0.4"/>
+          <path d="M3 10 L 1 8" opacity="0.6"/>
+          <path d="M21 10 L 23 8" opacity="0.6"/>
+        </svg>
+        <div class="name">Masque</div>
+      </div>
+      <!-- Œil visi -->
+      <div class="cell">
+        <svg class="ic" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 12 Q 12 4 22 12 Q 12 20 2 12 Z"/>
+          <circle cx="12" cy="12" r="2.5"/>
+        </svg>
+        <div class="name">Œil visi</div>
+      </div>
+      <!-- Pin GPS -->
+      <div class="cell">
+        <svg class="ic" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2 C 7 2 4 5.5 4 10 C 4 15 12 22 12 22 C 12 22 20 15 20 10 C 20 5.5 17 2 12 2 Z"/>
+          <circle cx="12" cy="10" r="2.5"/>
+        </svg>
+        <div class="name">Pin GPS</div>
+      </div>
+      <!-- Bouée -->
+      <div class="cell">
+        <svg class="ic" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="11" r="5"/>
+          <line x1="12" y1="2" x2="12" y2="6"/>
+          <line x1="9" y1="3" x2="15" y2="3"/>
+          <path d="M7 16 L 12 21 L 17 16" opacity="0.6"/>
+        </svg>
+        <div class="name">Bouée</div>
+      </div>
+    </div>
+
+    <!-- Sample sizes -->
+    <div class="samples">
+      <div class="stack">
+        <div class="lbl mono caps">Taille 16 · inline texte</div>
+        <div class="row"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 14 Q 7.5 8 12 11 T 21 12"/><path d="M3 18 Q 7.5 12 12 15 T 21 16" opacity="0.55"/></svg></span><span class="nm">Conditions Vagues</span><span class="meta">2.1m · 8s</span></div>
+        <div class="row"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12 Q 6 6 12 12 T 22 12"/></svg></span><span class="nm">Marée descendante</span><span class="meta">−2h14</span></div>
+        <div class="row"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="12" x2="18" y2="12"/><polyline points="14,7 19,12 14,17"/></svg></span><span class="nm">Vent NE</span><span class="meta">12 kn</span></div>
+      </div>
+      <div class="stack">
+        <div class="lbl mono caps">Taille 24 · UI standard</div>
+        <div class="row"><span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="9" rx="2"/><line x1="12" y1="8" x2="12" y2="17" opacity="0.4"/><path d="M3 10 L 1 8" opacity="0.6"/><path d="M21 10 L 23 8" opacity="0.6"/></svg></span><span class="nm">Observation</span><span class="meta">il y a 4h</span></div>
+        <div class="row"><span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12 Q 12 4 22 12 Q 12 20 2 12 Z"/><circle cx="12" cy="12" r="2.5"/></svg></span><span class="nm">Visi excellente</span><span class="meta">8m</span></div>
+      </div>
+      <div class="stack">
+        <div class="lbl mono caps">Taille 40 · header section</div>
+        <div class="row"><span class="ic"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="3" x2="12" y2="20"/><polyline points="7,15 12,20 17,15"/><line x1="6" y1="6" x2="9" y2="6" opacity="0.5"/><line x1="6" y1="10" x2="9" y2="10" opacity="0.5"/><line x1="6" y1="14" x2="9" y2="14" opacity="0.5"/></svg></span><span class="nm">Profondeur sondée</span></div>
+      </div>
+    </div>
+
+    <!-- Satellite test -->
+    <div class="sat">
+      <span class="lbl">Sur fond satellite</span>
+      <div class="marker"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="9" rx="2"/><line x1="12" y1="8" x2="12" y2="17" opacity="0.4"/></svg></span></div>
+      <div class="marker ring"><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="8" width="16" height="9" rx="2"/><line x1="12" y1="8" x2="12" y2="17" opacity="0.4"/></svg></span></div>
+      <div class="marker"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 C 7 2 4 5.5 4 10 C 4 15 12 22 12 22 C 12 22 20 15 20 10 C 20 5.5 17 2 12 2 Z"/></svg></span></div>
+      <div style="margin-left:auto; font-size: 11px; color: rgba(0,0,0,0.7); font-family: 'IBM Plex Mono', monospace; background: rgba(255,255,255,0.7); padding: 4px 8px; border-radius: 3px;">Pastille blanche · ring teal · pastille blanche</div>
+    </div>
+
+    <div class="pros-cons">
+      <div class="col pros">
+        <h4>+ Forces</h4>
+        <ul>
+          <li>Lecture instantanée, mémorisation forte — chaque icône est un sigle</li>
+          <li>Reste lisible à 12px (UI dense, popups, légendes carte)</li>
+          <li>Cohérence forte avec instruments marins (compas, sondeur, baromètre)</li>
+          <li>Production rapide et reproductible — système strict, peu d'arbitrage</li>
+          <li>Accessibilité : tracés solides, pas de subtilité qui se perd au scaling</li>
+        </ul>
+      </div>
+      <div class="col cons">
+        <h4>− Limites</h4>
+        <ul>
+          <li>Risque de générer un look "tech-startup" malgré le brief outdoor</li>
+          <li>Contraste faible avec le logo Cascade (organique, vague) — clash possible</li>
+          <li>L'icône Masque manque de chair, peut paraître froide</li>
+          <li>Peu de signature — proche de SF Symbols / Phosphor stock</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════ -->
+  <!-- DIRECTION B — ORGANIC CASCADE                 -->
+  <!-- ════════════════════════════════════════════ -->
+  <section class="direction" id="dirB">
+    <div class="top">
+      <div>
+        <div class="mono caps badge">DIRECTION B · 02 / 03</div>
+        <h2>Cascade organique</h2>
+        <p class="pitch">
+          ADN du <em>logo Cascade</em> appliqué partout. Chaque icône emprunte les courbes du logo : <em>arcs détendus, terminaisons larges, deux poids de stroke</em> qui se répondent (3px / 1.5px). Le système entier respire la même ondulation. Signature visuelle forte, mais demande de la discipline pour ne pas devenir mou.
+        </p>
+      </div>
+      <div class="specs-list">
+        <div class="row"><div class="k">Stroke</div><div class="v"><code>2px</code> primaire + <code>1.5px</code> secondaire</div></div>
+        <div class="row"><div class="k">Géométrie</div><div class="v">Courbes quadratic & cubic uniquement</div></div>
+        <div class="row"><div class="k">Hiérarchie</div><div class="v">Trait épais = élément principal</div></div>
+        <div class="row"><div class="k">Densité</div><div class="v">Moyenne · 4-7 éléments / icône</div></div>
+        <div class="row"><div class="k">Référence</div><div class="v">Strava · Patagonia · Surfline</div></div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- Vague -->
+      <div class="cell">
+        <svg class="ic" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 11 Q 8 5 14 11 T 22 12" stroke-width="2"/>
+          <path d="M2 16 Q 8 11 14 16 T 22 16" stroke-width="1.5" opacity="0.7"/>
+          <path d="M2 20 Q 8 17 14 20 T 22 20" stroke-width="1" opacity="0.45"/>
+        </svg>
+        <div class="name">Vague</div>
+      </div>
+      <!-- Marée -->
+      <div class="cell">
+        <svg class="ic" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 14 C 5 6, 9 22, 12 14 S 19 6, 22 14" stroke-width="2"/>
+        </svg>
+        <div class="name">Marée</div>
+      </div>
+      <!-- Vent -->
+      <div class="cell">
+        <svg class="ic" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 8 Q 11 8 16 7 Q 21 6 19 3" stroke-width="2"/>
+          <path d="M2 13 Q 13 13 18 12 Q 22 11 21 9" stroke-width="1.5" opacity="0.7"/>
+          <path d="M2 18 Q 9 18 13 17" stroke-width="1.5" opacity="0.55"/>
+        </svg>
+        <div class="name">Vent</div>
+      </div>
+      <!-- Profondeur -->
+      <div class="cell">
+        <svg class="ic" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 5 Q 8 7 12 5 T 21 5" stroke-width="2"/>
+          <path d="M5 11 Q 9 12 12 11 T 19 11" stroke-width="1.5" opacity="0.65"/>
+          <path d="M7 17 Q 10 17 12 17 T 17 17" stroke-width="1.5" opacity="0.45"/>
+          <circle cx="12" cy="21" r="0.8" fill="currentColor" stroke="none"/>
+        </svg>
+        <div class="name">Profondeur</div>
+      </div>
+      <!-- Masque -->
+      <div class="cell">
+        <svg class="ic" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 10 Q 3 7 6 7 L 11 7 Q 12 7 12 8 Q 12 7 13 7 L 18 7 Q 21 7 21 10 L 21 14 Q 21 17 18 17 L 14 17 Q 12 17 12 15 Q 12 17 10 17 L 6 17 Q 3 17 3 14 Z" stroke-width="2"/>
+          <path d="M2 8 L 0.5 6.5" stroke-width="1.5" opacity="0.6"/>
+        </svg>
+        <div class="name">Masque</div>
+      </div>
+      <!-- Œil visi -->
+      <div class="cell">
+        <svg class="ic" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 12 Q 7 5 12 5 Q 17 5 22 12 Q 17 19 12 19 Q 7 19 2 12 Z" stroke-width="2"/>
+          <circle cx="12" cy="12" r="3" stroke-width="1.5"/>
+        </svg>
+        <div class="name">Œil visi</div>
+      </div>
+      <!-- Pin GPS -->
+      <div class="cell">
+        <svg class="ic" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2 Q 5 2 5 9 Q 5 14 12 22 Q 19 14 19 9 Q 19 2 12 2 Z" stroke-width="2"/>
+          <circle cx="12" cy="9" r="2.5" stroke-width="1.5"/>
+        </svg>
+        <div class="name">Pin GPS</div>
+      </div>
+      <!-- Bouée -->
+      <div class="cell">
+        <svg class="ic" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+          <ellipse cx="12" cy="12" rx="5" ry="5" stroke-width="2"/>
+          <path d="M9 3 Q 12 5 15 3" stroke-width="2"/>
+          <path d="M5 18 Q 9 22 12 21 Q 15 22 19 18" stroke-width="1.5" opacity="0.65"/>
+        </svg>
+        <div class="name">Bouée</div>
+      </div>
+    </div>
+
+    <div class="samples">
+      <div class="stack">
+        <div class="lbl mono caps">Taille 16 · inline texte</div>
+        <div class="row"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M2 11 Q 8 5 14 11 T 22 12" stroke-width="2.5"/><path d="M2 16 Q 8 11 14 16 T 22 16" stroke-width="1.8" opacity="0.7"/></svg></span><span class="nm">Conditions Vagues</span><span class="meta">2.1m · 8s</span></div>
+        <div class="row"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M2 14 C 5 6, 9 22, 12 14 S 19 6, 22 14" stroke-width="2.5"/></svg></span><span class="nm">Marée descendante</span><span class="meta">−2h14</span></div>
+        <div class="row"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8 Q 11 8 16 7 Q 21 6 19 3" stroke-width="2.5"/><path d="M2 13 Q 13 13 18 12 Q 22 11 21 9" stroke-width="2" opacity="0.7"/></svg></span><span class="nm">Vent NE</span><span class="meta">12 kn</span></div>
+      </div>
+      <div class="stack">
+        <div class="lbl mono caps">Taille 24 · UI standard</div>
+        <div class="row"><span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10 Q 3 7 6 7 L 11 7 Q 12 7 12 8 Q 12 7 13 7 L 18 7 Q 21 7 21 10 L 21 14 Q 21 17 18 17 L 14 17 Q 12 17 12 15 Q 12 17 10 17 L 6 17 Q 3 17 3 14 Z" stroke-width="2"/></svg></span><span class="nm">Observation</span><span class="meta">il y a 4h</span></div>
+        <div class="row"><span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12 Q 7 5 12 5 Q 17 5 22 12 Q 17 19 12 19 Q 7 19 2 12 Z" stroke-width="2"/><circle cx="12" cy="12" r="3" stroke-width="1.5"/></svg></span><span class="nm">Visi excellente</span><span class="meta">8m</span></div>
+      </div>
+      <div class="stack">
+        <div class="lbl mono caps">Taille 40 · header section</div>
+        <div class="row"><span class="ic"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5 Q 8 7 12 5 T 21 5" stroke-width="1.5"/><path d="M5 11 Q 9 12 12 11 T 19 11" stroke-width="1.2" opacity="0.65"/><path d="M7 17 Q 10 17 12 17 T 17 17" stroke-width="1.2" opacity="0.45"/></svg></span><span class="nm">Profondeur sondée</span></div>
+      </div>
+    </div>
+
+    <div class="sat">
+      <span class="lbl">Sur fond satellite</span>
+      <div class="marker"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10 Q 3 7 6 7 L 11 7 Q 12 7 12 8 Q 12 7 13 7 L 18 7 Q 21 7 21 10 L 21 14 Q 21 17 18 17 L 14 17 Q 12 17 12 15 Q 12 17 10 17 L 6 17 Q 3 17 3 14 Z" stroke-width="2.4"/></svg></span></div>
+      <div class="marker ring"><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10 Q 3 7 6 7 L 11 7 Q 12 7 12 8 Q 12 7 13 7 L 18 7 Q 21 7 21 10 L 21 14 Q 21 17 18 17 L 14 17 Q 12 17 12 15 Q 12 17 10 17 L 6 17 Q 3 17 3 14 Z" stroke-width="2.4"/></svg></span></div>
+      <div class="marker"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 Q 5 2 5 9 Q 5 14 12 22 Q 19 14 19 9 Q 19 2 12 2 Z" stroke-width="2.4"/></svg></span></div>
+      <div style="margin-left:auto; font-size: 11px; color: rgba(0,0,0,0.7); font-family: 'IBM Plex Mono', monospace; background: rgba(255,255,255,0.7); padding: 4px 8px; border-radius: 3px;">Stroke 2.4 sur pastille pour contraste</div>
+    </div>
+
+    <div class="pros-cons">
+      <div class="col pros">
+        <h4>+ Forces</h4>
+        <ul>
+          <li>Cohérence absolue avec le logo Cascade — système parle d'une seule voix</li>
+          <li>Signature reconnaissable, distance maximale avec stocks d'icônes génériques</li>
+          <li>Le double poids crée une hiérarchie visuelle naturelle dans chaque icône</li>
+          <li>Ton outdoor-sport ancré (Strava, Patagonia) — match avec la cible chasseur</li>
+          <li>Le masque, central, devient un objet plein de chair, mémorisable</li>
+        </ul>
+      </div>
+      <div class="col cons">
+        <h4>− Limites</h4>
+        <ul>
+          <li>Plus long à dessiner — chaque icône demande de l'arbitrage de courbure</li>
+          <li>Risque de "molesse" si la discipline lâche — courbes peuvent devenir flou</li>
+          <li>Lisibilité à 12-14px à vérifier soigneusement (le double poids peut empâter)</li>
+          <li>Icônes "instrumentales" (sondeur, baromètre) plus dures à styler en organique</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════════ -->
+  <!-- DIRECTION C — HYBRID NAUTICAL                 -->
+  <!-- ════════════════════════════════════════════ -->
+  <section class="direction" id="dirC">
+    <div class="top">
+      <div>
+        <div class="mono caps badge">DIRECTION C · 03 / 03</div>
+        <h2>Hybride nautique</h2>
+        <p class="pitch">
+          Compromis entre A et B : <em>structure géométrique</em> mais <em>terminaisons et courbes empruntées au logo</em>. On ajoute une signature unique : un <em>arc inférieur</em> récurrent qui ancre la majorité des icônes — comme une ligne d'horizon ou une coque. Présence forte, lisibilité préservée.
+        </p>
+      </div>
+      <div class="specs-list">
+        <div class="row"><div class="k">Stroke</div><div class="v"><code>1.5px</code> uniforme + remplissage solide</div></div>
+        <div class="row"><div class="k">Géométrie</div><div class="v">Hybride : segments + courbes, arc-base récurrent</div></div>
+        <div class="row"><div class="k">Signature</div><div class="v">Arc inférieur = ligne d'eau / coque</div></div>
+        <div class="row"><div class="k">Densité</div><div class="v">Moyenne · 3-6 éléments / icône</div></div>
+        <div class="row"><div class="k">Référence</div><div class="v">Hurley, North Sails, Boat-charter UI</div></div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- Vague -->
+      <div class="cell">
+        <svg class="ic" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 12 Q 7 6 12 9 T 21 10"/>
+          <path d="M3 16 Q 7 12 12 14 T 21 15" opacity="0.55"/>
+          <path d="M2 20 Q 12 22 22 20" stroke-width="1"/>
+        </svg>
+        <div class="name">Vague</div>
+      </div>
+      <!-- Marée -->
+      <div class="cell">
+        <svg class="ic" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 11 Q 7 4 12 11 T 22 11"/>
+          <path d="M2 20 Q 12 22 22 20" stroke-width="1"/>
+        </svg>
+        <div class="name">Marée</div>
+      </div>
+      <!-- Vent -->
+      <div class="cell">
+        <svg class="ic" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 9 L 16 9 Q 20 9 20 6"/>
+          <path d="M3 14 L 14 14 Q 17 14 17 11" opacity="0.7"/>
+          <path d="M2 20 Q 12 22 22 20" stroke-width="1"/>
+        </svg>
+        <div class="name">Vent</div>
+      </div>
+      <!-- Profondeur -->
+      <div class="cell">
+        <svg class="ic" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M2 6 Q 12 3 22 6" stroke-width="1"/>
+          <line x1="12" y1="6" x2="12" y2="17"/>
+          <polyline points="9,14 12,17 15,14"/>
+          <path d="M2 20 Q 12 22 22 20" stroke-width="1"/>
+        </svg>
+        <div class="name">Profondeur</div>
+      </div>
+      <!-- Masque (signature) -->
+      <div class="cell">
+        <svg class="ic" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 9 Q 4 7 6 7 L 18 7 Q 20 7 20 9 L 20 13 Q 20 15 18 15 L 14 15 Q 12 15 12 13 Q 12 15 10 15 L 6 15 Q 4 15 4 13 Z"/>
+          <path d="M3 9 L 1.5 7.5"/>
+          <path d="M2 20 Q 12 22 22 20" stroke-width="1"/>
+        </svg>
+        <div class="name">Masque</div>
+      </div>
+      <!-- Œil visi -->
+      <div class="cell">
+        <svg class="ic" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 11 Q 12 4 21 11 Q 12 17 3 11 Z"/>
+          <circle cx="12" cy="11" r="2"/>
+          <path d="M2 20 Q 12 22 22 20" stroke-width="1"/>
+        </svg>
+        <div class="name">Œil visi</div>
+      </div>
+      <!-- Pin GPS -->
+      <div class="cell">
+        <svg class="ic" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2 Q 6 2 6 8 Q 6 13 12 19 Q 18 13 18 8 Q 18 2 12 2 Z"/>
+          <circle cx="12" cy="8" r="2"/>
+          <path d="M2 22 Q 12 24 22 22" stroke-width="1" opacity="0.7"/>
+        </svg>
+        <div class="name">Pin GPS</div>
+      </div>
+      <!-- Bouée -->
+      <div class="cell">
+        <svg class="ic" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="10" r="4.5"/>
+          <line x1="12" y1="2" x2="12" y2="5.5"/>
+          <line x1="9" y1="3" x2="15" y2="3"/>
+          <path d="M2 20 Q 12 22 22 20" stroke-width="1"/>
+        </svg>
+        <div class="name">Bouée</div>
+      </div>
+    </div>
+
+    <div class="samples">
+      <div class="stack">
+        <div class="lbl mono caps">Taille 16 · inline texte</div>
+        <div class="row"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12 Q 7 6 12 9 T 21 10"/><path d="M2 20 Q 12 22 22 20" stroke-width="1.2"/></svg></span><span class="nm">Conditions Vagues</span><span class="meta">2.1m · 8s</span></div>
+        <div class="row"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 11 Q 7 4 12 11 T 22 11"/><path d="M2 20 Q 12 22 22 20" stroke-width="1.2"/></svg></span><span class="nm">Marée descendante</span><span class="meta">−2h14</span></div>
+        <div class="row"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9 L 16 9 Q 20 9 20 6"/><path d="M2 20 Q 12 22 22 20" stroke-width="1.2"/></svg></span><span class="nm">Vent NE</span><span class="meta">12 kn</span></div>
+      </div>
+      <div class="stack">
+        <div class="lbl mono caps">Taille 24 · UI standard</div>
+        <div class="row"><span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9 Q 4 7 6 7 L 18 7 Q 20 7 20 9 L 20 13 Q 20 15 18 15 L 14 15 Q 12 15 12 13 Q 12 15 10 15 L 6 15 Q 4 15 4 13 Z"/><path d="M2 20 Q 12 22 22 20" stroke-width="1"/></svg></span><span class="nm">Observation</span><span class="meta">il y a 4h</span></div>
+        <div class="row"><span class="ic"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 Q 12 4 21 11 Q 12 17 3 11 Z"/><circle cx="12" cy="11" r="2"/><path d="M2 20 Q 12 22 22 20" stroke-width="1"/></svg></span><span class="nm">Visi excellente</span><span class="meta">8m</span></div>
+      </div>
+      <div class="stack">
+        <div class="lbl mono caps">Taille 40 · header section</div>
+        <div class="row"><span class="ic"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6 Q 12 3 22 6" stroke-width="0.8"/><line x1="12" y1="6" x2="12" y2="17"/><polyline points="9,14 12,17 15,14"/><path d="M2 20 Q 12 22 22 20" stroke-width="0.8"/></svg></span><span class="nm">Profondeur sondée</span></div>
+      </div>
+    </div>
+
+    <div class="sat">
+      <span class="lbl">Sur fond satellite</span>
+      <div class="marker"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9 Q 4 7 6 7 L 18 7 Q 20 7 20 9 L 20 13 Q 20 15 18 15 L 14 15 Q 12 15 12 13 Q 12 15 10 15 L 6 15 Q 4 15 4 13 Z"/></svg></span></div>
+      <div class="marker ring"><span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9 Q 4 7 6 7 L 18 7 Q 20 7 20 9 L 20 13 Q 20 15 18 15 L 14 15 Q 12 15 12 13 Q 12 15 10 15 L 6 15 Q 4 15 4 13 Z"/></svg></span></div>
+      <div class="marker"><span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 Q 6 2 6 8 Q 6 13 12 19 Q 18 13 18 8 Q 18 2 12 2 Z"/></svg></span></div>
+      <div style="margin-left:auto; font-size: 11px; color: rgba(0,0,0,0.7); font-family: 'IBM Plex Mono', monospace; background: rgba(255,255,255,0.7); padding: 4px 8px; border-radius: 3px;">L'arc-base disparaît sur marqueurs (espace réduit)</div>
+    </div>
+
+    <div class="pros-cons">
+      <div class="col pros">
+        <h4>+ Forces</h4>
+        <ul>
+          <li>L'arc-base devient un signe de reconnaissance Visimer — équivalent du smile Amazon</li>
+          <li>Lisibilité préservée (structure géométrique) ET signature forte (courbes)</li>
+          <li>Compatibilité avec icônes "instrumentales" (sondeur, baromètre) sans heurt</li>
+          <li>Le système peut basculer en "mode marqueur" en retirant l'arc-base — modulaire</li>
+          <li>Distance forte avec les stocks — système identifiable en un coup d'œil</li>
+        </ul>
+      </div>
+      <div class="col cons">
+        <h4>− Limites</h4>
+        <ul>
+          <li>L'arc-base ajoute du bruit — peut gêner sur les icônes très petites (<14px)</li>
+          <li>Risque de devenir un tic visuel si appliqué sans discipline (ex : icônes pas marines)</li>
+          <li>Demande une règle claire : quand l'arc-base s'applique, quand il disparaît</li>
+          <li>Plus complexe à documenter pour les designers qui hériteront du système</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- RECOMMENDATION -->
+  <section class="reco">
+    <div class="seal">B<br/>Reco</div>
+    <div>
+      <h3>Direction recommandée : Cascade organique</h3>
+      <p>C'est la direction qui crée la cohérence la plus forte avec le logo et qui pose la signature la plus distinctive. Le risque de mollesse est le seul vrai écueil — on le neutralise avec une grille stricte et un audit de lisibilité à 14px. La direction A reste un excellent fallback pour les icônes "instrumentales" (sondeur, baromètre, boussole) si la cohérence courbe devient trop forcée — on peut aussi envisager un système mixte B-dominant + A-fallback.</p>
+    </div>
+    <div class="pick">→ valider B</div>
+  </section>
+
+</div>
+
+</body>
+</html>
