@@ -6790,3 +6790,40 @@ function vzmInit() {
     setTimeout(vzmPatch7, 1000);
   }
 })();
+// ============================================================
+// VISIMER PATCH 8 — Padding bottom pour atteindre les boutons
+// À COLLER à la toute fin de vizi-app.js (après PATCH 7)
+// ============================================================
+
+(function() {
+  'use strict';
+
+  function vzmPatch8() {
+    var drawer = document.getElementById('spotDrawerMobile');
+    if (!drawer) {
+      setTimeout(vzmPatch8, 200);
+      return;
+    }
+
+    var content = drawer.querySelector('.vzm-content');
+    if (!content) {
+      setTimeout(vzmPatch8, 200);
+      return;
+    }
+
+    // Ajoute un gros padding bottom : 200px pour que tout le contenu (boutons inclus)
+    // soit accessible au scroll même quand le drawer est en mid (70vh)
+    // + safe-area pour iOS notch
+    content.style.paddingBottom = 'calc(200px + env(safe-area-inset-bottom, 0px))';
+
+    console.log('[VZM Patch 8] Padding bottom 200px ajouté');
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+      setTimeout(vzmPatch8, 1200);
+    });
+  } else {
+    setTimeout(vzmPatch8, 1200);
+  }
+})();
