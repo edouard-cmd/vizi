@@ -4573,7 +4573,162 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
     </div>
   </div>
 </div>
+<!-- ============================================================
+     VISIMER MOCKUP V4 — DRAWER MOBILE
+     À COLLER dans index.html, JUSTE APRÈS la balise </div> 
+     qui ferme le #spotDrawer existant
+     ============================================================ -->
 
+<div id="spotDrawerMobile" class="vzm-mid">
+  <div class="vzm-handle" id="vzmHandle"></div>
+  <button class="vzm-close" onclick="closeSpotPopup()" aria-label="Fermer">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="18" y1="6" x2="6" y2="18"></line>
+      <line x1="6" y1="6" x2="18" y2="18"></line>
+    </svg>
+  </button>
+
+  <div class="vzm-content" id="vzmContent">
+
+    <!-- ===== TIER PEEK (toujours visible) ===== -->
+    <div class="vzm-spot-header">
+      <div class="vzm-spot-name">
+        <h2 id="vzmSpotTitle">Spot</h2>
+        <span class="vzm-spot-distance" id="vzmSpotDistance">—</span>
+      </div>
+
+      <div class="vzm-verdict vzm-nulle" id="vzmVerdict">
+        <div class="vzm-verdict-row">
+          <div class="vzm-verdict-badge" id="vzmVerdictBadge">—</div>
+          <div class="vzm-verdict-meta">
+            <span class="vzm-verdict-label">Visibilité estimée</span>
+            <span class="vzm-verdict-value" id="vzmVerdictValue">—</span>
+          </div>
+        </div>
+        <p class="vzm-verdict-explain" id="vzmVerdictExplain">
+          Chargement des conditions...
+        </p>
+      </div>
+
+      <div class="vzm-forecast">
+        <div class="vzm-forecast-header">
+          <span class="vzm-forecast-title">7 prochains jours</span>
+          <span class="vzm-forecast-subtitle">Tape un jour pour le détail</span>
+        </div>
+        <div class="vzm-forecast-grid" id="vzmForecastGrid"></div>
+        <div class="vzm-day-detail" id="vzmDayDetail">
+          <div class="vzm-day-detail-inner">
+            <div class="vzm-day-detail-title">
+              <span id="vzmDetailDayLabel">—</span>
+              <span class="vzm-day-detail-viz" id="vzmDetailViz">—</span>
+            </div>
+            <div class="vzm-tide-row" id="vzmDetailTides"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hint progressif -->
+    <div class="vzm-tier-hint" id="vzmTierHint">
+      <span class="vzm-tier-hint-arrow">▲</span><span id="vzmTierHintText">Tire vers le haut pour les conditions détaillées</span>
+    </div>
+
+    <!-- ===== TIER MID ===== -->
+    <div class="vzm-tier-mid">
+      <div class="vzm-section vzm-open">
+        <button class="vzm-section-toggle" type="button">
+          <span class="vzm-section-toggle-label">Conditions actuelles</span>
+          <span class="vzm-section-toggle-icon">▾</span>
+        </button>
+        <div class="vzm-section-body">
+          <div class="vzm-section-content">
+            <div class="vzm-stats-grid">
+              <div class="vzm-stat">
+                <div class="vzm-stat-label">Vent</div>
+                <div class="vzm-stat-value" id="vzmStatWind">—</div>
+                <div class="vzm-stat-unit" id="vzmStatWindUnit">nœuds</div>
+              </div>
+              <div class="vzm-stat">
+                <div class="vzm-stat-label">Rafales</div>
+                <div class="vzm-stat-value" id="vzmStatGusts">—</div>
+                <div class="vzm-stat-unit" id="vzmStatGustsUnit">nœuds</div>
+              </div>
+              <div class="vzm-stat">
+                <div class="vzm-stat-label">Direction</div>
+                <div class="vzm-stat-value" id="vzmStatDir">—</div>
+                <div class="vzm-stat-unit" id="vzmStatDirLabel">—</div>
+              </div>
+              <div class="vzm-stat">
+                <div class="vzm-stat-label">Profondeur</div>
+                <div class="vzm-stat-value vzm-accent" id="vzmStatDepth">—</div>
+                <div class="vzm-stat-unit">mètres</div>
+              </div>
+              <div class="vzm-stat">
+                <div class="vzm-stat-label">Coef marée</div>
+                <div class="vzm-stat-value" id="vzmStatCoef">—</div>
+                <div class="vzm-stat-unit" id="vzmStatCoefDesc">—</div>
+              </div>
+              <div class="vzm-stat">
+                <div class="vzm-stat-label">Temp. mer</div>
+                <div class="vzm-stat-value" id="vzmStatTemp">—</div>
+                <div class="vzm-stat-unit">celsius</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="vzm-actions">
+        <button class="vzm-btn vzm-btn-secondary" onclick="openObsSheet()">Améliorer les prévisions</button>
+      </div>
+    </div>
+
+    <!-- ===== TIER FULL ===== -->
+    <div class="vzm-tier-full">
+      <div class="vzm-section">
+        <button class="vzm-section-toggle" type="button">
+          <span class="vzm-section-toggle-label">Pourquoi cette visibilité ?</span>
+          <span class="vzm-section-toggle-icon">▾</span>
+        </button>
+        <div class="vzm-section-body">
+          <div class="vzm-explain-content">
+            <div class="vzm-explain-card">
+              <div class="vzm-explain-row">
+                <div class="vzm-explain-label">Vent</div>
+                <div class="vzm-explain-text" id="vzmExplainWind">—</div>
+              </div>
+              <div class="vzm-explain-row">
+                <div class="vzm-explain-label">Fond</div>
+                <div class="vzm-explain-text" id="vzmExplainBottom">—</div>
+              </div>
+              <div class="vzm-explain-row">
+                <div class="vzm-explain-label">Brassage</div>
+                <div class="vzm-explain-text" id="vzmExplainBrassage">—</div>
+              </div>
+            </div>
+            <div class="vzm-explain-verdict" id="vzmExplainVerdict">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="vzm-section">
+        <button class="vzm-section-toggle" type="button">
+          <span class="vzm-section-toggle-label">Marées de la semaine</span>
+          <span class="vzm-section-toggle-icon">▾</span>
+        </button>
+        <div class="vzm-section-body">
+          <div class="vzm-weektides-content" id="vzmWeektidesContent"></div>
+        </div>
+      </div>
+
+      <div class="vzm-actions">
+        <button class="vzm-btn vzm-btn-primary" onclick="openObsSheet()">Partager la visibilité</button>
+        <button class="vzm-btn vzm-btn-secondary" onclick="openSessionModal()">Enregistrer ma session</button>
+      </div>
+    </div>
+
+  </div>
+</div>
 <div id="loginOverlay" onclick="if(event.target===this) closeLogin()">
   <div id="loginModal">
     <button class="login-close" onclick="closeLogin()">x</button>
