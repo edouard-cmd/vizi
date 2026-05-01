@@ -6408,3 +6408,63 @@ function escapeHtml(s) {
   }
 
 })();
+// ============================================================
+// VISIMER PATCH 2 — Ouverture en peek + handle toujours accessible
+// À COLLER à la toute fin de vizi-app.js (après PATCH_DRAG.js)
+// ============================================================
+
+(function() {
+  'use strict';
+
+  function vzmPatch2() {
+    var drawer = document.getElementById('spotDrawerMobile');
+    if (!drawer) {
+      setTimeout(vzmPatch2, 200);
+      return;
+    }
+
+    // === 1. Ouvrir en PEEK par défaut au lieu de MID ===
+    var _origOpen = window.openSpotPopup;
+    window.openSpotPopup = function(latlng, name) {
+      if (typeof _origOpen === 'function') _origOpen.call(this, latlng, name);
+      if (window.innerWidth > 768) return;
+      var d = document.getElementById('spotDrawerMobile');
+      if (d) {
+        d.classList.remove('vzm-closed', 'vzm-mid', 'vzm-full');
+        d.classList.add('vzm-peek');
+        d.style.transform = '';
+        var hint = document.getElementById('vzmTierHintText');
+        if (hint) hint.textContent = 'Tire vers le haut pour les conditions détaillées';
+      }
+    };
+
+    // === 2. Handle plus gros et toujours accessible ===
+    var handle = document.getElementById('vzmHandle');
+    if (handle) {
+      handle.style.height = '40px';
+      handle.style.position = 'relative';
+      handle.style.zIndex = '10';
+      handle.style.touchAction = 'none';
+      handle.style.flexShrink = '0';
+    }
+
+    // === 3. Bouton close prioritaire ===
+    var closeBtn = drawer.querySelector('.vzm-close');
+    if (closeBtn) {
+      closeBtn.style.zIndex = '20';
+      closeBtn.style.touchAction = 'manipulation';
+    }
+
+    // === 4. Scroll containment pour pas bloquer le drag ===
+    var content = drawer.querySelector('.vzm-content');
+    if (content) {
+      content.style.overscrollBehavior = 'contain';
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', vzmPatch2);
+  } else {
+    vzmPatch2();
+  }
+})();
