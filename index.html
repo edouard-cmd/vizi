@@ -3342,6 +3342,125 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
   line-height: 1.5;
   font-style: italic;
 }
+  /* ============================================================
+   BANNIERE GEOLOCALISATION - Refonte Talisker glassmorphism
+   ============================================================ */
+#geoBanner {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%) translateY(120%);
+  z-index: 1500;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  width: calc(100% - 32px);
+  max-width: 560px;
+  background: var(--vz-bg-glass-strong);
+  backdrop-filter: blur(var(--vz-blur));
+  -webkit-backdrop-filter: blur(var(--vz-blur));
+  border: 0.5px solid var(--vz-accent-border);
+  border-radius: 18px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  color: var(--vz-text-on-dark);
+  transition: transform 0.32s cubic-bezier(.4,0,.2,1), opacity 0.25s;
+  opacity: 0;
+}
+#geoBanner.show {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+
+.geo-banner-icon {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  background: var(--vz-accent-glow);
+  border: 0.5px solid var(--vz-accent-border);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.geo-banner-icon svg {
+  width: 20px;
+  height: 20px;
+  stroke: var(--vz-accent) !important;
+}
+
+.geo-banner-text {
+  flex: 1;
+  min-width: 0;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--vz-text-on-dark-muted);
+}
+.geo-banner-text strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--vz-text-on-dark);
+  letter-spacing: 0.01em;
+  margin-bottom: 2px;
+}
+.geo-banner-text br { display: none; }
+
+.geo-banner-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.geo-btn-skip,
+.geo-btn-primary {
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 14px;
+  border-radius: var(--vz-radius-btn);
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.geo-btn-skip {
+  background: rgba(255,255,255,0.06);
+  border: 0.5px solid var(--vz-border-glass);
+  color: var(--vz-text-on-dark-muted);
+}
+.geo-btn-skip:hover {
+  background: rgba(255,255,255,0.12);
+  color: var(--vz-text-on-dark);
+  border-color: var(--vz-accent-border);
+}
+
+.geo-btn-primary {
+  background: var(--vz-accent);
+  border: 0.5px solid var(--vz-accent);
+  color: var(--vz-bg-deep);
+}
+.geo-btn-primary:hover {
+  background: var(--vz-accent-strong);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(77,212,168,0.3);
+}
+
+@media (max-width: 600px) {
+  #geoBanner {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 14px 16px;
+  }
+  .geo-banner-text { text-align: left; }
+  .geo-banner-actions {
+    justify-content: stretch;
+    gap: 8px;
+  }
+  .geo-btn-skip, .geo-btn-primary { flex: 1; }
+}
   </style>
 </head>
 <body>
@@ -3921,13 +4040,13 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
 
 <div id="geoBanner">
   <div class="geo-banner-icon">
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#A8E63D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+   <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M12 22s-8-7.5-8-13a8 8 0 0 1 16 0c0 5.5-8 13-8 13z"/>
       <circle cx="12" cy="9" r="3"/>
     </svg>
   </div>
   <div class="geo-banner-text">
-    <strong>Ouvrir Vizi sur ton spot ?</strong><br>
+    <strong>Ouvrir Visimer sur ton spot ?</strong>
     On te positionne sur le port le plus proche.
   </div>
   <div class="geo-banner-actions">
