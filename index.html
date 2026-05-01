@@ -3425,6 +3425,215 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
   }
   .geo-btn-skip, .geo-btn-primary { flex: 1; }
 }
+    // ============================================================
+// VISIMER - PATCH JS MOBILE BOTTOM SHEET v1
+// Bottom sheet 3 hauteurs (peek/mid/full) pour #spotDrawer mobile.
+// ============================================================
+
+(function() {
+  'use strict';
+
+  var SNAP_HEIGHTS = { peek: 38, mid: 70, full: 92 };
+  var DRAG_THRESHOLD_VELOCITY = 0.5;
+  var CLOSE_THRESHOLD_VH = 15;
+
+  var sheetState = {
+    currentSnap: 'peek',
+    isDragging: false,
+    startY: 0,
+    startTranslate: 0,
+    currentTranslate: 0,
+    velocity: 0,
+    lastY: 0,
+    lastTime: 0,
+    drawer: null,
+    handle: null
+  };
+
+  function isMobileViewport() {
+    return window.innerWidth <= 768;
+  }
+
+  function vh() {
+    return window.innerHeight / 100;
+  }
+
+  function getTranslateForSnap(snap) {
+    if (snap === 'closed') return window.innerHeight;
+    return window.innerHeight - (SNAP_HEIGHTS[snap] * vh());
+  }
+
+  function applySnapState(snap) {
+    var drawer = sheetState.drawer;
+    if (!drawer) return;
+    sheetState.currentSnap = snap;
+    drawer.classList.remove('sheet-peek', 'sheet-mid', 'sheet-full', 'sheet-dragging');
+    drawer.classList.add('sheet-' + snap);
+    document.body.classList.remove('vz-drawer-peek', 'vz-drawer-mid', 'vz-drawer-full');
+    document.body.classList.add('vz-drawer-' + snap);
+    drawer.style.transform = '';
+  }
+
+  function findClosestSnap(translate, vel) {
+    if (Math.abs(vel) > DRAG_THRESHOLD_VELOCITY) {
+      var current = sheetState.currentSnap;
+      if (vel > 0) {
+        if (current === 'full') return 'mid';
+        if (current === 'mid') return 'peek';
+        return 'peek';
+      } else {
+        if (current === 'peek') return 'mid';
+        if (current === 'mid') return 'full';
+        return 'full';
+      }
+    }
+    var positions = {
+      peek: getTranslateForSnap('peek'),
+      mid: getTranslateForSnap('mid'),
+      full: getTranslateForSnap('full')
+    };
+    var closest = 'mid';
+    var minDist = Infinity;
+    for (var key in positions) {
+      var dist = Math.abs(translate - positions[key]);
+      if (dist < minDist) {
+        minDist = dist;
+        closest = key;
+      }
+    }
+    return closest;
+  }
+
+  function onPointerDown(e) {
+    if (!isMobileViewport()) return;
+    var drawer = sheetState.drawer;
+    if (!drawer || !drawer.classList.contains('open')) return;
+    sheetState.isDragging = true;
+    sheetState.startY = e.touches ? e.touches[0].clientY : e.clientY;
+    sheetState.lastY = sheetState.startY;
+    sheetState.lastTime = Date.now();
+    sheetState.velocity = 0;
+    sheetState.startTranslate = getTranslateForSnap(sheetState.currentSnap);
+    drawer.classList.add('sheet-dragging');
+    e.preventDefault();
+  }
+
+  function onPointerMove(e) {
+    if (!sheetState.isDragging) return;
+    var y = e.touches ? e.touches[0].clientY : e.clientY;
+    var now = Date.now();
+    var dt = now - sheetState.lastTime;
+    if (dt > 0) {
+      sheetState.velocity = (y - sheetState.lastY) / dt;
+    }
+    sheetState.lastY = y;
+    sheetState.lastTime = now;
+    var delta = y - sheetState.startY;
+    var newTranslate = sheetState.startTranslate + delta;
+    var minTranslate = getTranslateForSnap('full');
+    var maxTranslate = window.innerHeight + 100;
+    newTranslate = Math.max(minTranslate, Math.min(maxTranslate, newTranslate));
+    sheetState.currentTranslate = newTranslate;
+    sheetState.drawer.style.transform = 'translateY(' + newTranslate + 'px)';
+    e.preventDefault();
+  }
+
+  function onPointerUp() {
+    if (!sheetState.isDragging) return;
+    sheetState.isDragging = false;
+    var drawer = sheetState.drawer;
+    if (!drawer) return;
+    var peekPos = getTranslateForSnap('peek');
+    if (sheetState.currentTranslate > peekPos + (vh() * CLOSE_THRESHOLD_VH) && sheetState.velocity > 0.3) {
+      if (typeof closeSpotPopup === 'function') {
+        closeSpotPopup();
+      }
+      document.body.classList.remove('vz-drawer-peek', 'vz-drawer-mid', 'vz-drawer-full');
+      return;
+    }
+    var targetSnap = findClosestSnap(sheetState.currentTranslate, sheetState.velocity);
+    applySnapState(targetSnap);
+  }
+
+  function setupDrawerObserver() {
+    var drawer = document.getElementById('spotDrawer');
+    if (!drawer) return;
+    sheetState.drawer = drawer;
+    sheetState.handle = drawer.querySelector('.drawer-head');
+
+    var observer = new MutationObserver(function(mutations) {
+      mutations.forEach(function(m) {
+        if (m.attributeName === 'class') {
+          var isOpen = drawer.classList.contains('open');
+          if (isOpen && isMobileViewport()) {
+            if (!drawer.classList.contains('sheet-mid') && 
+                !drawer.classList.contains('sheet-full')) {
+              applySnapState('peek');
+            }
+          } else if (!isOpen) {
+            drawer.classList.remove('sheet-peek', 'sheet-mid', 'sheet-full', 'sheet-dragging');
+            document.body.classList.remove('vz-drawer-peek', 'vz-drawer-mid', 'vz-drawer-full');
+            sheetState.currentSnap = 'peek';
+          }
+        }
+      });
+    });
+    observer.observe(drawer, { attributes: true, attributeFilter: ['class'] });
+
+    if (sheetState.handle) {
+      sheetState.handle.addEventListener('touchstart', onPointerDown, { passive: false });
+      sheetState.handle.addEventListener('touchmove', onPointerMove, { passive: false });
+      sheetState.handle.addEventListener('touchend', onPointerUp);
+      sheetState.handle.addEventListener('touchcancel', onPointerUp);
+      sheetState.handle.addEventListener('mousedown', onPointerDown);
+      document.addEventListener('mousemove', onPointerMove);
+      document.addEventListener('mouseup', onPointerUp);
+
+      var tapStartY = 0;
+      var tapStartTime = 0;
+      sheetState.handle.addEventListener('touchstart', function(e) {
+        tapStartY = e.touches[0].clientY;
+        tapStartTime = Date.now();
+      }, { passive: true });
+      sheetState.handle.addEventListener('touchend', function(e) {
+        if (!isMobileViewport()) return;
+        var endY = e.changedTouches[0].clientY;
+        var dy = Math.abs(endY - tapStartY);
+        var dt = Date.now() - tapStartTime;
+        if (dy < 8 && dt < 250) {
+          var current = sheetState.currentSnap;
+          var next = current === 'peek' ? 'mid' : (current === 'mid' ? 'full' : 'peek');
+          applySnapState(next);
+        }
+      }, { passive: true });
+    }
+  }
+
+  function onResize() {
+    if (!isMobileViewport()) {
+      var drawer = sheetState.drawer;
+      if (drawer) {
+        drawer.classList.remove('sheet-peek', 'sheet-mid', 'sheet-full', 'sheet-dragging');
+        drawer.style.transform = '';
+      }
+      document.body.classList.remove('vz-drawer-peek', 'vz-drawer-mid', 'vz-drawer-full');
+    }
+  }
+
+  window.addEventListener('resize', onResize);
+
+  function init() {
+    setupDrawerObserver();
+    console.log('[VISIMER] Bottom sheet mobile v1 initialisé');
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    setTimeout(init, 100);
+  }
+
+})();
   </style>
 </head>
 <body>
