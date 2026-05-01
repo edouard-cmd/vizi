@@ -2014,43 +2014,6 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
       .tides-drawer-port { font-size: 18px; }
     }
 
-    /* ============================================================
-       GEOLOC : bandeau d'invitation + bouton "Me localiser"
-       ============================================================ */
-    #geoBanner {
-      position: fixed; bottom: 20px; left: 50%;
-      transform: translateX(-50%) translateY(120px);
-      z-index: 1500;
-      background: #1A2535; border: 1.5px solid #A8E63D; border-radius: 14px;
-      padding: 14px 20px;
-      display: flex; align-items: center; gap: 14px;
-      box-shadow: 0 8px 30px rgba(0,0,0,0.25);
-      max-width: calc(100vw - 32px);
-      opacity: 0; transition: opacity 0.3s ease, transform 0.3s ease;
-      pointer-events: none;
-    }
-    #geoBanner.show {
-      opacity: 1; transform: translateX(-50%) translateY(0);
-      pointer-events: all;
-    }
-    .geo-banner-icon { width: 28px; height: 28px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
-    .geo-banner-text { font-family: 'Inter', sans-serif; font-size: 14px; color: #fff; line-height: 1.4; flex: 1; min-width: 0; }
-    .geo-banner-text strong { color: #A8E63D; font-weight: 600; }
-    .geo-banner-actions { display: flex; gap: 8px; flex-shrink: 0; }
-    .geo-btn-primary {
-      padding: 8px 16px; background: #A8E63D; border: none; border-radius: 8px;
-      color: #1A2535; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 700;
-      cursor: pointer; white-space: nowrap;
-    }
-    .geo-btn-primary:hover { background: #7AB828; }
-    .geo-btn-skip {
-      padding: 8px 12px; background: transparent;
-      border: 1px solid rgba(255,255,255,0.25); border-radius: 8px;
-      color: rgba(255,255,255,0.7); font-family: 'Inter', sans-serif; font-size: 13px;
-      cursor: pointer; white-space: nowrap;
-    }
-    .geo-btn-skip:hover { background: rgba(255,255,255,0.08); color: #fff; }
-
     #locateBtn {
       flex-shrink: 0; width: 36px; height: 36px;
       background: rgba(255,255,255,0.07);
