@@ -4155,24 +4155,47 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
 
 } /* Fin @media (max-width: 768px) */
 /* ============================================================
-   VISIMER PATCH CSS — Handle toujours accessible sous barre URL
+   VISIMER PATCH 4 — Marge top fixe pour handle iOS-safe
    À COLLER à la fin du bloc <style> de index.html
-   (juste avant </style>, après le commit 1)
+   (juste avant </style>, après le PATCH_3_IOS.css)
    ============================================================ */
 
 @media (max-width: 768px) {
 
-  /* On force une hauteur max qui laisse 80px d'espace en haut pour la barre URL.
-     On utilise dvh (dynamic viewport height) qui prend en compte la barre URL Safari iOS. */
+  /* On force une vraie zone tampon en haut du drawer.
+     Le handle est repositionné avec un padding-top absolu pour qu'il reste 
+     toujours à au moins 60px du sommet de l'écran (zone bien attrapable au doigt). */
 
   #spotDrawerMobile {
-    /* Limite la hauteur totale : jamais plus haut que 80px du sommet réel de l'écran */
-    max-height: calc(100dvh - 80px) !important;
+    /* Augmente la marge max à 100px pour que la barre URL Safari ne mange jamais le handle */
+    max-height: calc(100dvh - 100px) !important;
   }
 
-  /* Quand on est en full, le drawer prend toute sa hauteur max (mais reste sous les 80px du haut) */
+  /* En full, on s'assure que le drawer ne touche jamais le haut */
   #spotDrawerMobile.vzm-full {
     transform: translateY(0) !important;
+  }
+
+  /* Le handle devient encore plus gros et plus visible pour être facilement attrapable */
+  .vzm-handle {
+    height: 44px !important;
+    padding-top: 8px;
+    background: linear-gradient(180deg, var(--vz-bg-glass-strong) 0%, transparent 100%);
+    position: sticky;
+    top: 0;
+    z-index: 15;
+  }
+
+  .vzm-handle::before {
+    width: 48px !important;
+    height: 6px !important;
+    background: var(--vz-text-on-dark-muted) !important;
+    opacity: 0.6;
+  }
+
+  .vzm-handle:active::before {
+    background: var(--vz-accent) !important;
+    opacity: 1;
   }
 }
   </style>
