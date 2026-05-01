@@ -5731,6 +5731,8 @@ function escapeHtml(s) {
 
 (function() {
   'use strict';
+  
+  return; // DISABLE V3 PATCH
 
   var SNAP_HEIGHTS = { peek: 38, mid: 70, full: 92 };
   var DRAG_THRESHOLD_VELOCITY = 0.5;
