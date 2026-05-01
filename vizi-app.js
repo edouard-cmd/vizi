@@ -5860,15 +5860,15 @@ function escapeHtml(s) {
     sheetState.drawer = drawer;
     sheetState.handle = drawer.querySelector('.drawer-head');
 
-    var observer = new MutationObserver(function(mutations) {
+   var observer = new MutationObserver(function(mutations) {
       mutations.forEach(function(m) {
         if (m.attributeName === 'class') {
           var isOpen = drawer.classList.contains('open');
-          if (isOpen && isMobileViewport()) {
-            if (!drawer.classList.contains('sheet-mid') && 
-                !drawer.classList.contains('sheet-full')) {
-              applySnapState('peek');
-            }
+          var hasSnapClass = drawer.classList.contains('sheet-peek') || 
+                             drawer.classList.contains('sheet-mid') || 
+                             drawer.classList.contains('sheet-full');
+          if (isOpen && isMobileViewport() && !hasSnapClass) {
+            applySnapState('peek');
           } else if (!isOpen) {
             drawer.classList.remove('sheet-peek', 'sheet-mid', 'sheet-full', 'sheet-dragging');
             document.body.classList.remove('vz-drawer-peek', 'vz-drawer-mid', 'vz-drawer-full');
