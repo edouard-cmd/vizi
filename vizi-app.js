@@ -6468,3 +6468,151 @@ function escapeHtml(s) {
     vzmPatch2();
   }
 })();
+// ============================================================
+// VISIMER PATCH 5 JS — Limite le drag à mid (suppression de full)
+// ============================================================
+
+(function() {
+  'use strict';
+
+  function vzmPatch5() {
+    var drawer = document.getElementById('spotDrawerMobile');
+    if (!drawer) {
+      setTimeout(vzmPatch5, 200);
+      return;
+    }
+
+    var headerZone = drawer.querySelector('.vzm-spot-header');
+    if (!headerZone) return;
+
+    var newHeader = headerZone.cloneNode(true);
+    headerZone.parentNode.replaceChild(newHeader, headerZone);
+
+    var startY = 0, startTranslate = 0, isDragging = false;
+    var velocity = 0, lastY = 0, lastTime = 0;
+
+    function getTranslate(snap) {
+      if (snap === 'closed') return window.innerHeight;
+      var pts = { peek: 38, mid: 70 };
+      var vh = window.innerHeight;
+      return vh - (pts[snap] * vh / 100);
+    }
+
+    function getCurrentSnap() {
+      if (drawer.classList.contains('vzm-peek')) return 'peek';
+      return 'mid';
+    }
+
+    function findClosestSnap(translate, vel) {
+      var current = getCurrentSnap();
+      if (vel > 0.5) {
+        if (current === 'mid') return 'peek';
+        return 'closed';
+      }
+      if (vel < -0.5) {
+        return 'mid';
+      }
+      var positions = {
+        peek: getTranslate('peek'),
+        mid: getTranslate('mid')
+      };
+      return Math.abs(translate - positions.peek) < Math.abs(translate - positions.mid) ? 'peek' : 'mid';
+    }
+
+    newHeader.addEventListener('touchstart', function(e) {
+      if (e.target.closest('button')) return;
+      isDragging = true;
+      startY = e.touches[0].clientY;
+      lastY = startY;
+      lastTime = Date.now();
+      velocity = 0;
+      startTranslate = getTranslate(getCurrentSnap());
+      drawer.classList.add('vzm-dragging');
+    }, { passive: true });
+
+    newHeader.addEventListener('touchmove', function(e) {
+      if (!isDragging) return;
+      var y = e.touches[0].clientY;
+      var now = Date.now();
+      var dt = now - lastTime;
+      if (dt > 0) velocity = (y - lastY) / dt;
+      lastY = y;
+      lastTime = now;
+      var delta = y - startY;
+      var newTranslate = startTranslate + delta;
+      var minT = getTranslate('mid');
+      newTranslate = Math.max(minT, Math.min(window.innerHeight, newTranslate));
+      drawer.style.transform = 'translateY(' + newTranslate + 'px)';
+      e.preventDefault();
+    }, { passive: false });
+
+    newHeader.addEventListener('touchend', function() {
+      if (!isDragging) return;
+      isDragging = false;
+      drawer.classList.remove('vzm-dragging');
+      var currentTranslate = parseFloat((drawer.style.transform || '').replace(/[^\d.-]/g, '')) || getTranslate(getCurrentSnap());
+      var snap = findClosestSnap(currentTranslate, velocity);
+      if (snap === 'closed') {
+        if (typeof closeSpotPopup === 'function') closeSpotPopup();
+        return;
+      }
+      drawer.classList.remove('vzm-peek', 'vzm-mid', 'vzm-full');
+      drawer.classList.add('vzm-' + snap);
+      drawer.style.transform = '';
+    });
+
+    var handle = document.getElementById('vzmHandle');
+    if (handle) {
+      var newHandle = handle.cloneNode(true);
+      handle.parentNode.replaceChild(newHandle, handle);
+
+      newHandle.addEventListener('touchstart', function(e) {
+        isDragging = true;
+        startY = e.touches[0].clientY;
+        lastY = startY;
+        lastTime = Date.now();
+        velocity = 0;
+        startTranslate = getTranslate(getCurrentSnap());
+        drawer.classList.add('vzm-dragging');
+        e.preventDefault();
+      }, { passive: false });
+
+      newHandle.addEventListener('touchmove', function(e) {
+        if (!isDragging) return;
+        var y = e.touches[0].clientY;
+        var now = Date.now();
+        var dt = now - lastTime;
+        if (dt > 0) velocity = (y - lastY) / dt;
+        lastY = y;
+        lastTime = now;
+        var delta = y - startY;
+        var newTranslate = startTranslate + delta;
+        var minT = getTranslate('mid');
+        newTranslate = Math.max(minT, Math.min(window.innerHeight, newTranslate));
+        drawer.style.transform = 'translateY(' + newTranslate + 'px)';
+        e.preventDefault();
+      }, { passive: false });
+
+      newHandle.addEventListener('touchend', function() {
+        if (!isDragging) return;
+        isDragging = false;
+        drawer.classList.remove('vzm-dragging');
+        var currentTranslate = parseFloat((drawer.style.transform || '').replace(/[^\d.-]/g, '')) || getTranslate(getCurrentSnap());
+        var snap = findClosestSnap(currentTranslate, velocity);
+        if (snap === 'closed') {
+          if (typeof closeSpotPopup === 'function') closeSpotPopup();
+          return;
+        }
+        drawer.classList.remove('vzm-peek', 'vzm-mid', 'vzm-full');
+        drawer.classList.add('vzm-' + snap);
+        drawer.style.transform = '';
+      });
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', vzmPatch5);
+  } else {
+    vzmPatch5();
+  }
+})();
