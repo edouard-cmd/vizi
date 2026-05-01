@@ -6828,33 +6828,31 @@ function vzmInit() {
   }
 })();
 // ============================================================
-// VISIMER PATCH 9 — Étend le drag à toute la zone supérieure
-// (hint, frise, verdict) au lieu du seul header
-// À COLLER à la toute fin de vizi-app.js (après PATCH 8)
+// VISIMER PATCH 9 v2 — Drag étendu (MOBILE UNIQUEMENT)
+// REMPLACE le PATCH 9 précédent dans vizi-app.js
 // ============================================================
 
 (function() {
   'use strict';
 
   function vzmPatch9() {
+    // GARDE-FOU CRITIQUE : ne fait absolument rien sur desktop
+    if (window.innerWidth > 768) {
+      console.log('[VZM Patch 9] Desktop détecté, patch désactivé');
+      return;
+    }
+
     var drawer = document.getElementById('spotDrawerMobile');
     if (!drawer) {
       setTimeout(vzmPatch9, 200);
       return;
     }
 
-    // Zones à rendre draggables (en plus du handle et header déjà gérés par PATCH 6)
     var zones = [];
-    
-    // Hint "Tire vers le haut"
     var hint = drawer.querySelector('#vzmTierHintText');
     if (hint && hint.parentElement) zones.push(hint.parentElement);
-    
-    // Bloc verdict (le grand encart visi)
     var verdict = drawer.querySelector('#vzmVerdict');
     if (verdict) zones.push(verdict);
-    
-    // Frise des jours
     var forecast = drawer.querySelector('#vzmForecastGrid');
     if (forecast && forecast.parentElement) zones.push(forecast.parentElement);
 
@@ -6863,7 +6861,6 @@ function vzmInit() {
       return;
     }
 
-    // === État partagé (même logique que PATCH 6) ===
     var startY = 0, startTranslate = 0, isDragging = false;
     var velocity = 0, lastY = 0, lastTime = 0;
 
@@ -6902,11 +6899,9 @@ function vzmInit() {
 
     function onStart(e) {
       if (e.target.closest('button')) return;
-      // Si on est en peek, on intercepte tout. Si on est en mid, on intercepte uniquement
-      // si le scroll interne est en haut (pour ne pas casser le scroll du contenu)
       if (getCurrentSnap() === 'mid') {
         var content = drawer.querySelector('.vzm-content');
-        if (content && content.scrollTop > 5) return; // laisse le scroll faire son boulot
+        if (content && content.scrollTop > 5) return;
       }
       isDragging = true;
       startY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -6944,14 +6939,15 @@ function vzmInit() {
       applySnap(snap);
     }
 
-    // Attache sur toutes les zones identifiées
+    // ATTACHE UNIQUEMENT touchstart/touchmove/touchend (pas mousedown/mouseup)
+    // Ça évite tout effet de bord sur desktop
     zones.forEach(function(zone) {
       zone.addEventListener('touchstart', onStart, { passive: true });
       zone.addEventListener('touchmove', onMove, { passive: false });
       zone.addEventListener('touchend', onEnd);
     });
 
-    console.log('[VZM Patch 9] Drag étendu sur ' + zones.length + ' zones');
+    console.log('[VZM Patch 9 v2] Drag mobile étendu sur ' + zones.length + ' zones');
   }
 
   if (document.readyState === 'loading') {
