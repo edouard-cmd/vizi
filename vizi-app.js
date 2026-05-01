@@ -6746,20 +6746,18 @@ function vzmInit() {
   }
 })();
 // ============================================================
-// VISIMER PATCH SIMPLIFICATION DRAWER MOBILE
-// - Retire le hint "Tire vers le haut..."
-// - Retire la section "Conditions actuelles"
-// - Ajoute bouton "Partager ma visibilité" en peek (ouvre obsSheet)
-// À COLLER à la toute fin de vizi-app.js (après PATCH 6)
+// VISIMER PATCH SIMPLIFICATION DRAWER MOBILE v2
+// - Retire hint + conditions actuelles + bouton parasite "Améliorer"
+// - Ajoute 2 boutons côte à côte : Partager visibilité + Enregistrer session
+// REMPLACE le PATCH SIMPLIFY DRAWER précédent dans vizi-app.js
 // ============================================================
 
 (function() {
   'use strict';
 
   function vzmPatchSimplify() {
-    // Mobile uniquement
     if (window.innerWidth > 768) {
-      console.log('[VZM Simplify] Desktop, patch ignoré');
+      console.log('[VZM Simplify v2] Desktop, patch ignoré');
       return;
     }
 
@@ -6776,7 +6774,6 @@ function vzmInit() {
     }
 
     // === 2. RETIRE la section "Conditions actuelles" ===
-    // Cherche par titre de section (la section qui contient "Conditions actuelles")
     var sections = drawer.querySelectorAll('.vzm-section');
     sections.forEach(function(section) {
       var title = section.querySelector('.vzm-section-title, .vzm-section-toggle');
@@ -6785,71 +6782,116 @@ function vzmInit() {
       }
     });
 
-    // === 3. AJOUTE bouton "Partager ma visibilité" ===
-    // Évite les doublons si le patch est ré-exécuté
-    if (drawer.querySelector('#vzmShareObsBtn')) return;
+    // === 3. RETIRE le bouton parasite "Améliorer prévisions" du commit 3 ===
+    // Cherche tout bouton contenant "Améliorer" dans le drawer mobile
+    var allBtns = drawer.querySelectorAll('button, a');
+    allBtns.forEach(function(btn) {
+      var txt = btn.textContent || '';
+      if (/améliorer|ameliorer/i.test(txt) && btn.id !== 'vzmShareObsBtn' && btn.id !== 'vzmSaveSessionBtn') {
+        btn.style.display = 'none';
+      }
+    });
 
-    var shareBtn = document.createElement('button');
-    shareBtn.id = 'vzmShareObsBtn';
-    shareBtn.className = 'vzm-share-obs-btn';
-    shareBtn.innerHTML =
-      '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">' +
-        '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>' +
-        '<circle cx="12" cy="12" r="3"/>' +
-      '</svg>' +
-      '<span>Partager ma visibilité</span>';
-    shareBtn.onclick = function(e) {
+    // === 4. AJOUTE les 2 boutons côte à côte ===
+    if (drawer.querySelector('#vzmActionRow')) return;
+
+    var actionRow = document.createElement('div');
+    actionRow.id = 'vzmActionRow';
+    actionRow.className = 'vzm-action-row';
+    actionRow.innerHTML =
+      '<button id="vzmShareObsBtn" class="vzm-action-btn vzm-action-primary">' +
+        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">' +
+          '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>' +
+          '<circle cx="12" cy="12" r="3"/>' +
+        '</svg>' +
+        '<span>Partager ma visi</span>' +
+      '</button>' +
+      '<button id="vzmSaveSessionBtn" class="vzm-action-btn vzm-action-secondary">' +
+        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">' +
+          '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>' +
+          '<polyline points="17 21 17 13 7 13 7 21"/>' +
+          '<polyline points="7 3 7 8 15 8"/>' +
+        '</svg>' +
+        '<span>Enregistrer session</span>' +
+      '</button>';
+
+    actionRow.querySelector('#vzmShareObsBtn').onclick = function(e) {
       e.preventDefault();
       e.stopPropagation();
-      if (typeof openObsSheet === 'function') {
-        openObsSheet();
-      }
+      if (typeof openObsSheet === 'function') openObsSheet();
+    };
+    actionRow.querySelector('#vzmSaveSessionBtn').onclick = function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof openSessionModal === 'function') openSessionModal();
     };
 
-    // Style inline (charte Talisker)
-    var style = document.createElement('style');
-    style.id = 'vzmShareObsStyle';
-    style.textContent =
-      '.vzm-share-obs-btn {' +
-        'display: flex;' +
-        'align-items: center;' +
-        'justify-content: center;' +
-        'gap: 10px;' +
-        'width: calc(100% - 24px);' +
-        'margin: 14px 12px 12px;' +
-        'padding: 14px 18px;' +
-        'background: var(--vz-accent);' +
-        'color: var(--vz-bg-deep);' +
-        'border: none;' +
-        'border-radius: var(--vz-radius-pill, 24px);' +
-        'font-family: Inter, sans-serif;' +
-        'font-size: 15px;' +
-        'font-weight: 600;' +
-        'letter-spacing: 0.01em;' +
-        'cursor: pointer;' +
-        'box-shadow: 0 4px 14px var(--vz-accent-glow, rgba(77,212,168,0.25));' +
-        'transition: transform 0.15s ease, box-shadow 0.15s ease;' +
-        '-webkit-tap-highlight-color: transparent;' +
-      '}' +
-      '.vzm-share-obs-btn:active {' +
-        'transform: scale(0.97);' +
-        'box-shadow: 0 2px 8px var(--vz-accent-glow, rgba(77,212,168,0.18));' +
-      '}';
-    if (!document.getElementById('vzmShareObsStyle')) {
+    // Style charte Talisker
+    if (!document.getElementById('vzmActionRowStyle')) {
+      var style = document.createElement('style');
+      style.id = 'vzmActionRowStyle';
+      style.textContent =
+        '.vzm-action-row {' +
+          'display: flex;' +
+          'gap: 10px;' +
+          'padding: 14px 12px 12px;' +
+          'width: 100%;' +
+          'box-sizing: border-box;' +
+        '}' +
+        '.vzm-action-btn {' +
+          'flex: 1 1 0;' +
+          'display: flex;' +
+          'align-items: center;' +
+          'justify-content: center;' +
+          'gap: 8px;' +
+          'padding: 13px 14px;' +
+          'border-radius: var(--vz-radius-pill, 24px);' +
+          'font-family: Inter, sans-serif;' +
+          'font-size: 14px;' +
+          'font-weight: 600;' +
+          'letter-spacing: 0.01em;' +
+          'cursor: pointer;' +
+          'transition: transform 0.15s ease, box-shadow 0.15s ease;' +
+          '-webkit-tap-highlight-color: transparent;' +
+          'min-width: 0;' +
+        '}' +
+        '.vzm-action-btn span {' +
+          'overflow: hidden;' +
+          'text-overflow: ellipsis;' +
+          'white-space: nowrap;' +
+        '}' +
+        '.vzm-action-primary {' +
+          'background: var(--vz-accent);' +
+          'color: var(--vz-bg-deep);' +
+          'border: none;' +
+          'box-shadow: 0 4px 14px var(--vz-accent-glow, rgba(77,212,168,0.25));' +
+        '}' +
+        '.vzm-action-primary:active {' +
+          'transform: scale(0.97);' +
+          'box-shadow: 0 2px 8px var(--vz-accent-glow, rgba(77,212,168,0.18));' +
+        '}' +
+        '.vzm-action-secondary {' +
+          'background: rgba(255,255,255,0.04);' +
+          'color: var(--vz-text-on-dark);' +
+          'border: 1px solid var(--vz-accent-border, rgba(77,212,168,0.3));' +
+        '}' +
+        '.vzm-action-secondary:active {' +
+          'transform: scale(0.97);' +
+          'background: rgba(77,212,168,0.08);' +
+        '}';
       document.head.appendChild(style);
     }
 
-    // Insère le bouton juste après la frise (#vzmForecastGrid)
+    // Insère après la frise
     var forecast = drawer.querySelector('#vzmForecastGrid');
     if (forecast && forecast.parentElement) {
-      forecast.parentElement.insertAdjacentElement('afterend', shareBtn);
+      forecast.parentElement.insertAdjacentElement('afterend', actionRow);
     } else {
-      // Fallback : à la fin du contenu
       var content = drawer.querySelector('.vzm-content');
-      if (content) content.appendChild(shareBtn);
+      if (content) content.appendChild(actionRow);
     }
 
-    console.log('[VZM Simplify] Drawer mobile simplifié + bouton partage ajouté');
+    console.log('[VZM Simplify v2] 2 boutons + cleanup OK');
   }
 
   if (document.readyState === 'loading') {
