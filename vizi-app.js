@@ -6827,3 +6827,138 @@ function vzmInit() {
     setTimeout(vzmPatch8, 1200);
   }
 })();
+// ============================================================
+// VISIMER PATCH 9 — Étend le drag à toute la zone supérieure
+// (hint, frise, verdict) au lieu du seul header
+// À COLLER à la toute fin de vizi-app.js (après PATCH 8)
+// ============================================================
+
+(function() {
+  'use strict';
+
+  function vzmPatch9() {
+    var drawer = document.getElementById('spotDrawerMobile');
+    if (!drawer) {
+      setTimeout(vzmPatch9, 200);
+      return;
+    }
+
+    // Zones à rendre draggables (en plus du handle et header déjà gérés par PATCH 6)
+    var zones = [];
+    
+    // Hint "Tire vers le haut"
+    var hint = drawer.querySelector('#vzmTierHintText');
+    if (hint && hint.parentElement) zones.push(hint.parentElement);
+    
+    // Bloc verdict (le grand encart visi)
+    var verdict = drawer.querySelector('#vzmVerdict');
+    if (verdict) zones.push(verdict);
+    
+    // Frise des jours
+    var forecast = drawer.querySelector('#vzmForecastGrid');
+    if (forecast && forecast.parentElement) zones.push(forecast.parentElement);
+
+    if (zones.length === 0) {
+      setTimeout(vzmPatch9, 300);
+      return;
+    }
+
+    // === État partagé (même logique que PATCH 6) ===
+    var startY = 0, startTranslate = 0, isDragging = false;
+    var velocity = 0, lastY = 0, lastTime = 0;
+
+    function getTranslate(snap) {
+      if (snap === 'closed') return window.innerHeight;
+      var pts = { peek: 38, mid: 70 };
+      return window.innerHeight - (pts[snap] * window.innerHeight / 100);
+    }
+
+    function getCurrentSnap() {
+      if (drawer.classList.contains('vzm-peek')) return 'peek';
+      return 'mid';
+    }
+
+    function findClosestSnap(currentTranslate, vel) {
+      var current = getCurrentSnap();
+      if (vel > 0.4) {
+        if (current === 'mid') return 'peek';
+        return 'closed';
+      }
+      if (vel < -0.4) return 'mid';
+      var posPeek = getTranslate('peek');
+      var posMid = getTranslate('mid');
+      return Math.abs(currentTranslate - posPeek) < Math.abs(currentTranslate - posMid) ? 'peek' : 'mid';
+    }
+
+    function applySnap(snap) {
+      drawer.classList.remove('vzm-peek', 'vzm-mid', 'vzm-full', 'vzm-closed', 'vzm-dragging');
+      if (snap === 'closed') {
+        if (typeof closeSpotPopup === 'function') closeSpotPopup();
+        return;
+      }
+      drawer.classList.add('vzm-' + snap);
+      drawer.style.transform = '';
+    }
+
+    function onStart(e) {
+      if (e.target.closest('button')) return;
+      // Si on est en peek, on intercepte tout. Si on est en mid, on intercepte uniquement
+      // si le scroll interne est en haut (pour ne pas casser le scroll du contenu)
+      if (getCurrentSnap() === 'mid') {
+        var content = drawer.querySelector('.vzm-content');
+        if (content && content.scrollTop > 5) return; // laisse le scroll faire son boulot
+      }
+      isDragging = true;
+      startY = e.touches ? e.touches[0].clientY : e.clientY;
+      lastY = startY;
+      lastTime = Date.now();
+      velocity = 0;
+      startTranslate = getTranslate(getCurrentSnap());
+      drawer.classList.add('vzm-dragging');
+    }
+
+    function onMove(e) {
+      if (!isDragging) return;
+      var y = e.touches ? e.touches[0].clientY : e.clientY;
+      var now = Date.now();
+      var dt = now - lastTime;
+      if (dt > 0) velocity = (y - lastY) / dt;
+      lastY = y;
+      lastTime = now;
+      var delta = y - startY;
+      var newTranslate = startTranslate + delta;
+      var minT = getTranslate('mid');
+      newTranslate = Math.max(minT, Math.min(window.innerHeight, newTranslate));
+      drawer.style.transform = 'translateY(' + newTranslate + 'px)';
+      if (e.cancelable) e.preventDefault();
+    }
+
+    function onEnd() {
+      if (!isDragging) return;
+      isDragging = false;
+      drawer.classList.remove('vzm-dragging');
+      var transformStr = drawer.style.transform || '';
+      var match = transformStr.match(/translateY\(([-\d.]+)px\)/);
+      var currentTranslate = match ? parseFloat(match[1]) : getTranslate(getCurrentSnap());
+      var snap = findClosestSnap(currentTranslate, velocity);
+      applySnap(snap);
+    }
+
+    // Attache sur toutes les zones identifiées
+    zones.forEach(function(zone) {
+      zone.addEventListener('touchstart', onStart, { passive: true });
+      zone.addEventListener('touchmove', onMove, { passive: false });
+      zone.addEventListener('touchend', onEnd);
+    });
+
+    console.log('[VZM Patch 9] Drag étendu sur ' + zones.length + ' zones');
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+      setTimeout(vzmPatch9, 1400);
+    });
+  } else {
+    setTimeout(vzmPatch9, 1400);
+  }
+})();
