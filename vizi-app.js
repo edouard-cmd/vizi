@@ -6897,3 +6897,197 @@ function vzmInit() {
     setTimeout(vzmPatchSimplify, 1000);
   }
 })();
+// ============================================================
+// VISIMER PATCH UI ARRIVÉE MOBILE
+// - Retire le gros bouton "Analyser ce point" (CTA central teal)
+// - Retire le bouton "Améliorer les prévisions" (capsule sombre)
+// - Retire le bouton œil flottant en bas-droite
+// - Ajoute message glassmorphism Talisker centré bas :
+//   "Touche un point en mer pour voir la visibilité"
+// À COLLER à la toute fin de vizi-app.js
+// ============================================================
+
+(function() {
+  'use strict';
+
+  function vzmPatchArrival() {
+    // Mobile uniquement
+    if (window.innerWidth > 768) {
+      console.log('[VZM Arrival] Desktop, patch ignoré');
+      return;
+    }
+
+    // === 1. RETIRE les 3 boutons parasites ===
+    // On scanne tous les boutons/links de la page (hors drawers spot/marée)
+    var allBtns = document.querySelectorAll('button, a');
+    allBtns.forEach(function(btn) {
+      // Skip si dans un drawer (spot, marée, sheet, modale, login...)
+      if (btn.closest('#spotDrawerMobile')) return;
+      if (btn.closest('#spotDrawer')) return;
+      if (btn.closest('#tidesDrawer')) return;
+      if (btn.closest('#vzSheet')) return;
+      if (btn.closest('#obsSheet')) return;
+      if (btn.closest('#sessionOverlay')) return;
+      if (btn.closest('#loginOverlay')) return;
+      if (btn.closest('#carnetDrawer')) return;
+      if (btn.closest('#vzExplainOverlay')) return;
+      if (btn.closest('.leaflet-control-container')) return;
+
+      var txt = (btn.textContent || '').trim();
+
+      // Cible : "Analyser ce point", "Améliorer les prévisions"
+      if (/analyser ce point/i.test(txt)) {
+        btn.style.display = 'none';
+      }
+      if (/améliorer les prévisions|ameliorer les previsions/i.test(txt)) {
+        btn.style.display = 'none';
+      }
+    });
+
+    // === 2. RETIRE le bouton œil flottant bas-droite ===
+    // Identifié par l'icône SVG œil en position fixed bas-droite
+    // On cherche les boutons en position fixed/absolute bas-droite contenant un SVG œil
+    var floatingBtns = document.querySelectorAll('button, div[onclick]');
+    floatingBtns.forEach(function(el) {
+      if (el.closest('#spotDrawerMobile')) return;
+      if (el.closest('#spotDrawer')) return;
+      if (el.closest('#tidesDrawer')) return;
+      if (el.closest('#vzSheet')) return;
+
+      var style = window.getComputedStyle(el);
+      var pos = style.position;
+      if (pos !== 'fixed' && pos !== 'absolute') return;
+
+      // Vérifie si bas-droite (right < 100, bottom < 200)
+      var right = parseInt(style.right) || 9999;
+      var bottom = parseInt(style.bottom) || 9999;
+      if (right > 100 || bottom > 200) return;
+
+      // Vérifie qu'il contient un SVG avec un path d'œil (M2 12s3-7 10-7...)
+      var svgs = el.querySelectorAll('svg path');
+      var isEyeBtn = false;
+      svgs.forEach(function(p) {
+        var d = p.getAttribute('d') || '';
+        if (/M2 12s3-7|M2,12s3,-7|m2 12s3-7/i.test(d)) isEyeBtn = true;
+      });
+      // Aussi détecter par circle cx="12" cy="12" r="3" (pupille)
+      var circles = el.querySelectorAll('svg circle');
+      if (!isEyeBtn) {
+        circles.forEach(function(c) {
+          if (c.getAttribute('cx') === '12' && c.getAttribute('cy') === '12' && c.getAttribute('r') === '3') {
+            isEyeBtn = true;
+          }
+        });
+      }
+
+      // Évite de virer la pastille principale Conditions/Marée/Webcams (qui est en haut)
+      if (isEyeBtn && bottom < 200) {
+        el.style.display = 'none';
+      }
+    });
+
+    // === 3. AJOUTE le message glassmorphism centré en bas ===
+    if (document.getElementById('vzmTapHint')) return;
+
+    var hint = document.createElement('div');
+    hint.id = 'vzmTapHint';
+    hint.className = 'vzm-tap-hint';
+    hint.innerHTML =
+      '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">' +
+        '<path d="M9 11.24V7.5a2.5 2.5 0 0 1 5 0v3.74"/>' +
+        '<path d="M14 11h3a3 3 0 0 1 3 3v6a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-6"/>' +
+        '<path d="M9 14l3 3 3-3"/>' +
+      '</svg>' +
+      '<span>Touche un point en mer pour voir la visibilité</span>';
+
+    var style = document.createElement('style');
+    style.id = 'vzmTapHintStyle';
+    style.textContent =
+      '.vzm-tap-hint {' +
+        'position: fixed;' +
+        'bottom: calc(24px + env(safe-area-inset-bottom, 0px));' +
+        'left: 50%;' +
+        'transform: translateX(-50%);' +
+        'display: flex;' +
+        'align-items: center;' +
+        'gap: 10px;' +
+        'padding: 12px 18px;' +
+        'background: var(--vz-bg-glass-strong, rgba(15, 36, 56, 0.88));' +
+        'backdrop-filter: blur(var(--vz-blur, 14px));' +
+        '-webkit-backdrop-filter: blur(var(--vz-blur, 14px));' +
+        'border: 1px solid var(--vz-accent-border, rgba(77, 212, 168, 0.3));' +
+        'border-radius: var(--vz-radius-pill, 24px);' +
+        'color: var(--vz-text-on-dark, #fff);' +
+        'font-family: Inter, sans-serif;' +
+        'font-size: 13px;' +
+        'font-weight: 500;' +
+        'letter-spacing: 0.01em;' +
+        'box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);' +
+        'z-index: 600;' +
+        'pointer-events: none;' +
+        'max-width: calc(100vw - 32px);' +
+        'transition: opacity 0.25s ease, transform 0.25s ease;' +
+      '}' +
+      '.vzm-tap-hint svg {' +
+        'stroke: var(--vz-accent, #4DD4A8);' +
+      '}' +
+      '.vzm-tap-hint.is-hidden {' +
+        'opacity: 0;' +
+        'transform: translateX(-50%) translateY(20px);' +
+        'pointer-events: none;' +
+      '}';
+    if (!document.getElementById('vzmTapHintStyle')) {
+      document.head.appendChild(style);
+    }
+    document.body.appendChild(hint);
+
+    // === 4. Cache le hint quand un drawer est ouvert ===
+    function updateHintVisibility() {
+      var spotMobile = document.getElementById('spotDrawerMobile');
+      var sheet = document.getElementById('vzSheet');
+      var carnet = document.getElementById('carnetDrawer');
+      var login = document.getElementById('loginOverlay');
+      var session = document.getElementById('sessionOverlay');
+      var obs = document.getElementById('obsSheet');
+      var explain = document.getElementById('vzExplainOverlay');
+
+      var anyDrawerOpen =
+        (spotMobile && !spotMobile.classList.contains('vzm-closed') &&
+          (spotMobile.classList.contains('vzm-peek') ||
+           spotMobile.classList.contains('vzm-mid') ||
+           spotMobile.classList.contains('vzm-full'))) ||
+        (sheet && sheet.style.display !== 'none' &&
+          (sheet.classList.contains('sheet-half') || sheet.classList.contains('sheet-full'))) ||
+        (carnet && carnet.classList.contains('open')) ||
+        (login && login.classList.contains('open')) ||
+        (session && session.classList.contains('open')) ||
+        (obs && obs.classList.contains('open')) ||
+        (explain && explain.classList.contains('open'));
+
+      hint.classList.toggle('is-hidden', anyDrawerOpen);
+    }
+
+    // Observe les changements de classe sur les drawers principaux
+    var observer = new MutationObserver(updateHintVisibility);
+    var targets = ['spotDrawerMobile', 'vzSheet', 'carnetDrawer', 'loginOverlay',
+                   'sessionOverlay', 'obsSheet', 'vzExplainOverlay'];
+    targets.forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) {
+        observer.observe(el, { attributes: true, attributeFilter: ['class', 'style'] });
+      }
+    });
+
+    updateHintVisibility();
+
+    console.log('[VZM Arrival] UI arrivée nettoyée + hint ajouté');
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+      setTimeout(vzmPatchArrival, 1200);
+    });
+  } else {
+    setTimeout(vzmPatchArrival, 1200);
+  }
+})();
