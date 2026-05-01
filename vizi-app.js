@@ -6236,9 +6236,8 @@ function escapeHtml(s) {
     html += '<span class="vz-v3-section-toggle-icon">▾</span>';
     html += '</button>';
     html += '<div class="vz-v3-section-body">';
-    html += '<div class="vz-v3-section-content">';
-    html += '<div id="vzV3LegacyContent"></div>';
-    html += '</div></div></div>';
+   html += '<div class="vz-v3-section-content" style="padding:14px 18px 8px;font-family:IBM Plex Mono,monospace;font-size:12px;color:var(--vz-text-on-dark-faint);text-align:center;">Section vide pour l\'instant — on connectera vent/profondeur/temp/marées dans une prochaine itération.</div>';
+html += '</div></div>';
 
     // Injecte le HTML dans le conteneur v3
     var v3Container = document.getElementById('vzV3Container');
@@ -6250,26 +6249,6 @@ function escapeHtml(s) {
     // Cache les blocs natifs et les déplace dans la section repliable
     moveLegacyContentToCollapsible();
   };
-
-  // === Déplace les blocs natifs (vent/profondeur/temp/marées) dans la section repliable ===
-  function moveLegacyContentToCollapsible() {
-    var legacyTarget = document.getElementById('vzV3LegacyContent');
-    if (!legacyTarget) return;
-
-    var blocks = [
-      '.spot-wind-block',
-      '.spot-depth-coef-block',
-      '.spot-sea-block',
-      '.vz-pmbm-block'
-    ];
-
-    blocks.forEach(function(sel) {
-      var el = document.querySelector('#spotDrawer ' + sel);
-      if (el && !legacyTarget.contains(el)) {
-        legacyTarget.appendChild(el);
-      }
-    });
-  }
 
   // === Override de renderSpotPopup pour appeler vzV3RenderDrawer après ===
   if (typeof window.renderSpotPopup === 'function') {
@@ -6290,13 +6269,12 @@ function escapeHtml(s) {
     style.textContent = '@media (max-width: 768px) {' +
       '#spotDrawer .spot-vis-block { display: none !important; }' +
       '#spotDrawer .decant-banner-v2 { display: none !important; }' +
-      '#spotDrawer .vz-pmbm-block .vz-pmbm-label { display: none; }' +
       '#spotDrawer .vz-explain-trigger { display: none !important; }' +
+      '#spotDrawer .vz-explain-panel { display: none !important; }' +
       '#vzV3Container { display: none; }' +
       '}';
     document.head.appendChild(style);
   }
-  injectV3HideStyles();
 
   // === Crée le conteneur v3 dans le drawer si absent ===
   function ensureV3Container() {
