@@ -6745,3 +6745,118 @@ function vzmInit() {
     setTimeout(vzmPatch6, 800);
   }
 })();
+// ============================================================
+// VISIMER PATCH SIMPLIFICATION DRAWER MOBILE
+// - Retire le hint "Tire vers le haut..."
+// - Retire la section "Conditions actuelles"
+// - Ajoute bouton "Partager ma visibilité" en peek (ouvre obsSheet)
+// À COLLER à la toute fin de vizi-app.js (après PATCH 6)
+// ============================================================
+
+(function() {
+  'use strict';
+
+  function vzmPatchSimplify() {
+    // Mobile uniquement
+    if (window.innerWidth > 768) {
+      console.log('[VZM Simplify] Desktop, patch ignoré');
+      return;
+    }
+
+    var drawer = document.getElementById('spotDrawerMobile');
+    if (!drawer) {
+      setTimeout(vzmPatchSimplify, 200);
+      return;
+    }
+
+    // === 1. RETIRE le hint "Tire vers le haut" ===
+    var hintText = drawer.querySelector('#vzmTierHintText');
+    if (hintText && hintText.parentElement) {
+      hintText.parentElement.style.display = 'none';
+    }
+
+    // === 2. RETIRE la section "Conditions actuelles" ===
+    // Cherche par titre de section (la section qui contient "Conditions actuelles")
+    var sections = drawer.querySelectorAll('.vzm-section');
+    sections.forEach(function(section) {
+      var title = section.querySelector('.vzm-section-title, .vzm-section-toggle');
+      if (title && /conditions actuelles/i.test(title.textContent)) {
+        section.style.display = 'none';
+      }
+    });
+
+    // === 3. AJOUTE bouton "Partager ma visibilité" ===
+    // Évite les doublons si le patch est ré-exécuté
+    if (drawer.querySelector('#vzmShareObsBtn')) return;
+
+    var shareBtn = document.createElement('button');
+    shareBtn.id = 'vzmShareObsBtn';
+    shareBtn.className = 'vzm-share-obs-btn';
+    shareBtn.innerHTML =
+      '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">' +
+        '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>' +
+        '<circle cx="12" cy="12" r="3"/>' +
+      '</svg>' +
+      '<span>Partager ma visibilité</span>';
+    shareBtn.onclick = function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof openObsSheet === 'function') {
+        openObsSheet();
+      }
+    };
+
+    // Style inline (charte Talisker)
+    var style = document.createElement('style');
+    style.id = 'vzmShareObsStyle';
+    style.textContent =
+      '.vzm-share-obs-btn {' +
+        'display: flex;' +
+        'align-items: center;' +
+        'justify-content: center;' +
+        'gap: 10px;' +
+        'width: calc(100% - 24px);' +
+        'margin: 14px 12px 12px;' +
+        'padding: 14px 18px;' +
+        'background: var(--vz-accent);' +
+        'color: var(--vz-bg-deep);' +
+        'border: none;' +
+        'border-radius: var(--vz-radius-pill, 24px);' +
+        'font-family: Inter, sans-serif;' +
+        'font-size: 15px;' +
+        'font-weight: 600;' +
+        'letter-spacing: 0.01em;' +
+        'cursor: pointer;' +
+        'box-shadow: 0 4px 14px var(--vz-accent-glow, rgba(77,212,168,0.25));' +
+        'transition: transform 0.15s ease, box-shadow 0.15s ease;' +
+        '-webkit-tap-highlight-color: transparent;' +
+      '}' +
+      '.vzm-share-obs-btn:active {' +
+        'transform: scale(0.97);' +
+        'box-shadow: 0 2px 8px var(--vz-accent-glow, rgba(77,212,168,0.18));' +
+      '}';
+    if (!document.getElementById('vzmShareObsStyle')) {
+      document.head.appendChild(style);
+    }
+
+    // Insère le bouton juste après la frise (#vzmForecastGrid)
+    var forecast = drawer.querySelector('#vzmForecastGrid');
+    if (forecast && forecast.parentElement) {
+      forecast.parentElement.insertAdjacentElement('afterend', shareBtn);
+    } else {
+      // Fallback : à la fin du contenu
+      var content = drawer.querySelector('.vzm-content');
+      if (content) content.appendChild(shareBtn);
+    }
+
+    console.log('[VZM Simplify] Drawer mobile simplifié + bouton partage ajouté');
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+      setTimeout(vzmPatchSimplify, 1000);
+    });
+  } else {
+    setTimeout(vzmPatchSimplify, 1000);
+  }
+})();
