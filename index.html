@@ -4154,6 +4154,27 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
   }
 
 } /* Fin @media (max-width: 768px) */
+    /* ============================================================
+   VISIMER PATCH CSS — Drawer full limité à 85vh
+   À COLLER à la fin du bloc <style> de index.html
+   (juste avant </style>, après le bloc CSS du commit 1)
+   ============================================================ */
+
+@media (max-width: 768px) {
+  /* On limite la hauteur max du drawer pour que le handle ne disparaisse 
+     jamais derrière la barre URL Safari iOS */
+  #spotDrawerMobile {
+    height: 85vh !important;
+  }
+  #spotDrawerMobile.vzm-full {
+    transform: translateY(calc(100% - 85vh)) !important;
+  }
+  /* On ajoute aussi un safe-area-inset-top en marge pour que sur les iPhones 
+     avec encoche, le handle reste accessible */
+  #spotDrawerMobile.vzm-full {
+    margin-top: env(safe-area-inset-top, 0);
+  }
+}
   </style>
 </head>
 <body>
