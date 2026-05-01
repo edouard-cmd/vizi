@@ -5933,3 +5933,393 @@ function escapeHtml(s) {
   }
 
 })();
+// ============================================================
+// VISIMER - PATCH V3 DRAWER (à coller en bas de vizi-app.js)
+//
+// Ajoute :
+// - renderV3Drawer() : génère la nouvelle structure (verdict + frise + détails)
+// - calcul des scores visi sur 7 jours
+// - tap sur un jour = expand BM/PM + viz
+// - section "Conditions actuelles" repliable (par défaut REPLIÉE)
+//
+// Override de renderSpotPopup() pour utiliser le nouveau rendu en mobile.
+// Sur desktop, on garde l'ancien rendu (pour ne pas casser).
+// ============================================================
+
+(function() {
+  'use strict';
+
+  // === Helpers ===
+  function isMobileV3() {
+    return window.innerWidth <= 768;
+  }
+
+  function v3VisLabel(score) {
+    if (score >= 80) return { label: 'Excellente', cls: 'viz-excellente', value: '~ 8m+' };
+    if (score >= 60) return { label: 'Bonne', cls: 'viz-bonne', value: '~ 5m' };
+    if (score >= 40) return { label: 'Moyenne', cls: 'viz-moyenne', value: '~ 3m' };
+    if (score >= 20) return { label: 'Faible', cls: 'viz-faible', value: '~ 1.5m' };
+    return { label: 'Nulle', cls: 'viz-nulle', value: '< 1m' };
+  }
+
+  function v3TrendArrow(currentScore, futureMinScore, futureMaxScore) {
+    var levelNow = scoreToLevelKey(currentScore);
+    var levelMin = scoreToLevelKey(futureMinScore);
+    var levelMax = scoreToLevelKey(futureMaxScore);
+    if (levelMin < levelNow) {
+      return '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C94A3D" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="7" x2="17" y2="17"/><polyline points="17 7 17 17 7 17"/></svg>';
+    }
+    if (levelMax > levelNow) {
+      return '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4DD4A8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="17 17 17 7 7 7"/></svg>';
+    }
+    return '';
+  }
+
+  function scoreToLevelKey(s) {
+    if (s >= 80) return 4;
+    if (s >= 60) return 3;
+    if (s >= 40) return 2;
+    if (s >= 20) return 1;
+    return 0;
+  }
+
+  // === Génère la phrase explicative courte (1 phrase, ~150 caractères) ===
+  function v3BuildExplain(h, idx, depth, dir, dirFactor, wind, gusts, score, lat, lon) {
+    var fromNames = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
+    var dirName = (dir !== null && dir !== undefined) ? fromNames[Math.round(dir / 45) % 8] : '?';
+    var windKt = S_windUnit === 'kt' ? wind : toKt(wind);
+    var unit = 'nds';
+
+    var verdictWord = score >= 80 ? 'Excellente' :
+                      score >= 60 ? 'Bonne' :
+                      score >= 40 ? 'Moyenne' :
+                      score >= 20 ? 'Faible' : 'Nulle';
+
+    // Phrase contextuelle selon le score + facteur direction + profondeur
+    if (score >= 80) {
+      return verdictWord + ' : <strong>vent ' + dirName + ' faible (' + windKt + ' ' + unit + ')</strong> et fond profond, l\'eau est claire jusqu\'au fond.';
+    }
+    if (score >= 60) {
+      if (dirFactor < 0.5) {
+        return verdictWord + ' : le <strong>vent ' + dirName + ' offshore (' + windKt + ' ' + unit + ')</strong> protège la côte, visi correcte sur ce fond de ~' + Math.round(depth) + 'm.';
+      }
+      return verdictWord + ' : <strong>vent ' + dirName + ' modéré (' + windKt + ' ' + unit + ')</strong>, l\'eau reste exploitable sur ce fond.';
+    }
+    if (score >= 40) {
+      if (dirFactor >= 0.85) {
+        return verdictWord + ' : le <strong>vent ' + dirName + ' onshore de ' + windKt + ' ' + unit + '</strong> brasse les particules, mais la profondeur compense un peu.';
+      }
+      return verdictWord + ' : <strong>vent ' + dirName + ' de ' + windKt + ' ' + unit + '</strong> maintient un peu de turbidité, fond de ~' + Math.round(depth) + 'm.';
+    }
+    if (score >= 20) {
+      return verdictWord + ' : le <strong>vent ' + dirName + ' (' + windKt + ' ' + unit + ')</strong> agite l\'eau et les sédiments, sur ce fond peu profond la visi reste limitée.';
+    }
+    return verdictWord + ' : <strong>vent ' + dirName + ' fort (' + windKt + ' ' + unit + ')</strong> brasse fortement le sédiment, l\'eau est trouble.';
+  }
+
+  // === Calcule la viz dominante d'un jour (entre 8h et 18h) ===
+  function v3DayDominantScore(h, dayDate, depth, lat, lon) {
+    if (!h || !h.time) return 50;
+    var dayStr = dayDate.toISOString().slice(0, 10);
+    var scores = [];
+    for (var i = 0; i < h.time.length; i++) {
+      var t = h.time[i];
+      if (t.slice(0, 10) !== dayStr) continue;
+      var hour = parseInt(t.slice(11, 13));
+      if (hour >= 8 && hour <= 18) {
+        scores.push(visScoreV2(h, i, depth, lat, lon));
+      }
+    }
+    if (scores.length === 0) return 50;
+    // Médiane plutôt que moyenne (plus stable)
+    scores.sort(function(a, b) { return a - b; });
+    return scores[Math.floor(scores.length / 2)];
+  }
+
+  // === Récupère les BM/PM d'un jour donné ===
+  function v3DayTides(dayDate) {
+    if (typeof TIDES === 'undefined' || !TIDES.extremes) return [];
+    var dayStr = dayDate.toISOString().slice(0, 10);
+    return TIDES.extremes.filter(function(e) {
+      return e.time.slice(0, 10) === dayStr;
+    });
+  }
+
+  // === Génère la frise 7 jours ===
+  function v3RenderForecast(h, depth, lat, lon, selectedIdx) {
+    if (!h) return '';
+    var today = new Date();
+    today.setHours(12, 0, 0, 0);
+    var jours = ['DIM', 'LUN', 'MAR', 'MER', 'JEU', 'VEN', 'SAM'];
+    
+    var html = '<div class="vz-v3-forecast-grid">';
+    for (var d = 0; d < 7; d++) {
+      var dayDate = new Date(today.getTime() + d * 86400000);
+      var score = v3DayDominantScore(h, dayDate, depth, lat, lon);
+      var visInfo = v3VisLabel(score);
+      var dayStr = dayDate.toISOString().slice(0, 10);
+      var coef = (typeof getCoefForDate === 'function') ? getCoefForDate(dayStr) : null;
+      var coefCls = '';
+      var coefDisplay = '—';
+      if (coef !== null && coef > 0) {
+        coefDisplay = coef;
+        if (coef >= 95) coefCls = 'coef-high';
+        else if (coef < 50) coefCls = 'coef-low';
+      }
+      var isToday = (d === 0);
+      var isSelected = (d === selectedIdx);
+      var classes = 'vz-v3-day';
+      if (isToday) classes += ' is-today';
+      if (isSelected) classes += ' is-selected';
+
+      html += '<div class="' + classes + '" onclick="vzV3SelectDay(' + d + ')" data-day-idx="' + d + '">';
+      html += '<div class="vz-v3-day-name">' + jours[dayDate.getDay()] + '</div>';
+      html += '<div class="vz-v3-day-date">' + dayDate.getDate() + '</div>';
+      html += '<div class="vz-v3-day-pill ' + visInfo.cls + '"></div>';
+      html += '<div class="vz-v3-day-coef ' + coefCls + '">' + coefDisplay + '</div>';
+      html += '</div>';
+    }
+    html += '</div>';
+    
+    // Détail expand sous la frise
+    html += '<div class="vz-v3-day-detail" id="vzV3DayDetail"></div>';
+    
+    return html;
+  }
+
+  // === Render du detail d'un jour (BM/PM + visi) ===
+  window.vzV3SelectDay = function(dayIdx) {
+    var detailEl = document.getElementById('vzV3DayDetail');
+    if (!detailEl) return;
+
+    // Si on retape le même jour ouvert, on ferme
+    if (detailEl.dataset.openIdx === String(dayIdx)) {
+      detailEl.classList.remove('is-open');
+      detailEl.dataset.openIdx = '';
+      // Retire la sélection
+      var allDays = document.querySelectorAll('.vz-v3-day');
+      allDays.forEach(function(d) { d.classList.remove('is-selected'); });
+      return;
+    }
+
+    // Update sélection visuelle
+    var allDays = document.querySelectorAll('.vz-v3-day');
+    allDays.forEach(function(d) {
+      d.classList.toggle('is-selected', parseInt(d.dataset.dayIdx) === dayIdx);
+    });
+
+    var today = new Date();
+    today.setHours(12, 0, 0, 0);
+    var dayDate = new Date(today.getTime() + dayIdx * 86400000);
+    var jours = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+    var mois = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+    var dayLabel = jours[dayDate.getDay()] + ' ' + dayDate.getDate() + ' ' + mois[dayDate.getMonth()];
+
+    var h = S_spotWeatherCache;
+    var depth = S._spotDepth || 5;
+    var lat = S.clickLatLng ? S.clickLatLng.lat : 49.35;
+    var lon = S.clickLatLng ? S.clickLatLng.lng : -0.5;
+    var score = v3DayDominantScore(h, dayDate, depth, lat, lon);
+    var visInfo = v3VisLabel(score);
+
+    var tides = v3DayTides(dayDate);
+    var tidesHtml = '';
+    if (tides.length > 0) {
+      tidesHtml = '<div class="vz-v3-tide-row">';
+      // Filtre pour 1 PM + 1 BM (les premiers de la journée)
+      var pm = tides.find(function(t) { return t.type === 'high'; });
+      var bm = tides.find(function(t) { return t.type === 'low'; });
+      [pm, bm].forEach(function(e) {
+        if (!e) return;
+        var t = new Date(e.time);
+        var timeStr = t.toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
+        var typeShort = e.type === 'high' ? 'PM' : 'BM';
+        var typeClass = e.type === 'high' ? 'is-pm' : 'is-bm';
+        tidesHtml += '<div class="vz-v3-tide-cell">';
+        tidesHtml += '<div class="vz-v3-tide-info">';
+        tidesHtml += '<span class="vz-v3-tide-type ' + typeClass + '">' + typeShort + '</span>';
+        tidesHtml += '<span class="vz-v3-tide-time">' + timeStr + '</span>';
+        tidesHtml += '<span class="vz-v3-tide-h">' + e.height.toFixed(1) + 'm</span>';
+        tidesHtml += '</div></div>';
+      });
+      tidesHtml += '</div>';
+    } else {
+      tidesHtml = '<div style="text-align:center;padding:8px;color:var(--vz-text-on-dark-faint);font-family:IBM Plex Mono,monospace;font-size:11px;">Marées non disponibles</div>';
+    }
+
+    var inner = '<div class="vz-v3-day-detail-inner">';
+    inner += '<div class="vz-v3-day-detail-title">';
+    inner += '<span>' + dayLabel + '</span>';
+    inner += '<span class="vz-v3-day-detail-viz ' + visInfo.cls + '">' + visInfo.label + '</span>';
+    inner += '</div>';
+    inner += tidesHtml;
+    inner += '</div>';
+
+    detailEl.innerHTML = inner;
+    detailEl.classList.add('is-open');
+    detailEl.dataset.openIdx = String(dayIdx);
+  };
+
+  // === Toggle section "Conditions actuelles" ===
+  window.vzV3ToggleConditions = function() {
+    var section = document.getElementById('vzV3CurrentSection');
+    if (section) section.classList.toggle('is-open');
+  };
+
+  // === RENDU PRINCIPAL DU DRAWER V3 (mobile only) ===
+  window.vzV3RenderDrawer = function() {
+    if (!isMobileV3()) return;
+    var h = S_spotWeatherCache;
+    if (!h) return;
+
+    var dateVal = document.getElementById('spotDate').value;
+    var timeVal = document.getElementById('spotTime').value;
+    var targetStr = dateVal + 'T' + timeVal;
+    var idx = 0, best = Infinity;
+    h.time.forEach(function(t, i) {
+      var d = Math.abs(new Date(t) - new Date(targetStr));
+      if (d < best) { best = d; idx = i; }
+    });
+
+    var wind = Math.round(h.windspeed_10m[idx] || 0);
+    var gusts = Math.round(h.windgusts_10m[idx] || 0);
+    var dir = h.winddirection_10m[idx];
+    var depth = S._spotDepth || 5;
+    var lat = S.clickLatLng ? S.clickLatLng.lat : 49.35;
+    var lon = S.clickLatLng ? S.clickLatLng.lng : -0.5;
+    var dirFactor = getDirFactorForPoint(dir, lat, lon);
+    var score = visScoreV2(h, idx, depth, lat, lon);
+    var visInfo = v3VisLabel(score);
+    var explain = v3BuildExplain(h, idx, depth, dir, dirFactor, wind, gusts, score, lat, lon);
+
+    // Tendance sur 24h
+    var futureMin = score, futureMax = score;
+    var lookAhead = Math.min(24, h.time.length - idx - 1);
+    for (var fIdx = idx + 1; fIdx <= idx + lookAhead; fIdx++) {
+      var sFut = visScoreV2(h, fIdx, depth, lat, lon);
+      if (sFut < futureMin) futureMin = sFut;
+      if (sFut > futureMax) futureMax = sFut;
+    }
+    var trendSvg = v3TrendArrow(score, futureMin, futureMax);
+
+    // Construit le HTML
+    var html = '';
+
+    // Verdict v3
+    html += '<div class="vz-v3-verdict ' + visInfo.cls + '">';
+    html += '<div class="vz-v3-verdict-row">';
+    html += '<div class="vz-v3-verdict-badge">' + visInfo.label + '</div>';
+    html += '<div class="vz-v3-verdict-meta">';
+    html += '<span class="vz-v3-verdict-label">Visibilité estimée</span>';
+    html += '<span class="vz-v3-verdict-value">' + visInfo.value + '</span>';
+    html += '</div>';
+    if (trendSvg) {
+      html += '<div class="vz-v3-verdict-trend">' + trendSvg + '</div>';
+    }
+    html += '</div>';
+    html += '<p class="vz-v3-verdict-explain">' + explain + '</p>';
+    html += '</div>';
+
+    // Frise 7 jours
+    html += '<div class="vz-v3-forecast">';
+    html += '<div class="vz-v3-forecast-header">';
+    html += '<span class="vz-v3-forecast-title">7 prochains jours</span>';
+    html += '<span class="vz-v3-forecast-subtitle">Tape pour le détail</span>';
+    html += '</div>';
+    html += v3RenderForecast(h, depth, lat, lon, -1);
+    html += '</div>';
+
+    // Section repliable "Conditions actuelles"
+    html += '<div class="vz-v3-section" id="vzV3CurrentSection">';
+    html += '<button class="vz-v3-section-toggle" onclick="vzV3ToggleConditions()">';
+    html += '<span class="vz-v3-section-toggle-label">Conditions actuelles</span>';
+    html += '<span class="vz-v3-section-toggle-icon">▾</span>';
+    html += '</button>';
+    html += '<div class="vz-v3-section-body">';
+    html += '<div class="vz-v3-section-content">';
+    html += '<div id="vzV3LegacyContent"></div>';
+    html += '</div></div></div>';
+
+    // Injecte le HTML dans le conteneur v3
+    var v3Container = document.getElementById('vzV3Container');
+    if (v3Container) {
+      v3Container.innerHTML = html;
+      v3Container.style.display = 'block';
+    }
+
+    // Cache les blocs natifs et les déplace dans la section repliable
+    moveLegacyContentToCollapsible();
+  };
+
+  // === Déplace les blocs natifs (vent/profondeur/temp/marées) dans la section repliable ===
+  function moveLegacyContentToCollapsible() {
+    var legacyTarget = document.getElementById('vzV3LegacyContent');
+    if (!legacyTarget) return;
+
+    var blocks = [
+      '.spot-wind-block',
+      '.spot-depth-coef-block',
+      '.spot-sea-block',
+      '.vz-pmbm-block'
+    ];
+
+    blocks.forEach(function(sel) {
+      var el = document.querySelector('#spotDrawer ' + sel);
+      if (el && !legacyTarget.contains(el)) {
+        legacyTarget.appendChild(el);
+      }
+    });
+  }
+
+  // === Override de renderSpotPopup pour appeler vzV3RenderDrawer après ===
+  if (typeof window.renderSpotPopup === 'function') {
+    var originalRenderSpotPopup = window.renderSpotPopup;
+    window.renderSpotPopup = function() {
+      originalRenderSpotPopup.apply(this, arguments);
+      try {
+        vzV3RenderDrawer();
+      } catch(e) {
+        console.error('[V3] erreur render', e);
+      }
+    };
+  }
+
+  // === Cache le bloc verdict natif et le bandeau décantation en mobile (déjà gérés par v3) ===
+  function injectV3HideStyles() {
+    var style = document.createElement('style');
+    style.textContent = '@media (max-width: 768px) {' +
+      '#spotDrawer .spot-vis-block { display: none !important; }' +
+      '#spotDrawer .decant-banner-v2 { display: none !important; }' +
+      '#spotDrawer .vz-pmbm-block .vz-pmbm-label { display: none; }' +
+      '#spotDrawer .vz-explain-trigger { display: none !important; }' +
+      '#vzV3Container { display: none; }' +
+      '}';
+    document.head.appendChild(style);
+  }
+  injectV3HideStyles();
+
+  // === Crée le conteneur v3 dans le drawer si absent ===
+  function ensureV3Container() {
+    if (document.getElementById('vzV3Container')) return;
+    var drawer = document.getElementById('spotDrawer');
+    if (!drawer) return;
+    var body = drawer.querySelector('.drawer-body');
+    if (!body) return;
+    var container = document.createElement('div');
+    container.id = 'vzV3Container';
+    // On l'insère en premier dans le body
+    body.insertBefore(container, body.firstChild);
+  }
+
+  function init() {
+    ensureV3Container();
+    console.log('[VISIMER V3] Drawer refonte v3 initialisé');
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    setTimeout(init, 200);
+  }
+
+})();
