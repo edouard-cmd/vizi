@@ -760,7 +760,40 @@ function gasGet(action, params) {
 }
 
 function toKt(kmh) { return Math.round(kmh * 0.539957); }
+// ============================================================
+// CORRECTION DATUM EMODnet → Profondeur effective de chasse
+// EMODnet est référencé au niveau moyen de la mer.
+// On corrige avec la hauteur de marée actuelle pour obtenir la
+// profondeur réelle au moment de la chasse.
+// ============================================================
+function getMeanTideHeightForZone(lat, lon) {
+  if (lat > 49.0 && lat < 50.5 && lon > -1.5 && lon < 2.0) return 4.5;   // Manche orientale
+  if (lat > 48.5 && lat < 49.8 && lon > -2.5 && lon < -1.0) return 6.5;  // Manche occidentale (Cotentin)
+  if (lat > 48.3 && lat < 49.0 && lon > -5.0 && lon < -2.0) return 5.5;  // Bretagne nord
+  if (lat > 43.0 && lat < 48.5 && lon > -5.0 && lon < -1.0) return 3.5;  // Bretagne sud / Atlantique
+  if (lat > 41.0 && lat < 44.0 && lon > 3.0 && lon < 10.0) return 0;     // Méditerranée
+  return 4.0;
+}
 
+function getRealEffectiveDepth(emodnetDepth, lat, lon) {
+  if (!emodnetDepth || emodnetDepth <= 0) return emodnetDepth;
+  var meanTide = getMeanTideHeightForZone(lat, lon);
+  var currentTide = null;
+  if (typeof TIDES !== 'undefined' && TIDES.data && TIDES.data.length > 0) {
+    var nowMs = Date.now();
+    var bestPoint = null;
+    var bestDelta = Infinity;
+    TIDES.data.forEach(function(p) {
+      var delta = Math.abs(new Date(p.time).getTime() - nowMs);
+      if (delta < bestDelta) { bestDelta = delta; bestPoint = p; }
+    });
+    if (bestPoint && bestDelta < 1800000) currentTide = bestPoint.height;
+  }
+  if (currentTide !== null) {
+    return Math.max(0.5, emodnetDepth + (currentTide - meanTide));
+  }
+  return emodnetDepth;
+}
 function fetchRealDepth(lat, lon) {
   var cacheKey = 'vizi_depth_' + lat.toFixed(3) + '_' + lon.toFixed(3);
   try {
@@ -1481,7 +1514,7 @@ function openSpotPopup(latlng, name) {
   if (coefEl) { coefEl.textContent = ''; coefEl.className = 'spot-depth-coef-val is-loading'; }
 fetchRealDepth(latlng.lat, latlng.lng).then(function(realDepth) {
     if (realDepth !== null && realDepth > 0) {
-      S._spotDepth = realDepth;
+      S._spotDepth = getRealEffectiveDepth(realDepth, latlng.lat, latlng.lng);
     }
     // Met a jour PROFONDEUR/COEF immediatement, meme si la meteo n'est pas encore arrivee
     var lat = S.clickLatLng ? S.clickLatLng.lat : latlng.lat;
