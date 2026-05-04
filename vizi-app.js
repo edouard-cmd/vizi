@@ -2152,18 +2152,23 @@ function toggleDecantInfo() {
 // ============================================================
 
 // Constante de temps (heures) pour la decantation, selon profondeur
-// Plus le fond est peu profond, plus tau est long (re-brassage marees + houle residuelle)
+// Calibration v3 : observations terrain Calvados/Cotentin mai 2026 montrent
+// que la decantation est plus rapide que prevu, notamment grace au brassage
+// de marees (4 cycles par 24h en Manche) qui evacue activement les sediments.
 function decantTau(depth) {
-  if (depth <= 2)  return 36;  // estran, beaucoup d'energie residuelle
-  if (depth <= 5)  return 30;  // cote de Nacre type Courseulles (calibre)
-  if (depth <= 10) return 22;
-  if (depth <= 20) return 14;
-  return 8;                     // au-dela 20m, decantation rapide
+  if (depth <= 2)  return 24;  // estran, brassage marees frequent
+  if (depth <= 5)  return 18;  // cote de Nacre type Courseulles
+  if (depth <= 10) return 12;
+  if (depth <= 20) return 8;
+  return 6;                     // au-dela 20m, decantation rapide
 }
-
 // Energie de brassage instantanee a une heure i
 // Vent effectif = mix vent soutenu + rafales, seuil critique 8 nds
-// Effet quadratique de l'onshore (un vent lateral brasse beaucoup moins)
+// Calibration v3 : passage d'une formule quadratique (excess^2 x onshore^2)
+// a une formule lineaire avec cap. La quadratique faisait exploser les valeurs
+// (un coup a 30 nds comptait 16x plus qu'un coup a 12 nds) et generait une
+// energie residuelle aberrante (>1000) qui plombait le score plusieurs jours
+// apres meme en conditions calmes. Le cap a 30 borne les valeurs extremes.
 function brassageInstant(h, i, lat, lon) {
   if (i < 0 || i >= h.time.length) return 0;
   var w = h.windspeed_10m[i] || 0;
@@ -2180,7 +2185,7 @@ function brassageInstant(h, i, lat, lon) {
   var onshore = -Math.cos(angle * Math.PI / 180);
   if (onshore < 0.2) return 0; // vent offshore ou tres lateral, pas de brassage cote
   var excess = ventEff - 8;
-  return excess * excess * onshore * onshore;
+  return Math.min(excess * onshore, 30);
 }
 
 // Energie residuelle cumulee au temps idx (sommation exponentielle decroissante)
@@ -2218,10 +2223,14 @@ function visScoreV2(h, idx, depth, lat, lon) {
   var wavePenalty = Math.min(wave / 1.2, 1) * 35;
   var penaliteInstant = (windPenalty + gustPenalty + wavePenalty) * bathyFactor;
 
-  // Penalite cumulee (energie de brassage des dernieres heures/jours)
+// Penalite cumulee (energie de brassage des dernieres heures/jours)
   var energie = energieResiduelle(h, idx, depth, lat, lon);
-  // Calibration : energie ~30-50 = brassage actif, ~5-15 = decantation en cours, <2 = eau claire
-  var penaliteCumulee = Math.min(energie * 1.2, 100) * bathyFactor * 0.5;
+  // Calibration v3 : avec la nouvelle formule lineaire de brassageInstant,
+  // l'energie typique passe de ~1000-2000 (ancienne) a ~20-200 (nouvelle).
+  // Le multiplicateur 0.33 vise une penalite cumulee de ~80 pour une energie
+  // de 200 (vraie tempete en cours) et de ~15 pour une energie de 30
+  // (decantation en cours). Calibre sur observation terrain Cotentin 04/05/26.
+  var penaliteCumulee = energie * 0.33 * bathyFactor * 0.5;
 
   // On prend la plus forte des deux (l'instant ou le cumule, selon ce qui domine)
   // Cela evite la double-comptabilisation quand le vent est en train de souffler
@@ -4649,12 +4658,13 @@ function renderSheetTable() {
     if (score < 80) return 'vz-cond-vis-3';
     return 'vz-cond-vis-4';
   }
-  function visLabel(score) {
-    if (score < 20) return '<1m';
-    if (score < 40) return '1-2m';
-    if (score < 60) return '2-4m';
-    if (score < 80) return '4-8m';
-    return '+8m';
+function visLabel(score) {
+    // Aligne sur l'echelle officielle du drawer spot : 1m / 2m / 4m / 6m / 8m
+    if (score < 20) return '1m';
+    if (score < 40) return '2m';
+    if (score < 60) return '4m';
+    if (score < 80) return '6m';
+    return '8m';
   }
   function windCls(v) {
     if (v < 10) return 'vz-cond-w-0';
