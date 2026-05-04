@@ -4511,9 +4511,11 @@ window.closeCondDrawer = function() {
 
 // ----- Récupère le spot courant -----
 function resolveSheetSpot() {
-  // 1) Drawer spot ouvert : S.clickLatLng est la source de vérité dans ton code
-  var spotDrawer = document.getElementById('spotDrawer');
-  if (spotDrawer && spotDrawer.classList.contains('open') && S && S.clickLatLng) {
+  // 1) Un point a ete clique : c'est lui qu'on analyse, peu importe que le
+  // drawer spot soit encore ouvert. Ca evite que la fermeture du drawer
+  // (en ouvrant Conditions par exemple) fasse retomber sur le centre carte.
+  // S._spotDepth est deja la valeur corrigee renvoyee par fetchRealDepth.
+  if (S && S.clickLatLng) {
     var lat = S.clickLatLng.lat;
     var lng = S.clickLatLng.lng;
     var name = getSpotDisplayName(lat, lng);
