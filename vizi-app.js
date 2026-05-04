@@ -1105,13 +1105,18 @@ function computeOneZone(zone) {
         if (h.time[t].slice(0, 13) === nowStr) { idx = t; break; }
       }
     }
-    var wind = h.windspeed_10m ? (h.windspeed_10m[idx] || 0) : 0;
-    var gusts = h.windgusts_10m ? (h.windgusts_10m[idx] || 0) : 0;
+// h.windspeed_10m / h.windgusts_10m sont en km/h (cf API Open-Meteo).
+    // On convertit en nds pour computeZoneScore qui compare aux seuils nds.
+    var windKmh = h.windspeed_10m ? (h.windspeed_10m[idx] || 0) : 0;
+    var gustsKmh = h.windgusts_10m ? (h.windgusts_10m[idx] || 0) : 0;
+    var wind = windKmh * 0.539957;
+    var gusts = gustsKmh * 0.539957;
     var dir = h.winddirection_10m ? (h.winddirection_10m[idx] || 0) : 0;
     var wave = h.wave_height ? (h.wave_height[idx] || 0) : 0;
     var rain = h.precipitation ? (h.precipitation[idx] || 0) : 0;
     var score = computeZoneScore(wind, gusts, dir, wave, rain, props, h, idx, lat, lon);
-    var result = { score: score, wind: Math.round(wind), gusts: Math.round(gusts), dir: Math.round(dir), wave: wave, label: scoreToLabel(score) };
+    // Affichage : on conserve windKmh dans result.wind pour compatibilite tooltip
+    var result = { score: score, wind: Math.round(windKmh), gusts: Math.round(gustsKmh), dir: Math.round(dir), wave: wave, label: scoreToLabel(score) };
     setCachedWeather(cacheKey, result);
     return result;
   }).catch(function() {
@@ -2045,18 +2050,20 @@ function renderDecantation(h, currentIdx, depth, currentDir, latlng) {
 
   // CAS 2 - Degradation : label va baisser dans 24h
   if (labelMinKey < labelNowKey) {
-    var futurePeakGusts = 0, futurePeakHoursAhead = -1, futurePeakDir = null;
+var futurePeakGusts = 0, futurePeakHoursAhead = -1, futurePeakDir = null;
     for (var fk = 1; fk <= lookForward; fk++) {
       var ffIdx = currentIdx + fk;
-      var fg = h.windgusts_10m[ffIdx] || 0;
+      // Conversion km/h -> nds pour comparaison aux seuils
+      var fg = (h.windgusts_10m[ffIdx] || 0) * 0.539957;
       var fd = h.winddirection_10m ? h.winddirection_10m[ffIdx] : null;
       if (onshoreFactor(fd) < 0.3) continue;
       if (fg > futurePeakGusts) { futurePeakGusts = Math.round(fg); futurePeakHoursAhead = fk; futurePeakDir = fd; }
     }
-    var degradeWhen = formatWhen(new Date(h.time[futureMinIdx]));
+ var degradeWhen = formatWhen(new Date(h.time[futureMinIdx]));
     var subText, detailText;
     if (futurePeakGusts >= 15) {
-      var futKt = S_windUnit === 'kt' ? toKt(futurePeakGusts) : futurePeakGusts;
+      // futurePeakGusts est deja en nds (cf conversion ci-dessus)
+      var futKt = S_windUnit === 'kt' ? futurePeakGusts : Math.round(futurePeakGusts / 0.539957);
       subText = 'Coup de ' + dirName(futurePeakDir) + ' a ' + futKt + ' ' + unit + ' attendu';
       detailText = 'Coup de vent ' + dirName(futurePeakDir) + ' onshore avec rafales jusqu a ' + futKt + ' ' + unit + ' dans ' + futurePeakHoursAhead + 'h. Sur fond ~' + Math.round(depth) + 'm, prevoir plusieurs jours de decantation ensuite.';
     } else {
@@ -2076,18 +2083,20 @@ function renderDecantation(h, currentIdx, depth, currentDir, latlng) {
 
   // CAS 3 - Eclaircissement franc : label va monter dans 24h
   if (labelMaxKey > labelNowKey) {
-    var pastPeakGusts = 0, pastPeakHoursAgo = -1, pastPeakDir = null;
+  var pastPeakGusts = 0, pastPeakHoursAgo = -1, pastPeakDir = null;
     for (var k = 1; k <= Math.min(72, currentIdx); k++) {
       var pIdx = currentIdx - k;
-      var pg = h.windgusts_10m[pIdx] || 0;
+      // Conversion km/h -> nds pour comparaison aux seuils
+      var pg = (h.windgusts_10m[pIdx] || 0) * 0.539957;
       var pd = h.winddirection_10m ? h.winddirection_10m[pIdx] : null;
       if (onshoreFactor(pd) < 0.3) continue;
       if (pg > pastPeakGusts) { pastPeakGusts = Math.round(pg); pastPeakHoursAgo = k; pastPeakDir = pd; }
     }
-    var clearWhen = formatWhen(new Date(h.time[futureMaxIdx]));
+  var clearWhen = formatWhen(new Date(h.time[futureMaxIdx]));
     var subText3, detailText3;
     if (pastPeakHoursAgo > 0 && pastPeakGusts >= 15) {
-      var peakKt = S_windUnit === 'kt' ? toKt(pastPeakGusts) : pastPeakGusts;
+      // pastPeakGusts est deja en nds (cf conversion ci-dessus)
+      var peakKt = S_windUnit === 'kt' ? pastPeakGusts : Math.round(pastPeakGusts / 0.539957);
       subText3 = 'Vent retombe depuis ' + pastPeakHoursAgo + 'h, decantation en cours';
       detailText3 = 'Pic onshore de ' + peakKt + ' ' + unit + ' ' + dirName(pastPeakDir) + ' detecte il y a ' + pastPeakHoursAgo + 'h. Les particules redescendent. Sur fond ~' + Math.round(depth) + 'm, l eau devrait s eclaircir vers ' + clearWhen + '.';
     } else {
@@ -2152,30 +2161,29 @@ function toggleDecantInfo() {
 // ============================================================
 
 // Constante de temps (heures) pour la decantation, selon profondeur
-// Calibration v3 : observations terrain Calvados/Cotentin mai 2026 montrent
-// que la decantation est plus rapide que prevu, notamment grace au brassage
-// de marees (4 cycles par 24h en Manche) qui evacue activement les sediments.
+// Plus le fond est peu profond, plus tau est long (re-brassage marees + houle residuelle)
+// Calibration originale : Courseulles 26/04/2026 (2m visi apres 60h NE 25-32 nds, fond 5m)
 function decantTau(depth) {
-  if (depth <= 2)  return 24;  // estran, brassage marees frequent
-  if (depth <= 5)  return 18;  // cote de Nacre type Courseulles
-  if (depth <= 10) return 12;
-  if (depth <= 20) return 8;
-  return 6;                     // au-dela 20m, decantation rapide
+  if (depth <= 2)  return 36;  // estran, beaucoup d'energie residuelle
+  if (depth <= 5)  return 30;  // cote de Nacre type Courseulles (calibre)
+  if (depth <= 10) return 22;
+  if (depth <= 20) return 14;
+  return 8;                     // au-dela 20m, decantation rapide
 }
 // Energie de brassage instantanee a une heure i
 // Vent effectif = mix vent soutenu + rafales, seuil critique 8 nds
-// Calibration v3 : passage d'une formule quadratique (excess^2 x onshore^2)
-// a une formule lineaire avec cap. La quadratique faisait exploser les valeurs
-// (un coup a 30 nds comptait 16x plus qu'un coup a 12 nds) et generait une
-// energie residuelle aberrante (>1000) qui plombait le score plusieurs jours
-// apres meme en conditions calmes. Le cap a 30 borne les valeurs extremes.
+// Effet quadratique de l'onshore (un vent lateral brasse beaucoup moins)
+// IMPORTANT : w et g sont stockes en km/h dans S_spotWeatherCache (cf API
+// Open-Meteo wind_speed_unit=kmh). On convertit explicitement en nds avant
+// de comparer aux seuils, qui sont tous en nds (8 nds = 15 km/h ~ seuil de
+// remise en suspension sediments cote sablo-vaseuse).
 function brassageInstant(h, i, lat, lon) {
   if (i < 0 || i >= h.time.length) return 0;
-  var w = h.windspeed_10m[i] || 0;
-  var g = h.windgusts_10m[i] || 0;
+  var wKt = (h.windspeed_10m[i] || 0) * 0.539957;
+  var gKt = (h.windgusts_10m[i] || 0) * 0.539957;
   var d = h.winddirection_10m ? h.winddirection_10m[i] : null;
   if (d === null) return 0;
-  var ventEff = w * 0.6 + g * 0.4;
+  var ventEff = wKt * 0.6 + gKt * 0.4;
   if (ventEff < 8) return 0; // sous le seuil critique, pas de remise en suspension
   var coast = getCoastNormal(lat, lon);
   var windGoesTo = (d + 180) % 360;
@@ -2185,7 +2193,7 @@ function brassageInstant(h, i, lat, lon) {
   var onshore = -Math.cos(angle * Math.PI / 180);
   if (onshore < 0.2) return 0; // vent offshore ou tres lateral, pas de brassage cote
   var excess = ventEff - 8;
-  return Math.min(excess * onshore, 30);
+  return excess * excess * onshore * onshore;
 }
 
 // Energie residuelle cumulee au temps idx (sommation exponentielle decroissante)
@@ -2206,10 +2214,13 @@ function energieResiduelle(h, idx, depth, lat, lon) {
 
 // Score visi unifie (utilise par timeline ET score instantane)
 // Combine penalite instantanee + penalite cumulee de brassage residuel
+// IMPORTANT : h.windspeed_10m et h.windgusts_10m sont en km/h (cf API).
+// On convertit explicitement en nds avant comparaison aux seuils (qui sont
+// tous en nds : 5 nds = vent calme, 25 nds = saturation pénalité).
 function visScoreV2(h, idx, depth, lat, lon) {
   if (!h || !h.windspeed_10m || idx < 0) return 50;
-  var w = h.windspeed_10m[idx] || 0;
-  var g = h.windgusts_10m[idx] || 0;
+  var w = (h.windspeed_10m[idx] || 0) * 0.539957;
+  var g = (h.windgusts_10m[idx] || 0) * 0.539957;
   var d = h.winddirection_10m ? h.winddirection_10m[idx] : null;
   var wave = h.wave_height ? (h.wave_height[idx] || 0) : 0;
 
@@ -2223,14 +2234,10 @@ function visScoreV2(h, idx, depth, lat, lon) {
   var wavePenalty = Math.min(wave / 1.2, 1) * 35;
   var penaliteInstant = (windPenalty + gustPenalty + wavePenalty) * bathyFactor;
 
-// Penalite cumulee (energie de brassage des dernieres heures/jours)
+  // Penalite cumulee (energie de brassage des dernieres heures/jours)
   var energie = energieResiduelle(h, idx, depth, lat, lon);
-  // Calibration v3 : avec la nouvelle formule lineaire de brassageInstant,
-  // l'energie typique passe de ~1000-2000 (ancienne) a ~20-200 (nouvelle).
-  // Le multiplicateur 0.33 vise une penalite cumulee de ~80 pour une energie
-  // de 200 (vraie tempete en cours) et de ~15 pour une energie de 30
-  // (decantation en cours). Calibre sur observation terrain Cotentin 04/05/26.
-  var penaliteCumulee = energie * 0.33 * bathyFactor * 0.5;
+  // Calibration : energie ~30-50 = brassage actif, ~5-15 = decantation en cours, <2 = eau claire
+  var penaliteCumulee = Math.min(energie * 1.2, 100) * bathyFactor * 0.5;
 
   // On prend la plus forte des deux (l'instant ou le cumule, selon ce qui domine)
   // Cela evite la double-comptabilisation quand le vent est en train de souffler
