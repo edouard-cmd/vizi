@@ -760,42 +760,49 @@ function gasGet(action, params) {
 }
 
 function toKt(kmh) { return Math.round(kmh * 0.539957); }
+
 // ============================================================
-// CORRECTION DATUM EMODnet → Profondeur effective de chasse
-// EMODnet est référencé au niveau moyen de la mer.
-// On corrige avec la hauteur de marée actuelle pour obtenir la
-// profondeur réelle au moment de la chasse.
+// CORRECTION PROFONDEUR EMODnet - POINT D'ENTREE UNIQUE
+// ------------------------------------------------------------
+// EMODnet (résolution 115m, datum niveau moyen) sous-estime
+// massivement la profondeur réelle en zone côtière française.
+// Calibration sur 4 mesures terrain BM (Manche orientale, Calvados/
+// Seine-Maritime) : EMODnet retourne en moyenne ~35% de la profondeur
+// réelle. Multiplicateur ×2.5 + plancher 3m sur tout point en mer.
+//
+// LIMITES CONNUES :
+// - Calibration uniquement Manche orientale, inadaptée Bretagne/
+//   Atlantique/Méditerranée (à recalibrer par zone via observations
+//   communautaires).
+// - Solution durable : intégration SHOM (refusée pour cause de coût)
+//   ou système de calibration par zone basé sur observations terrain.
+//
+// Cette fonction est interne. Tous les consommateurs doivent passer
+// par fetchRealDepth qui retourne directement la valeur corrigée.
 // ============================================================
-function getMeanTideHeightForZone(lat, lon) {
-  if (lat > 49.0 && lat < 50.5 && lon > -1.5 && lon < 2.0) return 4.5;   // Manche orientale
-  if (lat > 48.5 && lat < 49.8 && lon > -2.5 && lon < -1.0) return 6.5;  // Manche occidentale (Cotentin)
-  if (lat > 48.3 && lat < 49.0 && lon > -5.0 && lon < -2.0) return 5.5;  // Bretagne nord
-  if (lat > 43.0 && lat < 48.5 && lon > -5.0 && lon < -1.0) return 3.5;  // Bretagne sud / Atlantique
-  if (lat > 41.0 && lat < 44.0 && lon > 3.0 && lon < 10.0) return 0;     // Méditerranée
-  return 4.0;
+function correctEmodnetDepth(rawDepth) {
+  if (rawDepth === null || rawDepth === undefined) return null;
+  // Plancher minimum : si EMODnet renvoie <1.2m, on force 3m
+  // (zone côtière où l'erreur est maximale)
+  if (rawDepth < 1.2) return 3.0;
+  // Sinon multiplicateur correctif x2.5
+  return Math.round(rawDepth * 2.5 * 10) / 10;
 }
 
-function getRealEffectiveDepth(emodnetDepth, lat, lon) {
-  if (!emodnetDepth || emodnetDepth <= 0) return emodnetDepth;
-  var meanTide = getMeanTideHeightForZone(lat, lon);
-  var currentTide = null;
-  if (typeof TIDES !== 'undefined' && TIDES.data && TIDES.data.length > 0) {
-    var nowMs = Date.now();
-    var bestPoint = null;
-    var bestDelta = Infinity;
-    TIDES.data.forEach(function(p) {
-      var delta = Math.abs(new Date(p.time).getTime() - nowMs);
-      if (delta < bestDelta) { bestDelta = delta; bestPoint = p; }
-    });
-    if (bestPoint && bestDelta < 1800000) currentTide = bestPoint.height;
-  }
-  if (currentTide !== null) {
-    return Math.max(0.5, emodnetDepth + (currentTide - meanTide));
-  }
-  return emodnetDepth;
-}
+// ============================================================
+// fetchRealDepth - retourne la profondeur CORRIGEE pour un point
+// ------------------------------------------------------------
+// Point d'entrée unique pour toute consommation de profondeur dans
+// l'app. Garantit que les consommateurs (renderSpotPopup, bandeau
+// 5j, drawer mobile, sessions Firebase, etc.) reçoivent toujours
+// une valeur déjà corrigée, jamais de la donnée EMODnet brute.
+//
+// Cache : versionné en v2 pour invalider l'ancien cache contenant
+// des valeurs brutes (sinon les utilisateurs ayant déjà cliqué sur
+// un spot continueraient à voir l'ancienne valeur non corrigée).
+// ============================================================
 function fetchRealDepth(lat, lon) {
-  var cacheKey = 'vizi_depth_' + lat.toFixed(3) + '_' + lon.toFixed(3);
+  var cacheKey = 'vizi_depth_v2_' + lat.toFixed(3) + '_' + lon.toFixed(3);
   try {
     var cached = localStorage.getItem(cacheKey);
     if (cached) {
@@ -808,10 +815,15 @@ function fetchRealDepth(lat, lon) {
     .then(function(r) { return r.json(); })
     .then(function(data) {
       if (data && typeof data.avg === 'number') {
-        var depth = Math.abs(data.avg);
-        if (depth > 0 && depth < 1000) {
-          try { localStorage.setItem(cacheKey, JSON.stringify({ depth: depth })); } catch(e) {}
-          return depth;
+        var rawDepth = Math.abs(data.avg);
+        if (rawDepth > 0 && rawDepth < 1000) {
+          // Correction appliquée AVANT mise en cache : on ne cache
+          // jamais de valeur brute, pour éviter toute régression future.
+          var correctedDepth = correctEmodnetDepth(rawDepth);
+          try {
+            localStorage.setItem(cacheKey, JSON.stringify({ depth: correctedDepth }));
+          } catch(e) {}
+          return correctedDepth;
         }
       }
       return null;
@@ -1514,7 +1526,8 @@ function openSpotPopup(latlng, name) {
   if (coefEl) { coefEl.textContent = ''; coefEl.className = 'spot-depth-coef-val is-loading'; }
 fetchRealDepth(latlng.lat, latlng.lng).then(function(realDepth) {
     if (realDepth !== null && realDepth > 0) {
-      S._spotDepth = getRealEffectiveDepth(realDepth, latlng.lat, latlng.lng);
+      // realDepth est déjà la valeur corrigée (cf. fetchRealDepth)
+      S._spotDepth = realDepth;
     }
     // Met a jour PROFONDEUR/COEF immediatement, meme si la meteo n'est pas encore arrivee
     var lat = S.clickLatLng ? S.clickLatLng.lat : latlng.lat;
