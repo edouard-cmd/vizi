@@ -4473,7 +4473,16 @@ function getSpotDisplayName(lat, lng) {
   if (typeof findNearestPort === 'function') {
     try {
       var p = findNearestPort(lat, lng);
-      if (p && p.spot && p.spot.name) return p.spot.name;
+      if (p && p.spot && p.spot.name) {
+        var distKm = p.distanceKm;
+        if (distKm < 1) {
+          return p.spot.name;
+        } else if (distKm < 5) {
+          return 'Au large de ' + p.spot.name + ' · ' + distKm.toFixed(1) + ' km';
+        } else {
+          return 'Point en mer · ' + lat.toFixed(3) + 'N ' + Math.abs(lng).toFixed(3) + (lng < 0 ? 'O' : 'E');
+        }
+      }
     } catch(e) {}
   }
   return lat.toFixed(3) + 'N ' + Math.abs(lng).toFixed(3) + (lng < 0 ? 'O' : 'E');
