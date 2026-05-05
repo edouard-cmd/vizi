@@ -4289,6 +4289,10 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
       <div class="vz-layers-check"></div>
       <span>Repères marins</span>
     </div>
+   <div class="vz-layers-row" id="vzRowLitto3d" onclick="toggleLayer('litto3d')">
+      <div class="vz-layers-check"></div>
+      <span>Bathymétrie SHOM</span>
+    </div>
    <div class="vz-layers-row disabled">
       <div class="vz-layers-check"></div>
       <span>Vagues (bientôt)</span>
@@ -4930,6 +4934,8 @@ function syncLayersPopover() {
   document.getElementById('vzRowHeatmap').classList.toggle('active', S.showHeatmap);
   document.getElementById('vzRowSed').classList.toggle('active', S.showSed);
   document.getElementById('vzRowIso').classList.toggle('active', S.showIso);
+  var rowLitto = document.getElementById('vzRowLitto3d');
+  if (rowLitto) rowLitto.classList.toggle('active', !!S.showLitto3d);
   document.getElementById('vzUnitKt').classList.toggle('active', S_windUnit === 'kt');
   document.getElementById('vzUnitKmh').classList.toggle('active', S_windUnit === 'kmh');
 }
