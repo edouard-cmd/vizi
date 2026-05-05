@@ -723,7 +723,8 @@ var S = {
   showHeatmap: false, showIso: true, showSed: false,
   isoDeep: null, isoShom: null, sedLayer: null,
   spotMarkers: {}, clickMarker: null, clickLatLng: null,
-  canvas: null, ctx: null, _spotDepth: 5
+  canvas: null, ctx: null, _spotDepth: 5,
+  showLitto3d: false, litto3d: null
 };
 
 var S_forecastOpen = false;
@@ -886,7 +887,49 @@ function initCanvas() {
     S.canvas.height = window.innerHeight;
   });
 }
-
+// ============================================================
+// LITTO3D SHOM - Bathymetrie haute resolution cotiere France entiere
+// ------------------------------------------------------------
+// 6 sous-couches WMS SHOM regroupees dans un L.layerGroup, chacune
+// avec son bounds geographique issu du GetCapabilities INSPIRE.
+// L'usage des bounds evite les requetes hors emprise.
+// Service WMS INSPIRE SHOM : libre d'usage avec mention obligatoire.
+// Pas de proxy GAS necessaire pour l'affichage (tuiles PNG, pas CORS).
+// ============================================================
+function initLitto3dLayer() {
+  var SHOM_WMS = 'https://services.data.shom.fr/INSPIRE/wms/r';
+  var common = {
+    format: 'image/png',
+    transparent: true,
+    version: '1.3.0',
+    attribution: '&copy; SHOM Litto3D',
+    opacity: 1.0,
+    maxZoom: 19
+  };
+  function makeLayer(layerName, southWest, northEast) {
+    var opts = Object.assign({}, common, {
+      layers: layerName,
+      bounds: L.latLngBounds(southWest, northEast)
+    });
+    return L.tileLayer.wms(SHOM_WMS, opts);
+  }
+  // Bounds [latMin, lonMin] / [latMax, lonMax] issus du GetCapabilities SHOM
+  var subLayers = [
+    // Bretagne
+    makeLayer('LITTO3D_BZH_2018_2021_PYR_3857_WMSR', [47.24, -3.87], [49.00, -1.37]),
+    // Normandie + Hauts-de-France
+    makeLayer('L3D_MAR_NHDF_2016_2018_PYR_3857_WMSR', [48.57, -1.98], [51.17,  2.96]),
+    // Nouvelle-Aquitaine
+    makeLayer('LITTO3D_NAQ_2020_2022_PYR_3857_WMSR', [43.30, -1.85], [46.30, -0.95]),
+    // Languedoc-Roussillon
+    makeLayer('LITTO3D_LR_2009_PYR_3857_WMSR', [42.30,  2.85], [43.70,  4.85]),
+    // PACA
+    makeLayer('LITTO3D_PACA_2015_PYR_3857_WMSR', [42.95,  4.85], [43.95,  7.55]),
+    // Corse
+    makeLayer('L3D_LIDAR_CORSE_2017_2018_PYR_3857_WMSR', [41.30,  8.45], [43.10,  9.65])
+  ];
+  S.litto3d = L.layerGroup(subLayers);
+}
 function initMap() {
   S.map = L.map('map', { center:[49.32, -0.55], zoom:11, zoomControl:false });
 
@@ -913,10 +956,12 @@ S.basemapSat = L.layerGroup([
   S.isoShom = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', {
     attribution: 'Signalisation OpenSeaMap', opacity: 0.95, maxZoom: 19
   });
-  S.sedLayer = L.tileLayer.wms('https://services.data.shom.fr/INSPIRE/wms/v', {
+ S.sedLayer = L.tileLayer.wms('https://services.data.shom.fr/INSPIRE/wms/v', {
     layers: 'NDF_BDD_WLD_WGS84G_WMS', format: 'image/png', transparent: true,
     version: '1.3.0', attribution: 'Nature du fond SHOM', opacity: 0.75, maxZoom: 19
   });
+
+  initLitto3dLayer();
 
   S.isoDeep.addTo(S.map);
   S.isoShom.addTo(S.map);
@@ -989,12 +1034,29 @@ function toggleLayer(type) {
       if (S.map.hasLayer(S.isoDeep)) S.map.removeLayer(S.isoDeep);
       if (S.map.hasLayer(S.isoShom)) S.map.removeLayer(S.isoShom);
     }
-  } else if (type === 'sed') {
+ } else if (type === 'sed') {
     S.showSed = !S.showSed;
     document.getElementById('btnSed').classList.toggle('active', S.showSed);
     document.getElementById('sedLegend').style.display = S.showSed ? 'block' : 'none';
     if (S.showSed) { S.sedLayer.addTo(S.map); }
     else { if (S.map.hasLayer(S.sedLayer)) S.map.removeLayer(S.sedLayer); }
+  } else if (type === 'litto3d') {
+    S.showLitto3d = !S.showLitto3d;
+    var btnL = document.getElementById('btnLitto3d');
+    if (btnL) btnL.classList.toggle('active', S.showLitto3d);
+    if (S.showLitto3d) {
+      S.litto3d.addTo(S.map);
+      // Ordre Z : basemap < Litto3D < sediment/isobathes/markers
+      S.litto3d.eachLayer(function(l) { if (l.bringToBack) l.bringToBack(); });
+      // Remet la basemap encore plus en arriere
+      if (S.currentBasemap === 'sat' && S.map.hasLayer(S.basemapSat)) {
+        S.basemapSat.eachLayer(function(l) { if (l.bringToBack) l.bringToBack(); });
+      } else if (S.currentBasemap === 'ign' && S.map.hasLayer(S.basemapIGN)) {
+        if (S.basemapIGN.bringToBack) S.basemapIGN.bringToBack();
+      }
+    } else {
+      if (S.map.hasLayer(S.litto3d)) S.map.removeLayer(S.litto3d);
+    }
   }
 }
 function switchBasemap(type) {
