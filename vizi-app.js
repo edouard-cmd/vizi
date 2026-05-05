@@ -961,11 +961,11 @@ S.basemapSat = L.layerGroup([
     version: '1.3.0', attribution: 'Nature du fond SHOM', opacity: 0.75, maxZoom: 19
   });
 
-  initLitto3dLayer();
+initLitto3dLayer();
   S.litto3d.addTo(S.map);
   S.litto3d.eachLayer(function(l) { if (l.bringToBack) l.bringToBack(); });
+  if (S.basemapSat) S.basemapSat.eachLayer(function(l) { if (l.bringToBack) l.bringToBack(); });
   S.isoDeep.addTo(S.map);
-  S.isoShom.addTo(S.map);
 
   S.map.on('zoomend', function() {
     var zoom = S.map.getZoom();
