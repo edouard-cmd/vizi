@@ -724,7 +724,7 @@ var S = {
   isoDeep: null, isoShom: null, sedLayer: null,
   spotMarkers: {}, clickMarker: null, clickLatLng: null,
   canvas: null, ctx: null, _spotDepth: 5,
-  showLitto3d: false, litto3d: null
+  showLitto3d: true, litto3d: null
 };
 
 var S_forecastOpen = false;
@@ -962,7 +962,8 @@ S.basemapSat = L.layerGroup([
   });
 
   initLitto3dLayer();
-
+  S.litto3d.addTo(S.map);
+  S.litto3d.eachLayer(function(l) { if (l.bringToBack) l.bringToBack(); });
   S.isoDeep.addTo(S.map);
   S.isoShom.addTo(S.map);
 
