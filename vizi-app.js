@@ -763,54 +763,87 @@ function gasGet(action, params) {
 function toKt(kmh) { return Math.round(kmh * 0.539957); }
 
 // ============================================================
-// CORRECTION PROFONDEUR EMODnet - POINT D'ENTREE UNIQUE
+// FALLBACK PROFONDEUR EMODnet (zones hors-Europe)
 // ------------------------------------------------------------
-// EMODnet (résolution 115m, datum niveau moyen) sous-estime
-// massivement la profondeur réelle en zone côtière française.
-// Calibration sur 4 mesures terrain BM (Manche orientale, Calvados/
-// Seine-Maritime) : EMODnet retourne en moyenne ~35% de la profondeur
-// réelle. Multiplicateur ×2.5 + plancher 3m sur tout point en mer.
-//
-// LIMITES CONNUES :
-// - Calibration uniquement Manche orientale, inadaptée Bretagne/
-//   Atlantique/Méditerranée (à recalibrer par zone via observations
-//   communautaires).
-// - Solution durable : intégration SHOM (refusée pour cause de coût)
-//   ou système de calibration par zone basé sur observations terrain.
-//
-// Cette fonction est interne. Tous les consommateurs doivent passer
-// par fetchRealDepth qui retourne directement la valeur corrigée.
+// Conservé uniquement pour les cas où EMODnet REST depth_sample
+// échoue ou retourne null (DOM, Méditerranée hors couverture
+// européenne, panne de service). Sur zone européenne, jamais
+// appelé — la profondeur est lue directement depuis depth_sample
+// avec précision sub-métrique (cf. fetchRealDepth ci-dessous).
+// La calibration ×2.5 + plancher 3m vient d'une rustine Manche
+// orientale ; ne pas étendre au chemin nominal.
 // ============================================================
 function correctEmodnetDepth(rawDepth) {
   if (rawDepth === null || rawDepth === undefined) return null;
-  // Plancher minimum : si EMODnet renvoie <1.2m, on force 3m
-  // (zone côtière où l'erreur est maximale)
   if (rawDepth < 1.2) return 3.0;
-  // Sinon multiplicateur correctif x2.5
   return Math.round(rawDepth * 2.5 * 10) / 10;
 }
 
 // ============================================================
-// fetchRealDepth - retourne la profondeur CORRIGEE pour un point
+// fetchRealDepth - retourne la profondeur native EMODnet
 // ------------------------------------------------------------
-// Point d'entrée unique pour toute consommation de profondeur dans
-// l'app. Garantit que les consommateurs (renderSpotPopup, bandeau
-// 5j, drawer mobile, sessions Firebase, etc.) reçoivent toujours
-// une valeur déjà corrigée, jamais de la donnée EMODnet brute.
+// Source : EMODnet REST depth_sample. Précision sub-métrique
+// sur zones côtières densément levées (multi-beam), ~115m de
+// base sinon (DTM 2024). Référence verticale LAT (zéro hydro).
 //
-// Cache : versionné en v2 pour invalider l'ancien cache contenant
-// des valeurs brutes (sinon les utilisateurs ayant déjà cliqué sur
-// un spot continueraient à voir l'ancienne valeur non corrigée).
+// Point d'entrée unique pour toute consommation de profondeur
+// dans l'app. Signature : Promise<number|null>. Tous les
+// consommateurs (renderSpotPopup, visScoreV2, renderDecantation,
+// buildVisExplanation, vzmRenderSpotMobile, loadSheetConditions,
+// saveSession) passent par S._spotDepth qui sort d'ici.
+//
+// En parallèle, expose S._spotBathy avec les statistiques
+// complètes (min, max, stdev, nbSondes, source) pour usages
+// futurs : indicateur fiabilité, enrichissement algo, popup
+// "fond varié". Aucun consommateur actuel ne lit S._spotBathy.
+//
+// Cache v3 : précision lat.toFixed(4) (~10m), invalide
+// naturellement les anciens caches v2 corrompus.
+//
+// Fallback : si EMODnet REST échoue (hors-Europe, panne),
+// bascule sur l'ancien endpoint depth/point + correctEmodnetDepth.
 // ============================================================
 function fetchRealDepth(lat, lon) {
-  var cacheKey = 'vizi_depth_v2_' + lat.toFixed(3) + '_' + lon.toFixed(3);
+  var cacheKey = 'vizi_depth_v3_' + lat.toFixed(4) + '_' + lon.toFixed(4);
   try {
     var cached = localStorage.getItem(cacheKey);
     if (cached) {
       var obj = JSON.parse(cached);
+      if (obj && obj.bathy) S._spotBathy = obj.bathy;
       return Promise.resolve(obj.depth);
     }
   } catch(e) {}
+
+  var url = 'https://rest.emodnet-bathymetry.eu/depth_sample?geom=POINT(' + lon + ' ' + lat + ')';
+  return fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data && typeof data.avg === 'number') {
+        var depth = Math.abs(data.avg);
+        if (depth > 0 && depth < 1000) {
+          var bathy = {
+            avg: depth,
+            min: typeof data.min === 'number' ? Math.abs(data.min) : null,
+            max: typeof data.max === 'number' ? Math.abs(data.max) : null,
+            stdev: typeof data.stdev === 'number' ? data.stdev : null,
+            nbSondes: typeof data.elementarySurfaces === 'number' ? data.elementarySurfaces : null,
+            source: data.reference && data.reference.identifier ? data.reference.identifier : 'EMODnet'
+          };
+          S._spotBathy = bathy;
+          try {
+            localStorage.setItem(cacheKey, JSON.stringify({ depth: depth, bathy: bathy }));
+          } catch(e) {}
+          return depth;
+        }
+      }
+      return fetchDepthFallback(lat, lon);
+    })
+    .catch(function() { return fetchDepthFallback(lat, lon); });
+}
+
+// Fallback hors-Europe ou panne EMODnet REST : ancien endpoint
+// depth/point + correctEmodnetDepth. Ne jamais utiliser hors fallback.
+function fetchDepthFallback(lat, lon) {
   var url = 'https://rest.emodnet-bathymetry.eu/depth/point?geom=POINT(' + lon + ' ' + lat + ')';
   return fetch(url)
     .then(function(r) { return r.json(); })
@@ -818,13 +851,8 @@ function fetchRealDepth(lat, lon) {
       if (data && typeof data.avg === 'number') {
         var rawDepth = Math.abs(data.avg);
         if (rawDepth > 0 && rawDepth < 1000) {
-          // Correction appliquée AVANT mise en cache : on ne cache
-          // jamais de valeur brute, pour éviter toute régression future.
-          var correctedDepth = correctEmodnetDepth(rawDepth);
-          try {
-            localStorage.setItem(cacheKey, JSON.stringify({ depth: correctedDepth }));
-          } catch(e) {}
-          return correctedDepth;
+          S._spotBathy = null;
+          return correctEmodnetDepth(rawDepth);
         }
       }
       return null;
