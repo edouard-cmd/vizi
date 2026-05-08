@@ -2250,7 +2250,41 @@ function toggleDecantInfo() {
 // Calibre sur observation terrain Courseulles 26/04/2026 (2m apres 60h NE 25-32 nds)
 // Reference scientifique : Green & Coco 2014 (AGU Reviews of Geophysics)
 // ============================================================
-
+// ============================================================
+// HELPER : profondeur d'eau réelle à un instant T
+// ------------------------------------------------------------
+// Additionne la profondeur LAT (zéro hydrographique, fixe pour
+// le spot, fournie par EMODnet) à la hauteur de marée interpolée
+// depuis TIDES.data au moment timeISO.
+//
+// Utilisé par energieResiduelle et visScoreV2 pour que l'algo
+// de turbidité raisonne sur la VRAIE colonne d'eau au moment T,
+// pas sur le LAT qui n'est correct qu'à BM grand coef.
+//
+// Clamp à 0.3m minimum : sur un estran à BM grand coef, la
+// hauteur d'eau peut tomber sous le LAT du spot et donner du
+// négatif. Physiquement le spot est à sec (non-plongeable),
+// mais on protège bathyFactor d'une division par valeur trop
+// petite qui ferait exploser les pénalités.
+//
+// Fallback : si TIDES.data n'est pas chargé (Méditerranée, ou
+// chargement pas terminé), on retourne depthLAT inchangé. Pas
+// de régression vs comportement actuel.
+// ============================================================
+function depthAtTime(depthLAT, timeISO) {
+  if (typeof TIDES === 'undefined' || !TIDES.data || TIDES.data.length === 0) {
+    return depthLAT;
+  }
+  var targetMs = new Date(timeISO).getTime();
+  var nearest = null, bestDelta = Infinity;
+  for (var i = 0; i < TIDES.data.length; i++) {
+    var delta = Math.abs(new Date(TIDES.data[i].time).getTime() - targetMs);
+    if (delta < bestDelta) { bestDelta = delta; nearest = TIDES.data[i]; }
+  }
+  if (!nearest || bestDelta > 1800000) return depthLAT;
+  var realDepth = depthLAT + nearest.height;
+  return Math.max(0.3, realDepth);
+}
 // Constante de temps (heures) pour la decantation, selon profondeur
 // Plus le fond est peu profond, plus tau est long (re-brassage marees + houle residuelle)
 // Calibration originale : Courseulles 26/04/2026 (2m visi apres 60h NE 25-32 nds, fond 5m)
@@ -2299,15 +2333,30 @@ function brassageInstant(h, i, lat, lon) {
 
 // Energie residuelle cumulee au temps idx (sommation exponentielle decroissante)
 // Regarde jusqu'a 5*tau heures en arriere (capte 99% de l'energie)
+// Cache mémoïsé pour depthAtTime : évite de relooké TIDES.data
+// pour chaque heure plusieurs fois quand le bandeau Conditions
+// calcule les scores des 40 cellules de 5 jours.
+var _depthAtTimeCache = {};
+function depthAtTimeCached(depthLAT, timeISO) {
+  var key = depthLAT + '|' + timeISO;
+  if (_depthAtTimeCache[key] !== undefined) return _depthAtTimeCache[key];
+  var v = depthAtTime(depthLAT, timeISO);
+  _depthAtTimeCache[key] = v;
+  return v;
+}
+
 function energieResiduelle(h, idx, depth, lat, lon) {
-  var tau = decantTau(depth);
-  var lookback = Math.min(Math.round(tau * 5), idx);
+  var depthNow = depthAtTimeCached(depth, h.time[idx]);
+  var tauNow = decantTau(depthNow);
+  var lookback = Math.min(Math.round(tauNow * 5), idx);
   var total = 0;
   for (var k = 1; k <= lookback; k++) {
     var pastIdx = idx - k;
     var brass = brassageInstant(h, pastIdx, lat, lon);
     if (brass > 0) {
-      total += brass * Math.exp(-k / tau);
+      var depthAtPast = depthAtTimeCached(depth, h.time[pastIdx]);
+      var tauPast = decantTau(depthAtPast);
+      total += brass * Math.exp(-k / tauPast);
     }
   }
   return total;
@@ -2326,7 +2375,12 @@ function visScoreV2(h, idx, depth, lat, lon) {
   var wave = h.wave_height ? (h.wave_height[idx] || 0) : 0;
 
   // Bathy factor lisse (exponentiel, plus de saut brutal)
-  var bathyFactor = 1.0 + 3.0 * Math.exp(-depth / 4);
+  // Profondeur instantanée à l'heure analysée : c'est la vraie colonne
+  // d'eau au moment T (LAT + marée). Un spot à 1m LAT peut être à 8m
+  // d'eau à PM, donc bathyFactor est correct seulement si on raisonne
+  // sur la profondeur instantanée, pas LAT.
+  var depthAtIdx = depthAtTimeCached(depth, h.time[idx]);
+  var bathyFactor = 1.0 + 3.0 * Math.exp(-depthAtIdx / 4);
 
   // Penalite instantanee (vent du moment)
   var dirFactor = getDirFactorForPoint(d, lat, lon);
