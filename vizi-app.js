@@ -2356,7 +2356,11 @@ function energieResiduelle(h, idx, depth, lat, lon) {
     if (brass > 0) {
       var depthAtPast = depthAtTimeCached(depth, h.time[pastIdx]);
       var tauPast = decantTau(depthAtPast);
-      total += brass * Math.exp(-k / tauPast);
+      // bathyFactor appliqué AU MOMENT du brassage : un coup de vent à BM
+      // (peu d'eau) remue beaucoup plus le sédiment qu'à PM (beaucoup d'eau).
+      // C'est cette énergie déjà amplifiée qui décante ensuite selon tau.
+      var bathyFactorPast = 1.0 + 3.0 * Math.exp(-depthAtPast / 4);
+      total += brass * bathyFactorPast * Math.exp(-k / tauPast);
     }
   }
   return total;
@@ -2395,8 +2399,12 @@ function visScoreV2(h, idx, depth, lat, lon) {
   // typique passe de ~1000-2000 (ancienne quadratique) a ~20-200 (lineaire).
   // Le multiplicateur 0.33 vise une penalite cumulee de ~80 pour energie 200
   // (vraie tempete) et ~15 pour energie 30 (decantation en cours).
-  // Calibre sur observation terrain Cotentin et Courseulles 04/05/26.
-  var penaliteCumulee = energie * 0.33 * bathyFactor * 0.5;
+// Calibration v3 : avec la formule lineaire de brassageInstant, l'energie
+  // typique passe de ~1000-2000 (ancienne quadratique) a ~20-200 (lineaire).
+  // bathyFactor est déjà appliqué à l'intérieur d'energieResiduelle pour chaque
+  // brassage individuel selon la profondeur de son heure. Ne pas le réappliquer
+  // ici, ça créerait une double amplification.
+  var penaliteCumulee = energie * 0.33 * 0.5;
 
   // On prend la plus forte des deux (l'instant ou le cumule, selon ce qui domine)
   // Cela evite la double-comptabilisation quand le vent est en train de souffler
