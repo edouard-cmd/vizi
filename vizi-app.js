@@ -2479,21 +2479,6 @@ function computeBedShearStressWaves(u_b, omega, sediment) {
 
   return tau_w;
 }
-
-console.log('---');
-console.log('Sensibilite a la taille du grain (mer formee Hs=1, Tp=5, D=3m) :');
-var u_test = computeOrbitalVelocityAtBed(1, 5, 3);
-var w_test = 2 * Math.PI / 5;
-[
-  {nameFr: 'Vase (theorique - sera null)', D50_m: 0.000030, regime: 'cohesive'},
-  {nameFr: 'Sable fin', D50_m: 0.000125, regime: 'non-cohesive'},
-  {nameFr: 'Sable medium', D50_m: 0.000250, regime: 'non-cohesive'},
-  {nameFr: 'Sable grossier', D50_m: 0.001000, regime: 'non-cohesive'},
-  {nameFr: 'Gravier (Folk 3)', D50_m: 0.002000, regime: 'non-cohesive'}
-].forEach(function(s) {
-  var t = computeBedShearStressWaves(u_test, w_test, s);
-  console.log('  ' + s.nameFr + ' -> tau_w =', t !== null ? t.toFixed(3) + ' Pa' : t);
-});
 // Constante de temps (heures) pour la decantation, selon profondeur
 // Plus le fond est peu profond, plus tau est long (re-brassage marees + houle residuelle)
 // Calibration originale : Courseulles 26/04/2026 (2m visi apres 60h NE 25-32 nds, fond 5m)
