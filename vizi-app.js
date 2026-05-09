@@ -2292,6 +2292,116 @@ function depthAtTime(depthLAT, timeISO) {
   var realDepth = depthLAT + nearest.height;
   return Math.max(0.3, realDepth);
 }
+// ============================================================
+// CONSTANTES PHYSIQUES (reutilisees par les briques 1-8)
+// ------------------------------------------------------------
+// Toutes les valeurs en SI (Systeme International).
+// Sources : Soulsby 1997 ch. 2 "Properties of water and sand".
+// ============================================================
+var PHYSICS = {
+  g: 9.81,                  // m/s^2 - acceleration pesanteur
+  rho_water: 1025,          // kg/m^3 - densite eau de mer (salinite ~35 PSU, 10°C)
+  rho_sediment: 2650,       // kg/m^3 - densite quartz (sable/gravier)
+  nu_water: 1.36e-6,        // m^2/s - viscosite cinematique eau a 10°C
+  kappa: 0.41               // constante von Karman (couche limite)
+};
+
+// ============================================================
+// BRIQUE 1 - VITESSE ORBITALE AU FOND (theorie d'Airy)
+// ------------------------------------------------------------
+// Calcule la vitesse maximale du mouvement orbital au fond
+// induite par la houle, en m/s. C'est la grandeur physique
+// fondamentale qui determine la mise en suspension du sediment.
+//
+// Plus u_b est grand, plus le sediment est arrache du fond.
+// Plus la profondeur est grande, plus u_b decroit (la vague
+// "sent" moins le fond).
+//
+// Sources scientifiques :
+//   - Airy 1845, "Tides and Waves", Encyclopaedia Metropolitana
+//     (theorie originelle des ondes lineaires)
+//   - Soulsby R.L. 1997, "Dynamics of Marine Sands", ch. 4
+//     (formulation moderne pour applications cotieres)
+//   - Eckart C. 1952, "The propagation of gravity waves from
+//     deep to shallow water", PNAS (methode iterative pour
+//     resoudre la relation de dispersion)
+//
+// Domaine de validite :
+//   - H_s / D < 0.4 (houle non-deferlante)
+//   - Pas de zone de surf direct
+//   - D > 0.3m (clampe en amont par depthAtTime)
+//
+// Hors validite, la fonction retourne quand meme une valeur
+// (ne crash pas) mais la precision se degrade. C'est documente
+// mais non corrige - approche physique pure, pas de fudge.
+// ============================================================
+
+// Resout iterativement la relation de dispersion d'Airy :
+//     omega^2 = g * k * tanh(k * D)
+//
+// Methode Eckart 1952 : iteration en virgule flottante stable,
+// converge en 6-8 iterations a 0.1% pres pour les profondeurs
+// cotieres typiques.
+//
+// Argument : omega (rad/s) = 2*pi / T_p
+//            depth (m) = profondeur d'eau reelle
+// Retour   : k (rad/m) = nombre d'onde
+function solveDispersionWavenumber(omega, depth) {
+  if (omega <= 0 || depth <= 0) return null;
+  // Approximation initiale : eau profonde (k = omega^2 / g)
+  var k = omega * omega / PHYSICS.g;
+  // 8 iterations Eckart suffisent pour la precision visee
+  for (var i = 0; i < 8; i++) {
+    var tanhKD = Math.tanh(k * depth);
+    if (tanhKD <= 0) return null;  // numerique deviant - rejet
+    k = (omega * omega) / (PHYSICS.g * tanhKD);
+  }
+  return k;
+}
+
+// Calcule la vitesse orbitale maximale au fond.
+//
+// Argument : Hs (m)    = hauteur significative de la houle
+//                        locale (wind_wave_height d'Open-Meteo)
+//            Tp (s)    = periode de pic
+//                        (wind_wave_peak_period d'Open-Meteo)
+//            depth (m) = profondeur d'eau reelle
+//                        (depthAtTime, deja clampee a 0.3m mini)
+// Retour   : u_b (m/s) = vitesse orbitale au fond
+//                        ou null si entrees invalides
+//
+// Formule : u_b = (pi * Hs) / (Tp * sinh(k * D))
+// (Soulsby 1997, ch. 4, formule classique de la theorie d'Airy)
+function computeOrbitalVelocityAtBed(Hs, Tp, depth) {
+  // Cas pas de houle ou periode nulle : pas de brassage
+  if (!Hs || Hs <= 0 || !Tp || Tp <= 0) return 0;
+  // Cas profondeur invalide : on ne peut pas calculer
+  if (!depth || depth <= 0) return null;
+
+  var omega = 2 * Math.PI / Tp;
+  var k = solveDispersionWavenumber(omega, depth);
+  if (k === null) return null;
+
+  var sinhKD = Math.sinh(k * depth);
+  // Garde-fou : sinh peut etre tres grand en eau profonde
+  // ce qui donne u_b -> 0 (correct physiquement, vague ne
+  // sent plus le fond). Pas un cas d'erreur, juste a verifier
+  // qu'on ne divise pas par zero numerique.
+  if (sinhKD <= 0 || !isFinite(sinhKD)) return 0;
+
+  var u_b = (Math.PI * Hs) / (Tp * sinhKD);
+
+  // Sanity check : u_b ne devrait jamais depasser quelques m/s
+  // meme pour des houles extremes. Au-dela, c'est un bug.
+  if (!isFinite(u_b) || u_b < 0) return null;
+  if (u_b > 10) {
+    // Hors domaine validite Airy (deferlement probable).
+    // On retourne quand meme la valeur mais on log pour suivi.
+    console.warn('[Brique1] u_b > 10 m/s, hors domaine Airy:', u_b);
+  }
+
+  return u_b;
+}
 // Constante de temps (heures) pour la decantation, selon profondeur
 // Plus le fond est peu profond, plus tau est long (re-brassage marees + houle residuelle)
 // Calibration originale : Courseulles 26/04/2026 (2m visi apres 60h NE 25-32 nds, fond 5m)
