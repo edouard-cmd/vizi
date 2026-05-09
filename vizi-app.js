@@ -2372,37 +2372,113 @@ function solveDispersionWavenumber(omega, depth) {
 //
 // Formule : u_b = (pi * Hs) / (Tp * sinh(k * D))
 // (Soulsby 1997, ch. 4, formule classique de la theorie d'Airy)
-console.log('=== BRIQUE 2 - VALIDATION ===');
+function computeOrbitalVelocityAtBed(Hs, Tp, depth) {
+  // Cas pas de houle ou periode nulle : pas de brassage
+  if (!Hs || Hs <= 0 || !Tp || Tp <= 0) return 0;
+  // Cas profondeur invalide : on ne peut pas calculer
+  if (!depth || depth <= 0) return null;
 
-// Donnees du spot
-var Hs = S_spotMarineCache.wind_wave_height[0];
-var Tp = S_spotMarineCache.wind_wave_peak_period[0];
-var depthLAT = S._spotDepth;
-var depthNow = depthAtTime(depthLAT, S_spotMarineCache.time[0]);
-var sediment = S._spotSediment;
+  var omega = 2 * Math.PI / Tp;
+  var k = solveDispersionWavenumber(omega, depth);
+  if (k === null) return null;
 
-console.log('Conditions actuelles :');
-console.log('  Hs =', Hs, 'm  Tp =', Tp, 's  depth =', depthNow.toFixed(2), 'm');
-console.log('  Sediment :', sediment.nameFr, '(D50 =', sediment.D50_mm, 'mm)');
-console.log('---');
+  var sinhKD = Math.sinh(k * depth);
+  // Garde-fou : sinh peut etre tres grand en eau profonde
+  // ce qui donne u_b -> 0 (correct physiquement, vague ne
+  // sent plus le fond). Pas un cas d'erreur, juste a verifier
+  // qu'on ne divise pas par zero numerique.
+  if (sinhKD <= 0 || !isFinite(sinhKD)) return 0;
 
-// Chainage Brique 1 -> Brique 2
-var u_b = computeOrbitalVelocityAtBed(Hs, Tp, depthNow);
-var omega = 2 * Math.PI / Tp;
-var tau_w = computeBedShearStressWaves(u_b, omega, sediment);
+  var u_b = (Math.PI * Hs) / (Tp * sinhKD);
 
-console.log('Brique 1 - u_b =', u_b ? u_b.toFixed(4) + ' m/s' : u_b);
-console.log('Brique 2 - tau_w =', tau_w !== null ? tau_w.toFixed(4) + ' Pa' : tau_w);
-console.log('---');
+  // Sanity check : u_b ne devrait jamais depasser quelques m/s
+  // meme pour des houles extremes. Au-dela, c'est un bug.
+  if (!isFinite(u_b) || u_b < 0) return null;
+  if (u_b > 10) {
+    // Hors domaine validite Airy (deferlement probable).
+    // On retourne quand meme la valeur mais on log pour suivi.
+    console.warn('[Brique1] u_b > 10 m/s, hors domaine Airy:', u_b);
+  }
 
-// Sensibilite a la profondeur
-console.log('Sensibilite tau_w(D) avec houle actuelle :');
-[1, 2, 3, 5, 10, 20].forEach(function(d) {
-  var u = computeOrbitalVelocityAtBed(Hs, Tp, d);
-  var w = 2 * Math.PI / Tp;
-  var t = computeBedShearStressWaves(u, w, sediment);
-  console.log('  D =', d, 'm -> u_b =', u.toFixed(4), 'm/s, tau_w =', t !== null ? t.toFixed(4) + ' Pa' : t);
-});
+  return u_b;
+}
+
+// ============================================================
+// BRIQUE 2 - CONTRAINTE DE CISAILLEMENT AU FOND PAR LA HOULE
+// ------------------------------------------------------------
+// Calcule la contrainte de cisaillement (en Pascals) qu'exerce
+// le mouvement orbital au fond sur le sediment. C'est la "force
+// de friction" entre l'eau qui oscille et les grains de sable.
+//
+// Plus tau_w est grand, plus la probabilite que le sediment
+// soit arrache du fond est elevee. Cette contrainte sera comparee
+// au seuil critique de Shields (Brique 5) pour decider de la mise
+// en suspension.
+//
+// Sources scientifiques :
+//   - Swart D.H. 1974, "Offshore sediment transport and
+//     equilibrium beach profiles", Delft Hydraulics Lab. Publ. 131
+//     (formule originelle du coefficient de friction f_w)
+//   - Soulsby R.L. 1997, "Dynamics of Marine Sands", ch. 4,
+//     equations 60 a 62 (formulation moderne avec plafond 0.3)
+//   - Nikuradse J. 1933, "Stromungsgesetze in rauhen Rohren"
+//     (rugosite equivalente k_s = 2.5 * D50 pour fonds sableux)
+//
+// Domaine de validite :
+//   - Sediments non-cohesifs (D50 > 63 microns)
+//   - Regime turbulent (u_b > ~0.05 m/s pratique)
+//   - Pas de ripples (sous-estimation possible si fond ride)
+//
+// Hors validite :
+//   - Vase (regime cohesif) : retourne null, traite en Brique 5
+//   - Roche : retourne null (pas de sediment mobilisable)
+// ============================================================
+
+// Calcule la contrainte de cisaillement induite par la houle.
+//
+// Argument : u_b (m/s)   = vitesse orbitale au fond (Brique 1)
+//            omega (rad/s) = pulsation de la houle (2*pi/Tp)
+//            sediment    = objet S._spotSediment (Brique 0)
+//                          contient D50_m et regime
+// Retour   : tau_w (Pa)  = contrainte de cisaillement par la houle
+//                          ou null si entrees invalides ou hors validite
+function computeBedShearStressWaves(u_b, omega, sediment) {
+  // Cas pas de houle ou pulsation nulle : pas de contrainte
+  if (u_b === 0) return 0;
+  // Cas entrees invalides (Brique 1 a retourne null)
+  if (u_b === null || u_b === undefined || omega <= 0) return null;
+  // Cas sediment absent ou hors champ d'application
+  if (!sediment || !sediment.D50_m) return null;
+  if (sediment.regime === 'cohesive') return null;  // traite en Brique 5
+  if (sediment.regime === 'rock') return null;       // pas mobilisable
+
+  // Etape 1 : amplitude orbitale au fond (m)
+  // A = u_b / omega : longueur du va-et-vient de l'eau au fond
+  var A = u_b / omega;
+  if (A <= 0 || !isFinite(A)) return null;
+
+  // Etape 2 : rugosite equivalente de Nikuradse (m)
+  // Pour un fond sableux non-cohesif : k_s = 2.5 * D50
+  // (Soulsby 1997, ch. 4 ; Nikuradse 1933 etendu aux fonds marins)
+  var k_s = 2.5 * sediment.D50_m;
+
+  // Etape 3 : coefficient de friction de la houle (sans dimension)
+  // Formule de Swart 1974 / Soulsby 1997 eq. 62a
+  // Plafond 0.3 pour les rugosites tres fortes (Soulsby 1997)
+  var ratio = k_s / A;
+  var f_w = Math.exp(5.213 * Math.pow(ratio, 0.194) - 5.977);
+  f_w = Math.min(f_w, 0.3);
+
+  // Etape 4 : contrainte de cisaillement (Pa)
+  // Definition standard en mecanique des fluides :
+  // tau_w = 0.5 * rho * f_w * u_b^2
+  var tau_w = 0.5 * PHYSICS.rho_water * f_w * u_b * u_b;
+
+  // Sanity check : tau_w doit etre fini et positif
+  if (!isFinite(tau_w) || tau_w < 0) return null;
+
+  return tau_w;
+}
 
 console.log('---');
 console.log('Sensibilite a la taille du grain (mer formee Hs=1, Tp=5, D=3m) :');
