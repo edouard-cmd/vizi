@@ -2663,8 +2663,13 @@ function mapFolkToSediment(folk5_txt, original_txt, folk16_txt) {
 // doivent gerer le cas null explicitement.
 // ============================================================
 function fetchSedimentType(lat, lon) {
-  document.getElementById('sedimentType').textContent = '...';
-  document.getElementById('sedSwatchColor').style.background = '#E2E8F0';
+  // Acces DOM defensif : les elements legacy peuvent ne pas exister
+  // dans toutes les vues (drawer mobile V4, refonte UI). On verifie
+  // a chaque acces pour ne jamais crasher la chaine de promises.
+  var typeEl = document.getElementById('sedimentType');
+  var swatchEl = document.getElementById('sedSwatchColor');
+  if (typeEl) typeEl.textContent = '...';
+  if (swatchEl) swatchEl.style.background = '#E2E8F0';
 
   return gasGet('sediment', { lat: lat, lon: lon }).then(function(data) {
     if (!data || !data.text) {
@@ -2675,7 +2680,7 @@ function fetchSedimentType(lat, lon) {
     try {
       var json = JSON.parse(data.text);
       if (!json.features || json.features.length === 0) {
-        document.getElementById('sedimentType').textContent = 'Hors couverture';
+        if (typeEl) typeEl.textContent = 'Hors couverture';
         S._spotSediment = null;
         return null;
       }
@@ -2683,7 +2688,7 @@ function fetchSedimentType(lat, lon) {
       var raw = props.original_substrate || props.folk_5cl_txt || '?';
       var lower = raw.toLowerCase();
 
-      // Couleur swatch (comportement legacy preserve)
+      // Couleur swatch (comportement legacy preserve, defensif)
       var color = '#CBD5E0';
       if (lower.indexOf('gravier') !== -1 || lower.indexOf('caillou') !== -1) color = '#CC2200';
       else if (lower.indexOf('sable gros') !== -1) color = '#E86030';
@@ -2691,8 +2696,8 @@ function fetchSedimentType(lat, lon) {
       else if (lower.indexOf('sable') !== -1) color = '#F0C060';
       else if (lower.indexOf('vase') !== -1) color = '#8B6A40';
       else if (lower.indexOf('roche') !== -1) color = '#909090';
-      document.getElementById('sedimentType').textContent = raw.slice(0, 60);
-      document.getElementById('sedSwatchColor').style.background = color;
+      if (typeEl) typeEl.textContent = raw.slice(0, 60);
+      if (swatchEl) swatchEl.style.background = color;
 
       // Classification scientifique pour les briques physiques
       var sediment = mapFolkToSediment(props.folk_5cl_txt, props.original_substrate, props.folk_16cl_txt);
@@ -2711,8 +2716,11 @@ function fetchSedimentType(lat, lon) {
 }
 
 function fallbackSediment() {
-  document.getElementById('sedimentType').textContent = 'Non disponible';
-  document.getElementById('sedSwatchColor').style.background = '#E2E8F0';
+  // Acces DOM defensif - cf fetchSedimentType
+  var typeEl = document.getElementById('sedimentType');
+  var swatchEl = document.getElementById('sedSwatchColor');
+  if (typeEl) typeEl.textContent = 'Non disponible';
+  if (swatchEl) swatchEl.style.background = '#E2E8F0';
 }
 
 function loadDrawerTides(lat, lon) {
