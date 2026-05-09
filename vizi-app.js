@@ -2701,6 +2701,118 @@ function computeBedShearStressCombined(tau_w, tau_c, wave_dir, current_dir) {
 
   return tau_max;
 }
+// ============================================================
+// BRIQUE 5 - CRITERE DE SHIELDS (SEUIL DE MISE EN MOUVEMENT)
+// ------------------------------------------------------------
+// Determine si la contrainte de cisaillement au fond (sortie
+// de la Brique 4) est suffisante pour mettre le sediment en
+// mouvement. C'est le passage de la "force appliquee" (tau)
+// au "comportement du grain" (mobilisation ou repos).
+//
+// Sources scientifiques :
+//   - Shields A. 1936, "Anwendung der Aehnlichkeitsmechanik
+//     und der Turbulenzforschung auf die Geschiebebewegung",
+//     PhD thesis, Technische Hochschule Berlin (courbe
+//     experimentale originelle, fondement de la discipline)
+//   - Traduction anglaise : Shields A. 1936, "Application of
+//     similarity principles and turbulence research to
+//     bed-load movement", US Soil Conservation Service,
+//     California Institute of Technology
+//   - Soulsby R.L. 1997, "Dynamics of Marine Sands", ch. 6,
+//     equations 76-77 (parametrage algebrique de la courbe
+//     de Shields, precision <5% sur tout le domaine D* > 0.1)
+//
+// Parametre de Shields (sans dimension) :
+//     theta = tau / ((rho_s - rho_w) * g * D50)
+// rapport entre force motrice (cisaillement) et force de
+// rappel (poids immerge du grain).
+//
+// Diametre adimensionnel (sans dimension) :
+//     D* = D50 * ((s - 1) * g / nu^2)^(1/3)
+// avec s = rho_s / rho_w, prend en compte gravite, viscosite
+// et taille pour collapser tous les sediments sur une seule
+// courbe universelle.
+//
+// Seuil critique de Shields (Soulsby 1997 eq. 77) :
+//     theta_cr = 0.30 / (1 + 1.2 * D*)
+//                + 0.055 * (1 - exp(-0.020 * D*))
+//
+// Comparaison :
+//     excess = theta / theta_cr
+//   - excess < 1 : pas de mobilisation, sediment au repos
+//   - excess = 1 : seuil exact (mise en mouvement incipient)
+//   - excess > 1 : mobilisation effective, alimente Brique 6
+//
+// Domaine de validite :
+//   - Sediments non-cohesifs (D50 > 63 microns)
+//   - Regime turbulent (toujours vrai en mer cotiere)
+//   - D* > 0.1 (toujours vrai pour D50 > 10 microns)
+//
+// Hors validite :
+//   - Vase (regime cohesif) : Shields classique inapplicable,
+//     la cohesion electrostatique change le seuil. Retourne
+//     null. Sera traite en module separe (Whitehouse et al.
+//     2000, "Dynamics of estuarine muds") - voir passation.
+//   - Roche : pas de mobilisation possible. Retourne null.
+// ============================================================
+
+// Calcule le critere de Shields pour un couple (contrainte, sediment).
+//
+// Argument : tau_max (Pa)  = contrainte combinee au fond (Brique 4)
+//                            ou null si hors domaine
+//            sediment      = objet S._spotSediment (Brique 0)
+//                            contient D50_m et regime
+// Retour   : objet {theta, theta_cr, excess} si calcul possible
+//                  - theta      : parametre de Shields actuel (sans dim)
+//                  - theta_cr   : seuil critique pour ce D50 (sans dim)
+//                  - excess     : ratio theta/theta_cr (sans dim)
+//          ou null si entrees invalides ou hors validite
+function computeShieldsCriterion(tau_max, sediment) {
+  // Cas entrees null (Brique 4 a retourne null) : on remonte le null
+  if (tau_max === null || tau_max === undefined) return null;
+  // Cas sediment absent ou hors champ d'application
+  if (!sediment || !sediment.D50_m) return null;
+  if (sediment.regime === 'cohesive') return null;  // traite separement
+  if (sediment.regime === 'rock') return null;       // pas mobilisable
+
+  // Validation numerique
+  if (!isFinite(tau_max) || tau_max < 0) return null;
+
+  var D50 = sediment.D50_m;
+  var rho_s = PHYSICS.rho_sediment;  // 2650 kg/m^3 (quartz)
+  var rho_w = PHYSICS.rho_water;     // 1025 kg/m^3 (eau de mer 10C)
+  var g = PHYSICS.g;                  // 9.81 m/s^2
+  var nu = PHYSICS.nu_water;          // 1.36e-6 m^2/s
+
+  // Parametre de Shields actuel
+  // theta = tau / ((rho_s - rho_w) * g * D50)
+  var theta = tau_max / ((rho_s - rho_w) * g * D50);
+
+  // Diametre adimensionnel D*
+  // D* = D50 * ((s - 1) * g / nu^2)^(1/3)
+  var s = rho_s / rho_w;
+  var D_star = D50 * Math.pow((s - 1) * g / (nu * nu), 1 / 3);
+
+  // Seuil critique de Shields (Soulsby 1997 eq. 77)
+  // theta_cr = 0.30 / (1 + 1.2 * D*) + 0.055 * (1 - exp(-0.020 * D*))
+  var theta_cr = 0.30 / (1 + 1.2 * D_star)
+               + 0.055 * (1 - Math.exp(-0.020 * D_star));
+
+  // Sanity check : theta_cr doit etre dans une plage physique plausible
+  // (typiquement entre 0.03 et 0.30 sur tout le domaine sedimentaire)
+  if (!isFinite(theta_cr) || theta_cr <= 0 || theta_cr > 1) return null;
+
+  // Ratio de depassement du seuil
+  var excess = theta / theta_cr;
+
+  if (!isFinite(excess) || excess < 0) return null;
+
+  return {
+    theta: theta,
+    theta_cr: theta_cr,
+    excess: excess
+  };
+}
 // Constante de temps (heures) pour la decantation, selon profondeur
 // Plus le fond est peu profond, plus tau est long (re-brassage marees + houle residuelle)
 // Calibration originale : Courseulles 26/04/2026 (2m visi apres 60h NE 25-32 nds, fond 5m)
