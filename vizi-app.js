@@ -823,8 +823,13 @@ function fetchRealDepth(lat, lon) {
         if (depth > 0 && depth < 1000) {
           var bathy = {
             avg: depth,
-            min: typeof data.min === 'number' ? Math.abs(data.min) : null,
-            max: typeof data.max === 'number' ? Math.abs(data.max) : null,
+            // EMODnet retourne min/max en LAT (valeurs negatives en mer).
+            // Math.abs(data.max) = profondeur la moins profonde (valeur la moins
+            // negative). Math.abs(data.min) = profondeur la plus profonde
+            // (valeur la plus negative). On inverse pour avoir la semantique
+            // humaine attendue : min = peu profond, max = profond.
+            min: typeof data.max === 'number' ? Math.abs(data.max) : null,
+            max: typeof data.min === 'number' ? Math.abs(data.min) : null,
             stdev: typeof data.stdev === 'number' ? data.stdev : null,
             nbSondes: typeof data.elementarySurfaces === 'number' ? data.elementarySurfaces : null,
             source: data.reference && data.reference.identifier ? data.reference.identifier : 'EMODnet'
