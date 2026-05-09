@@ -1645,7 +1645,9 @@ fetchRealDepth(latlng.lat, latlng.lng).then(function(realDepth) {
   S_spotSunCache = null;
   fetchSpotWeather(latlng.lat, latlng.lng);
   fetchSpotMarineAndSun(latlng.lat, latlng.lng);
+  fetchSedimentType(latlng.lat, latlng.lng);
   loadDrawerTides(latlng.lat, latlng.lng);
+    // Si le bandeau Conditions est ouvert, on le rafraîchit avec le nouveau spot
     // Si le bandeau Conditions est ouvert, on le rafraîchit avec le nouveau spot
   if (typeof VZ_SHEET !== 'undefined' && VZ_SHEET.mode === 'cond') {
     var newSpot = {
@@ -2434,49 +2436,254 @@ function pointInPolygon(point, polygon) {
   }
   return inside;
 }
-
+// ============================================================
+// fetchSpotMarineAndSun - donnees marines + soleil pour un point
+// ------------------------------------------------------------
+// Appelle Open-Meteo Marine API pour recuperer toutes les
+// variables hydrodynamiques utiles a la chaine physique :
+//   - Houle locale generee par le vent (wind_wave_*)
+//   - Houle de fond / swell (swell_wave_*)
+//   - Houle totale (wave_*)
+//   - Courant tidal/oceanique (ocean_current_*) - probablement
+//     issu du modele Copernicus IBI ~1.5km
+//   - Temperature eau (sea_surface_temperature) - utile pour
+//     viscosite cinematique dans Soulsby/Stokes
+//
+// Source : Open-Meteo Marine API (free tier, no key required).
+// Couverture validee 100% sur points cotiers FR (test 09/05/26).
+//
+// Effets de bord :
+//   - Stocke l'integralite des donnees marines dans
+//     S_spotMarineCache (objet hourly Open-Meteo natif)
+//   - Met a jour le DOM (#spotSeaTemp) et S._sunriseTime,
+//     S._sunsetTime - comportement legacy preserve
+//
+// Etend la fenetre temporelle a 5 jours (pour aligner sur
+// la couverture meteo AROME+ARPEGE et permettre aux briques
+// physiques de raisonner sur la meme plage temporelle).
+// ============================================================
 function fetchSpotMarineAndSun(lat, lon) {
   var now = new Date();
   var fmt = function(d) { return d.toISOString().split('T')[0]; };
   var start = new Date(now);
-  var marineUrl = 'https://marine-api.open-meteo.com/v1/marine?latitude=' + lat + '&longitude=' + lon + '&hourly=sea_surface_temperature&timezone=Europe/Paris&start_date=' + fmt(start) + '&end_date=' + fmt(start);
+  var end = new Date(now);
+  end.setDate(end.getDate() + 5);
+
+  // 16 variables marines validees Etape 1.1 (couverture 100% France)
+  var marineVars = [
+    'wave_height', 'wave_direction', 'wave_period',
+    'wind_wave_height', 'wind_wave_direction', 'wind_wave_period', 'wind_wave_peak_period',
+    'swell_wave_height', 'swell_wave_direction', 'swell_wave_period', 'swell_wave_peak_period',
+    'sea_surface_temperature',
+    'ocean_current_velocity', 'ocean_current_direction',
+    'sea_level_height_msl', 'invert_barometer_height'
+  ].join(',');
+
+  var marineUrl = 'https://marine-api.open-meteo.com/v1/marine'
+    + '?latitude=' + lat + '&longitude=' + lon
+    + '&hourly=' + marineVars
+    + '&timezone=Europe/Paris'
+    + '&start_date=' + fmt(start) + '&end_date=' + fmt(end);
+
   fetch(marineUrl).then(function(r) { return r.json(); }).then(function(d) {
     if (!d.hourly) return;
-    var temp = d.hourly.sea_surface_temperature[0];
-    if (temp !== null && temp !== undefined) {
-      document.getElementById('spotSeaTemp').textContent = temp.toFixed(1) + ' C';
+
+    // Stockage complet pour les briques physiques en aval
+    S_spotMarineCache = d.hourly;
+
+    // Mise a jour DOM temperature (legacy preserve) - lit l'heure courante
+    if (d.hourly.sea_surface_temperature && d.hourly.sea_surface_temperature.length > 0) {
+      var temp = d.hourly.sea_surface_temperature[0];
+      if (temp !== null && temp !== undefined) {
+        document.getElementById('spotSeaTemp').textContent = temp.toFixed(1) + ' C';
+      }
     }
-  }).catch(function() {});
+  }).catch(function(err) {
+    console.warn('[VIZI] marine API failed:', err);
+    S_spotMarineCache = null;
+  });
+
+  // Lever/coucher soleil - inchange
   var sunUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon + '&daily=sunrise,sunset&timezone=Europe/Paris&start_date=' + fmt(start) + '&end_date=' + fmt(start);
   fetch(sunUrl).then(function(r) { return r.json(); }).then(function(d) {
     if (!d.daily) return;
     if (d.daily.sunrise && d.daily.sunrise[0]) {
-  document.getElementById('spotSunrise').textContent = d.daily.sunrise[0].slice(11, 16);
-  S._sunriseTime = d.daily.sunrise[0].slice(11, 16);
-}
-if (d.daily.sunset && d.daily.sunset[0]) {
-  document.getElementById('spotSunset').textContent = d.daily.sunset[0].slice(11, 16);
-  S._sunsetTime = d.daily.sunset[0].slice(11, 16);
-}
-// Re-render du graphe maree avec les zones de nuit
-if (TIDES.data && TIDES.extremes) renderTidesForSelectedDate();
+      document.getElementById('spotSunrise').textContent = d.daily.sunrise[0].slice(11, 16);
+      S._sunriseTime = d.daily.sunrise[0].slice(11, 16);
+    }
+    if (d.daily.sunset && d.daily.sunset[0]) {
+      document.getElementById('spotSunset').textContent = d.daily.sunset[0].slice(11, 16);
+      S._sunsetTime = d.daily.sunset[0].slice(11, 16);
+    }
+    if (TIDES.data && TIDES.extremes) renderTidesForSelectedDate();
   }).catch(function() {});
 }
 
+// ============================================================
+// MAPPING FOLK 5 -> PROPRIETES PHYSIQUES DU SEDIMENT
+// ------------------------------------------------------------
+// Source : EMODnet Geology III (classification Folk 5 classes
+// officielle, modified Folk triangle + rock & boulders).
+// Reference : EMODnet Seabed Substrate, EuroGeoSurveys.
+//
+// Echelle granulometrique : Udden-Wentworth (Wentworth 1922,
+// "A scale of grade and class terms for clastic sediments",
+// J. of Geology 30(5)).
+//
+// D50 retenu par classe : valeur mediane representative,
+// utilisee comme entree pour les briques physiques (Soulsby 1997,
+// "Dynamics of Marine Sands", Thomas Telford).
+//
+// Seuil cohesif/non-cohesif : 63 microns (Soulsby 1997, ch. 6).
+// En dessous, Stokes simple ne s'applique plus, on bascule sur
+// le regime cohesif (vitesse de chute par flocs, Whitehouse et
+// al. 2000 "Dynamics of estuarine muds").
+//
+// La classe 5 (Rock & boulders) sort du champ d'application
+// du modele sedimentaire : pas de mise en suspension locale
+// possible, regime specifique a traiter en aval.
+// ============================================================
+var FOLK5_TABLE = {
+  // Classe 1 : Mud to sandy mud (vase a vase sableuse)
+  // Plage Wentworth : <63 microns (silt+clay) majoritaire
+  'mud': {
+    folk5: 1,
+    name: 'Mud to sandy mud',
+    nameFr: 'Vase',
+    D50_mm: 0.030,        // 30 microns - silt moyen, valeur typique cote francaise
+    D50_m: 0.000030,
+    regime: 'cohesive',   // Stokes inapplicable, cohesion van der Waals dominante
+    canSuspend: true
+  },
+  // Classe 2 : Sand (sable propre, fin a grossier)
+  // Plage Wentworth : 63 microns - 2 mm
+  'sand': {
+    folk5: 2,
+    name: 'Sand',
+    nameFr: 'Sable',
+    D50_mm: 0.250,        // 250 microns - sable medium (Wentworth)
+    D50_m: 0.000250,
+    regime: 'non-cohesive',
+    canSuspend: true
+  },
+  // Classe 3 : Coarse sediment (sable grossier, graviers)
+  // Plage Wentworth : 0.5 - 2 mm + au-dela
+  'coarse': {
+    folk5: 3,
+    name: 'Coarse sediment',
+    nameFr: 'Sediment grossier',
+    D50_mm: 1.000,        // 1 mm - sable tres grossier / granule
+    D50_m: 0.001000,
+    regime: 'non-cohesive',
+    canSuspend: true
+  },
+  // Classe 4 : Mixed sediment (melange sable/vase/gravier)
+  // Plage variable - on prend une valeur intermediaire
+  'mixed': {
+    folk5: 4,
+    name: 'Mixed sediment',
+    nameFr: 'Sediment mixte',
+    D50_mm: 0.200,        // 200 microns - sable fin (compromis)
+    D50_m: 0.000200,
+    regime: 'non-cohesive',
+    canSuspend: true
+  },
+  // Classe 5 : Rock & boulders (roche, blocs)
+  // Pas de sediment mobilisable
+  'rock': {
+    folk5: 5,
+    name: 'Rock & boulders',
+    nameFr: 'Roche',
+    D50_mm: null,
+    D50_m: null,
+    regime: 'rock',       // hors champ modele sedimentaire
+    canSuspend: false
+  }
+};
+
+// Mappe une classification Folk 5 textuelle (telle que retournee
+// par EMODnet/SHOM via le proxy GAS) vers la structure FOLK5_TABLE.
+// Argument primaire : folk5_txt (ex: "3. Coarse-grained sediment").
+// Argument secondaire : original_txt (ex: "Graviers sableux") sert
+// de fallback ou de raffinage (Mediterranee notamment).
+//
+// Retourne une copie de l'entree FOLK5_TABLE enrichie de :
+//   - sourceText : texte original retenu pour la classification
+//   - folk16 : si dispo dans la couche EMODnet (souvent absent en France)
+function mapFolkToSediment(folk5_txt, original_txt, folk16_txt) {
+  var f5 = (folk5_txt || '').toLowerCase();
+  var orig = (original_txt || '').toLowerCase();
+  var entry = null;
+
+  // Priorite : numero de classe Folk 5 explicite
+  if (/^\s*1\.|mud to sandy mud|^mud\b/.test(f5)) entry = FOLK5_TABLE.mud;
+  else if (/^\s*2\.|^sand\b/.test(f5)) entry = FOLK5_TABLE.sand;
+  else if (/^\s*3\.|coarse/.test(f5)) entry = FOLK5_TABLE.coarse;
+  else if (/^\s*4\.|mixed/.test(f5)) entry = FOLK5_TABLE.mixed;
+  else if (/^\s*5\.|rock|boulder/.test(f5)) entry = FOLK5_TABLE.rock;
+
+  // Fallback : analyse du texte original SHOM si Folk 5 ambigu/absent
+  if (!entry) {
+    if (/roche|rocher|rock/.test(orig)) entry = FOLK5_TABLE.rock;
+    else if (/vase|mud|silt/.test(orig)) entry = FOLK5_TABLE.mud;
+    else if (/gravier|caillou|galet|coarse/.test(orig)) entry = FOLK5_TABLE.coarse;
+    else if (/sable|sand/.test(orig)) entry = FOLK5_TABLE.sand;
+  }
+
+  if (!entry) return null;
+
+  // Copie pour ne pas muter la table de reference
+  return {
+    folk5: entry.folk5,
+    name: entry.name,
+    nameFr: entry.nameFr,
+    D50_mm: entry.D50_mm,
+    D50_m: entry.D50_m,
+    regime: entry.regime,
+    canSuspend: entry.canSuspend,
+    sourceText: original_txt || folk5_txt || null,
+    folk5_raw: folk5_txt || null,
+    folk16_raw: folk16_txt || null
+  };
+}
+// ============================================================
+// fetchSedimentType - point d'entree unique pour le sediment
+// ------------------------------------------------------------
+// Appelle le proxy GAS qui interroge la couche SHOM/EMODnet
+// (action=sediment). Retourne une Promise<SedimentInfo|null>.
+//
+// Effets de bord :
+//   - Stocke le resultat dans S._spotSediment (consomme par
+//     les briques physiques en aval)
+//   - Met a jour le DOM (#sedimentType, #sedSwatchColor) -
+//     comportement legacy preserve pour compatibilite UI
+//
+// Resilience : si EMODnet hors couverture ou erreur reseau,
+// retourne null et S._spotSediment = null. Les consommateurs
+// doivent gerer le cas null explicitement.
+// ============================================================
 function fetchSedimentType(lat, lon) {
   document.getElementById('sedimentType').textContent = '...';
   document.getElementById('sedSwatchColor').style.background = '#E2E8F0';
-  gasGet('sediment', { lat: lat, lon: lon }).then(function(data) {
-    if (!data || !data.text) { fallbackSediment(); return; }
+
+  return gasGet('sediment', { lat: lat, lon: lon }).then(function(data) {
+    if (!data || !data.text) {
+      fallbackSediment();
+      S._spotSediment = null;
+      return null;
+    }
     try {
       var json = JSON.parse(data.text);
       if (!json.features || json.features.length === 0) {
         document.getElementById('sedimentType').textContent = 'Hors couverture';
-        return;
+        S._spotSediment = null;
+        return null;
       }
       var props = json.features[0].properties;
       var raw = props.original_substrate || props.folk_5cl_txt || '?';
       var lower = raw.toLowerCase();
+
+      // Couleur swatch (comportement legacy preserve)
       var color = '#CBD5E0';
       if (lower.indexOf('gravier') !== -1 || lower.indexOf('caillou') !== -1) color = '#CC2200';
       else if (lower.indexOf('sable gros') !== -1) color = '#E86030';
@@ -2486,8 +2693,21 @@ function fetchSedimentType(lat, lon) {
       else if (lower.indexOf('roche') !== -1) color = '#909090';
       document.getElementById('sedimentType').textContent = raw.slice(0, 60);
       document.getElementById('sedSwatchColor').style.background = color;
-    } catch (e) { fallbackSediment(); }
-  }).catch(function() { fallbackSediment(); });
+
+      // Classification scientifique pour les briques physiques
+      var sediment = mapFolkToSediment(props.folk_5cl_txt, props.original_substrate, props.folk_16cl_txt);
+      S._spotSediment = sediment;
+      return sediment;
+    } catch (e) {
+      fallbackSediment();
+      S._spotSediment = null;
+      return null;
+    }
+  }).catch(function() {
+    fallbackSediment();
+    S._spotSediment = null;
+    return null;
+  });
 }
 
 function fallbackSediment() {
