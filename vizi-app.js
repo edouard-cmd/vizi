@@ -2577,6 +2577,130 @@ function computeBedShearStressCurrent(U, sediment, depth) {
 
   return tau_c;
 }
+// ============================================================
+// BRIQUE 4 - CONTRAINTE DE CISAILLEMENT COMBINEE HOULE + COURANT
+// ------------------------------------------------------------
+// Combine les contraintes de la Brique 2 (houle, oscillatoire)
+// et de la Brique 3 (courant, quasi-stationnaire) en une
+// contrainte totale au fond, qui est la grandeur physique
+// determinant la mise en suspension du sediment (Brique 5).
+//
+// L'addition naive tau_w + tau_c sous-estime systematiquement
+// la realite, car la couche limite turbulente du courant est
+// modifiee par l'oscillation de la houle. Cette interaction
+// non-lineaire est le coeur de la Brique 4.
+//
+// Sources scientifiques :
+//   - Grant W.D. & Madsen O.S. 1979, "Combined wave and current
+//     interaction with a rough bottom", J. Geophys. Res. 84
+//     (theorie originelle de la couche limite combinee)
+//   - Soulsby R.L. et al. 1993, "Wave-current interaction within
+//     and outside the bottom boundary layer", Coastal Eng. 21
+//     (formulation algebrique DATA13, calibree sur 13 jeux
+//     de donnees experimentaux)
+//   - Soulsby R.L. & Clarke S. 2005, "Bed shear-stresses under
+//     combined waves and currents on smooth and rough beds",
+//     HR Wallingford Report TR137 (raffinement DATA13, formule
+//     algebrique fermee, pas d'iteration)
+//
+// Choix de Soulsby & Clarke 2005 :
+//   - Coherence avec Briques 2 et 3 (meme ecole Soulsby 1997)
+//   - Formulation algebrique fermee (stabilite numerique)
+//   - Standard des modeles operationnels europeens (Delft3D,
+//     MIKE21, ROMS-CSTM)
+//
+// Domaine de validite :
+//   - Identique aux Briques 2 et 3 (non-cohesif, depth > 1m,
+//     regime turbulent)
+//   - Houle et courant non-deferlants
+//
+// Comportement aux limites (par construction) :
+//   - tau_w = 0 (pas de houle)   -> tau_max = tau_c
+//   - tau_c = 0 (pas de courant) -> tau_max = tau_w
+//   - tau_w ou tau_c = null     -> tau_max = null
+// ============================================================
+
+// Calcule la contrainte de cisaillement maximale au fond
+// sous l'action combinee de la houle et du courant.
+//
+// Argument : tau_w (Pa)        = contrainte de houle (Brique 2)
+//                                 ou null si hors domaine
+//            tau_c (Pa)        = contrainte de courant (Brique 3)
+//                                 ou null si hors domaine
+//            wave_dir (deg)    = direction de propagation de la houle
+//                                 (S_spotMarineCache.wave_direction)
+//            current_dir (deg) = direction du courant
+//                                 (S_spotMarineCache.ocean_current_direction)
+// Retour   : tau_max (Pa)      = contrainte combinee maximale au fond
+//                                 ou null si entrees invalides
+//
+// Formule de Soulsby & Clarke 2005 :
+//     X = tau_c / (tau_c + tau_w)         ratio de dominance courant
+//     tau_m = tau_c * (1 + 1.2 * X^3.2)   contrainte moyenne ajustee
+//     tau_max = sqrt( (tau_m + tau_w * cos(phi))^2
+//                   + (tau_w * sin(phi))^2 )
+//   ou phi est l'angle entre la direction du courant et celle
+//   de la houle. tau_m majore tau_c pour rendre compte de la
+//   turbulence supplementaire generee par la houle.
+function computeBedShearStressCombined(tau_w, tau_c, wave_dir, current_dir) {
+  // Cas entrees null (au moins une Brique en amont a retourne null) :
+  // on ne peut pas combiner, on remonte le null.
+  if (tau_w === null || tau_w === undefined) return null;
+  if (tau_c === null || tau_c === undefined) return null;
+
+  // Cas degenere : pas de houle, on retombe sur le courant pur
+  if (tau_w === 0) return tau_c;
+  // Cas degenere : pas de courant, on retombe sur la houle pure
+  if (tau_c === 0) return tau_w;
+
+  // Validation numerique des entrees
+  if (!isFinite(tau_w) || !isFinite(tau_c) || tau_w < 0 || tau_c < 0) return null;
+
+  // Angle entre courant et houle (en radians)
+  // Si une des deux directions est manquante, on suppose colineaires
+  // (cas le plus penalisant, conservateur). Documentation explicite
+  // de l'hypothese plutot que retour null qui casserait la chaine.
+  var phi_deg;
+  if (wave_dir === null || wave_dir === undefined ||
+      current_dir === null || current_dir === undefined) {
+    phi_deg = 0;
+  } else {
+    phi_deg = current_dir - wave_dir;
+    // Normalisation dans [-180, 180]
+    while (phi_deg > 180) phi_deg -= 360;
+    while (phi_deg < -180) phi_deg += 360;
+  }
+  var phi_rad = phi_deg * Math.PI / 180;
+
+  // Etape 1 : ratio de dominance du courant
+  // X = 0 -> houle pure ; X = 1 -> courant pur
+  var X = tau_c / (tau_c + tau_w);
+
+  // Etape 2 : contrainte moyenne ajustee (Soulsby & Clarke 2005 eq. 3)
+  // Le facteur (1 + 1.2 * X^3.2) majore tau_c quand le courant domine
+  // (X proche de 1) et reste proche de 1 quand la houle domine.
+  var tau_m = tau_c * (1 + 1.2 * Math.pow(X, 3.2));
+
+  // Etape 3 : contrainte maximale combinee (Soulsby & Clarke 2005 eq. 4)
+  // Composition vectorielle : composante du courant + projection de la houle
+  var componentX = tau_m + tau_w * Math.cos(phi_rad);
+  var componentY = tau_w * Math.sin(phi_rad);
+  var tau_max = Math.sqrt(componentX * componentX + componentY * componentY);
+
+  // Sanity check : tau_max doit etre fini, positif, et au moins egal
+  // a chacune des contraintes de depart (la combinaison ne peut pas
+  // diminuer la contrainte par rapport a tau_w ou tau_c seul).
+  if (!isFinite(tau_max) || tau_max < 0) return null;
+  // Garde-fou : tau_max doit etre superieur ou egal au max des deux
+  // (la combinaison amplifie, ne reduit pas)
+  var minExpected = Math.max(tau_w, tau_c);
+  if (tau_max < minExpected * 0.99) {
+    console.warn('[Brique4] tau_max < max(tau_w, tau_c), anomalie:',
+                 tau_max, 'vs', minExpected);
+  }
+
+  return tau_max;
+}
 // Constante de temps (heures) pour la decantation, selon profondeur
 // Plus le fond est peu profond, plus tau est long (re-brassage marees + houle residuelle)
 // Calibration originale : Courseulles 26/04/2026 (2m visi apres 60h NE 25-32 nds, fond 5m)
