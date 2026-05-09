@@ -2479,6 +2479,104 @@ function computeBedShearStressWaves(u_b, omega, sediment) {
 
   return tau_w;
 }
+// ============================================================
+// BRIQUE 3 - CONTRAINTE DE CISAILLEMENT AU FOND PAR LE COURANT
+// ------------------------------------------------------------
+// Calcule la contrainte de cisaillement (en Pascals) qu'exerce
+// l'ecoulement quasi-stationnaire (courant tidal + courant
+// oceanique) sur le sediment du fond. Distinct de la Brique 2
+// qui traite la houle (mouvement oscillatoire).
+//
+// Sources scientifiques :
+//   - Prandtl L. 1925, "Bericht uber Untersuchungen zur
+//     ausgebildeten Turbulenz", ZAMM 5 (theorie de la couche
+//     limite turbulente, profil logarithmique)
+//   - von Karman T. 1930, "Mechanische Ahnlichkeit und
+//     Turbulenz", Nachr. Ges. Wiss. Gottingen (constante kappa)
+//   - Soulsby R.L. 1997, "Dynamics of Marine Sands", ch. 3,
+//     equations 25-27 (formulation moderne pour fonds marins)
+//   - Nikuradse J. 1933 (rugosite k_s = 2.5 * D50, idem Brique 2)
+//
+// Domaine de validite :
+//   - Sediments non-cohesifs (D50 > 63 microns)
+//   - Regime turbulent (toujours vrai en mer cotiere : Re > 2300)
+//   - Profondeur > 1m (sinon profil log non valide)
+//
+// LIMITES DE DOMAINE A SURVEILLER (Option A, validee par Edouard) :
+//   - Resolution Open-Meteo Marine ~1.5 km (modele Copernicus IBI)
+//     insuffisante en zones de courant fort cotier : Raz Blanchard,
+//     pointe de Barfleur, Saint-Malo. La vitesse retournee est
+//     moyennee sur une cellule trop grossiere et peut sous-estimer
+//     d'un facteur 2 a 5 dans ces zones a forte heterogeneite.
+//   - U_surface utilisee comme proxy de U_1m (vitesse a 1m du fond).
+//     Valide en eau cotiere bien melangee (<30m), degradee en cas
+//     de stratification thermique forte (rare en Manche, frequent
+//     en Mediterranee estivale).
+//   - En cas de derive observee terrain, remplacer la source
+//     de donnee (ocean_current_velocity) par atlas SHOM PREVIMER
+//     ou calcul harmonique tidal, SANS toucher a la formule.
+//
+// Hors validite :
+//   - Vase (regime cohesif) : retourne null
+//   - Roche : retourne null (pas de rugosite Nikuradse applicable)
+// ============================================================
+
+// Calcule la contrainte de cisaillement induite par le courant.
+//
+// Argument : U (m/s)        = vitesse du courant a la hauteur de
+//                              reference z = 1m au-dessus du fond
+//                              (S_spotMarineCache.ocean_current_velocity)
+//            sediment       = objet S._spotSediment (Brique 0)
+//                              contient D50_m et regime
+//            depth (m)      = profondeur d'eau (pour validation
+//                              du domaine z << depth)
+// Retour   : tau_c (Pa)     = contrainte de cisaillement par le courant
+//                              ou null si entrees invalides ou hors validite
+//
+// Formule logarithmique (Soulsby 1997 eq. 25-27) :
+//     u_*  = kappa * U / ln(z / z_0)         vitesse de friction
+//     tau_c = rho * u_*^2                    contrainte au fond
+//   avec z_0 = k_s / 30 (rugosite hydraulique de Nikuradse)
+function computeBedShearStressCurrent(U, sediment, depth) {
+  // Cas pas de courant : pas de contrainte
+  if (U === 0) return 0;
+  // Cas entrees invalides
+  if (U === null || U === undefined || !isFinite(U) || U < 0) return null;
+  if (!depth || depth <= 1) return null;  // profil log invalide en surface
+  if (!sediment || !sediment.D50_m) return null;
+  if (sediment.regime === 'cohesive') return null;  // traite en Brique 5
+  if (sediment.regime === 'rock') return null;       // pas mobilisable
+
+  // Hauteur de reference standard cotier : 1m au-dessus du fond
+  // (Soulsby 1997, ch. 3, choix par defaut pour applications cotieres)
+  var z = 1.0;
+
+  // Rugosite equivalente de Nikuradse - meme valeur que Brique 2
+  // pour coherence dans la chaine. k_s = 2.5 * D50 pour fond sableux.
+  var k_s = 2.5 * sediment.D50_m;
+
+  // Rugosite hydraulique : longueur a laquelle la vitesse extrapolee
+  // du profil log est nulle. Relation classique k_s / 30 (Nikuradse).
+  var z_0 = k_s / 30;
+
+  // Profil logarithmique : ln(z / z_0) doit etre > 0, donc z > z_0
+  // En pratique z = 1m et z_0 ~ 1e-5 a 1e-4 m, donc tres robuste.
+  var lnRatio = Math.log(z / z_0);
+  if (lnRatio <= 0 || !isFinite(lnRatio)) return null;
+
+  // Vitesse de friction : u_* = kappa * U / ln(z/z_0)
+  // (Prandtl 1925 / von Karman 1930, profil de couche limite turbulente)
+  var u_star = (PHYSICS.kappa * U) / lnRatio;
+
+  // Contrainte de cisaillement au fond : tau_c = rho * u_*^2
+  // (definition standard en mecanique des fluides)
+  var tau_c = PHYSICS.rho_water * u_star * u_star;
+
+  // Sanity check : tau_c doit etre fini et positif
+  if (!isFinite(tau_c) || tau_c < 0) return null;
+
+  return tau_c;
+}
 // Constante de temps (heures) pour la decantation, selon profondeur
 // Plus le fond est peu profond, plus tau est long (re-brassage marees + houle residuelle)
 // Calibration originale : Courseulles 26/04/2026 (2m visi apres 60h NE 25-32 nds, fond 5m)
