@@ -2372,36 +2372,52 @@ function solveDispersionWavenumber(omega, depth) {
 //
 // Formule : u_b = (pi * Hs) / (Tp * sinh(k * D))
 // (Soulsby 1997, ch. 4, formule classique de la theorie d'Airy)
-function computeOrbitalVelocityAtBed(Hs, Tp, depth) {
-  // Cas pas de houle ou periode nulle : pas de brassage
-  if (!Hs || Hs <= 0 || !Tp || Tp <= 0) return 0;
-  // Cas profondeur invalide : on ne peut pas calculer
-  if (!depth || depth <= 0) return null;
+console.log('=== BRIQUE 2 - VALIDATION ===');
 
-  var omega = 2 * Math.PI / Tp;
-  var k = solveDispersionWavenumber(omega, depth);
-  if (k === null) return null;
+// Donnees du spot
+var Hs = S_spotMarineCache.wind_wave_height[0];
+var Tp = S_spotMarineCache.wind_wave_peak_period[0];
+var depthLAT = S._spotDepth;
+var depthNow = depthAtTime(depthLAT, S_spotMarineCache.time[0]);
+var sediment = S._spotSediment;
 
-  var sinhKD = Math.sinh(k * depth);
-  // Garde-fou : sinh peut etre tres grand en eau profonde
-  // ce qui donne u_b -> 0 (correct physiquement, vague ne
-  // sent plus le fond). Pas un cas d'erreur, juste a verifier
-  // qu'on ne divise pas par zero numerique.
-  if (sinhKD <= 0 || !isFinite(sinhKD)) return 0;
+console.log('Conditions actuelles :');
+console.log('  Hs =', Hs, 'm  Tp =', Tp, 's  depth =', depthNow.toFixed(2), 'm');
+console.log('  Sediment :', sediment.nameFr, '(D50 =', sediment.D50_mm, 'mm)');
+console.log('---');
 
-  var u_b = (Math.PI * Hs) / (Tp * sinhKD);
+// Chainage Brique 1 -> Brique 2
+var u_b = computeOrbitalVelocityAtBed(Hs, Tp, depthNow);
+var omega = 2 * Math.PI / Tp;
+var tau_w = computeBedShearStressWaves(u_b, omega, sediment);
 
-  // Sanity check : u_b ne devrait jamais depasser quelques m/s
-  // meme pour des houles extremes. Au-dela, c'est un bug.
-  if (!isFinite(u_b) || u_b < 0) return null;
-  if (u_b > 10) {
-    // Hors domaine validite Airy (deferlement probable).
-    // On retourne quand meme la valeur mais on log pour suivi.
-    console.warn('[Brique1] u_b > 10 m/s, hors domaine Airy:', u_b);
-  }
+console.log('Brique 1 - u_b =', u_b ? u_b.toFixed(4) + ' m/s' : u_b);
+console.log('Brique 2 - tau_w =', tau_w !== null ? tau_w.toFixed(4) + ' Pa' : tau_w);
+console.log('---');
 
-  return u_b;
-}
+// Sensibilite a la profondeur
+console.log('Sensibilite tau_w(D) avec houle actuelle :');
+[1, 2, 3, 5, 10, 20].forEach(function(d) {
+  var u = computeOrbitalVelocityAtBed(Hs, Tp, d);
+  var w = 2 * Math.PI / Tp;
+  var t = computeBedShearStressWaves(u, w, sediment);
+  console.log('  D =', d, 'm -> u_b =', u.toFixed(4), 'm/s, tau_w =', t !== null ? t.toFixed(4) + ' Pa' : t);
+});
+
+console.log('---');
+console.log('Sensibilite a la taille du grain (mer formee Hs=1, Tp=5, D=3m) :');
+var u_test = computeOrbitalVelocityAtBed(1, 5, 3);
+var w_test = 2 * Math.PI / 5;
+[
+  {nameFr: 'Vase (theorique - sera null)', D50_m: 0.000030, regime: 'cohesive'},
+  {nameFr: 'Sable fin', D50_m: 0.000125, regime: 'non-cohesive'},
+  {nameFr: 'Sable medium', D50_m: 0.000250, regime: 'non-cohesive'},
+  {nameFr: 'Sable grossier', D50_m: 0.001000, regime: 'non-cohesive'},
+  {nameFr: 'Gravier (Folk 3)', D50_m: 0.002000, regime: 'non-cohesive'}
+].forEach(function(s) {
+  var t = computeBedShearStressWaves(u_test, w_test, s);
+  console.log('  ' + s.nameFr + ' -> tau_w =', t !== null ? t.toFixed(3) + ' Pa' : t);
+});
 // Constante de temps (heures) pour la decantation, selon profondeur
 // Plus le fond est peu profond, plus tau est long (re-brassage marees + houle residuelle)
 // Calibration originale : Courseulles 26/04/2026 (2m visi apres 60h NE 25-32 nds, fond 5m)
