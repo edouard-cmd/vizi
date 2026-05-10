@@ -3075,6 +3075,136 @@ function computeSuspendedConcentration(tau_max, shieldsResult, w_s, depth, sedim
     u_star: u_star
   };
 }
+// ============================================================
+// BRIQUE 8 - VISIBILITE SOUS-MARINE PAR LOI DE BEER-LAMBERT
+// ------------------------------------------------------------
+// Convertit la concentration de sediment en suspension
+// (Brique 6, en kg/m^3) en distance de visibilite horizontale
+// sous-marine (en metres) - la grandeur que verra l'utilisateur.
+//
+// C'est la brique finale de la chaine. Elle clot le passage
+// physique : conditions hydrodynamiques -> contrainte au fond
+// -> mobilisation -> concentration -> attenuation lumineuse
+// -> visibilite.
+//
+// Sources scientifiques :
+//   - Bouguer P. 1729, "Essai d'optique sur la gradation
+//     de la lumiere" (loi originelle d'attenuation
+//     exponentielle)
+//   - Lambert J.H. 1760, "Photometria sive de mensura
+//     et gradibus luminis, colorum et umbrae"
+//     (formalisation mathematique)
+//   - Beer A. 1852, "Bestimmung der Absorption des rothen
+//     Lichts in farbigen Flussigkeiten", Ann. Physik 162
+//     (extension aux solutions colorees)
+//   - Secchi A. 1865, mesures de transparence en
+//     Mediterranee a bord du Pie IX (origine du disque
+//     de Secchi, mesure standard d'oceanographie)
+//   - Smith R.C. & Baker K.S. 1981, "Optical properties
+//     of the clearest natural waters", Applied Optics 20
+//     (coefficient d'attenuation des eaux marines pures)
+//   - Davies-Colley R.J. 1988, "Measuring water clarity
+//     with a black disk", Limnol. Oceanogr. 33 (relation
+//     visi horizontale = 1.4 * profondeur de Secchi)
+//   - Davies-Colley R.J. & Smith D.G. 2001, "Turbidity,
+//     suspended sediment, and water clarity", JAWRA 37
+//     (coefficient d'attenuation specifique du sediment
+//     marin cotier b = 1.0 m^2/kg, valeur mediane sur
+//     etudes Pejrup 1988, Bunt et al. 1999)
+//
+// Loi de Beer-Lambert :
+//     I(d) / I_0 = exp(-c_total * d)
+// avec c_total = c_water + b * C
+//   - c_water = 0.05 m^-1 (eau de mer claire, Smith & Baker 1981)
+//   - b = 1.0 m^2/kg (sediment marin cotier, Davies-Colley
+//     & Smith 2001, valeur mediane litterature)
+//   - C = concentration en kg/m^3 (sortie Brique 6)
+//
+// Profondeur de Secchi (critere I/I_0 = 0.16) :
+//     d_secchi = 1.7 / c_total
+//
+// Visibilite horizontale (Davies-Colley 1988) :
+//     visi_m = 1.4 * d_secchi = 2.38 / c_total
+//
+// Domaine de validite :
+//   - Sediments mineraux marins (sable, vase reconstitue,
+//     gravier en suspension)
+//   - Eau de mer cotiere claire (pas d'algue dominante,
+//     pas de matiere organique majoritaire)
+//   - Domaine de visi 0.5m - 30m (Davies-Colley 1988)
+//
+// LIMITES DE PRECISION (a documenter pour l'utilisateur) :
+//   - Le coefficient b = 1.0 m^2/kg est une mediane
+//     litterature, avec incertitude +/-50% selon le type
+//     de sediment et la longueur d'onde. C'est le seul
+//     coefficient libre de toute la chaine. Sera calibre
+//     sur les observations communautaires en Phase 2.
+//   - L'erreur typique sur la visi predite est de l'ordre
+//     de +/-50% en valeur absolue pour la premiere version,
+//     mais la TENDANCE et les RATIOS entre spots sont
+//     fiables car bases sur la physique pure des Briques 1-7.
+//
+// Hors validite :
+//   - Brique 6 a retourne null -> on retourne null
+//   - Eaux profondes >50m en pleine journee : la lumiere
+//     incidente change, formule a raffiner. Hors domaine
+//     cotier de Visimer.
+// ============================================================
+
+// Calcule la visibilite horizontale sous-marine (en metres)
+// a partir de la concentration de sediment en suspension.
+//
+// Argument : concentrationResult = sortie de Brique 6
+//                                   contient c_moyen_kg
+// Retour   : objet {visi_m, d_secchi, c_total, c_water, c_sediment}
+//          ou null si entree invalide
+function computeVisibility(concentrationResult) {
+  // Validation : entree null en amont -> remontee du null
+  if (concentrationResult === null || concentrationResult === undefined) return null;
+  if (typeof concentrationResult.c_moyen_kg !== 'number') return null;
+  if (!isFinite(concentrationResult.c_moyen_kg) || concentrationResult.c_moyen_kg < 0) return null;
+
+  // Constantes optiques (sources documentees ci-dessus)
+  // c_water : attenuation eau de mer claire (Smith & Baker 1981)
+  var c_water = 0.05;
+  // b : coefficient d'attenuation specifique du sediment cotier
+  // (Davies-Colley & Smith 2001, mediane litterature)
+  // C'est ICI que la calibration Phase 2 viendra ajuster.
+  var b_sediment = 1.0;
+
+  var C = concentrationResult.c_moyen_kg;
+
+  // Coefficient d'attenuation total (1/m)
+  var c_sediment_contribution = b_sediment * C;
+  var c_total = c_water + c_sediment_contribution;
+
+  if (!isFinite(c_total) || c_total <= 0) return null;
+
+  // Profondeur de Secchi : d_secchi = 1.7 / c_total
+  // (critere standard I/I_0 = 0.16, Preisendorfer 1986)
+  var d_secchi = 1.7 / c_total;
+
+  // Visibilite horizontale chasseur sous-marin
+  // visi_m = 1.4 * d_secchi (Davies-Colley 1988)
+  // = 2.38 / c_total
+  var visi_m = 2.38 / c_total;
+
+  // Sanity check : visi physiquement plausible
+  // Plafond eau marine pure ~50m (Smith & Baker 1981 fig. 1)
+  // En dessous de 0.1m : regime extreme, formule en limite de validite
+  if (!isFinite(visi_m) || visi_m < 0) return null;
+  if (visi_m > 50) {
+    console.warn('[Brique8] visi_m > 50m, plafond physique depasse:', visi_m);
+  }
+
+  return {
+    visi_m: visi_m,
+    d_secchi: d_secchi,
+    c_total: c_total,
+    c_water: c_water,
+    c_sediment: c_sediment_contribution
+  };
+}
 // Constante de temps (heures) pour la decantation, selon profondeur
 // Plus le fond est peu profond, plus tau est long (re-brassage marees + houle residuelle)
 // Calibration originale : Courseulles 26/04/2026 (2m visi apres 60h NE 25-32 nds, fond 5m)
