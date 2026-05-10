@@ -4206,7 +4206,8 @@ function pointInPolygon(point, polygon) {
 // la couverture meteo AROME+ARPEGE et permettre aux briques
 // physiques de raisonner sur la meme plage temporelle).
 // ============================================================
-// Patch 7-A/3 : extension du cache marine à 3 jours de passé
+function fetchSpotMarineAndSun(lat, lon) {
+  // Patch 7-A/3 : extension du cache marine à 3 jours de passé
   // Justification scientifique : la Brique 9 (mémoire temporelle de
   // décantation, Krone 1962 / Mehta 1989 / Soulsby 1997 ch.9) a besoin
   // des concentrations C_equilibre(t) des créneaux passés pour calculer
