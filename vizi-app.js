@@ -4206,10 +4206,27 @@ function pointInPolygon(point, polygon) {
 // la couverture meteo AROME+ARPEGE et permettre aux briques
 // physiques de raisonner sur la meme plage temporelle).
 // ============================================================
-function fetchSpotMarineAndSun(lat, lon) {
+// Patch 7-A/3 : extension du cache marine à 3 jours de passé
+  // Justification scientifique : la Brique 9 (mémoire temporelle de
+  // décantation, Krone 1962 / Mehta 1989 / Soulsby 1997 ch.9) a besoin
+  // des concentrations C_equilibre(t) des créneaux passés pour calculer
+  // la somme pondérée des contributions atténuées.
+  //
+  // 3 jours capte 99% de l'énergie sédimentaire pour les sédiments
+  // non-cohésifs en Manche (Tessier 2013 : éclaircissement post-tempête
+  // typique 24-72h). Au-delà, la contribution exp(-dt/tau_dep) devient
+  // négligeable.
+  //
+  // Surcoût : +60 datapoints par variable (3j × 24h = 72 datapoints
+  // supplémentaires). Pour ~6 variables marines, environ +20 KB par
+  // cache marine. Négligeable.
+  //
+  // L'index marineIdx est ré-aligné automatiquement par recherche de
+  // timestamp dans computeVisibilityScore_V4 (code existant), donc
+  // aucune modification ailleurs nécessaire.
   var now = new Date();
-  var fmt = function(d) { return d.toISOString().split('T')[0]; };
   var start = new Date(now);
+  start.setDate(start.getDate() - 3);  // 3 jours de passé pour Brique 9
   var end = new Date(now);
   end.setDate(end.getDate() + 5);
 
