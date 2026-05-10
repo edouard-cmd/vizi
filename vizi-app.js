@@ -1923,6 +1923,27 @@ function closeVisExplain() {
 function buildVisExplanation(h, idx, depth, dir, dirFactor, bathyFactor, wind, gusts, wave, score, visLabel, lat, lon) {
   var content = document.getElementById('vzExplainContent');
   if (!content) return;
+  // ============================================================
+  // PATCH 4/6 - Délégation au log scientifique V2 si disponible
+  // ------------------------------------------------------------
+  // Si S._lastScoreObj est disponible (rempli par renderSpotPopup
+  // après Patch 5), on délègue à renderVisExplain_V2 qui produit
+  // le log structuré 6 sections + warnings + verdict.
+  //
+  // Sinon, on garde le comportement actuel (4 paragraphes prose
+  // construits ci-dessous). C'est le filet de sécurité tant que
+  // Patch 5 n'est pas appliqué : aucune régression.
+  // ============================================================
+  if (typeof S._lastScoreObj !== 'undefined' &&
+      S._lastScoreObj !== null &&
+      typeof renderVisExplain_V2 === 'function') {
+    content.innerHTML = renderVisExplain_V2(S._lastScoreObj);
+    return;
+  }
+
+  // ===== Comportement legacy (4 paragraphes prose) =====
+  // Conservé tel quel pour rétrocompatibilité si renderVisExplain_V2
+  // n'est pas chargé ou si Patch 5 n'a pas encore stocké S._lastScoreObj.
 
   var fromNames = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
   var dirName = (dir !== null && dir !== undefined) ? fromNames[Math.round(dir / 45) % 8] : '?';
