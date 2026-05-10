@@ -2813,6 +2813,87 @@ function computeShieldsCriterion(tau_max, sediment) {
     excess: excess
   };
 }
+// ============================================================
+// BRIQUE 7 - VITESSE DE CHUTE TERMINALE DES SEDIMENTS
+// ------------------------------------------------------------
+// Calcule la vitesse a laquelle un grain en suspension redescend
+// vers le fond, sous l'action combinee de la gravite et de la
+// trainee hydrodynamique. C'est la grandeur fondamentale de la
+// decantation : plus w_s est grand, plus l'eau se clarifie vite.
+//
+// Sources scientifiques :
+//   - Stokes G.G. 1851, "On the effect of the internal friction
+//     of fluids on the motion of pendulums", Trans. Cambridge
+//     Phil. Soc. 9 (loi de Stokes pour regime laminaire,
+//     valable pour D50 < 100 microns)
+//   - Soulsby R.L. 1997, "Dynamics of Marine Sands", ch. 8,
+//     equation 102 (formulation unifiee, valable de la vase
+//     au gravier, precision +/-5% sur 0.1 < D* < 1000)
+//
+// Formule unifiee Soulsby 1997 eq. 102 :
+//     w_s = (nu / D50) * (sqrt(10.36^2 + 1.049 * D*^3) - 10.36)
+// avec D* le diametre adimensionnel deja utilise en Brique 5 :
+//     D* = D50 * ((s - 1) * g / nu^2)^(1/3)
+//
+// Reproduit :
+//   - Le regime de Stokes pour D* < 5 (vase, sable tres fin)
+//   - Le regime turbulent pour D* > 100 (gravier)
+//   - La transition lisse entre les deux (sable medium/grossier)
+//
+// Domaine de validite :
+//   - Sediments non-cohesifs (D50 > 63 microns)
+//   - Eau salee a temperature moyenne (10-15C, viscosite nu_water)
+//   - Grains spheriques quasi-quartz (rho_s = 2650 kg/m^3)
+//
+// Hors validite :
+//   - Vase (cohesive) : flocculation en milieu salin (formation
+//     d'agregats avec vitesse de chute differente du grain
+//     individuel). Voir Whitehouse et al. 2000 "Dynamics of
+//     estuarine muds". Retourne null. Sera traite separement.
+//   - Roche : pas de sediment mobilisable. Retourne null.
+// ============================================================
+
+// Calcule la vitesse de chute terminale d'un grain de sediment.
+//
+// Argument : sediment   = objet S._spotSediment (Brique 0)
+//                          contient D50_m et regime
+// Retour   : w_s (m/s)  = vitesse de chute terminale (positive,
+//                          vers le bas par convention)
+//          ou null si regime hors domaine
+function computeSettlingVelocity(sediment) {
+  // Cas sediment absent ou hors champ d'application
+  if (!sediment || !sediment.D50_m) return null;
+  if (sediment.regime === 'cohesive') return null;  // flocs, traite separement
+  if (sediment.regime === 'rock') return null;       // pas de sediment
+
+  var D50 = sediment.D50_m;
+  var rho_s = PHYSICS.rho_sediment;  // 2650 kg/m^3
+  var rho_w = PHYSICS.rho_water;     // 1025 kg/m^3
+  var g = PHYSICS.g;                  // 9.81 m/s^2
+  var nu = PHYSICS.nu_water;          // 1.36e-6 m^2/s
+
+  // Diametre adimensionnel (identique Brique 5, Soulsby 1997 eq. 75)
+  var s = rho_s / rho_w;
+  var D_star = D50 * Math.pow((s - 1) * g / (nu * nu), 1 / 3);
+
+  // Sanity check : D_star doit etre dans le domaine de validite
+  if (!isFinite(D_star) || D_star <= 0) return null;
+
+  // Vitesse de chute unifiee Soulsby 1997 eq. 102
+  // w_s = (nu / D50) * (sqrt(10.36^2 + 1.049 * D*^3) - 10.36)
+  var w_s = (nu / D50) * (Math.sqrt(10.36 * 10.36 + 1.049 * Math.pow(D_star, 3)) - 10.36);
+
+  // Sanity check : w_s doit etre fini et positif (gravite vers le bas)
+  if (!isFinite(w_s) || w_s < 0) return null;
+
+  // Sanity check superieur : w_s ne devrait jamais depasser quelques
+  // dizaines de cm/s meme pour gros graviers. Au-dela, c'est un bug.
+  if (w_s > 1.0) {
+    console.warn('[Brique7] w_s > 1 m/s, hors domaine plausible:', w_s);
+  }
+
+  return w_s;
+}
 // Constante de temps (heures) pour la decantation, selon profondeur
 // Plus le fond est peu profond, plus tau est long (re-brassage marees + houle residuelle)
 // Calibration originale : Courseulles 26/04/2026 (2m visi apres 60h NE 25-32 nds, fond 5m)
