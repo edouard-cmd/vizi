@@ -3793,7 +3793,248 @@ function _scoreToLabel(score) {
   if (score >= 20) return 'Faible';
   return 'Nulle';
 }
+// ============================================================
+// BRIQUE 9 — CINÉTIQUE DE DÉCANTATION (mémoire temporelle)
+// ------------------------------------------------------------
+// Calcule la concentration en suspension à l'instant T en
+// intégrant l'historique des contributions sédimentaires
+// atténuées par décantation cinétique.
+//
+// Principe scientifique (Krone 1962 / Mehta 1989) :
+//
+//   dC/dt = E(τ) - w_s × C × (1 - τ/τ_cd)
+//
+// Sans terme d'érosion (phase de décantation pure), la solution
+// analytique est :
+//
+//   C(t) = C(0) × exp(-t/τ_dep)    avec τ_dep = H / w_s
+//
+// Pour une succession de N créneaux passés, chacun ayant
+// érodé une quantité C_équilibre(k) maintenant en cours de
+// décantation depuis (T - k×Δt), la concentration héritée est :
+//
+//   C_inherited(T) = Σ C_équilibre(k) × exp(-(T-k×Δt) / τ_dep(k))
+//
+// On utilise τ_dep DU CRÉNEAU PASSÉ (pas du créneau actuel)
+// car la décantation s'est faite dans les conditions de
+// profondeur et de sédiment du moment k.
+//
+// La concentration finale est :
+//
+//   C_final(T) = max( C_équilibre(T) , C_inherited(T) )
+//
+// Le MAX traduit le principe physique : on ne peut pas
+// décanter en-dessous de ce que l'érosion active maintient.
+// Si à T le vent remobilise (C_équilibre dominant), Brique 9
+// n'a aucun effet. Si à T c'est calme mais le passé était
+// agité (C_inherited dominant), Brique 9 prend le relais.
+//
+// Sources :
+//   - Krone R.B. 1962, "Flume studies of the transport of
+//     sediment in estuarial shoaling processes", UC Berkeley
+//   - Mehta A.J. 1989, "On estuarine cohesive sediment
+//     suspension behavior", J. Geophys. Res. 94, 14303-14314
+//   - Soulsby R.L. 1997, "Dynamics of Marine Sands", Thomas
+//     Telford, ch.9 §2 "Time-dependent suspended load"
+//   - Sanford L.P. & Halka J.P. 1993, "Assessing the paradigm
+//     of mutually exclusive erosion and deposition of mud",
+//     Marine Geology 114, 37-57
+//   - Green M.O. & Coco G. 2014, "Review of wave-driven
+//     sediment resuspension and transport in estuaries",
+//     Reviews of Geophysics 52, 77-117
+//
+// Limitations honnêtes :
+//   1. Modèle 0D (concentration moyenne dans la colonne)
+//      pas 1D vertical complet. Justifié Soulsby §9.2 pour
+//      applications côtières.
+//   2. Pas de transport advectif horizontal (panache).
+//   3. Hystérésis dépôt/érosion simplifiée (un seul seuil
+//      Shields utilisé, pas deux distincts τ_ce et τ_cd).
+//   4. Pas de consolidation du sédiment au fond.
+//   5. Sédiments cohésifs déjà exclus en amont par
+//      computeVisibilityScore_V4 (regime === 'cohesive').
+// ============================================================
+function computeKineticConcentration(h, idxNow, depth_lat, lat, lon, sediment, C_equilibre_now) {
+  // Vitesse de chute du sédiment (Brique 7, déjà sourcée Soulsby 1997 eq.102)
+  var w_s = computeSettlingVelocity(sediment);
+  if (w_s === null || w_s <= 0) {
+    return {
+      C_kinetic: C_equilibre_now,
+      C_inherited: 0,
+      tau_dep_at_idx: null,
+      dominant: 'equilibre',
+      n_contributions: 0,
+      warnings: []
+    };
+  }
 
+  // Profondeur instantanée au créneau actuel (LAT + marée)
+  var depth_instant_now = depthAtTimeCached(depth_lat, h.time[idxNow]);
+  if (depth_instant_now <= 0) {
+    return {
+      C_kinetic: C_equilibre_now,
+      C_inherited: 0,
+      tau_dep_at_idx: null,
+      dominant: 'equilibre',
+      n_contributions: 0,
+      warnings: ['Profondeur instantanée nulle au créneau actuel']
+    };
+  }
+
+  // Temps de décantation au créneau actuel (en secondes)
+  var tau_dep_now = depth_instant_now / w_s;
+
+  // Fenêtre de lookback adaptative : 5 × τ_dep capte 99% de
+  // l'énergie sédimentaire (résiduel < 0.7%).
+  // Bornée à 72h (limite cache marine étendu par Patch 7-A).
+  // Bornée minimum à 1h (sinon Brique 9 n'a pas de sens).
+  var lookback_seconds = 5 * tau_dep_now;
+  var SEC_PER_HOUR = 3600;
+  var MAX_LOOKBACK_HOURS = 72;
+  var lookback_hours = Math.min(MAX_LOOKBACK_HOURS, Math.max(1, lookback_seconds / SEC_PER_HOUR));
+
+  // Pas AROME = 1h (vérifié sur cache météo)
+  var n_creneaux = Math.floor(lookback_hours);
+
+  var warnings = [];
+  if (lookback_seconds / SEC_PER_HOUR > MAX_LOOKBACK_HOURS) {
+    warnings.push(
+      'Mémoire temporelle tronquée à 72h (limite cache marine). ' +
+      'τ_dep = ' + (tau_dep_now/3600).toFixed(1) + 'h, lookback souhaité = ' +
+      (5 * tau_dep_now / 3600).toFixed(1) + 'h. La décantation post-tempête ' +
+      'longue peut être sous-estimée.'
+    );
+  }
+
+  // Borne inférieure : pas de créneau passé disponible
+  var idx_min = Math.max(0, idxNow - n_creneaux);
+  if (idx_min === idxNow) {
+    return {
+      C_kinetic: C_equilibre_now,
+      C_inherited: 0,
+      tau_dep_at_idx: tau_dep_now,
+      dominant: 'equilibre',
+      n_contributions: 0,
+      warnings: warnings.concat(['Aucun créneau passé disponible (début de cache)'])
+    };
+  }
+
+  // ----- Sommation pondérée des contributions passées -----
+  // Pour chaque créneau k de [idx_min, idxNow - 1] :
+  //   1. Calcul C_équilibre(k) via la chaîne 1-6 (mémoïsée par _chainCache)
+  //   2. Calcul depth_instant(k) → tau_dep(k)
+  //   3. Décroissance exponentielle exp(-(idxNow - k) × 3600 / tau_dep(k))
+  //   4. Sommation
+  //
+  // ATTENTION : pour éviter une boucle infinie via mémoïsation,
+  // on appelle directement le pipeline interne (pas V4), parce
+  // que V4 lui-même appelle Brique 9.
+  var C_inherited = 0;
+  var contributions_count = 0;
+
+  for (var k = idx_min; k < idxNow; k++) {
+    // Re-calcule C_équilibre au créneau k SANS Brique 9
+    // (= équivalent V4 mais sans cinétique, pour éviter récursion)
+    var C_eq_k = _computeEquilibriumConcentrationAt(h, k, depth_lat, lat, lon, sediment);
+    if (C_eq_k === null || C_eq_k === 0) continue;
+
+    // Profondeur instantanée et τ_dep AU CRÉNEAU k (pas now)
+    var depth_k = depthAtTimeCached(depth_lat, h.time[k]);
+    if (depth_k <= 0) continue;
+    var tau_dep_k = depth_k / w_s;
+
+    // Temps écoulé depuis le créneau k (en secondes)
+    var dt = (idxNow - k) * SEC_PER_HOUR;
+
+    // Décroissance exponentielle (solution analytique de Krone sans érosion)
+    var decay = Math.exp(-dt / tau_dep_k);
+    var contribution = C_eq_k * decay;
+
+    C_inherited += contribution;
+    contributions_count++;
+  }
+
+  // ----- Combinaison équilibre actuel + héritage -----
+  // Le MAX traduit le principe physique : la décantation ne peut
+  // pas descendre la concentration sous le niveau d'érosion active.
+  var C_kinetic = Math.max(C_equilibre_now, C_inherited);
+  var dominant = (C_kinetic === C_equilibre_now) ? 'equilibre' : 'inherited';
+
+  return {
+    C_kinetic: C_kinetic,
+    C_inherited: C_inherited,
+    tau_dep_at_idx: tau_dep_now,
+    dominant: dominant,
+    n_contributions: contributions_count,
+    warnings: warnings
+  };
+}
+
+// ----- Helper interne : C_équilibre à un créneau k -----
+// Exécute la chaîne 1-6 sans appeler V4 (pour éviter récursion
+// infinie via la mémoïsation de Brique 9).
+//
+// Retourne null si les pré-conditions ne sont pas satisfaites au
+// créneau k (donnée marine manquante, profondeur insuffisante, etc).
+// Dans ce cas, Brique 9 saute ce créneau sans planter.
+function _computeEquilibriumConcentrationAt(h, k, depth_lat, lat, lon, sediment) {
+  // Pré-condition marine : timestamp aligné dans le cache marine étendu
+  if (!S_spotMarineCache || !S_spotMarineCache.wave_height) return null;
+
+  var targetMs = new Date(h.time[k]).getTime();
+  var marineIdx = -1;
+  var bestDelta = Infinity;
+  for (var mi = 0; mi < S_spotMarineCache.time.length; mi++) {
+    var d = Math.abs(new Date(S_spotMarineCache.time[mi]).getTime() - targetMs);
+    if (d < bestDelta) { bestDelta = d; marineIdx = mi; }
+  }
+  if (bestDelta > 1800000) return null;  // décalage > 30 min
+
+  var Hs = S_spotMarineCache.wave_height[marineIdx] || 0;
+  var Tp = S_spotMarineCache.wave_period ? (S_spotMarineCache.wave_period[marineIdx] || 0) : 0;
+  var U = S_spotMarineCache.ocean_current_velocity ? (S_spotMarineCache.ocean_current_velocity[marineIdx] || 0) : 0;
+  var waveDir = S_spotMarineCache.wave_direction ? S_spotMarineCache.wave_direction[marineIdx] : null;
+  var currentDir = S_spotMarineCache.ocean_current_direction ? S_spotMarineCache.ocean_current_direction[marineIdx] : null;
+
+  var depth_k = depthAtTimeCached(depth_lat, h.time[k]);
+  if (depth_k < 0.5) return null;
+
+  // Application de la garde courant aberrant (même que V4)
+  if (Math.abs(U) > 1.5) {
+    var inStrongCurrentZone = (
+      (lat >= 49.60 && lat <= 49.75 && lon >= -2.00 && lon <= -1.85) ||
+      (lat >= 48.40 && lat <= 48.50 && lon >= -5.10 && lon <= -4.90) ||
+      (lat >= 48.32 && lat <= 48.38 && lon >= -4.55 && lon <= -4.45) ||
+      (lat >= 48.00 && lat <= 48.10 && lon >= -4.85 && lon <= -4.65) ||
+      (lat >= 49.00 && lat <= 49.30 && lon >= -1.85 && lon <= -1.65)
+    );
+    if (!inStrongCurrentZone) U = 0;
+  }
+
+  var omega = Tp > 0 ? (2 * Math.PI / Tp) : 0;
+  var u_b = computeOrbitalVelocityAtBed(Hs, Tp, depth_k);
+  if (u_b === null) return null;
+
+  var tau_w = computeBedShearStressWaves(u_b, omega, sediment);
+  if (tau_w === null) return null;
+
+  var tau_c = computeBedShearStressCurrent(U, sediment, depth_k);
+  if (tau_c === null) tau_c = 0;
+
+  var tau_max = computeBedShearStressCombined(tau_w, tau_c, waveDir, currentDir);
+  if (tau_max === null) return null;
+
+  var shieldsResult = computeShieldsCriterion(tau_max, sediment);
+  if (shieldsResult === null) return null;
+
+  var w_s = computeSettlingVelocity(sediment);
+  if (w_s === null) return null;
+
+  var concResult = computeSuspendedConcentration(tau_max, shieldsResult, w_s, depth_k, sediment);
+  if (concResult === null) return null;
+
+  return concResult.c_moyen_kg;
+}
 // ----- Helper : construction de la phrase verdict en prose -----
 function _buildVerdictProse(result) {
   if (result.engine !== 'chain') return result.verdict || '';
