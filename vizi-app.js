@@ -2894,6 +2894,187 @@ function computeSettlingVelocity(sediment) {
 
   return w_s;
 }
+// ============================================================
+// BRIQUE 6 - CONCENTRATION DE SEDIMENT EN SUSPENSION
+// ------------------------------------------------------------
+// Calcule la concentration moyenne de sediment dans la colonne
+// d'eau, sous l'action combinee de la mise en suspension par
+// turbulence (Brique 4 -> 5) et de la chute par gravite (Brique 7).
+//
+// Sortie : concentration en kg/m^3, qui alimentera Brique 8
+// (Beer-Lambert) pour produire la visi en metres.
+//
+// Sources scientifiques :
+//   - Rouse H. 1937, "Modern conceptions of the mechanics of
+//     fluid turbulence", Trans. ASCE 102 (profil vertical de
+//     concentration, equilibre turbulence/gravite)
+//   - van Rijn L.C. 1984, "Sediment transport, part II:
+//     Suspended load transport", J. Hydraul. Eng. 110 (formule
+//     pour concentration de reference c_a au fond)
+//   - Soulsby R.L. 1997, "Dynamics of Marine Sands", ch. 8,
+//     equations 134 et 138 (formulation cotiere unifiee,
+//     adaptation algebrique de van Rijn)
+//
+// Trois etapes :
+//   1. Concentration de reference au fond c_a (Soulsby eq. 134)
+//        c_a = 0.015 * (D50 / a) * T_s^1.5 / D*^0.3
+//      avec T_s = excess - 1, a = max(0.01*H, 0.5*D50)
+//   2. Profil vertical de Rouse
+//        c(z)/c_a = ((H-z)/z * a/(H-a))^P
+//      avec P = w_s / (kappa * u_*)
+//   3. Concentration moyenne par integration trapezoidale
+//        c_moyen = (1/(H-a)) * integrale(c(z), a, H)
+//
+// Conversion finale en kg/m^3 :
+//   c_moyen_kg = c_moyen * rho_sediment
+//
+// Domaine de validite :
+//   - Sediments non-cohesifs (D50 > 63 microns)
+//   - Profondeur > 1m (sinon profil de Rouse degenere)
+//   - excess > 1 sinon c = 0 par construction
+//
+// Hors validite (retourne null) :
+//   - Vase (cohesive) : agregats/flocs, profil different
+//   - Roche : pas de sediment mobilisable
+//   - Toute Brique amont (4, 5, 7) qui retourne null
+//
+// Conditions limites par construction :
+//   - excess <= 1 -> c_moyen = 0 (pas de mobilisation)
+//   - tau_max = 0 -> c_moyen = 0 (pas de turbulence)
+// ============================================================
+
+// Calcule la concentration moyenne de sediment en suspension
+// dans la colonne d'eau et la convertit en kg/m^3.
+//
+// Argument : tau_max (Pa)        = contrainte combinee (Brique 4)
+//            shieldsResult       = sortie {theta, theta_cr, excess}
+//                                   de Brique 5
+//            w_s (m/s)           = vitesse de chute (Brique 7)
+//            depth (m)           = profondeur d'eau totale H
+//            sediment            = objet S._spotSediment
+// Retour   : objet {c_a, c_moyen, c_moyen_kg, rouse_number, u_star}
+//          ou null si entrees invalides ou hors validite
+function computeSuspendedConcentration(tau_max, shieldsResult, w_s, depth, sediment) {
+  // Validation : toute entree null en amont -> remontee du null
+  if (tau_max === null || tau_max === undefined) return null;
+  if (shieldsResult === null || shieldsResult === undefined) return null;
+  if (w_s === null || w_s === undefined) return null;
+  if (!depth || depth <= 1) return null;  // profil log invalide
+  if (!sediment || !sediment.D50_m) return null;
+  if (sediment.regime === 'cohesive') return null;
+  if (sediment.regime === 'rock') return null;
+
+  // Validation numerique
+  if (!isFinite(tau_max) || tau_max < 0) return null;
+  if (!isFinite(w_s) || w_s < 0) return null;
+
+  var D50 = sediment.D50_m;
+  var H = depth;
+  var rho_s = PHYSICS.rho_sediment;
+  var rho_w = PHYSICS.rho_water;
+  var g = PHYSICS.g;
+  var nu = PHYSICS.nu_water;
+  var kappa = PHYSICS.kappa;
+
+  // Cas degenere : pas de mobilisation -> eau claire
+  // (cohérence avec Brique 5 : excess <= 1 signifie sediment au repos)
+  if (shieldsResult.excess <= 1.0) {
+    return {
+      c_a: 0,
+      c_moyen: 0,
+      c_moyen_kg: 0,
+      rouse_number: null,
+      u_star: null
+    };
+  }
+
+  // Cas degenere : pas de contrainte -> pas de turbulence -> pas de suspension
+  if (tau_max === 0) {
+    return {
+      c_a: 0,
+      c_moyen: 0,
+      c_moyen_kg: 0,
+      rouse_number: null,
+      u_star: 0
+    };
+  }
+
+  // ETAPE 1 : Concentration de reference c_a (Soulsby 1997 eq. 134)
+  // ------------------------------------------------------------
+  // Hauteur de reference a : 1% de H, mais au minimum 0.5*D50
+  // (le sediment ne peut pas etre "en suspension" sous une demi-taille de grain)
+  var a = Math.max(0.01 * H, 0.5 * D50);
+
+  // Diametre adimensionnel D* (idem Brique 5 et 7)
+  var s = rho_s / rho_w;
+  var D_star = D50 * Math.pow((s - 1) * g / (nu * nu), 1 / 3);
+
+  // Parametre de transport T_s
+  var T_s = shieldsResult.excess - 1;
+
+  // Formule Soulsby 1997 eq. 134 : c_a = 0.015 * D50/a * T_s^1.5 / D*^0.3
+  // Sortie sans dimension (volume sediment / volume eau)
+  var c_a = 0.015 * (D50 / a) * Math.pow(T_s, 1.5) / Math.pow(D_star, 0.3);
+
+  if (!isFinite(c_a) || c_a < 0) return null;
+
+  // ETAPE 2 : Calcul du nombre de Rouse P = w_s / (kappa * u_*)
+  // ------------------------------------------------------------
+  // Vitesse de friction u_* a partir de tau_max
+  // u_* = sqrt(tau / rho_w)
+  var u_star = Math.sqrt(tau_max / rho_w);
+  if (!isFinite(u_star) || u_star <= 0) return null;
+
+  var rouse_number = w_s / (kappa * u_star);
+  if (!isFinite(rouse_number) || rouse_number < 0) return null;
+
+  // ETAPE 3 : Integration trapezoidale du profil de Rouse
+  // ------------------------------------------------------------
+  // Profil : c(z)/c_a = ((H-z)/z * a/(H-a))^P
+  // On integre de z = a a z = H, sur 100 points (precision <1%)
+  var N = 100;
+  var dz = (H - a) / N;
+  var integral = 0;
+
+  // Methode des trapezes : (h/2) * (f(x_0) + 2*sum(f(x_i)) + f(x_n))
+  for (var i = 0; i <= N; i++) {
+    var z = a + i * dz;
+    // Eviter division par zero si z exactement a la surface
+    if (z >= H) z = H - 1e-9;
+    var ratio = ((H - z) / z) * (a / (H - a));
+    if (ratio <= 0) continue;  // numeriquement aux limites
+    var c_z_over_c_a = Math.pow(ratio, rouse_number);
+    if (!isFinite(c_z_over_c_a)) continue;
+
+    // Coefficient trapezoidal : 1 aux extremites, 2 a l'interieur
+    var weight = (i === 0 || i === N) ? 1 : 2;
+    integral += weight * c_z_over_c_a;
+  }
+  integral *= dz / 2;
+
+  // Concentration moyenne sans dimension : (1/(H-a)) * integrale * c_a
+  var c_moyen = (c_a / (H - a)) * integral;
+
+  if (!isFinite(c_moyen) || c_moyen < 0) return null;
+
+  // Conversion en kg/m^3 : c (sans dim) * rho_s
+  var c_moyen_kg = c_moyen * rho_s;
+
+  // Sanity check : concentration plausible
+  // En suspension cotiere typique : 0 - 100 kg/m^3 (Soulsby 1997 fig. 39)
+  // Au-dela, on est en regime hyperconcentre (rare, tempete extreme)
+  if (c_moyen_kg > 1000) {
+    console.warn('[Brique6] c_moyen_kg > 1000 kg/m3, hors domaine plausible:', c_moyen_kg);
+  }
+
+  return {
+    c_a: c_a,
+    c_moyen: c_moyen,
+    c_moyen_kg: c_moyen_kg,
+    rouse_number: rouse_number,
+    u_star: u_star
+  };
+}
 // Constante de temps (heures) pour la decantation, selon profondeur
 // Plus le fond est peu profond, plus tau est long (re-brassage marees + houle residuelle)
 // Calibration originale : Courseulles 26/04/2026 (2m visi apres 60h NE 25-32 nds, fond 5m)
