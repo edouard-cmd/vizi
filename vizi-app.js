@@ -3710,8 +3710,41 @@ result.trace.brique1 = { u_b: u_b };
     rouse_number: concResult.rouse_number
   };
 
+// ============================================================
+  // BRIQUE 9 — CINÉTIQUE DE DÉCANTATION (mémoire temporelle)
+  // ------------------------------------------------------------
+  // Insertion Patch 7-C : la Brique 8 (Beer-Lambert) reçoit
+  // C_kinetic au lieu de C_équilibre. Permet de capturer la
+  // mémoire temporelle de décantation Krone 1962 / Soulsby 1997
+  // ch.9. Voir computeKineticConcentration plus haut pour la
+  // théorie complète.
+  // ============================================================
+  var kinResult = computeKineticConcentration(
+    h, idx, depth, lat, lon, sediment, concResult.c_moyen_kg
+  );
+  // Push des éventuels warnings (cache tronqué, profondeur nulle...)
+  if (kinResult.warnings && kinResult.warnings.length > 0) {
+    kinResult.warnings.forEach(function(w) { result.warnings.push(w); });
+  }
+  result.trace.brique9 = {
+    C_equilibre_now: concResult.c_moyen_kg,
+    C_inherited: kinResult.C_inherited,
+    C_kinetic: kinResult.C_kinetic,
+    tau_dep_seconds: kinResult.tau_dep_at_idx,
+    dominant: kinResult.dominant,
+    n_contributions: kinResult.n_contributions
+  };
+
+  // On construit un concResult modifié pour Brique 8 (Beer-Lambert)
+  // contenant C_kinetic au lieu de C_équilibre.
+  var concResultKinetic = {
+    c_moyen_kg: kinResult.C_kinetic,
+    rouse_number: concResult.rouse_number
+  };
+
   // BRIQUE 8 — Visibilité (Beer-Lambert / Davies-Colley 1988)
-  var visResult = computeVisibility(concResult, lat, lon);
+  // Reçoit la concentration cinétique (équilibre + mémoire).
+  var visResult = computeVisibility(concResultKinetic, lat, lon);
   if (visResult === null) {
     var r14 = _buildEmpiricalResult(h, idx, depth, lat, lon,
       'Brique 8 (Beer-Lambert) a retourné null');
@@ -4226,7 +4259,38 @@ function renderVisExplain_V2(scoreResult) {
           : '') +
       '</div>' +
     '</div>';
+// SECTION 5-bis - Mémoire temporelle (Brique 9, Patch 7-C)
+  if (t.brique9) {
+    var tauDepMin = t.brique9.tau_dep_seconds ? (t.brique9.tau_dep_seconds / 60).toFixed(1) : 'N/A';
+    var tauDepDisplay = t.brique9.tau_dep_seconds
+      ? (t.brique9.tau_dep_seconds < 3600
+          ? tauDepMin + ' min'
+          : (t.brique9.tau_dep_seconds / 3600).toFixed(1) + ' h')
+      : 'N/A';
+    var dominantMsg = t.brique9.dominant === 'inherited'
+      ? '<span class="vz-explain-yes">MÉMOIRE DOMINANTE — décantation en cours</span>'
+      : '<span class="vz-explain-no">ÉQUILIBRE DOMINANT — érosion active</span>';
 
+    html +=
+      '<div class="vz-explain-section">' +
+        '<div class="vz-explain-section-title">5-bis. Mémoire temporelle (cinétique)</div>' +
+        '<div class="vz-explain-section-body">' +
+          '<div class="vz-explain-row"><span>Temps de décantation actuel</span><span class="vz-explain-num">' +
+            tauDepDisplay + '</span></div>' +
+          '<div class="vz-explain-row"><span>Concentration héritée du passé</span><span class="vz-explain-num">' +
+            t.brique9.C_inherited.toFixed(4) + ' kg/m³</span></div>' +
+          '<div class="vz-explain-row"><span>Concentration d\'équilibre actuelle</span><span class="vz-explain-num">' +
+            t.brique9.C_equilibre_now.toFixed(4) + ' kg/m³</span></div>' +
+          '<div class="vz-explain-row vz-explain-row-total"><span>Concentration cinétique finale (max)</span><span class="vz-explain-num">' +
+            t.brique9.C_kinetic.toFixed(4) + ' kg/m³</span></div>' +
+          '<div class="vz-explain-row"><span>Créneaux passés intégrés</span><span class="vz-explain-num">' +
+            t.brique9.n_contributions + '</span></div>' +
+          '<div class="vz-explain-row vz-explain-row-conclusion">' + dominantMsg + '</div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  // SECTION 6 - Visibilité finale
   // SECTION 6 - Visibilité finale
   html +=
     '<div class="vz-explain-section">' +
@@ -4234,7 +4298,7 @@ function renderVisExplain_V2(scoreResult) {
       '<div class="vz-explain-section-body">' +
         '<div class="vz-explain-row"><span>Turbidité ambiante de la zone</span><span class="vz-explain-num">' +
           t.brique8.c_baseline.toFixed(3) + ' m⁻¹</span></div>' +
-        '<div class="vz-explain-row"><span>Contribution du sédiment mobilisé</span><span class="vz-explain-num">' +
+        '<div class="vz-explain-row"><span>Contribution du sédiment (cinétique)</span><span class="vz-explain-num">' +
           t.brique8.c_sediment.toFixed(3) + ' m⁻¹</span></div>' +
         '<div class="vz-explain-row vz-explain-row-total"><span>Atténuation totale</span><span class="vz-explain-num">' +
           t.brique8.c_total.toFixed(3) + ' m⁻¹</span></div>' +
