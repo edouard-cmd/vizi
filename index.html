@@ -3092,7 +3092,35 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
 .vz-explain-panel.open {
   max-height: 700px;
 }
-
+/* ============================================================
+   PATCH 6/6 - Tag moteur sous le badge visibilité estimée
+   ------------------------------------------------------------
+   Affichage discret du moteur de calcul utilisé (transparence
+   scientifique vis-à-vis de l'utilisateur).
+   ============================================================ */
+.vz-engine-tag {
+  display: none;
+  margin: 8px 18px 0;
+  padding: 5px 10px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-align: center;
+  border-radius: var(--vz-radius-pill, 24px);
+  border: 0.5px solid;
+}
+.vz-engine-tag-chain {
+  color: var(--vz-accent);
+  border-color: var(--vz-accent-border);
+  background: var(--vz-accent-glow);
+}
+.vz-engine-tag-empirical {
+  color: var(--vz-warning, #E89B3C);
+  border-color: rgba(232,155,60,0.30);
+  background: rgba(232,155,60,0.06);
+}
 /* Mini tableau PM/BM du jour */
 .vz-pmbm-block {
   padding: 14px 18px;
@@ -4645,7 +4673,8 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
         <div class="spot-vis-seg" id="visSeg3"></div>
         <div class="spot-vis-seg" id="visSeg4"></div>
       </div>
-      <div class="spot-vis-ticks"><span>1m</span><span>2m</span><span>4m</span><span>6m</span><span>8m</span></div>
+     <div class="spot-vis-ticks"><span>1m</span><span>2m</span><span>4m</span><span>6m</span><span>8m</span></div>
+      <div id="vzEngineTag" class="vz-engine-tag" style="display:none;"></div>
     </div>
     <div class="spot-wind-block">
       <div class="spot-wind-cell">
