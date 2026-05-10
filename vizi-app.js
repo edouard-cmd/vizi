@@ -3535,7 +3535,25 @@ function computeVisibilityScore_V4(h, idx, depth, lat, lon) {
     _chainCache[cacheKey] = r8;
     return r8;
   }
-  result.trace.brique1 = { u_b: u_b };
+result.trace.brique1 = { u_b: u_b };
+
+  // ----- Garde-fou scientifique : détection hors domaine Airy -----
+  // Source : Soulsby 1997 ch.4 "Domaine de validité d'Airy : H/D < 0.4"
+  // Au-delà, la vague entre en zone de déferlement et la formule
+  // surestime fortement u_b. La chaîne reste exécutée pour donner
+  // une indication, mais l'utilisateur est alerté que la prédiction
+  // est hors domaine de validité scientifique.
+  if (Hs > 0 && depthInstant > 0) {
+    var HsOverD = Hs / depthInstant;
+    if (HsOverD > 0.4) {
+      result.warnings.push(
+        'Hors domaine de validité Airy : Hs/D = ' + HsOverD.toFixed(2) +
+        ' > 0.4 (déferlement probable). La prédiction de mobilisation est ' +
+        'probablement surestimée. Modèle de surf zone (Battjes & Janssen 1978) ' +
+        'à implémenter en Phase 2.'
+      );
+    }
+  }
 
   // BRIQUE 2 — Cisaillement par la houle (Swart 1974 / Soulsby 1997)
   var tau_w = computeBedShearStressWaves(u_b, omega, sediment);
@@ -3547,8 +3565,45 @@ function computeVisibilityScore_V4(h, idx, depth, lat, lon) {
   }
   result.trace.brique2 = { tau_w: tau_w };
 
+  // ----- Garde-fou scientifique : détection courant aberrant -----
+  // Sources :
+  //   - SHOM "Atlas des courants de marée de la côte ouest de France"
+  //     Manche : courants tidaux côtiers max 0.5-1.0 m/s en vive-eau
+  //   - Copernicus Marine IBI : grille 1.5km, valeurs aberrantes
+  //     possibles près des côtes par lissage numérique
+  //
+  // Hors zones de courant fort connues (Raz Blanchard, Fromveur,
+  // Cap Sizun, Passage de la Déroute, Goulet de Brest), un courant
+  // > 1.5 m/s est physiquement suspect et probablement issu d'un
+  // artefact de modèle Open-Meteo. On bascule U à 0 et on alerte
+  // l'utilisateur via warning. Pas de clamp arbitraire : soit on
+  // a confiance et on garde, soit on n'a pas confiance et on annule.
+  var U_effectif = U;
+  if (Math.abs(U) > 1.5) {
+    var inStrongCurrentZone = (
+      // Raz Blanchard
+      (lat >= 49.60 && lat <= 49.75 && lon >= -2.00 && lon <= -1.85) ||
+      // Fromveur
+      (lat >= 48.40 && lat <= 48.50 && lon >= -5.10 && lon <= -4.90) ||
+      // Goulet de Brest
+      (lat >= 48.32 && lat <= 48.38 && lon >= -4.55 && lon <= -4.45) ||
+      // Cap Sizun / Raz de Sein
+      (lat >= 48.00 && lat <= 48.10 && lon >= -4.85 && lon <= -4.65) ||
+      // Passage de la Déroute (entre Cotentin et Iles Anglo-Normandes)
+      (lat >= 49.00 && lat <= 49.30 && lon >= -1.85 && lon <= -1.65)
+    );
+    if (!inStrongCurrentZone) {
+      result.warnings.push(
+        'Courant Open-Meteo aberrant : ' + U.toFixed(2) +
+        ' m/s détecté hors zone de courant fort connue. ' +
+        'Composante courant ignorée dans le calcul (Brique 3 mise à zéro).'
+      );
+      U_effectif = 0;
+    }
+  }
+
   // BRIQUE 3 — Cisaillement par le courant (Prandtl 1925 / Soulsby 1997)
-  var tau_c = computeBedShearStressCurrent(U, sediment, depthInstant);
+  var tau_c = computeBedShearStressCurrent(U_effectif, sediment, depthInstant);
   if (tau_c === null) {
     // Si courant null mais houle OK, on continue avec tau_c=0 (cas
     // dégénéré accepté par Brique 4). On ne fallback pas pour ça.
