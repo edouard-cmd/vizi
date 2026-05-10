@@ -3447,10 +3447,15 @@ function computeVisibilityScore_V4(h, idx, depth, lat, lon) {
     return r4;
   }
 
-  // ----- Pré-condition 3 : profondeur exploitable -----
-  if (!depth || depth < 0.5) {
+// ----- Pré-condition 3 : profondeur LAT valide (non-null) -----
+  // On accepte les spots à très faible profondeur LAT (estran)
+  // car ils peuvent être chassables à pleine mer.
+  // La garde stricte (< 0.5m) sera appliquée APRÈS calcul de
+  // depthInstant pour rejeter uniquement les créneaux où l'eau
+  // est réellement insuffisante au moment T (à BM grand coef).
+  if (!depth || depth <= 0) {
     var r5 = _buildEmpiricalResult(h, idx, depth, lat, lon,
-      'profondeur insuffisante (estran)');
+      'profondeur LAT non disponible');
     _chainCache[cacheKey] = r5;
     return r5;
   }
@@ -3482,8 +3487,24 @@ function computeVisibilityScore_V4(h, idx, depth, lat, lon) {
   var waveDir = S_spotMarineCache.wave_direction ? S_spotMarineCache.wave_direction[marineIdx] : null;
   var currentDir = S_spotMarineCache.ocean_current_direction ? S_spotMarineCache.ocean_current_direction[marineIdx] : null;
 
-  // Profondeur instantanée (LAT + marée) pour le créneau idx
+// Profondeur instantanée (LAT + marée) pour le créneau idx.
+  // C'est sur cette valeur que la chaîne physique opère, car les
+  // briques 1 (Airy), 3 (profil log courant) et 6 (Rouse) ont
+  // toutes besoin de la VRAIE colonne d'eau au moment T, pas du
+  // zéro hydrographique.
   var depthInstant = depthAtTimeCached(depth, h.time[idx]);
+
+  // Garde stricte : si l'eau est réellement insuffisante à ce
+  // moment précis (estran émergé à BM grand coef, par exemple),
+  // la chaîne n'est pas applicable - le spot est à sec ou
+  // quasi-sec, la notion de visibilité sous-marine n'a plus
+  // de sens.
+  if (depthInstant < 0.5) {
+    var r5b = _buildEmpiricalResult(h, idx, depth, lat, lon,
+      'eau insuffisante à cet instant (depth_instant=' + depthInstant.toFixed(2) + 'm)');
+    _chainCache[cacheKey] = r5b;
+    return r5b;
+  }
 
   // Vent pour métadonnées trace (pas utilisé par la chaîne physique,
   // qui n'a besoin que de Hs/Tp/U déjà calculés par AROME en intégrant
