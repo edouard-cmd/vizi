@@ -3320,6 +3320,44 @@ function computeVisibility(concentrationResult, lat, lon) {
     sources: optical.sources
   };
 }
+// ============================================================
+// MAPPING VISIBILITÉ (MÈTRES) → SCORE 0-100
+// ------------------------------------------------------------
+// Convertit la sortie de la chaîne 9 briques (Brique 8 : visi en
+// mètres, loi de Beer-Lambert) en score 0-100 compatible avec
+// l'UI existante (badge "Excellente/Bonne/Moyenne/Faible/Nulle"
+// et bandeau Conditions 5 jours).
+//
+// Mapping logarithmique calibré sur le barème visuel actuel
+// affiché sous le badge ("1m / 2m / 4m / 6m / 8m") :
+//   visi = 0.3 m  -> score 0    (Nulle absolue)
+//   visi = 1.0 m  -> score 25   (Faible)
+//   visi = 2.0 m  -> score 42   (frontière Faible/Moyenne)
+//   visi = 4.0 m  -> score 65   (Bonne)
+//   visi = 8.0 m  -> score 93   (Excellente)
+//   visi = 10.0 m -> score 100  (plafond)
+//
+// Choix logarithmique : la perception humaine de la visibilité
+// sous-marine est non-linéaire. Passer de 1 m à 2 m double
+// l'utilité plongée ; passer de 9 m à 10 m est imperceptible.
+// L'échelle log capte cette non-linéarité (Weber-Fechner 1860,
+// loi psychophysique standard appliquée à la perception
+// visuelle subaquatique par Lythgoe 1979 "The Ecology of Vision").
+//
+// Convention Visimer : seul coefficient de cette chaîne qui n'est
+// pas issu directement de la littérature physique. Sera recalibré
+// par les observations communautaires en Phase 2.
+//
+// Domaine de validité : 0.3 m ≤ visi ≤ 10 m (au-delà, plafond 100).
+// ============================================================
+function mapVisiToScore(visi_m) {
+  if (visi_m === null || visi_m === undefined || !isFinite(visi_m)) return 0;
+  if (visi_m < 0.3) return 0;
+  if (visi_m >= 10) return 100;
+  // Mapping log : 0.3 m → 0, 10 m → 100
+  var score = 100 * Math.log(visi_m / 0.3) / Math.log(10 / 0.3);
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
 // Constante de temps (heures) pour la decantation, selon profondeur
 // Plus le fond est peu profond, plus tau est long (re-brassage marees + houle residuelle)
 // Calibration originale : Courseulles 26/04/2026 (2m visi apres 60h NE 25-32 nds, fond 5m)
