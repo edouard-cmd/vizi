@@ -2942,6 +2942,156 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
   color: var(--vz-accent);
   font-weight: 700;
 }
+    /* ============================================================
+   LOG SCIENTIFIQUE - Patch 3-bis/6
+   ------------------------------------------------------------
+   Habillage du log généré par renderVisExplain_V2.
+   Étend le système .vz-explain-* existant sans collision.
+   Toutes les classes ajoutées sont nouvelles (préfixe inchangé
+   pour cohérence visuelle avec le système existant).
+   ============================================================ */
+
+/* ----- Tag du moteur de calcul ----- */
+.vz-explain-engine-tag {
+  display: inline-block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 5px 10px;
+  border-radius: var(--vz-radius-pill, 24px);
+  margin-bottom: 12px;
+  border: 0.5px solid;
+}
+.vz-engine-chain {
+  color: var(--vz-accent);
+  border-color: var(--vz-accent-border);
+  background: var(--vz-accent-glow);
+}
+.vz-engine-empirical {
+  color: var(--vz-warning, #E89B3C);
+  border-color: rgba(232,155,60,0.35);
+  background: rgba(232,155,60,0.08);
+}
+
+/* ----- Bloc warnings (limites de validité) ----- */
+.vz-explain-warnings {
+  background: rgba(232,155,60,0.08);
+  border: 0.5px solid rgba(232,155,60,0.35);
+  border-radius: var(--vz-radius-card);
+  padding: 11px 13px;
+  margin-bottom: 14px;
+}
+.vz-explain-warnings-title {
+  font-family: 'Inter', sans-serif;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--vz-warning, #E89B3C);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.vz-explain-warning-item {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--vz-text-on-dark);
+  padding: 6px 0;
+  border-top: 0.5px solid rgba(232,155,60,0.15);
+}
+.vz-explain-warning-item:first-of-type {
+  border-top: none;
+  padding-top: 0;
+}
+
+/* ----- Lignes de données ----- */
+.vz-explain-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 7px 0;
+  border-bottom: 0.5px solid rgba(255,255,255,0.05);
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--vz-text-on-dark-muted);
+}
+.vz-explain-row:last-child {
+  border-bottom: none;
+}
+.vz-explain-row > span:first-child {
+  flex: 1 1 auto;
+}
+.vz-explain-row > span:last-child {
+  flex: 0 0 auto;
+  text-align: right;
+}
+
+/* Ligne récapitulative (force totale, atténuation totale) */
+.vz-explain-row-total {
+  border-top: 0.5px solid var(--vz-accent-border);
+  border-bottom: none;
+  padding-top: 9px;
+  margin-top: 4px;
+  font-weight: 600;
+}
+.vz-explain-row-total > span:first-child {
+  color: var(--vz-text-on-dark);
+}
+
+/* Ligne de conclusion (sédiment OUI/NON, visi finale) */
+.vz-explain-row-conclusion {
+  border-top: 0.5px solid rgba(255,255,255,0.1);
+  border-bottom: none;
+  padding-top: 9px;
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--vz-text-on-dark);
+}
+
+/* Valeur finale (la visibilité en m) - typo plus grosse */
+.vz-explain-num-final {
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em;
+}
+
+/* Source AROME, etc. : atténuation typographique */
+.vz-explain-faint {
+  color: var(--vz-text-on-dark-faint) !important;
+  font-size: 11px !important;
+}
+
+/* Verdict OUI/NON mobilisation */
+.vz-explain-yes {
+  color: var(--vz-warning, #E89B3C);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.vz-explain-no {
+  color: var(--vz-accent);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* État vide */
+.vz-explain-empty {
+  text-align: center;
+  padding: 30px 16px;
+  color: var(--vz-text-on-dark-faint);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* Le panneau dépliable doit pouvoir grandir pour accueillir
+   le log structuré (6 sections × ~80px = 500px) */
+.vz-explain-panel.open {
+  max-height: 700px;
+}
 
 /* Mini tableau PM/BM du jour */
 .vz-pmbm-block {
