@@ -1589,6 +1589,15 @@ function renderForecastTable(h, now, modelMap) {
   document.getElementById('forecastTable').innerHTML = html;
 }
 function openSpotPopup(latlng, name) {
+  // Patch 6/6 : invalidation du cache de la chaîne physique
+  // Justification : un nouveau clic ouvre un nouveau spot avec
+  // potentiellement une lat/lon/depth/sediment différents.
+  // Le cache _chainCache indexé par ces variables est invalide
+  // dans ce nouveau contexte. On le vide pour éviter qu'un
+  // ancien calcul pollue le nouveau (hygiène cache).
+  if (typeof invalidateChainCache === 'function') {
+    invalidateChainCache();
+  }
   S.clickLatLng = latlng;
   // Si le drawer marees est ouvert, on bascule sur le port le plus proche du clic
     if (typeof TIDES_DRAWER !== 'undefined' && TIDES_DRAWER.isOpen && VZ_SHEET.mode === 'tides') {
