@@ -4230,6 +4230,14 @@ function fetchSpotMarineAndSun(lat, lon) {
   start.setDate(start.getDate() - 3);  // 3 jours de passé pour Brique 9
   var end = new Date(now);
   end.setDate(end.getDate() + 5);
+  // Helper local de formatage de date pour l'API Open-Meteo
+  // (yyyy-MM-dd). Supprimée accidentellement lors du Patch 7-A,
+  // ré-injectée ici.
+  function fmt(d) {
+    return d.getFullYear() + '-' +
+           String(d.getMonth() + 1).padStart(2, '0') + '-' +
+           String(d.getDate()).padStart(2, '0');
+  }
 
   // 16 variables marines validees Etape 1.1 (couverture 100% France)
   var marineVars = [
