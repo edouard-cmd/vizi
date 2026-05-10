@@ -3783,6 +3783,203 @@ function _buildVerdictProse(result) {
 
   return phrases.join(' ');
 }
+// ============================================================
+// RENDU DU LOG SCIENTIFIQUE - "POURQUOI CETTE VISIBILITÉ"
+// ------------------------------------------------------------
+// Construit le HTML du module "Pourquoi cette visibilité" du
+// drawer spot. Consomme l'objet riche retourné par
+// computeVisibilityScore_V4 et produit un log structuré en
+// 6 sections + verdict + warnings.
+//
+// Langage : termes simplifiés mais valeurs numériques gardées
+// pour permettre la vérification scientifique et le debug.
+// Sections numérotées pour la lisibilité.
+//
+// Comportement selon engine :
+//   - 'chain'     : log complet 6 sections + warnings + verdict
+//   - 'empirical' : message honnête "modèle physique non
+//                   applicable" + raison + verdict empirique
+//
+// Le HTML retourné est inséré dans #vzExplainContent (drawer
+// desktop) et #vzmExplainContent (drawer mobile V4) via
+// buildVisExplanation patché en aval.
+// ============================================================
+function renderVisExplain_V2(scoreResult) {
+  if (!scoreResult) {
+    return '<div class="vz-explain-empty">Aucune donnée à analyser.</div>';
+  }
+
+  // ----- Mode empirique : message honnête, pas de log technique -----
+  if (scoreResult.engine !== 'chain') {
+    var reason = (scoreResult.trace && scoreResult.trace.fallback_reason)
+      ? scoreResult.trace.fallback_reason
+      : 'cause inconnue';
+    return (
+      '<div class="vz-explain-engine-tag vz-engine-empirical">' +
+        'MODÈLE EMPIRIQUE — chaîne physique non disponible' +
+      '</div>' +
+      '<div class="vz-explain-section">' +
+        '<div class="vz-explain-section-title">Pourquoi le modèle physique ne s\'applique pas</div>' +
+        '<div class="vz-explain-section-body">' +
+          'Raison : ' + reason + '.<br><br>' +
+          'Le score affiché provient du modèle empirique de secours ' +
+          '(calibré sur des observations à Courseulles en avril 2026). ' +
+          'Il reste indicatif mais moins précis que la chaîne physique 9 briques.' +
+        '</div>' +
+      '</div>' +
+      '<div class="vz-explain-verdict">' + (scoreResult.verdict || '') + '</div>'
+    );
+  }
+
+  // ----- Mode chaîne : log complet 6 sections -----
+  var t = scoreResult.trace;
+  var html = '';
+
+  // Tag moteur
+  html +=
+    '<div class="vz-explain-engine-tag vz-engine-chain">' +
+      'MODÈLE PHYSIQUE — chaîne 9 briques' +
+    '</div>';
+
+  // Warnings éventuels (en haut, très visibles)
+  if (scoreResult.warnings && scoreResult.warnings.length > 0) {
+    html += '<div class="vz-explain-warnings">';
+    html += '<div class="vz-explain-warnings-title">⚠ Limites de validité détectées</div>';
+    scoreResult.warnings.forEach(function(w) {
+      html += '<div class="vz-explain-warning-item">' + w + '</div>';
+    });
+    html += '</div>';
+  }
+
+  // SECTION 1 - Données du spot
+  html +=
+    '<div class="vz-explain-section">' +
+      '<div class="vz-explain-section-title">1. Données du spot</div>' +
+      '<div class="vz-explain-section-body">' +
+        '<div class="vz-explain-row"><span>Profondeur (zéro hydro)</span><span class="vz-explain-num">' +
+          t.spot.depth_lat.toFixed(2) + ' m</span></div>' +
+        '<div class="vz-explain-row"><span>Profondeur avec marée</span><span class="vz-explain-num">' +
+          t.spot.depth_instant.toFixed(2) + ' m</span></div>' +
+        '<div class="vz-explain-row"><span>Type de fond</span><span>' +
+          t.spot.sediment_name + ' (D50 ' + t.spot.sediment_D50_mm.toFixed(2) + ' mm)</span></div>' +
+        '<div class="vz-explain-row"><span>Zone optique</span><span>' +
+          _zoneOptiqueLabel(t.spot.zone_optique) + '</span></div>' +
+      '</div>' +
+    '</div>';
+
+  // SECTION 2 - Conditions de surface
+  var windDirName = _bearingToCardinal(t.surface.wind_dir);
+  var waveDirName = _bearingToCardinal(t.surface.wave_dir);
+  html +=
+    '<div class="vz-explain-section">' +
+      '<div class="vz-explain-section-title">2. Conditions de surface</div>' +
+      '<div class="vz-explain-section-body">' +
+        '<div class="vz-explain-row"><span>Vent</span><span>' +
+          windDirName + ' ' + t.surface.wind_kt + ' nds (rafales ' + t.surface.gusts_kt + ' nds)</span></div>' +
+        '<div class="vz-explain-row"><span>Houle totale</span><span class="vz-explain-num">' +
+          t.surface.wave_total.toFixed(2) + ' m, période ' + t.surface.wave_period.toFixed(1) + ' s</span></div>' +
+        '<div class="vz-explain-row"><span>Courant</span><span class="vz-explain-num">' +
+          t.surface.current_velocity.toFixed(2) + ' m/s ' + (t.surface.current_dir !== null ? waveDirName : '') + '</span></div>' +
+        '<div class="vz-explain-row"><span>Source</span><span class="vz-explain-faint">' +
+          t.surface.source + '</span></div>' +
+      '</div>' +
+    '</div>';
+
+  // SECTION 3 - Calcul du brassage
+  html +=
+    '<div class="vz-explain-section">' +
+      '<div class="vz-explain-section-title">3. Calcul du brassage au fond</div>' +
+      '<div class="vz-explain-section-body">' +
+        '<div class="vz-explain-row"><span>Vitesse de l\'eau au fond (Airy 1845)</span><span class="vz-explain-num">' +
+          t.brique1.u_b.toFixed(3) + ' m/s</span></div>' +
+        '<div class="vz-explain-row"><span>Force de la houle au fond</span><span class="vz-explain-num">' +
+          t.brique2.tau_w.toFixed(3) + ' Pa</span></div>' +
+        '<div class="vz-explain-row"><span>Force du courant au fond</span><span class="vz-explain-num">' +
+          t.brique3.tau_c.toFixed(3) + ' Pa</span></div>' +
+        '<div class="vz-explain-row vz-explain-row-total"><span>Force totale combinée</span><span class="vz-explain-num">' +
+          t.brique4.tau_max.toFixed(3) + ' Pa</span></div>' +
+      '</div>' +
+    '</div>';
+
+  // SECTION 4 - Est-ce que le sédiment bouge ?
+  var mobiliseMsg = t.brique5.mobilized
+    ? '<span class="vz-explain-yes">OUI — le sédiment est remis en suspension</span>'
+    : '<span class="vz-explain-no">NON — le sédiment reste au repos</span>';
+  html +=
+    '<div class="vz-explain-section">' +
+      '<div class="vz-explain-section-title">4. Le sédiment bouge-t-il ?</div>' +
+      '<div class="vz-explain-section-body">' +
+        '<div class="vz-explain-row"><span>Seuil de mise en mouvement (Shields 1936)</span><span class="vz-explain-num">' +
+          t.brique5.theta_cr.toFixed(3) + '</span></div>' +
+        '<div class="vz-explain-row"><span>Contrainte appliquée</span><span class="vz-explain-num">' +
+          t.brique5.theta.toFixed(3) + '</span></div>' +
+        '<div class="vz-explain-row"><span>Ratio appliqué / seuil</span><span class="vz-explain-num">' +
+          t.brique5.excess.toFixed(2) + '×</span></div>' +
+        '<div class="vz-explain-row vz-explain-row-conclusion">' + mobiliseMsg + '</div>' +
+      '</div>' +
+    '</div>';
+
+  // SECTION 5 - Concentration en suspension
+  html +=
+    '<div class="vz-explain-section">' +
+      '<div class="vz-explain-section-title">5. Combien de particules dans l\'eau</div>' +
+      '<div class="vz-explain-section-body">' +
+        '<div class="vz-explain-row"><span>Vitesse de chute (Stokes/Soulsby 1997)</span><span class="vz-explain-num">' +
+          (t.brique7.w_s * 1000).toFixed(1) + ' mm/s</span></div>' +
+        '<div class="vz-explain-row"><span>Concentration moyenne (Rouse 1937)</span><span class="vz-explain-num">' +
+          t.brique6.c_moyen_kg.toFixed(4) + ' kg/m³</span></div>' +
+        (t.brique6.rouse_number !== null && t.brique6.rouse_number !== undefined
+          ? '<div class="vz-explain-row"><span>Nombre de Rouse</span><span class="vz-explain-num">' +
+              t.brique6.rouse_number.toFixed(2) + '</span></div>'
+          : '') +
+      '</div>' +
+    '</div>';
+
+  // SECTION 6 - Visibilité finale
+  html +=
+    '<div class="vz-explain-section">' +
+      '<div class="vz-explain-section-title">6. Visibilité finale (Beer-Lambert)</div>' +
+      '<div class="vz-explain-section-body">' +
+        '<div class="vz-explain-row"><span>Turbidité ambiante de la zone</span><span class="vz-explain-num">' +
+          t.brique8.c_baseline.toFixed(3) + ' m⁻¹</span></div>' +
+        '<div class="vz-explain-row"><span>Contribution du sédiment mobilisé</span><span class="vz-explain-num">' +
+          t.brique8.c_sediment.toFixed(3) + ' m⁻¹</span></div>' +
+        '<div class="vz-explain-row vz-explain-row-total"><span>Atténuation totale</span><span class="vz-explain-num">' +
+          t.brique8.c_total.toFixed(3) + ' m⁻¹</span></div>' +
+        '<div class="vz-explain-row vz-explain-row-conclusion">' +
+          '<span>VISIBILITÉ ESTIMÉE</span>' +
+          '<span class="vz-explain-num vz-explain-num-final">' + t.brique8.visi_m.toFixed(2) + ' m</span>' +
+        '</div>' +
+      '</div>' +
+    '</div>';
+
+  // Verdict en prose
+  html +=
+    '<div class="vz-explain-verdict">' +
+      scoreResult.verdict +
+    '</div>';
+
+  return html;
+}
+
+// ----- Helper : label humain d'une zone optique -----
+function _zoneOptiqueLabel(zone) {
+  var labels = {
+    'mediterranee': 'Méditerranée (eaux claires)',
+    'atlantique_sud': 'Atlantique sud (eaux peu chargées)',
+    'manche_occidentale_bretagne': 'Manche occidentale / Bretagne',
+    'manche_orientale_mer_du_nord_sud': 'Manche orientale (turbide, silts dominants)',
+    'fallback_europe': 'Europe (valeurs médianes par défaut)'
+  };
+  return labels[zone] || zone;
+}
+
+// ----- Helper : bearing → nom cardinal -----
+function _bearingToCardinal(deg) {
+  if (deg === null || deg === undefined || isNaN(deg)) return '?';
+  var names = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
+  return names[Math.round(deg / 45) % 8];
+}
 // Constante de temps (heures) pour la decantation, selon profondeur
 // Plus le fond est peu profond, plus tau est long (re-brassage marees + houle residuelle)
 // Calibration originale : Courseulles 26/04/2026 (2m visi apres 60h NE 25-32 nds, fond 5m)
