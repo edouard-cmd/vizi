@@ -3358,6 +3358,376 @@ function mapVisiToScore(visi_m) {
   var score = 100 * Math.log(visi_m / 0.3) / Math.log(10 / 0.3);
   return Math.max(0, Math.min(100, Math.round(score)));
 }
+// ============================================================
+// ORCHESTRATEUR CENTRAL - CHAÎNE 9 BRIQUES → SCORE UI
+// ------------------------------------------------------------
+// Point d'entrée unique pour toute prédiction de visibilité.
+// Substitue visScoreV2 dans les 5 consommateurs UI tout en
+// conservant la rétrocompatibilité (l'attribut .score retourné
+// est strictement équivalent au nombre retourné par visScoreV2).
+//
+// Stratégie strangler pattern :
+//   - Tente d'abord la chaîne physique 9 briques (mode 'chain')
+//   - Si pré-condition non satisfaite OU si une brique retourne
+//     null en cours, bascule transparent sur visScoreV2 (mode
+//     'empirical' ou 'fallback' selon le point de bascule)
+//   - L'UI consommatrice reçoit toujours un score 0-100 valide
+//
+// Cache mémo (_chainCache) indexé par (lat_4, lon_4, idx, depth_3)
+// pour absorber les ~220 appels par rafraîchissement drawer
+// (24h tendance + 40 créneaux + 7 jours frise).
+//
+// Sources : voir Briques 1-8 individuellement. Le présent
+// orchestrateur n'ajoute aucune physique nouvelle, il enchaîne.
+// ============================================================
+
+var _chainCache = {};
+
+function invalidateChainCache() {
+  _chainCache = {};
+}
+
+function computeVisibilityScore_V4(h, idx, depth, lat, lon) {
+  // ----- Garde-fous d'entrée -----
+  // Mêmes pré-conditions que visScoreV2 pour compatibilité signature
+  if (!h || !h.windspeed_10m || idx < 0 || idx >= h.time.length) {
+    return _buildEmpiricalResult(h, idx, depth, lat, lon, 'inputs invalides');
+  }
+
+  // ----- Cache mémo -----
+  var cacheKey = lat.toFixed(4) + '|' + lon.toFixed(4) + '|' + idx + '|' + (depth || 0).toFixed(2);
+  if (_chainCache[cacheKey]) return _chainCache[cacheKey];
+
+  // ----- Initialisation du résultat -----
+  var result = {
+    score: 0,
+    visi_m: null,
+    label: 'Nulle',
+    engine: 'chain',
+    trace: {},
+    verdict: '',
+    warnings: []
+  };
+
+  // ----- Pré-condition 1 : sédiment connu et mobilisable -----
+  // S._spotSediment est rempli par fetchSedimentType au clic.
+  // En race condition (clic avant retour SHOM), S._spotSediment
+  // est null → fallback empirical.
+  if (!S._spotSediment) {
+    var r1 = _buildEmpiricalResult(h, idx, depth, lat, lon, 'sédiment non chargé');
+    _chainCache[cacheKey] = r1;
+    return r1;
+  }
+
+  var sediment = S._spotSediment;
+  if (sediment.regime === 'rock') {
+    // Roche : pas de sédiment mobilisable. Visibilité dépend
+    // uniquement de la turbidité ambiante de la zone optique.
+    // On bascule en empirical avec note explicite.
+    var r2 = _buildEmpiricalResult(h, idx, depth, lat, lon,
+      'fond rocheux (pas de sédiment mobilisable)');
+    _chainCache[cacheKey] = r2;
+    return r2;
+  }
+  if (sediment.regime === 'cohesive') {
+    // Vase : chaîne non applicable (flocs en milieu salin,
+    // hors domaine Soulsby 1997). Voir Whitehouse et al. 2000
+    // pour une future extension cohésive.
+    var r3 = _buildEmpiricalResult(h, idx, depth, lat, lon,
+      'fond vaseux (modèle cohésif non implémenté)');
+    _chainCache[cacheKey] = r3;
+    return r3;
+  }
+
+  // ----- Pré-condition 2 : données marines disponibles -----
+  if (!S_spotMarineCache || !S_spotMarineCache.wave_height) {
+    var r4 = _buildEmpiricalResult(h, idx, depth, lat, lon,
+      'données marines non chargées');
+    _chainCache[cacheKey] = r4;
+    return r4;
+  }
+
+  // ----- Pré-condition 3 : profondeur exploitable -----
+  if (!depth || depth < 0.5) {
+    var r5 = _buildEmpiricalResult(h, idx, depth, lat, lon,
+      'profondeur insuffisante (estran)');
+    _chainCache[cacheKey] = r5;
+    return r5;
+  }
+
+  // ----- Récupération des variables marines au créneau idx -----
+  // Les caches météo (h) et marine (S_spotMarineCache) ne sont
+  // pas alignés sur les mêmes timestamps. On aligne par index
+  // approximatif si même résolution horaire, sinon par recherche.
+  var marineIdx = idx;
+  if (S_spotMarineCache.time && h.time && S_spotMarineCache.time.length !== h.time.length) {
+    // Resync par recherche : trouve le créneau marine le plus proche
+    var targetMs = new Date(h.time[idx]).getTime();
+    var bestDelta = Infinity;
+    for (var mi = 0; mi < S_spotMarineCache.time.length; mi++) {
+      var d = Math.abs(new Date(S_spotMarineCache.time[mi]).getTime() - targetMs);
+      if (d < bestDelta) { bestDelta = d; marineIdx = mi; }
+    }
+    if (bestDelta > 1800000) {  // > 30 min de décalage
+      var r6 = _buildEmpiricalResult(h, idx, depth, lat, lon,
+        'décalage temporel marine > 30 min');
+      _chainCache[cacheKey] = r6;
+      return r6;
+    }
+  }
+
+  var Hs = S_spotMarineCache.wave_height[marineIdx] || 0;
+  var Tp = S_spotMarineCache.wave_period ? (S_spotMarineCache.wave_period[marineIdx] || 0) : 0;
+  var U = S_spotMarineCache.ocean_current_velocity ? (S_spotMarineCache.ocean_current_velocity[marineIdx] || 0) : 0;
+  var waveDir = S_spotMarineCache.wave_direction ? S_spotMarineCache.wave_direction[marineIdx] : null;
+  var currentDir = S_spotMarineCache.ocean_current_direction ? S_spotMarineCache.ocean_current_direction[marineIdx] : null;
+
+  // Profondeur instantanée (LAT + marée) pour le créneau idx
+  var depthInstant = depthAtTimeCached(depth, h.time[idx]);
+
+  // Vent pour métadonnées trace (pas utilisé par la chaîne physique,
+  // qui n'a besoin que de Hs/Tp/U déjà calculés par AROME en intégrant
+  // le vent comme forçage en amont).
+  var windKmh = h.windspeed_10m[idx] || 0;
+  var gustsKmh = h.windgusts_10m[idx] || 0;
+  var windDir = h.winddirection_10m ? h.winddirection_10m[idx] : null;
+
+  // ----- Récupération de la zone optique régionale -----
+  var optical = getRegionalOpticalBaseline(lat, lon);
+  if (!optical) {
+    var r7 = _buildEmpiricalResult(h, idx, depth, lat, lon,
+      'zone optique non identifiée');
+    _chainCache[cacheKey] = r7;
+    return r7;
+  }
+
+  // ----- Trace : données de contexte (avant calcul physique) -----
+  result.trace.spot = {
+    depth_lat: depth,
+    depth_instant: depthInstant,
+    sediment_name: sediment.nameFr,
+    sediment_D50_mm: sediment.D50_mm,
+    zone_optique: optical.zone,
+    c_baseline: optical.c_baseline,
+    b_local: optical.b_local
+  };
+  result.trace.surface = {
+    wind_kt: Math.round(windKmh * 0.539957),
+    gusts_kt: Math.round(gustsKmh * 0.539957),
+    wind_dir: windDir,
+    wave_total: Hs,
+    wave_period: Tp,
+    current_velocity: U,
+    current_dir: currentDir,
+    source: 'AROME 1.3km + Open-Meteo Marine'
+  };
+
+  // ============================================================
+  // EXÉCUTION DE LA CHAÎNE PHYSIQUE 9 BRIQUES
+  // ============================================================
+
+  // BRIQUE 1 — Vitesse orbitale au fond (Airy 1845)
+  var omega = Tp > 0 ? (2 * Math.PI / Tp) : 0;
+  var u_b = computeOrbitalVelocityAtBed(Hs, Tp, depthInstant);
+  if (u_b === null) {
+    var r8 = _buildEmpiricalResult(h, idx, depth, lat, lon,
+      'Brique 1 (Airy) a retourné null');
+    _chainCache[cacheKey] = r8;
+    return r8;
+  }
+  result.trace.brique1 = { u_b: u_b };
+
+  // BRIQUE 2 — Cisaillement par la houle (Swart 1974 / Soulsby 1997)
+  var tau_w = computeBedShearStressWaves(u_b, omega, sediment);
+  if (tau_w === null) {
+    var r9 = _buildEmpiricalResult(h, idx, depth, lat, lon,
+      'Brique 2 (cisaillement houle) a retourné null');
+    _chainCache[cacheKey] = r9;
+    return r9;
+  }
+  result.trace.brique2 = { tau_w: tau_w };
+
+  // BRIQUE 3 — Cisaillement par le courant (Prandtl 1925 / Soulsby 1997)
+  var tau_c = computeBedShearStressCurrent(U, sediment, depthInstant);
+  if (tau_c === null) {
+    // Si courant null mais houle OK, on continue avec tau_c=0 (cas
+    // dégénéré accepté par Brique 4). On ne fallback pas pour ça.
+    tau_c = 0;
+  }
+  result.trace.brique3 = { tau_c: tau_c };
+
+  // BRIQUE 4 — Combinaison houle + courant (Soulsby & Clarke 2005)
+  var tau_max = computeBedShearStressCombined(tau_w, tau_c, waveDir, currentDir);
+  if (tau_max === null) {
+    var r10 = _buildEmpiricalResult(h, idx, depth, lat, lon,
+      'Brique 4 (combinaison) a retourné null');
+    _chainCache[cacheKey] = r10;
+    return r10;
+  }
+  result.trace.brique4 = { tau_max: tau_max };
+
+  // BRIQUE 5 — Critère de Shields (Shields 1936 / Soulsby 1997)
+  var shieldsResult = computeShieldsCriterion(tau_max, sediment);
+  if (shieldsResult === null) {
+    var r11 = _buildEmpiricalResult(h, idx, depth, lat, lon,
+      'Brique 5 (Shields) a retourné null');
+    _chainCache[cacheKey] = r11;
+    return r11;
+  }
+  result.trace.brique5 = {
+    theta: shieldsResult.theta,
+    theta_cr: shieldsResult.theta_cr,
+    excess: shieldsResult.excess,
+    mobilized: shieldsResult.excess > 1.0
+  };
+
+  // BRIQUE 7 — Vitesse de chute (Stokes 1851 / Soulsby 1997)
+  // Calculée avant Brique 6 car Brique 6 en a besoin
+  var w_s = computeSettlingVelocity(sediment);
+  if (w_s === null) {
+    var r12 = _buildEmpiricalResult(h, idx, depth, lat, lon,
+      'Brique 7 (vitesse de chute) a retourné null');
+    _chainCache[cacheKey] = r12;
+    return r12;
+  }
+  result.trace.brique7 = { w_s: w_s };
+
+  // BRIQUE 6 — Concentration en suspension (Rouse 1937 / Soulsby 1997)
+  var concResult = computeSuspendedConcentration(tau_max, shieldsResult, w_s, depthInstant, sediment);
+  if (concResult === null) {
+    var r13 = _buildEmpiricalResult(h, idx, depth, lat, lon,
+      'Brique 6 (concentration) a retourné null');
+    _chainCache[cacheKey] = r13;
+    return r13;
+  }
+  result.trace.brique6 = {
+    c_moyen_kg: concResult.c_moyen_kg,
+    rouse_number: concResult.rouse_number
+  };
+
+  // BRIQUE 8 — Visibilité (Beer-Lambert / Davies-Colley 1988)
+  var visResult = computeVisibility(concResult, lat, lon);
+  if (visResult === null) {
+    var r14 = _buildEmpiricalResult(h, idx, depth, lat, lon,
+      'Brique 8 (Beer-Lambert) a retourné null');
+    _chainCache[cacheKey] = r14;
+    return r14;
+  }
+  result.trace.brique8 = {
+    c_baseline: visResult.c_baseline,
+    c_sediment: visResult.c_sediment,
+    c_total: visResult.c_total,
+    visi_m: visResult.visi_m,
+    d_secchi: visResult.d_secchi
+  };
+
+  // ============================================================
+  // CONVERSION VISI (m) → SCORE 0-100
+  // ============================================================
+  result.visi_m = visResult.visi_m;
+  result.score = mapVisiToScore(visResult.visi_m);
+  result.label = _scoreToLabel(result.score);
+
+  // ============================================================
+  // DÉTECTION DES LIMITES CONNUES DU MODÈLE (warnings)
+  // ============================================================
+  // Vent offshore + zone côtière : la chaîne surestime
+  // probablement la mobilisation car AROME 1.3km lisse la
+  // limite de fetch côtière (cf. discussion 10/05/26 Cotentin).
+  // Pas de correction, juste avertissement honnête.
+  if (windDir !== null && typeof getDirFactorForPoint === 'function') {
+    var dirFactor = getDirFactorForPoint(windDir, lat, lon);
+    if (dirFactor < 0.4 && Hs > 0.2) {
+      result.warnings.push(
+        'Vent offshore détecté : la mer du vent locale est probablement ' +
+        'plus faible que ce que donne AROME (résolution 1.3 km). ' +
+        'La visi terrain est sans doute meilleure que la prédiction.'
+      );
+    }
+  }
+
+  // ============================================================
+  // VERDICT EN PROSE (humain, basé sur les valeurs réelles)
+  // ============================================================
+  result.verdict = _buildVerdictProse(result);
+
+  _chainCache[cacheKey] = result;
+  return result;
+}
+
+// ----- Helper : construction du résultat en mode empirique -----
+// Bascule transparente vers visScoreV2, en conservant la structure
+// d'objet pour rétrocompatibilité avec les consommateurs.
+function _buildEmpiricalResult(h, idx, depth, lat, lon, reason) {
+  var empiricalScore = 50;  // valeur de secours absolue
+  try {
+    if (typeof visScoreV2 === 'function') {
+      empiricalScore = visScoreV2(h, idx, depth, lat, lon);
+    }
+  } catch (e) {
+    console.warn('[V4] visScoreV2 fallback a planté:', e);
+  }
+  return {
+    score: empiricalScore,
+    visi_m: null,
+    label: _scoreToLabel(empiricalScore),
+    engine: 'empirical',
+    trace: { fallback_reason: reason },
+    verdict: 'Modèle physique non applicable sur ce point (' + reason +
+             '). Score calculé par le modèle empirique de secours ' +
+             '(calibré Courseulles avril 2026).',
+    warnings: []
+  };
+}
+
+// ----- Helper : score → label texte (cohérent avec UI existante) -----
+function _scoreToLabel(score) {
+  if (score >= 80) return 'Excellente';
+  if (score >= 60) return 'Bonne';
+  if (score >= 40) return 'Moyenne';
+  if (score >= 20) return 'Faible';
+  return 'Nulle';
+}
+
+// ----- Helper : construction de la phrase verdict en prose -----
+function _buildVerdictProse(result) {
+  if (result.engine !== 'chain') return result.verdict || '';
+
+  var visi = result.visi_m;
+  var spot = result.trace.spot;
+  var b5 = result.trace.brique5;
+
+  var phrases = [];
+
+  if (visi < 0.5) {
+    phrases.push('Visibilité quasi nulle prévue.');
+  } else if (visi < 1.5) {
+    phrases.push('Visibilité très faible, sortie peu recommandée.');
+  } else if (visi < 3) {
+    phrases.push('Visibilité limitée mais chassable si tu connais ton spot.');
+  } else if (visi < 6) {
+    phrases.push('Bonne visibilité, conditions confortables.');
+  } else {
+    phrases.push('Excellente visibilité, conditions idéales.');
+  }
+
+  // Contexte sédiment + zone
+  if (b5.mobilized) {
+    phrases.push('Le ' + spot.sediment_name.toLowerCase() +
+                 ' est mobilisé (force au fond ' + b5.excess.toFixed(1) +
+                 '× au-dessus du seuil de mise en mouvement).');
+  } else {
+    phrases.push('Le sédiment de fond (' + spot.sediment_name.toLowerCase() +
+                 ') reste au repos.');
+  }
+
+  // Zone turbide ?
+  if (spot.c_baseline >= 0.5) {
+    phrases.push('Zone naturellement turbide (silts en suspension chronique).');
+  }
+
+  return phrases.join(' ');
+}
 // Constante de temps (heures) pour la decantation, selon profondeur
 // Plus le fond est peu profond, plus tau est long (re-brassage marees + houle residuelle)
 // Calibration originale : Courseulles 26/04/2026 (2m visi apres 60h NE 25-32 nds, fond 5m)
