@@ -1766,7 +1766,11 @@ function renderSpotPopup() {
 
   var bathyFactor = depth <= 2 ? 4.0 : depth <= 5 ? 3.0 : depth <= 10 ? 2.0 : depth <= 20 ? 1.3 : 1.0;
   var dirFactor = getDirFactorForPoint(dir, lat, lon);
-  var score = visScoreV2(h, idx, depth, lat, lon);
+  // Patch 5/6 : remplacement visScoreV2 → computeVisibilityScore_V4
+  // Stockage S._lastScoreObj pour consommation par buildVisExplanation
+  var scoreObj = computeVisibilityScore_V4(h, idx, depth, lat, lon);
+  var score = scoreObj.score;
+  S._lastScoreObj = scoreObj;
 
   var visLabel = score >= 80 ? 'Excellente' : score >= 60 ? 'Bonne' : score >= 40 ? 'Moyenne' : score >= 20 ? 'Faible' : 'Nulle';
   var badgeColors = { 'Nulle': '#C94A3D', 'Faible': '#E89B3C', 'Moyenne': '#D8C84A', 'Bonne': '#2DA888', 'Excellente': '#4DD4A8' };
@@ -1784,8 +1788,9 @@ function renderSpotPopup() {
   var labelNowKey = scoreToLabelKey(score);
   var futureMinScore = score, futureMaxScore = score;
   var lookAhead = Math.min(24, h.time.length - idx - 1);
-  for (var fIdx = idx + 1; fIdx <= idx + lookAhead; fIdx++) {
-    var sFut = visScoreV2(h, fIdx, depth, lat, lon);
+ for (var fIdx = idx + 1; fIdx <= idx + lookAhead; fIdx++) {
+    // Patch 5/6 : on récupère juste le score (pas besoin de stocker la trace ici)
+    var sFut = computeVisibilityScore_V4(h, fIdx, depth, lat, lon).score;
     if (sFut < futureMinScore) futureMinScore = sFut;
     if (sFut > futureMaxScore) futureMaxScore = sFut;
   }
@@ -2105,7 +2110,8 @@ function renderDecantation(h, currentIdx, depth, currentDir, latlng) {
 
   var lat = latlng.lat;
   var lon = latlng.lng;
-  var scoreNow = visScoreV2(h, currentIdx, depth, lat, lon);
+// Patch 5/6
+  var scoreNow = computeVisibilityScore_V4(h, currentIdx, depth, lat, lon).score;
 
   function scoreToLabelKey(s) {
     if (s >= 80) return 4;
@@ -2120,8 +2126,9 @@ function renderDecantation(h, currentIdx, depth, currentDir, latlng) {
   var lookForward = Math.min(24, h.time.length - currentIdx - 1);
   var futureMinScore = scoreNow, futureMaxScore = scoreNow;
   var futureMinIdx = currentIdx, futureMaxIdx = currentIdx;
-  for (var f = currentIdx + 1; f <= currentIdx + lookForward; f++) {
-    var sf = visScoreV2(h, f, depth, lat, lon);
+for (var f = currentIdx + 1; f <= currentIdx + lookForward; f++) {
+    // Patch 5/6
+    var sf = computeVisibilityScore_V4(h, f, depth, lat, lon).score;
     if (sf < futureMinScore) { futureMinScore = sf; futureMinIdx = f; }
     if (sf > futureMaxScore) { futureMaxScore = sf; futureMaxIdx = f; }
   }
@@ -2131,8 +2138,9 @@ function renderDecantation(h, currentIdx, depth, currentDir, latlng) {
   var lookFar = Math.min(120, h.time.length - currentIdx - 1);
   var labelChangeIdx = -1;
   var labelChangeKey = -1;
-  for (var ff = currentIdx + 1; ff <= currentIdx + lookFar; ff++) {
-    var sff = visScoreV2(h, ff, depth, lat, lon);
+for (var ff = currentIdx + 1; ff <= currentIdx + lookFar; ff++) {
+    // Patch 5/6
+    var sff = computeVisibilityScore_V4(h, ff, depth, lat, lon).score;
     var kff = scoreToLabelKey(sff);
     if (kff !== labelNowKey) {
       labelChangeIdx = ff;
@@ -6932,10 +6940,9 @@ function visLabel(score) {
     row += '</tr>';
     return row;
   }
-
-  // Visi (utilise visScoreV2 avec la VRAIE signature : h, idx, depth, lat, lon)
+// Patch 5/6 : utilise computeVisibilityScore_V4 (chaîne 9 briques)
   html += renderRow('Visibilité', 'vz-cond-row-vis', function(s) {
-    var score = visScoreV2(h, s.i, depth, spot.lat, spot.lng);
+    var score = computeVisibilityScore_V4(h, s.i, depth, spot.lat, spot.lng).score;
     return {
       cls: visClass(score),
       html: visLabel(score),
@@ -8181,7 +8188,10 @@ function escapeHtml(s) {
         var diff = Math.abs(new Date(h.time[i]).getTime() - targetMs);
         if (diff < bestDelta) { bestDelta = diff; bestIdx = i; }
       }
-      var score = (typeof visScoreV2 === 'function') ? visScoreV2(h, bestIdx, depth, lat, lon) : 50;
+      // Patch 5/6 : utilise computeVisibilityScore_V4 (chaîne 9 briques)
+      var score = (typeof computeVisibilityScore_V4 === 'function')
+        ? computeVisibilityScore_V4(h, bestIdx, depth, lat, lon).score
+        : 50;
       var vizLabel, vizKey;
       if (score >= 80) { vizLabel = 'Excellente'; vizKey = 'excellente'; }
       else if (score >= 60) { vizLabel = 'Bonne'; vizKey = 'bonne'; }
@@ -8480,8 +8490,9 @@ function escapeHtml(s) {
       if (typeof getDirFactorForPoint === 'function') {
         dirFactor = getDirFactorForPoint(dir, lat, lon);
       }
-      if (typeof visScoreV2 === 'function') {
-        score = visScoreV2(S_spotWeatherCache, idx, depth, lat, lon);
+     // Patch 5/6
+      if (typeof computeVisibilityScore_V4 === 'function') {
+        score = computeVisibilityScore_V4(S_spotWeatherCache, idx, depth, lat, lon).score;
       }
     }
 
