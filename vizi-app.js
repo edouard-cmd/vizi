@@ -3870,6 +3870,7 @@ function renderVisExplain_V2(scoreResult) {
   // SECTION 2 - Conditions de surface
   var windDirName = _bearingToCardinal(t.surface.wind_dir);
   var waveDirName = _bearingToCardinal(t.surface.wave_dir);
+  var currentDirName = _bearingToCardinal(t.surface.current_dir);
   html +=
     '<div class="vz-explain-section">' +
       '<div class="vz-explain-section-title">2. Conditions de surface</div>' +
@@ -3878,8 +3879,8 @@ function renderVisExplain_V2(scoreResult) {
           windDirName + ' ' + t.surface.wind_kt + ' nds (rafales ' + t.surface.gusts_kt + ' nds)</span></div>' +
         '<div class="vz-explain-row"><span>Houle totale</span><span class="vz-explain-num">' +
           t.surface.wave_total.toFixed(2) + ' m, période ' + t.surface.wave_period.toFixed(1) + ' s</span></div>' +
-        '<div class="vz-explain-row"><span>Courant</span><span class="vz-explain-num">' +
-          t.surface.current_velocity.toFixed(2) + ' m/s ' + (t.surface.current_dir !== null ? waveDirName : '') + '</span></div>' +
+       '<div class="vz-explain-row"><span>Courant</span><span class="vz-explain-num">' +
+          t.surface.current_velocity.toFixed(2) + ' m/s ' + (t.surface.current_dir !== null ? currentDirName : '') + '</span></div>' +
         '<div class="vz-explain-row"><span>Source</span><span class="vz-explain-faint">' +
           t.surface.source + '</span></div>' +
       '</div>' +
