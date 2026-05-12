@@ -4793,6 +4793,130 @@ var url = 'https://drive.emodnet-geology.eu/geoserver/gtk/wfs'
     });
 }
 // ============================================================
+// PATCH 8-C-2a — computeChainPerClass
+// ------------------------------------------------------------
+// Exécute la chaîne hydrodynamique Briques 1 → 9 pour UNE
+// classe sédimentaire donnée, en réutilisant les variables
+// marines déjà calculées (Hs, Tp, U_effectif, waveDir,
+// currentDir, depthInstant) issues du contexte V4.
+//
+// Cette fonction est appelée :
+//   - par computeVisibilityScore_V4 dans le chemin mono-classe
+//     (refactoring du code existant)
+//   - par la branche multi-classes (Patch 8-C-2d) pour chaque
+//     classe Folk5 non-rock retournée par fetchSedimentZone
+//
+// Le sédiment passé en arg détermine les D50, w_s, tau_cr de
+// la chaîne. Le reste (forçages hydrodynamiques) est identique
+// pour toutes les classes d'une même zone.
+//
+// Retour :
+//   {
+//     C_kinetic: kg/m³ (concentration cinétique Brique 9),
+//     C_equilibre: kg/m³ (concentration équilibre Brique 6),
+//     rouse_number: nombre de Rouse Brique 6,
+//     w_s: vitesse de chute Brique 7,
+//     tau_max: cisaillement combiné Brique 4,
+//     theta_excess: dépassement Shields Brique 5,
+//     trace: { brique1, brique2, ..., brique9 },
+//     error: null ou string si une brique a échoué
+//   }
+//
+// Argument ctx : objet contenant toutes les variables marines :
+//   { h, idx, depth, lat, lon, sediment, depthInstant,
+//     Hs, Tp, U_effectif, waveDir, currentDir }
+// ============================================================
+function computeChainPerClass(ctx) {
+  var trace = {};
+  
+  // BRIQUE 1 — Vitesse orbitale au fond (Airy 1845)
+  var omega = ctx.Tp > 0 ? (2 * Math.PI / ctx.Tp) : 0;
+  var u_b = computeOrbitalVelocityAtBed(ctx.Hs, ctx.Tp, ctx.depthInstant);
+  if (u_b === null) {
+    return { error: 'Brique 1 (Airy) a retourné null', trace: trace };
+  }
+  trace.brique1 = { u_b: u_b };
+
+  // BRIQUE 2 — Cisaillement par la houle (Swart 1974 / Soulsby 1997)
+  var tau_w = computeBedShearStressWaves(u_b, omega, ctx.sediment);
+  if (tau_w === null) {
+    return { error: 'Brique 2 (cisaillement houle) a retourné null', trace: trace };
+  }
+  trace.brique2 = { tau_w: tau_w };
+
+  // BRIQUE 3 — Cisaillement par le courant (Prandtl 1925 / Soulsby 1997)
+  var tau_c = computeBedShearStressCurrent(ctx.U_effectif, ctx.sediment, ctx.depthInstant);
+  if (tau_c === null) {
+    // Cas dégénéré accepté par Brique 4
+    tau_c = 0;
+  }
+  trace.brique3 = { tau_c: tau_c };
+
+  // BRIQUE 4 — Combinaison houle + courant (Soulsby & Clarke 2005)
+  var tau_max = computeBedShearStressCombined(tau_w, tau_c, ctx.waveDir, ctx.currentDir);
+  if (tau_max === null) {
+    return { error: 'Brique 4 (combinaison) a retourné null', trace: trace };
+  }
+  trace.brique4 = { tau_max: tau_max };
+
+  // BRIQUE 5 — Critère de Shields (Shields 1936 / Soulsby 1997)
+  var shieldsResult = computeShieldsCriterion(tau_max, ctx.sediment);
+  if (shieldsResult === null) {
+    return { error: 'Brique 5 (Shields) a retourné null', trace: trace };
+  }
+  trace.brique5 = {
+    theta: shieldsResult.theta,
+    theta_cr: shieldsResult.theta_cr,
+    excess: shieldsResult.excess,
+    mobilized: shieldsResult.excess > 1.0
+  };
+
+  // BRIQUE 7 — Vitesse de chute (Stokes 1851 / Soulsby 1997)
+  var w_s = computeSettlingVelocity(ctx.sediment);
+  if (w_s === null) {
+    return { error: 'Brique 7 (vitesse de chute) a retourné null', trace: trace };
+  }
+  trace.brique7 = { w_s: w_s };
+
+  // BRIQUE 6 — Concentration en suspension (Rouse 1937 / Soulsby 1997)
+  var concResult = computeSuspendedConcentration(
+    tau_max, shieldsResult, w_s, ctx.depthInstant, ctx.sediment
+  );
+  if (concResult === null) {
+    return { error: 'Brique 6 (concentration) a retourné null', trace: trace };
+  }
+  trace.brique6 = {
+    c_moyen_kg: concResult.c_moyen_kg,
+    rouse_number: concResult.rouse_number
+  };
+
+  // BRIQUE 9 — Cinétique de décantation (mémoire temporelle Krone 1962)
+  var kinResult = computeKineticConcentration(
+    ctx.h, ctx.idx, ctx.depth, ctx.lat, ctx.lon,
+    ctx.sediment, concResult.c_moyen_kg
+  );
+  trace.brique9 = {
+    C_equilibre_now: concResult.c_moyen_kg,
+    C_inherited: kinResult.C_inherited,
+    C_kinetic: kinResult.C_kinetic,
+    tau_dep_seconds: kinResult.tau_dep_at_idx,
+    dominant: kinResult.dominant,
+    n_contributions: kinResult.n_contributions
+  };
+
+  return {
+    C_kinetic: kinResult.C_kinetic,
+    C_equilibre: concResult.c_moyen_kg,
+    rouse_number: concResult.rouse_number,
+    w_s: w_s,
+    tau_max: tau_max,
+    theta_excess: shieldsResult.excess,
+    warnings: kinResult.warnings || [],
+    trace: trace,
+    error: null
+  };
+}
+// ============================================================
 // fetchSpotMarineAndSun - donnees marines + soleil pour un point
 // ------------------------------------------------------------
 // Appelle Open-Meteo Marine API pour recuperer toutes les
