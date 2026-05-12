@@ -4878,12 +4878,31 @@ function computeChainPerClass(ctx) {
   }
   trace.brique7 = { w_s: w_s };
 
-  // BRIQUE 6 — Concentration en suspension (Rouse 1937 / Soulsby 1997)
+// BRIQUE 6 — Concentration en suspension (Rouse 1937 / Soulsby 1997)
   var concResult = computeSuspendedConcentration(
     tau_max, shieldsResult, w_s, ctx.depthInstant, ctx.sediment
   );
+  // PATCH 8-C-2a v2 : si Brique 6 retourne null (Rouse > 2.5 ou
+  // sédiment non-suspendable), c'est physiquement légitime — pas
+  // une erreur. Le sédiment est non-mobilisable hydrodynamiquement
+  // dans la colonne d'eau actuelle. On retourne C_kinetic=0 pour
+  // que cette classe contribue 0 à l'optique combinée (Patch 8-C-2b).
+  // En mono-classe, V4 fallbackera empirical comme avant.
   if (concResult === null) {
-    return { error: 'Brique 6 (concentration) a retourné null', trace: trace };
+    trace.brique6 = { c_moyen_kg: 0, rouse_number: null, non_suspendable: true };
+    trace.brique9 = { C_kinetic: 0, non_suspendable: true };
+    return {
+      C_kinetic: 0,
+      C_equilibre: 0,
+      rouse_number: null,
+      w_s: w_s,
+      tau_max: tau_max,
+      theta_excess: shieldsResult.excess,
+      warnings: ['Sédiment non-suspendable (Rouse > 2.5 ou colonne d\'eau insuffisante)'],
+      trace: trace,
+      error: null,
+      non_suspendable: true  // marqueur pour V4 mono-classe : si seul sédiment et non_suspendable → fallback empirical
+    };
   }
   trace.brique6 = {
     c_moyen_kg: concResult.c_moyen_kg,
