@@ -4699,6 +4699,105 @@ function mapFolkToSediment(folk5_txt, original_txt, folk16_txt) {
   var orig = (original_txt || '').toLowerCase();
   var entry = null;
 
+  // ============================================================
+  // PATCH 8-A : Pré-passe enrichissement sur original_substrate
+  // ------------------------------------------------------------
+  // Distingue sable fin / moyen / grossier / vaseux / graviers
+  // à partir des libellés français SHOM, avec D50 sourcés
+  // Wentworth 1922 (échelle granulométrique standard).
+  //
+  // Rétrocompatibilité totale : si original_substrate est ambigu
+  // (libellés composites SHOM avec pourcentages, anglais EMODnet,
+  // ou absent), on tombe sur le mapping Folk5 actuel ci-dessous.
+  //
+  // Justification scientifique : w_s ∝ D50² (Stokes/Soulsby 1997
+  // eq.102), donc le passage de D50=0.250 (sable medium standard)
+  // à D50=0.125 (sable fin) change w_s d'un facteur 4, ce qui
+  // change tau_dep (Brique 9) d'un facteur 4 et la mémoire
+  // temporelle de décantation devient significative.
+  //
+  // Source D50 : Wentworth 1922, "A scale of grade and class
+  // terms for clastic sediments", J. of Geology 30(5).
+  // ============================================================
+  
+  // Exclusion : libellés composites SHOM (contiennent / ou %)
+  var isComposite = orig.indexOf('/') !== -1 || orig.indexOf('%') !== -1;
+  
+  if (!isComposite && orig) {
+    var richD50 = null;
+    var richName = null;
+    var richNameFr = null;
+    var richFolk5 = null;
+    var richRegime = 'non-cohesive';
+    
+    // Sable vaseux / vase sableuse : régime de transition
+    if (/vase\s*sableuse|sables?\s*vaseux|vases?\s*sableuses?|muddy\s*sand/.test(orig)) {
+      richD50 = 0.100;
+      richName = 'Muddy sand (very fine)';
+      richNameFr = 'Sable vaseux';
+      richFolk5 = 4; // Mixed sediment
+      richRegime = 'non-cohesive'; // limite, mais traitable par Stokes/Soulsby
+    }
+    // Cailloutis / galets / graviers purs (pas de sable mentionné)
+    else if (/cailloutis|galets|^graviers?$|^graviers?\s|^gravels?$/.test(orig)
+             && !/sable|sand/.test(orig)) {
+      richD50 = 8.000;
+      richName = 'Pebbles / cobbles';
+      richNameFr = 'Cailloutis';
+      richFolk5 = 3; // Coarse sediment
+    }
+    // Gravier sableux / sable graviers / sandy gravel / gravelly sand
+    else if (/sables?\s*graviers?|graviers?\s*sableux?|sandy\s*gravel|gravelly\s*sand|sable\s*graveleux/.test(orig)) {
+      richD50 = 2.000;
+      richName = 'Sandy gravel';
+      richNameFr = 'Sable graveleux';
+      richFolk5 = 3;
+    }
+    // Sable grossier (avant sable medium pour éviter faux match sur "sable")
+    else if (/sables?\s*(tres\s*)?gros(sier|s)|coarse\s*sand/.test(orig)) {
+      richD50 = 0.600;
+      richName = 'Coarse sand';
+      richNameFr = 'Sable grossier';
+      richFolk5 = 2;
+    }
+    // Sable fin / très fin / sablon
+    else if (/sables?\s*(tres\s*)?fins?|sablons?|fine\s*sand|very\s*fine\s*sand/.test(orig)) {
+      richD50 = 0.125;
+      richName = 'Fine sand';
+      richNameFr = 'Sable fin';
+      richFolk5 = 2;
+    }
+    // Sable moyen
+    else if (/sables?\s*moyens?|medium\s*sand/.test(orig)) {
+      richD50 = 0.300;
+      richName = 'Medium sand';
+      richNameFr = 'Sable moyen';
+      richFolk5 = 2;
+    }
+    
+    if (richD50 !== null) {
+      return {
+        folk5: richFolk5,
+        name: richName,
+        nameFr: richNameFr,
+        D50_mm: richD50,
+        D50_m: richD50 / 1000,
+        regime: richRegime,
+        canSuspend: true,
+        sourceText: original_txt || folk5_txt || null,
+        folk5_raw: folk5_txt || null,
+        folk16_raw: folk16_txt || null,
+        enriched: true  // marqueur pour debug/log
+      };
+    }
+  }
+  
+  // ============================================================
+  // Fin pré-passe enrichissement. Si pas de match, fallback
+  // sur le mapping Folk5 standard ci-dessous (comportement
+  // historique préservé).
+  // ============================================================
+
   // Priorite : numero de classe Folk 5 explicite
   if (/^\s*1\.|mud to sandy mud|^mud\b/.test(f5)) entry = FOLK5_TABLE.mud;
   else if (/^\s*2\.|^sand\b/.test(f5)) entry = FOLK5_TABLE.sand;
