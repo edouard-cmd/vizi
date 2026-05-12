@@ -4453,7 +4453,83 @@ function renderVisExplain_V2(scoreResult) {
           _zoneOptiqueLabel(t.spot.zone_optique) + '</span></div>' +
       '</div>' +
     '</div>';
+// SECTION 1-BIS - Composition zonale du fond (Patch 8-D)
+  // Affichée uniquement si trace.zone est rempli ET que la zone WFS a
+  // retourné des classes (cache hit, pas un échec WFS).
+  if (t.zone && (t.zone.multi_class_active === true ||
+                 (Array.isArray(t.zone.classes) && t.zone.classes.length > 0))) {
+    
+    var isMulti = t.zone.multi_class_active === true;
+    var sectionTitle = isMulti
+      ? '1-bis. Composition zonale du fond (multi-classes)'
+      : '1-bis. Composition zonale du fond';
+    
+    html +=
+      '<div class="vz-explain-section">' +
+        '<div class="vz-explain-section-title">' + sectionTitle + '</div>' +
+        '<div class="vz-explain-section-body">';
+    
+    // Ligne rayon analysé
+    if (typeof t.zone.radius_m === 'number') {
+      html +=
+        '<div class="vz-explain-row">' +
+          '<span>Rayon hydrodynamique analysé</span>' +
+          '<span class="vz-explain-num">' + Math.round(t.zone.radius_m) + ' m</span>' +
+        '</div>';
+    }
+    
+    // Lignes par classe (avec barre de répartition)
+    if (Array.isArray(t.zone.classes)) {
+      t.zone.classes.forEach(function(c) {
+        var pct = (typeof c.surface_pct === 'number') ? c.surface_pct : 0;
+        var pctClamped = Math.max(0, Math.min(100, pct));
+        var d50Text = (typeof c.D50_mm === 'number')
+          ? 'D50 ' + c.D50_mm.toFixed(2) + ' mm'
+          : 'non mobilisable';
+        var contribText = '';
+        if (isMulti && typeof c.C_kinetic === 'number') {
+          contribText = ' — C cinétique ' + c.C_kinetic.toFixed(4) + ' kg/m³';
+        }
+        
+        html +=
+          '<div class="vz-explain-zone-class">' +
+            '<div class="vz-explain-zone-class-header">' +
+              '<span>' + (c.nameFr || '?') + ' (' + d50Text + ')</span>' +
+              '<span class="vz-explain-num">' + pctClamped.toFixed(1) + '%</span>' +
+            '</div>' +
+            '<div class="vz-explain-zone-bar-track">' +
+              '<div class="vz-explain-zone-bar-fill" style="width:' + pctClamped + '%"></div>' +
+            '</div>' +
+            (contribText ? '<div class="vz-explain-zone-class-contrib">' + contribText + '</div>' : '') +
+          '</div>';
+      });
+    }
+    
+    // Conclusion adaptative
+    if (isMulti) {
+      var nUsed = t.zone.n_classes_used || 0;
+      html +=
+        '<div class="vz-explain-row vz-explain-row-conclusion">' +
+          '<span class="vz-explain-yes">' +
+            'Chaîne 1-9 exécutée ' + nUsed + ' fois en parallèle, ' +
+            'combinaison optique pondérée par surface (Soulsby 1997 ch.9)' +
+          '</span>' +
+        '</div>';
+    } else if (t.zone.fallback_reason) {
+      html +=
+        '<div class="vz-explain-row vz-explain-row-conclusion">' +
+          '<span class="vz-explain-faint">' +
+            'Calcul mono-classe sur sédiment ponctuel — ' + t.zone.fallback_reason +
+          '</span>' +
+        '</div>';
+    }
+    
+    html +=
+        '</div>' +
+      '</div>';
+  }
 
+  // SECTION 2 - Conditions de surface
   // SECTION 2 - Conditions de surface
   var windDirName = _bearingToCardinal(t.surface.wind_dir);
   var waveDirName = _bearingToCardinal(t.surface.wave_dir);
