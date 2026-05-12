@@ -3163,6 +3163,79 @@ function computeSuspendedConcentration(tau_max, shieldsResult, w_s, depth, sedim
 //
 // Argument : lat (deg), lon (deg)
 // Retour   : { c_baseline, b_local, zone, sources } ou null
+// ============================================================
+// PATCH 8-B : Table b_local_by_folk par classe Folk5 et zone
+// ------------------------------------------------------------
+// Différenciation optique des sédiments par taille de grain
+// dans chaque zone optique. Les fines (mud, Folk5=1) ont une
+// surface spécifique massique 5-10× plus grande que les gros
+// sables (coarse, Folk5=3), donc atténuent davantage la lumière
+// par kg/m³ à concentration égale.
+//
+// Sources scientifiques :
+//   - Babin M. et al. 2003, "Variations in the light absorption
+//     coefficients of phytoplankton, non-algal particles, and
+//     dissolved organic matter in coastal waters around Europe",
+//     J. Geophys. Res. 108 (C7) (coefficients spectraux par
+//     taille de grain)
+//   - Bowers D.G. et al. 2006, "Light scattering properties
+//     of particles in coastal and ocean waters as related to
+//     the particle mass concentration", Limnol. Oceanogr. 54
+//     (modèle bi-composantes inorganique/organique)
+//   - Mobley C.D. 1994, "Light and Water: Radiative Transfer
+//     in Natural Waters", Academic Press (relation surface
+//     spécifique / atténuation pour particules minérales)
+//
+// Convention indexation : Folk5 numérique 1-5
+//   1 = Mud (vase), 2 = Sand (sable), 3 = Coarse sediment
+//   (cailloutis/gravier), 4 = Mixed sediment, 5 = Rock
+//
+// Valeurs initiales théoriques, recalibrables par observations
+// communautaires en Phase 2.
+// ============================================================
+var B_LOCAL_BY_FOLK = {
+  // ZONE 1 - Méditerranée (Case 1, oligotrophe)
+  // Fines réduites, sables medium dominants en zones côtières
+  'mediterranee': {
+    1: 80,    // mud : rare en Med mais très atténuant
+    2: 50,    // sand : valeur de base (Babin 2003 Case 1)
+    3: 40,    // coarse : moins efficient optiquement
+    4: 65,    // mixed : entre mud et sand
+    5: 30     // rock : pas de sédiment mobilisable, plancher
+  },
+  // ZONE 2 - Atlantique sud (Case 2 transition)
+  'atlantique_sud': {
+    1: 350,   // mud : silts atlantiques (Loire, Gironde)
+    2: 200,   // sand : valeur de base (Bowers 2006)
+    3: 150,   // coarse
+    4: 270,   // mixed
+    5: 80     // rock
+  },
+  // ZONE 3 - Manche occidentale / Bretagne (Case 2 modéré)
+  'manche_occidentale_bretagne': {
+    1: 550,   // mud : panaches Vilaine, Rance
+    2: 350,   // sand : valeur de base (Tessier 2013 zones non-turbides)
+    3: 280,   // coarse
+    4: 450,   // mixed
+    5: 120    // rock
+  },
+  // ZONE 4 - Manche orientale (Case 2 turbide, silts dominants Tessier 2013)
+  'manche_orientale_mer_du_nord_sud': {
+    1: 750,   // mud : silts chroniques Seine, hyper-atténuants
+    2: 500,   // sand : valeur de base (Babin 2003 Case 2 turbide)
+    3: 400,   // coarse
+    4: 620,   // mixed : très commun en baie de Seine
+    5: 150    // rock
+  },
+  // FALLBACK - Médianes Europe (Babin 2003)
+  'fallback_europe': {
+    1: 450,
+    2: 300,
+    3: 220,
+    4: 380,
+    5: 100
+  }
+};
 function getRegionalOpticalBaseline(lat, lon) {
   if (typeof lat !== 'number' || typeof lon !== 'number') return null;
   if (!isFinite(lat) || !isFinite(lon)) return null;
@@ -3172,8 +3245,9 @@ function getRegionalOpticalBaseline(lat, lon) {
   // Secchi typique 15-30m, c_baseline 0.05-0.10 m^-1
   if (lat >= 41.0 && lat <= 43.5 && lon >= 3.0 && lon <= 10.0) {
     return {
-      c_baseline: 0.08,   // c_water + tres faible MES ambient
-      b_local: 50,        // m^2/kg, sediment Case 1 fin
+     c_baseline: 0.08,   // c_water + tres faible MES ambient
+      b_local: 50,        // m^2/kg, sediment Case 1 fin (rétrocompat = sand Folk5=2)
+      b_local_by_folk: B_LOCAL_BY_FOLK.mediterranee,  // Patch 8-B
       zone: 'mediterranee',
       sources: 'Smith & Baker 1981, Babin 2003 (Case 1)'
     };
@@ -3185,8 +3259,9 @@ function getRegionalOpticalBaseline(lat, lon) {
   // Secchi typique 8-15m, c_baseline 0.15-0.25 m^-1
   if (lat >= 43.0 && lat <= 46.5 && lon >= -3.5 && lon <= -0.5) {
     return {
-      c_baseline: 0.20,
+  c_baseline: 0.20,
       b_local: 200,
+      b_local_by_folk: B_LOCAL_BY_FOLK.atlantique_sud,  // Patch 8-B
       zone: 'atlantique_sud',
       sources: 'Babin 2003 (Case 2 transition), Bowers 2006'
     };
@@ -3198,8 +3273,9 @@ function getRegionalOpticalBaseline(lat, lon) {
   if ((lat >= 46.5 && lat <= 49.0 && lon >= -5.5 && lon <= -1.0) ||
       (lat >= 48.5 && lat <= 49.7 && lon >= -2.5 && lon <= -0.5)) {
     return {
-      c_baseline: 0.35,
+  c_baseline: 0.35,
       b_local: 350,
+      b_local_by_folk: B_LOCAL_BY_FOLK.manche_occidentale_bretagne,  // Patch 8-B
       zone: 'manche_occidentale_bretagne',
       sources: 'Babin 2003 (Case 2 modere), Tessier 2013'
     };
@@ -3212,8 +3288,9 @@ function getRegionalOpticalBaseline(lat, lon) {
   // Secchi typique 1-5m, c_baseline 0.50-1.50 m^-1
   if (lat >= 49.0 && lat <= 51.5 && lon >= -0.5 && lon <= 2.5) {
     return {
-      c_baseline: 0.80,
+    c_baseline: 0.80,
       b_local: 500,
+      b_local_by_folk: B_LOCAL_BY_FOLK.manche_orientale_mer_du_nord_sud,  // Patch 8-B
       zone: 'manche_orientale_mer_du_nord_sud',
       sources: 'Babin 2003 (Case 2 turbide), Tessier 2013, Bowers 2006'
     };
@@ -3224,8 +3301,10 @@ function getRegionalOpticalBaseline(lat, lon) {
   // Documenter visuellement a l'utilisateur que la prediction
   // est en domaine fallback (a faire en UI plus tard)
   return {
+return {
     c_baseline: 0.30,
     b_local: 300,
+    b_local_by_folk: B_LOCAL_BY_FOLK.fallback_europe,  // Patch 8-B
     zone: 'fallback_europe',
     sources: 'Babin 2003 (Case 2 mediane europeenne)'
   };
@@ -3313,7 +3392,8 @@ function getRegionalOpticalBaseline(lat, lon) {
 //                                   contient c_moyen_kg
 // Retour   : objet {visi_m, d_secchi, c_total, c_water, c_sediment}
 //          ou null si entree invalide
-function computeVisibility(concentrationResult, lat, lon) {
+function computeVisibility(concentrationResult, lat, lon, sediment) {
+  // PATCH 8-B : sediment optionnel pour choisir b_local par classe Folk5
   // Validation : entree null en amont -> remontee du null
   if (concentrationResult === null || concentrationResult === undefined) return null;
   if (typeof concentrationResult.c_moyen_kg !== 'number') return null;
@@ -3323,8 +3403,18 @@ function computeVisibility(concentrationResult, lat, lon) {
   var optical = getRegionalOpticalBaseline(lat, lon);
   if (optical === null) return null;
 
-  var c_baseline = optical.c_baseline;  // turbidite ambiante de la zone (m^-1)
-  var b_local = optical.b_local;         // attenuation specifique du sediment mobilise (m^2/kg)
+var c_baseline = optical.c_baseline;  // turbidite ambiante de la zone (m^-1)
+  
+  // PATCH 8-B : choix b_local selon classe Folk du sédiment passé en arg
+  // Si sediment fourni ET table b_local_by_folk disponible, on utilise
+  // le coefficient spécifique à la classe Folk5. Sinon, fallback sur
+  // b_local scalaire (rétrocompatibilité totale).
+  var b_local;
+  if (sediment && sediment.folk5 && optical.b_local_by_folk && optical.b_local_by_folk[sediment.folk5]) {
+    b_local = optical.b_local_by_folk[sediment.folk5];
+  } else {
+    b_local = optical.b_local;
+  }
 
   var C = concentrationResult.c_moyen_kg;
 
@@ -3752,8 +3842,10 @@ result.trace.brique1 = { u_b: u_b };
   };
 
   // BRIQUE 8 — Visibilité (Beer-Lambert / Davies-Colley 1988)
-  // Reçoit la concentration cinétique (équilibre + mémoire).
-  var visResult = computeVisibility(concResultKinetic, lat, lon);
+// Reçoit la concentration cinétique (équilibre + mémoire).
+  // PATCH 8-B : on passe sediment pour que Beer-Lambert utilise
+  // le b_local par classe Folk5 au lieu du scalaire historique.
+  var visResult = computeVisibility(concResultKinetic, lat, lon, sediment);
   if (visResult === null) {
     var r14 = _buildEmpiricalResult(h, idx, depth, lat, lon,
       'Brique 8 (Beer-Lambert) a retourné null');
