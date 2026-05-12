@@ -1662,8 +1662,17 @@ fetchRealDepth(latlng.lat, latlng.lng).then(function(realDepth) {
     // les résultats erreur pour éviter les retries. On enveloppe
     // d'un .catch() pour blinder.
     // ============================================================
-    if (typeof fetchSedimentZone === 'function' && S._spotDepth && S._spotDepth > 0) {
-      fetchSedimentZone(lat, lon, S._spotDepth).then(function(zone) {
+if (typeof fetchSedimentZone === 'function' && S._spotDepth && S._spotDepth > 0) {
+      // PATCH 8-C-2c v2 : utilise la profondeur INSTANTANÉE (LAT + marée)
+      // pour calculer le rayon hydrodynamique. La colonne d'eau réelle
+      // au moment T dicte la zone d'influence sur la suspension, pas
+      // le zéro hydrographique. depthAtTimeCached est déjà disponible
+      // dans le scope global (utilisée par V4).
+      var nowTs = new Date().toISOString();
+      var depthInstantNow = (typeof depthAtTimeCached === 'function')
+        ? depthAtTimeCached(S._spotDepth, nowTs)
+        : S._spotDepth;
+      fetchSedimentZone(lat, lon, depthInstantNow).then(function(zone) {
         if (!zone || !zone.classes || zone.classes.length < 2) {
           // 0 ou 1 classe → mono-classe suffit, pas de re-render
           return;
@@ -3894,8 +3903,8 @@ result.trace.brique1 = { u_b: u_b };
   var visResult = null;
   var multiClassesActive = false;
   
-  // Clé cache zonal identique à celle de fetchSedimentZone
-  var zoneKey = lat.toFixed(4) + '|' + lon.toFixed(4) + '|' + Math.round(depthInstant);
+// Clé cache zonal identique à celle de fetchSedimentZone (Patch 8-C-2c v2)
+  var zoneKey = lat.toFixed(4) + '|' + lon.toFixed(4);
   var zone = (typeof S_spotZoneCache !== 'undefined') ? S_spotZoneCache[zoneKey] : null;
   
   if (zone && zone.classes && zone.classes.length >= 2) {
@@ -4855,8 +4864,9 @@ function fetchSedimentZone(lat, lon, depth_instant) {
     return Promise.resolve({ radius_m: 0, classes: [], total_surface_pct: 0, error: 'invalid depth' });
   }
   
-  // Cache 24h
-  var cacheKey = lat.toFixed(4) + '|' + lon.toFixed(4) + '|' + Math.round(depth_instant);
+// Cache 24h, clé indépendante de la profondeur (mosaïque sédimentaire
+  // invariante avec la marée). Patch 8-C-2c v2.
+  var cacheKey = lat.toFixed(4) + '|' + lon.toFixed(4);
   if (S_spotZoneCache[cacheKey]) {
     return Promise.resolve(S_spotZoneCache[cacheKey]);
   }
