@@ -3301,7 +3301,6 @@ function getRegionalOpticalBaseline(lat, lon) {
   // Documenter visuellement a l'utilisateur que la prediction
   // est en domaine fallback (a faire en UI plus tard)
   return {
-return {
     c_baseline: 0.30,
     b_local: 300,
     b_local_by_folk: B_LOCAL_BY_FOLK.fallback_europe,  // Patch 8-B
