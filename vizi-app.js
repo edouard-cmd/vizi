@@ -3869,18 +3869,22 @@ result.trace.brique1 = { u_b: u_b };
     n_contributions: kinResult.n_contributions
   };
 
-  // On construit un concResult modifié pour Brique 8 (Beer-Lambert)
-  // contenant C_kinetic au lieu de C_équilibre.
-  var concResultKinetic = {
-    c_moyen_kg: kinResult.C_kinetic,
-    rouse_number: concResult.rouse_number
-  };
+// On construit un concResult modifié...
+  var concResultKinetic = { ... };
 
+  // ============================================================
+  // PATCH 8-C-2d — Branche multi-classes (si zone disponible)
+  ... (tout le bloc inséré, ~80 lignes) ...
+  
   // BRIQUE 8 — Visibilité (Beer-Lambert / Davies-Colley 1988)
-// Reçoit la concentration cinétique (équilibre + mémoire).
-  // PATCH 8-B : on passe sediment pour que Beer-Lambert utilise
-  // le b_local par classe Folk5 au lieu du scalaire historique.
-  var visResult = computeVisibility(concResultKinetic, lat, lon, sediment);
+  if (visResult === null) {
+    visResult = computeVisibility(concResultKinetic, lat, lon, sediment);
+    ...
+  }
+
+  if (visResult === null) {   // ← cette ligne existait déjà
+    var r14 = _buildEmpiricalResult(h, idx, depth, lat, lon,
+      'Brique 8 (Beer-Lambert) a retourné null');
   if (visResult === null) {
     var r14 = _buildEmpiricalResult(h, idx, depth, lat, lon,
       'Brique 8 (Beer-Lambert) a retourné null');
