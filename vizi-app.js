@@ -4586,6 +4586,212 @@ function pointInPolygon(point, polygon) {
   return inside;
 }
 // ============================================================
+// PATCH 8-C-1 — fetchSedimentZone + helpers d'intersection
+// ------------------------------------------------------------
+// Récupère la composition zonale Folk5 dans un cercle de rayon
+// adaptatif autour d'un point, via EMODnet WFS bbox direct
+// frontend (pas de GAS).
+//
+// Permet à la chaîne 1-9 de tourner en parallèle sur les
+// classes Folk dominantes de la zone hydrodynamique du
+// chasseur, au lieu d'un seul sédiment ponctuel.
+//
+// Rayon adaptatif R = max(100, 30 × depth_instant) m
+// (Source : Green & Coco 2014, Reviews of Geophysics 52)
+//
+// Algorithme d'intersection cercle-polygone : Monte Carlo
+// 40×40 = 1600 samples dans le cercle, comptage des hits
+// par polygone. Précision ~1-2% sur la fraction surfacique.
+// ============================================================
+
+// Cache zonal indexé par (lat_4, lon_4, depth_round)
+// Vidé automatiquement par invalidateChainCache() au clic.
+var S_spotZoneCache = {};
+
+function invalidateZoneCache() {
+  S_spotZoneCache = {};
+}
+
+// ----- Helper : ray-casting sur MultiPolygon GeoJSON -----
+// EMODnet retourne souvent des MultiPolygon (plusieurs polygones
+// séparés dans une seule feature). On teste l'appartenance à
+// chacun des sous-polygones (rings extérieurs uniquement, on
+// ignore les trous pour simplicité — précision suffisante).
+function _pointInMultiPolygon(point, geometry) {
+  if (!geometry) return false;
+  if (geometry.type === 'Polygon') {
+    // coordinates = [outerRing, hole1, hole2, ...]
+    return pointInPolygon(point, geometry.coordinates[0]);
+  }
+  if (geometry.type === 'MultiPolygon') {
+    // coordinates = [[outerRing1, ...], [outerRing2, ...], ...]
+    for (var i = 0; i < geometry.coordinates.length; i++) {
+      if (pointInPolygon(point, geometry.coordinates[i][0])) return true;
+    }
+    return false;
+  }
+  return false;
+}
+
+// ----- Helper : intersection cercle-polygone Monte Carlo -----
+// Échantillonne 1600 points uniformément dans le cercle
+// (grille 40×40 sur la bbox du cercle, filtre dans le disque),
+// compte les hits dans la géométrie, retourne la fraction.
+// 
+// lat, lon : centre du cercle (degrés)
+// radius_m : rayon en mètres
+// geometry : Polygon ou MultiPolygon GeoJSON
+function _intersectCirclePolygon(lat, lon, radius_m, geometry) {
+  // Conversion mètres → degrés
+  var dLat = radius_m / 111000;
+  var dLon = radius_m / (111000 * Math.cos(lat * Math.PI / 180));
+  
+  // Grille 40×40 sur la bbox du cercle
+  var GRID = 40;
+  var hitsInPolygon = 0;
+  var hitsInCircle = 0;
+  
+  for (var i = 0; i < GRID; i++) {
+    for (var j = 0; j < GRID; j++) {
+      // Position normalisée [-1, 1]
+      var nx = -1 + 2 * (i + 0.5) / GRID;
+      var ny = -1 + 2 * (j + 0.5) / GRID;
+      
+      // Filtre dans le disque (norme L2 ≤ 1)
+      if (nx * nx + ny * ny > 1) continue;
+      
+      hitsInCircle++;
+      
+      // Conversion en lat/lon réels
+      var pLon = lon + nx * dLon;
+      var pLat = lat + ny * dLat;
+      
+      // GeoJSON utilise [lon, lat]
+      if (_pointInMultiPolygon([pLon, pLat], geometry)) {
+        hitsInPolygon++;
+      }
+    }
+  }
+  
+  if (hitsInCircle === 0) return 0;
+  return hitsInPolygon / hitsInCircle;  // fraction de surface (0-1)
+}
+
+// ----- Fonction principale : fetchSedimentZone -----
+// 
+// Retourne une Promise qui résout vers un objet :
+//   {
+//     radius_m: 210,
+//     classes: [
+//       { folk5: 2, nameFr: 'Sable', D50_mm: 0.250, surface_pct: 62, sediment: {...} },
+//       { folk5: 3, nameFr: 'Sediment grossier', D50_mm: 1.000, surface_pct: 23, sediment: {...} },
+//       ...
+//     ],
+//     total_surface_pct: 95,
+//     error: null  // ou string si problème
+//   }
+//
+// Sources : EMODnet Geology, couche gtk:seabed_substrate_250k
+// (résolution 1:250 000, couverture complète France métropolitaine).
+function fetchSedimentZone(lat, lon, depth_instant) {
+  if (typeof lat !== 'number' || typeof lon !== 'number' || !isFinite(lat) || !isFinite(lon)) {
+    return Promise.resolve({ radius_m: 0, classes: [], total_surface_pct: 0, error: 'invalid lat/lon' });
+  }
+  if (!depth_instant || depth_instant <= 0) {
+    return Promise.resolve({ radius_m: 0, classes: [], total_surface_pct: 0, error: 'invalid depth' });
+  }
+  
+  // Cache 24h
+  var cacheKey = lat.toFixed(4) + '|' + lon.toFixed(4) + '|' + Math.round(depth_instant);
+  if (S_spotZoneCache[cacheKey]) {
+    return Promise.resolve(S_spotZoneCache[cacheKey]);
+  }
+  
+  // Rayon adaptatif (Green & Coco 2014)
+  var R = Math.max(100, 30 * depth_instant);
+  
+  // Conversion R → bbox (avec marge 1.1× pour capturer les polygones qui débordent)
+  var dLat = (R * 1.1) / 111000;
+  var dLon = (R * 1.1) / (111000 * Math.cos(lat * Math.PI / 180));
+  var lat_min = lat - dLat;
+  var lat_max = lat + dLat;
+  var lon_min = lon - dLon;
+  var lon_max = lon + dLon;
+  
+  // URL EMODnet WFS
+  var url = 'https://drive.emodnet-geology.eu/geoserver/gtk/wfs'
+    + '?service=WFS&version=2.0.0&request=GetFeature'
+    + '&typeNames=gtk:seabed_substrate_250k'
+    + '&bbox=' + lon_min + ',' + lat_min + ',' + lon_max + ',' + lat_max + ',EPSG:4326'
+    + '&outputFormat=application/json';
+  
+  return fetch(url)
+    .then(function(r) {
+      if (!r.ok) throw new Error('WFS HTTP ' + r.status);
+      return r.json();
+    })
+    .then(function(geojson) {
+      if (!geojson.features || geojson.features.length === 0) {
+        var emptyResult = { radius_m: R, classes: [], total_surface_pct: 0, error: 'no features in bbox' };
+        S_spotZoneCache[cacheKey] = emptyResult;
+        return emptyResult;
+      }
+      
+      // Pour chaque feature : intersection avec le cercle + mapping sédiment
+      // Regroupement par classe Folk5 (plusieurs polygones peuvent appartenir à la même classe)
+      var classesByFolk = {};
+      
+      geojson.features.forEach(function(feature) {
+        var props = feature.properties || {};
+        var sediment = mapFolkToSediment(
+          props.folk_5cl_txt,
+          props.original_substrate,
+          props.folk_16cl_txt
+        );
+        if (!sediment) return;  // classe non-mappable, on saute
+        
+        // Intersection cercle-polygone
+        var fraction = _intersectCirclePolygon(lat, lon, R, feature.geometry);
+        if (fraction <= 0) return;  // pas dans le cercle
+        
+        var key = sediment.folk5;
+        if (!classesByFolk[key]) {
+          classesByFolk[key] = {
+            folk5: sediment.folk5,
+            nameFr: sediment.nameFr,
+            D50_mm: sediment.D50_mm,
+            surface_pct: 0,
+            sediment: sediment  // objet complet pour la chaîne 1-9
+          };
+        }
+        classesByFolk[key].surface_pct += fraction * 100;
+      });
+      
+      // Conversion en tableau trié par surface décroissante
+      var classes = Object.values(classesByFolk).sort(function(a, b) {
+        return b.surface_pct - a.surface_pct;
+      });
+      
+      var total = classes.reduce(function(s, c) { return s + c.surface_pct; }, 0);
+      
+      var result = {
+        radius_m: R,
+        classes: classes,
+        total_surface_pct: total,
+        error: null
+      };
+      
+      S_spotZoneCache[cacheKey] = result;
+      return result;
+    })
+    .catch(function(err) {
+      console.warn('[fetchSedimentZone] échec WFS:', err.message);
+      var errorResult = { radius_m: R, classes: [], total_surface_pct: 0, error: err.message };
+      S_spotZoneCache[cacheKey] = errorResult;  // cache aussi les erreurs pour éviter les retries
+      return errorResult;
+    });
+}
+// ============================================================
 // fetchSpotMarineAndSun - donnees marines + soleil pour un point
 // ------------------------------------------------------------
 // Appelle Open-Meteo Marine API pour recuperer toutes les
