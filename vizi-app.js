@@ -4719,9 +4719,10 @@ function fetchSedimentZone(lat, lon, depth_instant) {
   var lon_max = lon + dLon;
   
   // URL EMODnet WFS
-  var url = 'https://drive.emodnet-geology.eu/geoserver/gtk/wfs'
+var url = 'https://drive.emodnet-geology.eu/geoserver/gtk/wfs'
     + '?service=WFS&version=2.0.0&request=GetFeature'
     + '&typeNames=gtk:seabed_substrate_250k'
+    + '&srsName=EPSG:4326'  // PATCH 8-C-1 v2 : force la projection de sortie (sinon EMODnet retourne EPSG:3857 par défaut)
     + '&bbox=' + lon_min + ',' + lat_min + ',' + lon_max + ',' + lat_max + ',EPSG:4326'
     + '&outputFormat=application/json';
   
