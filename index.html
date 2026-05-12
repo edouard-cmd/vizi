@@ -3092,6 +3092,54 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
 .vz-explain-panel.open {
   max-height: 700px;
 }
+    /* ============================================================
+   PATCH 8-D — Section 1-bis composition zonale du fond
+   ============================================================ */
+.vz-explain-zone-class {
+  margin: 10px 0;
+  padding: 8px 0;
+  border-bottom: 0.5px solid rgba(77, 212, 168, 0.08);
+}
+.vz-explain-zone-class:last-child {
+  border-bottom: none;
+}
+.vz-explain-zone-class-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  color: var(--vz-text-on-dark-muted);
+  margin-bottom: 6px;
+}
+.vz-explain-zone-bar-track {
+  width: 100%;
+  height: 4px;
+  background: rgba(77, 212, 168, 0.10);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.vz-explain-zone-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--vz-accent-deep, #1A6B5D) 0%, var(--vz-accent, #4DD4A8) 100%);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+.vz-explain-zone-class-contrib {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  color: var(--vz-text-on-dark-faint);
+  margin-top: 4px;
+  font-feature-settings: "tnum";
+  letter-spacing: 0.02em;
+}
+
+/* Le panneau dépliable doit pouvoir grandir un peu plus pour
+   accueillir la section 1-bis */
+.vz-explain-panel.open {
+  max-height: 900px;
+}
 /* ============================================================
    PATCH 6/6 - Tag moteur sous le badge visibilité estimée
    ------------------------------------------------------------
