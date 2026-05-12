@@ -3868,20 +3868,137 @@ result.trace.brique1 = { u_b: u_b };
     dominant: kinResult.dominant,
     n_contributions: kinResult.n_contributions
   };
-
-// On construit un concResult modifié...
-  var concResultKinetic = { ... };
+// On construit un concResult modifié pour Brique 8 (Beer-Lambert)
+  // contenant C_kinetic au lieu de C_équilibre.
+  var concResultKinetic = {
+    c_moyen_kg: kinResult.C_kinetic,
+    rouse_number: concResult.rouse_number
+  };
 
   // ============================================================
   // PATCH 8-C-2d — Branche multi-classes (si zone disponible)
-  ... (tout le bloc inséré, ~80 lignes) ...
+  // ------------------------------------------------------------
+  // Si S_spotZoneCache contient ≥2 classes non-rock pour ce
+  // spot, on exécute computeChainPerClass pour chaque classe et
+  // on combine via combineMultiClassOptics. Sinon, fallback sur
+  // le mono-classe actuel (chemin Beer-Lambert standard).
+  //
+  // Asynchronicité : le cache zonal est rempli ~1-2s après le
+  // clic par fetchSedimentZone (déclenché dans openSpotPopup).
+  // Premier rendu = mono-classe (cache vide). Après résolution
+  // de la promise, re-render → multi-classes.
+  //
+  // Trace zonale : result.trace.zone est rempli dans tous les
+  // cas où la zone a été tentée (avec error si fallback).
+  // ============================================================
+  var visResult = null;
+  var multiClassesActive = false;
+  
+  // Clé cache zonal identique à celle de fetchSedimentZone
+  var zoneKey = lat.toFixed(4) + '|' + lon.toFixed(4) + '|' + Math.round(depthInstant);
+  var zone = (typeof S_spotZoneCache !== 'undefined') ? S_spotZoneCache[zoneKey] : null;
+  
+  if (zone && zone.classes && zone.classes.length >= 2) {
+    // Filtre les classes non-rock pour le calcul multi-classes
+    var nonRockClasses = zone.classes.filter(function(c) {
+      return c.sediment && c.sediment.regime !== 'rock';
+    });
+    
+    if (nonRockClasses.length >= 2) {
+      // Construit le contexte hydrodynamique commun à toutes les classes
+      var commonCtx = {
+        h: h,
+        idx: idx,
+        depth: depth,
+        lat: lat,
+        lon: lon,
+        depthInstant: depthInstant,
+        Hs: Hs,
+        Tp: Tp,
+        U_effectif: U_effectif,
+        waveDir: waveDir,
+        currentDir: currentDir
+      };
+      
+      // Exécute la chaîne 1-9 pour chaque classe non-rock
+      var classes_with_C = [];
+      var anyError = false;
+      
+      for (var iZone = 0; iZone < nonRockClasses.length; iZone++) {
+        var classEntry = nonRockClasses[iZone];
+        var ctxClass = Object.assign({}, commonCtx);
+        ctxClass.sediment = classEntry.sediment;
+        
+        var chainRes = computeChainPerClass(ctxClass);
+        if (chainRes.error) {
+          console.warn('[V4 multi-classes] classe ' + classEntry.nameFr + ' échouée:', chainRes.error);
+          anyError = true;
+          continue;
+        }
+        
+        classes_with_C.push({
+          sediment: classEntry.sediment,
+          C_kinetic: chainRes.C_kinetic || 0,
+          surface_pct: classEntry.surface_pct,
+          chain_trace: chainRes.trace
+        });
+      }
+      
+      if (classes_with_C.length >= 2) {
+        var multiVisResult = combineMultiClassOptics(classes_with_C, optical);
+        if (multiVisResult !== null) {
+          visResult = multiVisResult;
+          multiClassesActive = true;
+          
+          result.trace.zone = {
+            radius_m: zone.radius_m,
+            classes: classes_with_C.map(function(c) {
+              return {
+                folk5: c.sediment.folk5,
+                nameFr: c.sediment.nameFr,
+                D50_mm: c.sediment.D50_mm,
+                surface_pct: c.surface_pct,
+                C_kinetic: c.C_kinetic
+              };
+            }),
+            total_surface_pct: zone.total_surface_pct,
+            multi_class_active: true,
+            n_classes_used: classes_with_C.length,
+            n_classes_skipped: nonRockClasses.length - classes_with_C.length
+          };
+        }
+      }
+    }
+  }
   
   // BRIQUE 8 — Visibilité (Beer-Lambert / Davies-Colley 1988)
+  // Si multi-classes n'a pas pris (zone absente, <2 classes, erreurs),
+  // fallback sur le chemin mono-classe historique.
   if (visResult === null) {
     visResult = computeVisibility(concResultKinetic, lat, lon, sediment);
-    ...
+    
+    if (zone) {
+      result.trace.zone = {
+        radius_m: zone.radius_m,
+        classes: zone.classes.map(function(c) {
+          return {
+            folk5: c.folk5,
+            nameFr: c.nameFr,
+            D50_mm: c.D50_mm,
+            surface_pct: c.surface_pct
+          };
+        }),
+        total_surface_pct: zone.total_surface_pct,
+        multi_class_active: false,
+        fallback_reason: zone.classes.length < 2 ? 'zone homogène' : 'moins de 2 classes non-rock après filtrage'
+      };
+    } else {
+      result.trace.zone = {
+        multi_class_active: false,
+        fallback_reason: 'cache zonal non disponible (premier rendu ou échec WFS)'
+      };
+    }
   }
-
   if (visResult === null) {   // ← cette ligne existait déjà
     var r14 = _buildEmpiricalResult(h, idx, depth, lat, lon,
       'Brique 8 (Beer-Lambert) a retourné null');
