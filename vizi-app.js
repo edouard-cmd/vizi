@@ -3999,9 +3999,6 @@ result.trace.brique1 = { u_b: u_b };
       };
     }
   }
-  if (visResult === null) {   // ← cette ligne existait déjà
-    var r14 = _buildEmpiricalResult(h, idx, depth, lat, lon,
-      'Brique 8 (Beer-Lambert) a retourné null');
   if (visResult === null) {
     var r14 = _buildEmpiricalResult(h, idx, depth, lat, lon,
       'Brique 8 (Beer-Lambert) a retourné null');
