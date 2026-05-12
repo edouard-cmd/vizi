@@ -1642,10 +1642,46 @@ fetchRealDepth(latlng.lat, latlng.lng).then(function(realDepth) {
     // Met a jour PROFONDEUR/COEF immediatement, meme si la meteo n'est pas encore arrivee
     var lat = S.clickLatLng ? S.clickLatLng.lat : latlng.lat;
     var lon = S.clickLatLng ? S.clickLatLng.lng : latlng.lng;
-    if (typeof renderDepthCoefBlock === 'function') {
+  if (typeof renderDepthCoefBlock === 'function') {
       renderDepthCoefBlock(S._spotDepth, lat, lon);
     }
     if (S_spotWeatherCache) renderSpotPopup();
+    
+    // ============================================================
+    // PATCH 8-C-2c — Déclenchement fetchSedimentZone (multi-classes)
+    // ------------------------------------------------------------
+    // Une fois la profondeur connue, on lance le fetch zonal EMODnet
+    // en background. Quand la promise résout, S_spotZoneCache est
+    // rempli et V4 peut basculer du chemin mono-classe au chemin
+    // multi-classes au prochain rendu.
+    //
+    // On invalide _chainCache pour forcer V4 à recalculer avec la
+    // zone. On re-render le drawer si la météo est arrivée.
+    //
+    // Erreurs : fetchSedimentZone gère ses propres erreurs et cache
+    // les résultats erreur pour éviter les retries. On enveloppe
+    // d'un .catch() pour blinder.
+    // ============================================================
+    if (typeof fetchSedimentZone === 'function' && S._spotDepth && S._spotDepth > 0) {
+      fetchSedimentZone(lat, lon, S._spotDepth).then(function(zone) {
+        if (!zone || !zone.classes || zone.classes.length < 2) {
+          // 0 ou 1 classe → mono-classe suffit, pas de re-render
+          return;
+        }
+        // Au moins 2 classes → multi-classes va prendre effet au prochain V4
+        if (typeof invalidateChainCache === 'function') {
+          invalidateChainCache();
+        }
+        // Re-render si météo arrivée (sinon le futur renderSpotPopup du flux
+        // météo classique recalculera de toute façon)
+        if (S_spotWeatherCache && typeof renderSpotPopup === 'function') {
+          renderSpotPopup();
+        }
+      }).catch(function(err) {
+        console.warn('[fetchSedimentZone] échec branchement openSpotPopup:', err);
+        // pas de re-render, le mono-classe reste affiché
+      });
+    }
   });
   var now = new Date();
   document.getElementById('spotDate').value = now.toISOString().split('T')[0];
