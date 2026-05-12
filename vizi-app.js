@@ -4936,6 +4936,106 @@ function computeChainPerClass(ctx) {
   };
 }
 // ============================================================
+// PATCH 8-C-2b — combineMultiClassOptics
+// ------------------------------------------------------------
+// Combine les contributions optiques de plusieurs classes
+// sédimentaires (sortie multi-classes), pondérées par leur
+// fraction de surface dans le rayon hydrodynamique.
+//
+// Formule (Soulsby 1997 ch.9 §3, atténuation optique additive
+// pondérée par fraction surfacique) :
+//
+//   c_sediment_total = Σ b_local_by_folk[Folk5] × C_kinetic × (surface_pct/100)
+//   c_total = c_baseline + c_sediment_total
+//   visi_m = 2.38 / c_total  (Davies-Colley 1988)
+//
+// Justification : sur une zone hydrodynamique mosaïquée, l'eau
+// au-dessus des différentes classes sédimentaires se mélange
+// rapidement (constante de mélange < 1 min pour ~100m, Soulsby
+// 1997). L'œil du chasseur intègre donc la turbidité moyenne
+// pondérée par les surfaces relatives.
+//
+// Argument :
+//   classes_with_C : [{ sediment, C_kinetic, surface_pct }, ...]
+//   optical : sortie de getRegionalOpticalBaseline (c_baseline,
+//             b_local_by_folk, zone)
+//
+// Retour : même format que computeVisibility, substituable.
+// ============================================================
+function combineMultiClassOptics(classes_with_C, optical) {
+  if (!classes_with_C || classes_with_C.length === 0) return null;
+  if (!optical || typeof optical.c_baseline !== 'number') return null;
+  
+  var c_baseline = optical.c_baseline;
+  var b_local_by_folk = optical.b_local_by_folk;
+  
+  // Garde : si pas de table b_local_by_folk (zone non couverte par
+  // Patch 8-B), on ne peut pas combiner par classe. Retour null →
+  // V4 fallback sur mono-classe.
+  if (!b_local_by_folk) return null;
+  
+  // Somme pondérée des contributions sédimentaires
+  var c_sediment_total = 0;
+  var contributions = [];  // pour trace/debug
+  
+  for (var i = 0; i < classes_with_C.length; i++) {
+    var entry = classes_with_C[i];
+    var sediment = entry.sediment;
+    var C = entry.C_kinetic;
+    var surface_pct = entry.surface_pct;
+    
+    // Validation entrée
+    if (!sediment || typeof sediment.folk5 !== 'number') continue;
+    if (typeof C !== 'number' || !isFinite(C) || C < 0) continue;
+    if (typeof surface_pct !== 'number' || !isFinite(surface_pct) || surface_pct <= 0) continue;
+    
+    var folk5 = sediment.folk5;
+    var b_local = b_local_by_folk[folk5];
+    
+    // Si classe rock (folk5=5) ou b_local manquant → contribution 0
+    if (sediment.regime === 'rock' || typeof b_local !== 'number') continue;
+    
+    var weight = surface_pct / 100;
+    var contribution = b_local * C * weight;
+    c_sediment_total += contribution;
+    
+    contributions.push({
+      folk5: folk5,
+      nameFr: sediment.nameFr,
+      b_local: b_local,
+      C_kinetic: C,
+      surface_pct: surface_pct,
+      contribution: contribution
+    });
+  }
+  
+  var c_total = c_baseline + c_sediment_total;
+  if (!isFinite(c_total) || c_total <= 0) return null;
+  
+  // Profondeur Secchi (Preisendorfer 1986)
+  var d_secchi = 1.7 / c_total;
+  // Visibilité horizontale chasseur sous-marin (Davies-Colley 1988)
+  var visi_m = 2.38 / c_total;
+  
+  // Sanity check
+  if (!isFinite(visi_m) || visi_m < 0) return null;
+  if (visi_m > 50) {
+    console.warn('[combineMultiClassOptics] visi_m > 50m, plafond physique dépassé:', visi_m);
+  }
+  
+  return {
+    visi_m: visi_m,
+    d_secchi: d_secchi,
+    c_total: c_total,
+    c_baseline: c_baseline,
+    c_sediment: c_sediment_total,
+    zone: optical.zone,
+    sources: optical.sources + ' + multi-classes Soulsby 1997 ch.9',
+    multi_class: true,
+    contributions: contributions  // pour trace 8-D
+  };
+}
+// ============================================================
 // fetchSpotMarineAndSun - donnees marines + soleil pour un point
 // ------------------------------------------------------------
 // Appelle Open-Meteo Marine API pour recuperer toutes les
