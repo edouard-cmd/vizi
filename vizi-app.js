@@ -1672,9 +1672,9 @@ if (typeof fetchSedimentZone === 'function' && S._spotDepth && S._spotDepth > 0)
       var depthInstantNow = (typeof depthAtTimeCached === 'function')
         ? depthAtTimeCached(S._spotDepth, nowTs)
         : S._spotDepth;
-      fetchSedimentZone(lat, lon, depthInstantNow).then(function(zone) {
-        if (!zone || !zone.classes || zone.classes.length < 2) {
-          // 0 ou 1 classe → mono-classe suffit, pas de re-render
+     fetchSedimentZone(lat, lon, depthInstantNow).then(function(zone) {
+        if (!zone || !zone.classes || zone.classes.length < 1) {
+          // 0 classe (échec WFS ou hors couverture) → pas de re-render
           return;
         }
         // Au moins 2 classes → multi-classes va prendre effet au prochain V4
@@ -3907,13 +3907,40 @@ result.trace.brique1 = { u_b: u_b };
   var zoneKey = lat.toFixed(4) + '|' + lon.toFixed(4);
   var zone = (typeof S_spotZoneCache !== 'undefined') ? S_spotZoneCache[zoneKey] : null;
   
-  if (zone && zone.classes && zone.classes.length >= 2) {
-    // Filtre les classes non-rock pour le calcul multi-classes
+if (zone && zone.classes && zone.classes.length >= 1) {
+    // Filtre les classes non-rock pour le calcul zonal
     var nonRockClasses = zone.classes.filter(function(c) {
       return c.sediment && c.sediment.regime !== 'rock';
     });
     
-    if (nonRockClasses.length >= 2) {
+    // ============================================================
+    // PATCH 8-E — Activation intelligente : 3 modes
+    // ------------------------------------------------------------
+    // Mode A "multi-classes pondéré" : >=2 classes non-rock chacune >=30%
+    //   → chaîne 1-9 par classe + combineMultiClassOptics
+    //
+    // Mode B "mono-classe zonal" : 1 classe dominante non-rock >=65%
+    //   ET D50 différent du ponctuel (>=0.1mm)
+    //   → chaîne 1-9 sur classe zonale + computeVisibility scalaire
+    //   → corrige le cas EMODnet 1:250k imprécis au point exact
+    //
+    // Mode C "fallback ponctuel" : aucun des deux
+    //   → comportement historique sur sediment ponctuel
+    //
+    // Sources :
+    //   - Soulsby 1997 "Dynamics of Marine Sands" ch.9 §3 (seuil 70%
+    //     approche homogénéisée vs pondérée)
+    //   - Le Hir et al. 2011 "Sediment erodability in sediment transport
+    //     modelling" Cont. Shelf Res. 31 (modèles MARS3D 60-70%)
+    //   - Folk 1954 (classes définies par 50% de masse)
+    // ============================================================
+    
+    // Mode A : tentative multi-classes pondéré
+    var classesMin30pct = nonRockClasses.filter(function(c) {
+      return c.surface_pct >= 30;
+    });
+    
+    if (classesMin30pct.length >= 2) {
       // Construit le contexte hydrodynamique commun à toutes les classes
       var commonCtx = {
         h: h,
@@ -3974,15 +4001,86 @@ result.trace.brique1 = { u_b: u_b };
             multi_class_active: true,
             n_classes_used: classes_with_C.length,
             n_classes_skipped: nonRockClasses.length - classes_with_C.length
+         };
+        }
+      }
+    }
+    
+    // ============================================================
+    // PATCH 8-E — Mode B : mono-classe zonal (si Mode A pas activé)
+    // ============================================================
+    if (visResult === null) {
+      // Cherche la classe non-rock dominante
+      var dominantClass = nonRockClasses.reduce(function(prev, curr) {
+        return (curr.surface_pct > (prev ? prev.surface_pct : 0)) ? curr : prev;
+      }, null);
+      
+      if (dominantClass && dominantClass.surface_pct >= 65) {
+        // Vérifie que D50 zonal diffère significativement du ponctuel
+        var d50Ponctuel = sediment.D50_mm || 0;
+        var d50Zonal = dominantClass.D50_mm || 0;
+        var deltaD50 = Math.abs(d50Zonal - d50Ponctuel);
+        
+        // Active mono-classe zonal si D50 différent OU si sediment ponctuel = rock
+        // (cas EMODnet imprécis sur 1:250k : ponctuel rock mais zone à dominante sable)
+        var shouldActivate = (deltaD50 >= 0.1) || (sediment.regime === 'rock');
+        
+        if (shouldActivate) {
+          // Exécute la chaîne 1-9 sur le sédiment zonal dominant
+          var ctxZonal = {
+            h: h, idx: idx, depth: depth, lat: lat, lon: lon,
+            sediment: dominantClass.sediment,
+            depthInstant: depthInstant,
+            Hs: Hs, Tp: Tp, U_effectif: U_effectif,
+            waveDir: waveDir, currentDir: currentDir
           };
+          
+          var chainZonal = computeChainPerClass(ctxZonal);
+          
+          if (!chainZonal.error && chainZonal.C_kinetic !== undefined) {
+            // Reconstruit concResultKinetic avec C_kinetic zonal
+            var concResultKineticZonal = {
+              c_moyen_kg: chainZonal.C_kinetic,
+              rouse_number: chainZonal.rouse_number
+            };
+            
+            // Visi via Beer-Lambert mono-classe (avec b_local_by_folk de la classe zonale)
+            visResult = computeVisibility(concResultKineticZonal, lat, lon, dominantClass.sediment);
+            
+            if (visResult !== null) {
+              // Trace : mode mono-classe zonal
+              result.trace.zone = {
+                radius_m: zone.radius_m,
+                classes: zone.classes.map(function(c) {
+                  return {
+                    folk5: c.folk5,
+                    nameFr: c.nameFr,
+                    D50_mm: c.D50_mm,
+                    surface_pct: c.surface_pct,
+                    C_kinetic: (c.folk5 === dominantClass.folk5) ? chainZonal.C_kinetic : null
+                  };
+                }),
+                total_surface_pct: zone.total_surface_pct,
+                multi_class_active: false,
+                mono_class_zonal: true,
+                dominant_class: dominantClass.nameFr,
+                dominant_pct: dominantClass.surface_pct,
+                original_sediment_name: sediment.nameFr,
+                original_sediment_d50: sediment.D50_mm,
+                activation_reason: (sediment.regime === 'rock') 
+                  ? 'sédiment ponctuel rocheux (EMODnet 1:250k imprécis), zone à dominante ' + dominantClass.nameFr + ' (' + dominantClass.surface_pct.toFixed(1) + '%)'
+                  : 'classe zonale dominante ' + dominantClass.nameFr + ' (' + dominantClass.surface_pct.toFixed(1) + '%) avec D50 différent du ponctuel'
+              };
+            }
+          }
         }
       }
     }
   }
   
   // BRIQUE 8 — Visibilité (Beer-Lambert / Davies-Colley 1988)
-  // Si multi-classes n'a pas pris (zone absente, <2 classes, erreurs),
-  // fallback sur le chemin mono-classe historique.
+  // Si Mode A et Mode B n'ont pas pris (Mode C : fallback ponctuel),
+  // chemin mono-classe historique sur sédiment ponctuel.
   if (visResult === null) {
     visResult = computeVisibility(concResultKinetic, lat, lon, sediment);
     
