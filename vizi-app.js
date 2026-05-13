@@ -9579,8 +9579,60 @@ function escapeHtml(s) {
         '</div>' +
       '</div>';
     }
-    document.getElementById('vzmDetailTides').innerHTML = tidesHtml || '<div style="color:var(--vz-text-on-dark-faint);font-size:11px;">Marées non disponibles</div>';
+   document.getElementById('vzmDetailTides').innerHTML = tidesHtml || '<div style="color:var(--vz-text-on-dark-faint);font-size:11px;">Marées non disponibles</div>';
     detail.classList.add('vzm-open');
+    
+    // CHANTIER MOBILE Commit 2/2 : met à jour le mini-bloc Vent/Houle
+    // avec les valeurs du jour sélectionné (créneau BM).
+    vzmUpdateConditionsMini(day);
+  }
+  
+  // CHANTIER MOBILE Commit 2/2 : helper pour remplir le mini-bloc
+  function vzmUpdateConditionsMini(day) {
+    var windEl = document.getElementById('vzmCondWind');
+    var swellEl = document.getElementById('vzmCondSwell');
+    if (!day) {
+      if (windEl) windEl.textContent = '—';
+      if (swellEl) swellEl.textContent = '—';
+      return;
+    }
+    // Vent : "O 23 nds (rafales 31)"
+    if (windEl) {
+      if (day.windData) {
+        var w = day.windData;
+        var speedKnots = Math.round(w.speed * 0.539957);  // km/h -> nds
+        var dirLabel = vzmDirectionToCardinal(w.direction);
+        var text = dirLabel + ' ' + speedKnots + ' nds';
+        if (w.gusts !== null) {
+          var gustsKnots = Math.round(w.gusts * 0.539957);
+          text += ' (rafales ' + gustsKnots + ')';
+        }
+        windEl.textContent = text;
+      } else {
+        windEl.textContent = '—';
+      }
+    }
+    // Houle : "1.1m · 5.5s"
+    if (swellEl) {
+      if (day.swellData) {
+        var s = day.swellData;
+        var text = s.height.toFixed(1) + 'm';
+        if (s.period !== null) {
+          text += ' · ' + s.period.toFixed(1) + 's';
+        }
+        swellEl.textContent = text;
+      } else {
+        swellEl.textContent = '—';
+      }
+    }
+  }
+  
+  // CHANTIER MOBILE Commit 2/2 : conversion degrés -> point cardinal abrégé
+  function vzmDirectionToCardinal(deg) {
+    if (deg === null || deg === undefined) return '';
+    var dirs = ['N','NE','E','SE','S','SO','O','NO'];
+    var idx = Math.round(((deg % 360) / 45)) % 8;
+    return dirs[idx];
   }
 
   // === Construction de la frise 7 jours ===
@@ -9603,17 +9655,76 @@ function escapeHtml(s) {
         ('0' + (date.getMonth() + 1)).slice(-2) + '-' +
         ('0' + date.getDate()).slice(-2);
 
-      // Indice météo : on prend midi du jour
-      var targetMs = new Date(dateISO + 'T12:00:00').getTime();
+   // CHANTIER MOBILE Commit 2/2 : marées du jour AVANT calcul idx
+      // ----------------------------------------------------------------
+      // On a besoin de bm.time pour calibrer l'idx météo sur le créneau
+      // de marée basse (cohérence terrain : la chasse se fait à la BM).
+      // Calcul anticipé (déplacé en amont de la logique score) :
+      var pmEarly = null, bmEarly = null;
+      if (typeof TIDES !== 'undefined' && TIDES.extremes) {
+        var dayExtremesEarly = TIDES.extremes.filter(function(e) {
+          return e.time.slice(0, 10) === dateISO;
+        });
+        var pmExEarly = dayExtremesEarly.filter(function(e) { return e.type === 'high'; });
+        var bmExEarly = dayExtremesEarly.filter(function(e) { return e.type === 'low'; });
+        if (pmExEarly.length > 0) {
+          var pdtEarly = new Date(pmExEarly[0].time);
+          pmEarly = { time: ('0' + pdtEarly.getHours()).slice(-2) + ':' + ('0' + pdtEarly.getMinutes()).slice(-2), height: pmExEarly[0].height, isoTime: pmExEarly[0].time };
+        }
+        if (bmExEarly.length > 0) {
+          var bdtEarly = new Date(bmExEarly[0].time);
+          bmEarly = { time: ('0' + bdtEarly.getHours()).slice(-2) + ':' + ('0' + bdtEarly.getMinutes()).slice(-2), height: bmExEarly[0].height, isoTime: bmExEarly[0].time };
+        }
+      }
+      
+      // Indice météo : créneau de la BM si dispo, fallback midi
+      var targetMs;
+      if (bmEarly && bmEarly.isoTime) {
+        targetMs = new Date(bmEarly.isoTime).getTime();
+      } else {
+        targetMs = new Date(dateISO + 'T12:00:00').getTime();
+      }
       var bestIdx = 0, bestDelta = Infinity;
       for (var i = 0; i < h.time.length; i++) {
         var diff = Math.abs(new Date(h.time[i]).getTime() - targetMs);
         if (diff < bestDelta) { bestDelta = diff; bestIdx = i; }
       }
-      // Patch 5/6 : utilise computeVisibilityScore_V4 (chaîne 9 briques)
+      
+      // Score V4 calculé au créneau BM (chaîne 9 briques)
       var score = (typeof computeVisibilityScore_V4 === 'function')
         ? computeVisibilityScore_V4(h, bestIdx, depth, lat, lon).score
         : 50;
+      
+      // CHANTIER MOBILE Commit 2/2 : capture Vent + Houle au même idx
+      // ----------------------------------------------------------------
+      // Le mini-bloc Vent + Houle dans le tier peek doit afficher les
+      // valeurs au créneau de chasse (BM), pas à midi. Idem si l'utilisateur
+      // tape sur un autre jour : valeurs prévues à la BM de ce jour.
+      var windData = null, swellData = null;
+      if (h.windspeed_10m && h.winddirection_10m && h.windspeed_10m[bestIdx] !== null) {
+        windData = {
+          speed: h.windspeed_10m[bestIdx],
+          direction: h.winddirection_10m[bestIdx],
+          gusts: (h.windgusts_10m && h.windgusts_10m[bestIdx] !== null) ? h.windgusts_10m[bestIdx] : null
+        };
+      }
+      if (typeof S_spotMarineCache !== 'undefined' && S_spotMarineCache && S_spotMarineCache.wave_height) {
+        // Trouve l'idx marine équivalent au targetMs (les arrays peuvent différer)
+        var marineIdx = -1;
+        var bestMarineDelta = Infinity;
+        if (S_spotMarineCache.time) {
+          for (var mi = 0; mi < S_spotMarineCache.time.length; mi++) {
+            var mdiff = Math.abs(new Date(S_spotMarineCache.time[mi]).getTime() - targetMs);
+            if (mdiff < bestMarineDelta) { bestMarineDelta = mdiff; marineIdx = mi; }
+          }
+        }
+        if (marineIdx >= 0 && S_spotMarineCache.wave_height[marineIdx] !== null && S_spotMarineCache.wave_height[marineIdx] !== undefined) {
+          swellData = {
+            height: S_spotMarineCache.wave_height[marineIdx],
+            period: (S_spotMarineCache.wave_period && S_spotMarineCache.wave_period[marineIdx] !== null) ? S_spotMarineCache.wave_period[marineIdx] : null
+          };
+        }
+      }
       var vizLabel, vizKey;
       if (score >= 80) { vizLabel = 'Excellente'; vizKey = 'excellente'; }
       else if (score >= 60) { vizLabel = 'Bonne'; vizKey = 'bonne'; }
@@ -9627,23 +9738,9 @@ function escapeHtml(s) {
         try { coef = getCoefForDate(dateISO); } catch(e) { coef = null; }
       }
 
-      // Marées du jour (extraites de TIDES.extremes)
-      var pm = null, bm = null;
-      if (typeof TIDES !== 'undefined' && TIDES.extremes) {
-        var dayExtremes = TIDES.extremes.filter(function(e) {
-          return e.time.slice(0, 10) === dateISO;
-        });
-        var pmEx = dayExtremes.filter(function(e) { return e.type === 'high'; });
-        var bmEx = dayExtremes.filter(function(e) { return e.type === 'low'; });
-        if (pmEx.length > 0) {
-          var pdt = new Date(pmEx[0].time);
-          pm = { time: ('0' + pdt.getHours()).slice(-2) + ':' + ('0' + pdt.getMinutes()).slice(-2), height: pmEx[0].height };
-        }
-        if (bmEx.length > 0) {
-          var bdt = new Date(bmEx[0].time);
-          bm = { time: ('0' + bdt.getHours()).slice(-2) + ':' + ('0' + bdt.getMinutes()).slice(-2), height: bmEx[0].height };
-        }
-      }
+// Marées du jour : variables pmEarly/bmEarly déjà calculées plus haut
+      // (besoin anticipé pour calibrer bestIdx sur la BM). On les renomme.
+      var pm = pmEarly, bm = bmEarly;
 
       // Tide pour la frise (étale principale en journée)
       var tideForFrise = null;
@@ -9654,7 +9751,7 @@ function escapeHtml(s) {
         tideForFrise = vzmPickDayTide(dayExt);
       }
 
-      days.push({
+days.push({
         dateISO: dateISO,
         dayLabel: ['DIM','LUN','MAR','MER','JEU','VEN','SAM'][date.getDay()],
         dayNum: ('0' + date.getDate()).slice(-2),
@@ -9664,18 +9761,28 @@ function escapeHtml(s) {
         coef: coef,
         pm: pm,
         bm: bm,
-        tideForFrise: tideForFrise
+        tideForFrise: tideForFrise,
+        bestIdx: bestIdx,
+        windData: windData,
+        swellData: swellData
       });
     }
     return days;
   }
 
   // === Rendu de la frise 7 jours ===
-  function vzmRenderForecast() {
+function vzmRenderForecast() {
     var grid = document.getElementById('vzmForecastGrid');
     if (!grid) return;
     VZM.forecastDays = vzmBuildForecastDays();
     grid.innerHTML = '';
+    
+    // CHANTIER MOBILE Commit 2/2 : remplit le mini-bloc avec aujourd'hui
+    // par défaut (créneau BM). L'utilisateur peut taper sur un autre jour
+    // pour réactualiser le mini-bloc.
+    if (VZM.forecastDays.length > 0 && typeof vzmUpdateConditionsMini === 'function') {
+      vzmUpdateConditionsMini(VZM.forecastDays[0]);
+    }
     VZM.forecastDays.forEach(function(day, i) {
       var cClass = vzmCoefClass(day.coef);
       var coefDisplay = (day.coef === null || day.coef === undefined) ? '—' : day.coef;
