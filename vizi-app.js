@@ -1772,9 +1772,18 @@ function openSpotPopup(latlng, name) {
       
       // ----- FIN PIPELINE : V4 calculé une seule fois avec tout le contexte -----
       // Petit délai pour que l'utilisateur voie le 4e segment passer en done avant disparition
-      setTimeout(function() {
+   setTimeout(function() {
         if (!_isGenValid()) return;
         _hidePipelineLoader();
+        
+        // CHANTIER 1 fix : invalide le cache V4 pour forcer recalcul
+        // avec TOUT le contexte (depth, sediment, marine, zone tous remplis)
+        // Le cache peut contenir un résultat empirical produit par un render
+        // intermédiaire déclenché par fetchSpotWeather (parallèle, arrive
+        // souvent avant la marine).
+        if (typeof invalidateChainCache === 'function') {
+          invalidateChainCache();
+        }
         
         // Render unique du drawer avec tout le contexte
         if (typeof renderSpotPopup === 'function') {
