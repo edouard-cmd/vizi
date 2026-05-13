@@ -1589,28 +1589,85 @@ function renderForecastTable(h, now, modelMap) {
   document.getElementById('forecastTable').innerHTML = html;
 }
 function openSpotPopup(latlng, name) {
-  // Patch 6/6 : invalidation du cache de la chaîne physique
-  // Justification : un nouveau clic ouvre un nouveau spot avec
-  // potentiellement une lat/lon/depth/sediment différents.
-  // Le cache _chainCache indexé par ces variables est invalide
-  // dans ce nouveau contexte. On le vide pour éviter qu'un
-  // ancien calcul pollue le nouveau (hygiène cache).
+  // ============================================================
+  // CHANTIER 1 — Pipeline séquentiel avec compteur génération
+  // ------------------------------------------------------------
+  // Architecture refactorée pour éliminer les désynchronisations
+  // entre fetchs async parallèles. Les 4 étapes critiques pour
+  // V4 (depth → sediment → marine → zone) s'exécutent en cascade
+  // SÉQUENTIELLE, avec un compteur _pipelineGen qui invalide les
+  // pipelines obsolètes (clics rapides).
+  //
+  // Un loader UI 4 segments (Patch Chantier 1 commit 1/3) montre
+  // visuellement l'avancement.
+  //
+  // Le V4 final est calculé UNE SEULE FOIS à la fin, avec tout
+  // le contexte (S._spotDepth, S._spotSediment, S_spotMarineCache,
+  // S_spotZoneCache tous remplis). renderSpotPopup() unique en fin.
+  //
+  // fetchSpotWeather et loadDrawerTides restent en parallèle car
+  // indépendants de la chaîne V4 (alimentent uniquement vent/PMBM).
+  // ============================================================
+  
+  // ----- Incrémente le compteur de génération -----
+  // Permet d'identifier si un .then() qui résout tardivement vient
+  // d'un clic obsolète (utilisateur a cliqué ailleurs entre temps)
+  if (typeof S._pipelineGen !== 'number') S._pipelineGen = 0;
+  S._pipelineGen++;
+  var myGen = S._pipelineGen;
+  
+  // ----- Helper interne : marque les étapes du loader -----
+  function _setPipelineStep(stepName, state) {
+    var loader = document.getElementById('vzPipelineLoader');
+    if (!loader) return;
+    var step = loader.querySelector('[data-step="' + stepName + '"]');
+    if (!step) return;
+    step.classList.remove('is-active', 'is-done');
+    if (state === 'active') step.classList.add('is-active');
+    else if (state === 'done') step.classList.add('is-done');
+  }
+  
+  // ----- Helper : show/hide loader + reset état des steps -----
+  function _showPipelineLoader() {
+    var loader = document.getElementById('vzPipelineLoader');
+    if (!loader) return;
+    loader.style.display = 'block';
+    loader.querySelectorAll('.vz-pipeline-step').forEach(function(s) {
+      s.classList.remove('is-active', 'is-done');
+    });
+  }
+  function _hidePipelineLoader() {
+    var loader = document.getElementById('vzPipelineLoader');
+    if (loader) loader.style.display = 'none';
+  }
+  
+  // ----- Helper : vérifie si la génération est encore valide -----
+  function _isGenValid() {
+    return S._pipelineGen === myGen;
+  }
+  
+  // ----- Reset cache de la chaîne physique (hygiène) -----
   if (typeof invalidateChainCache === 'function') {
     invalidateChainCache();
   }
+  
+  // ----- Setup spot context -----
   S.clickLatLng = latlng;
-  // Si le drawer marees est ouvert, on bascule sur le port le plus proche du clic
-    if (typeof TIDES_DRAWER !== 'undefined' && TIDES_DRAWER.isOpen && VZ_SHEET.mode === 'tides') {
-  var nearestPort = findNearestTidePort(latlng.lat, latlng.lng);
-  if (nearestPort) {
-    TIDES_DRAWER.currentPort = nearestPort;
-    addTidesPortHalo(nearestPort.lat, nearestPort.lon);
-    var today = new Date();
-    TIDES_DRAWER.selectedDate = today.toISOString().split('T')[0];
-    updateSheetHeader('Marées', nearestPort.name);
-    fetchTidesSheetData();
+  
+  // Marées drawer ouvert : bascule sur port le plus proche
+  if (typeof TIDES_DRAWER !== 'undefined' && TIDES_DRAWER.isOpen && VZ_SHEET.mode === 'tides') {
+    var nearestPort = findNearestTidePort(latlng.lat, latlng.lng);
+    if (nearestPort) {
+      TIDES_DRAWER.currentPort = nearestPort;
+      addTidesPortHalo(nearestPort.lat, nearestPort.lon);
+      var today = new Date();
+      TIDES_DRAWER.selectedDate = today.toISOString().split('T')[0];
+      updateSheetHeader('Marées', nearestPort.name);
+      fetchTidesSheetData();
+    }
   }
-}
+  
+  // Marker pulse sur le clic
   if (S.clickMarker) S.map.removeLayer(S.clickMarker);
   var pulseIcon = L.divIcon({
     className: '',
@@ -1625,73 +1682,25 @@ function openSpotPopup(latlng, name) {
     iconSize: [40, 40], iconAnchor: [20, 20]
   });
   S.clickMarker = L.marker([latlng.lat, latlng.lng], { icon: pulseIcon, interactive: false }).addTo(S.map);
+  
+  // Estimation initiale (rendue temporaire jusqu'à fetchRealDepth)
   var distToCoastMeters = estimateDistanceToCoast(latlng.lat, latlng.lng);
   var depthEstimate = Math.max(1.5, Math.min(30, distToCoastMeters * 0.004 + 1.5));
   S._spotDepth = depthEstimate;
   S._distToCoast = distToCoastMeters;
-  // Skeleton loader pendant le fetch de la profondeur reelle
+  
+  // Skeleton loader sur PROFONDEUR/COEF
   var depthEl = document.getElementById('spotDepthVal');
   var coefEl = document.getElementById('spotCoefVal');
   if (depthEl) { depthEl.textContent = ''; depthEl.className = 'spot-depth-coef-val is-loading'; }
   if (coefEl) { coefEl.textContent = ''; coefEl.className = 'spot-depth-coef-val is-loading'; }
-fetchRealDepth(latlng.lat, latlng.lng).then(function(realDepth) {
-    if (realDepth !== null && realDepth > 0) {
-      // realDepth est déjà la valeur corrigée (cf. fetchRealDepth)
-      S._spotDepth = realDepth;
-    }
-    // Met a jour PROFONDEUR/COEF immediatement, meme si la meteo n'est pas encore arrivee
-    var lat = S.clickLatLng ? S.clickLatLng.lat : latlng.lat;
-    var lon = S.clickLatLng ? S.clickLatLng.lng : latlng.lng;
-  if (typeof renderDepthCoefBlock === 'function') {
-      renderDepthCoefBlock(S._spotDepth, lat, lon);
-    }
-    if (S_spotWeatherCache) renderSpotPopup();
-    
-    // ============================================================
-    // PATCH 8-C-2c — Déclenchement fetchSedimentZone (multi-classes)
-    // ------------------------------------------------------------
-    // Une fois la profondeur connue, on lance le fetch zonal EMODnet
-    // en background. Quand la promise résout, S_spotZoneCache est
-    // rempli et V4 peut basculer du chemin mono-classe au chemin
-    // multi-classes au prochain rendu.
-    //
-    // On invalide _chainCache pour forcer V4 à recalculer avec la
-    // zone. On re-render le drawer si la météo est arrivée.
-    //
-    // Erreurs : fetchSedimentZone gère ses propres erreurs et cache
-    // les résultats erreur pour éviter les retries. On enveloppe
-    // d'un .catch() pour blinder.
-    // ============================================================
-if (typeof fetchSedimentZone === 'function' && S._spotDepth && S._spotDepth > 0) {
-      // PATCH 8-C-2c v2 : utilise la profondeur INSTANTANÉE (LAT + marée)
-      // pour calculer le rayon hydrodynamique. La colonne d'eau réelle
-      // au moment T dicte la zone d'influence sur la suspension, pas
-      // le zéro hydrographique. depthAtTimeCached est déjà disponible
-      // dans le scope global (utilisée par V4).
-      var nowTs = new Date().toISOString();
-      var depthInstantNow = (typeof depthAtTimeCached === 'function')
-        ? depthAtTimeCached(S._spotDepth, nowTs)
-        : S._spotDepth;
-     fetchSedimentZone(lat, lon, depthInstantNow).then(function(zone) {
-        if (!zone || !zone.classes || zone.classes.length < 1) {
-          // 0 classe (échec WFS ou hors couverture) → pas de re-render
-          return;
-        }
-        // Au moins 2 classes → multi-classes va prendre effet au prochain V4
-        if (typeof invalidateChainCache === 'function') {
-          invalidateChainCache();
-        }
-        // Re-render si météo arrivée (sinon le futur renderSpotPopup du flux
-        // météo classique recalculera de toute façon)
-        if (S_spotWeatherCache && typeof renderSpotPopup === 'function') {
-          renderSpotPopup();
-        }
-      }).catch(function(err) {
-        console.warn('[fetchSedimentZone] échec branchement openSpotPopup:', err);
-        // pas de re-render, le mono-classe reste affiché
-      });
-    }
-  });
+  
+  // Reset caches V4
+  S_spotWeatherCache = null;
+  S_spotMarineCache = null;
+  S_spotSunCache = null;
+  
+  // Ouvre le drawer
   var now = new Date();
   document.getElementById('spotDate').value = now.toISOString().split('T')[0];
   document.getElementById('spotTime').value = now.getHours().toString().padStart(2, '0') + ':00';
@@ -1699,28 +1708,110 @@ if (typeof fetchSedimentZone === 'function' && S._spotDepth && S._spotDepth > 0)
   document.getElementById('spotSunrise').textContent = '-';
   document.getElementById('spotSunset').textContent = '-';
   document.getElementById('spotDrawer').classList.add('open');
-  S_spotWeatherCache = null;
-  S_spotMarineCache = null;
-  S_spotSunCache = null;
+  
+  // ----- Lance le loader 4 étapes -----
+  _showPipelineLoader();
+  _setPipelineStep('depth', 'active');
+  
+  // ----- Fetches indépendants en parallèle (non bloquants pour le pipeline) -----
   fetchSpotWeather(latlng.lat, latlng.lng);
-  fetchSpotMarineAndSun(latlng.lat, latlng.lng);
-  fetchSedimentType(latlng.lat, latlng.lng);
   loadDrawerTides(latlng.lat, latlng.lng);
-    // Si le bandeau Conditions est ouvert, on le rafraîchit avec le nouveau spot
-    // Si le bandeau Conditions est ouvert, on le rafraîchit avec le nouveau spot
-  if (typeof VZ_SHEET !== 'undefined' && VZ_SHEET.mode === 'cond') {
-    var newSpot = {
-      lat: latlng.lat,
-      lng: latlng.lng,
-      name: name || getSpotDisplayName(latlng.lat, latlng.lng),
-      depth: S._spotDepth || null
-    };
-    VZ_SHEET.spot = newSpot;
-    updateSheetHeader('Prévisions 5 jours', newSpot.name);
-    var bodySheet = document.getElementById('vzSheetBody');
-    if (bodySheet) bodySheet.innerHTML = '<div class="vz-sheet-loading">Chargement des prévisions...</div>';
-    loadSheetConditions(newSpot);
-  }
+  
+  // ============================================================
+  // PIPELINE SÉQUENTIEL : depth → sediment → marine → zone → V4
+  // ============================================================
+  
+  fetchRealDepth(latlng.lat, latlng.lng)
+    .then(function(realDepth) {
+      if (!_isGenValid()) return Promise.reject({ obsolete: true });
+      if (realDepth !== null && realDepth > 0) {
+        S._spotDepth = realDepth;
+      }
+      // Affiche PROFONDEUR/COEF dès maintenant
+      var lat = S.clickLatLng ? S.clickLatLng.lat : latlng.lat;
+      var lon = S.clickLatLng ? S.clickLatLng.lng : latlng.lng;
+      if (typeof renderDepthCoefBlock === 'function') {
+        renderDepthCoefBlock(S._spotDepth, lat, lon);
+      }
+      _setPipelineStep('depth', 'done');
+      _setPipelineStep('sediment', 'active');
+      
+      // Step 2 : sédiment ponctuel
+      return fetchSedimentType(latlng.lat, latlng.lng);
+    })
+    .then(function(_sed) {
+      if (!_isGenValid()) return Promise.reject({ obsolete: true });
+      _setPipelineStep('sediment', 'done');
+      _setPipelineStep('marine', 'active');
+      
+      // Step 3 : conditions mer + soleil
+      return fetchSpotMarineAndSun(latlng.lat, latlng.lng);
+    })
+    .then(function(_marine) {
+      if (!_isGenValid()) return Promise.reject({ obsolete: true });
+      _setPipelineStep('marine', 'done');
+      _setPipelineStep('zone', 'active');
+      
+      // Step 4 : sédiment zonal (avec profondeur instantanée LAT+marée)
+      var lat = S.clickLatLng.lat;
+      var lon = S.clickLatLng.lng;
+      var nowTs = new Date().toISOString();
+      var depthInstantNow = (typeof depthAtTimeCached === 'function')
+        ? depthAtTimeCached(S._spotDepth, nowTs)
+        : S._spotDepth;
+      
+      if (typeof fetchSedimentZone === 'function' && S._spotDepth && S._spotDepth > 0) {
+        return fetchSedimentZone(lat, lon, depthInstantNow);
+      } else {
+        return null;  // zone optionnelle, on continue sans
+      }
+    })
+    .then(function(_zone) {
+      if (!_isGenValid()) return Promise.reject({ obsolete: true });
+      _setPipelineStep('zone', 'done');
+      
+      // ----- FIN PIPELINE : V4 calculé une seule fois avec tout le contexte -----
+      // Petit délai pour que l'utilisateur voie le 4e segment passer en done avant disparition
+      setTimeout(function() {
+        if (!_isGenValid()) return;
+        _hidePipelineLoader();
+        
+        // Render unique du drawer avec tout le contexte
+        if (typeof renderSpotPopup === 'function') {
+          renderSpotPopup();
+        }
+        
+        // Rafraîchit le bandeau Conditions s'il est ouvert (avec tout le contexte zonal)
+        if (typeof VZ_SHEET !== 'undefined' && VZ_SHEET.mode === 'cond') {
+          var newSpot = {
+            lat: latlng.lat,
+            lng: latlng.lng,
+            name: name || getSpotDisplayName(latlng.lat, latlng.lng),
+            depth: S._spotDepth || null
+          };
+          VZ_SHEET.spot = newSpot;
+          updateSheetHeader('Prévisions 5 jours', newSpot.name);
+          var bodySheet = document.getElementById('vzSheetBody');
+          if (bodySheet) bodySheet.innerHTML = '<div class="vz-sheet-loading">Chargement des prévisions...</div>';
+          loadSheetConditions(newSpot);
+        }
+      }, 250);
+    })
+    .catch(function(err) {
+      // Erreur réseau OU pipeline obsolète
+      if (err && err.obsolete) {
+        // Pipeline obsolète, on ne fait rien (un autre pipeline plus récent prend la main)
+        return;
+      }
+      // Vraie erreur réseau
+      console.error('[openSpotPopup] échec pipeline:', err);
+      if (!_isGenValid()) return;
+      _hidePipelineLoader();
+      // Render quand même avec ce qu'on a (mode dégradé)
+      if (typeof renderSpotPopup === 'function') {
+        renderSpotPopup();
+      }
+    });
 }
 
 function closeSpotPopup() {
