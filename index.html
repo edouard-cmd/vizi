@@ -3481,6 +3481,45 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
   background: rgba(255,255,255,0.15);
   border-radius: 3px;
 }
+    .vz-explain-modal-body::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.15);
+  border-radius: 3px;
+}
+
+/* CHANTIER MOBILE — Footer modal avec bouton Fermer */
+.vz-explain-modal-footer {
+  flex-shrink: 0;
+  padding: 14px 20px 18px;
+  border-top: 0.5px solid var(--vz-border-glass);
+  background: var(--vz-bg-glass-strong);
+  -webkit-backdrop-filter: blur(var(--vz-blur));
+  backdrop-filter: blur(var(--vz-blur));
+}
+.vz-explain-modal-back {
+  width: 100%;
+  height: 48px;
+  background: var(--vz-accent);
+  color: var(--vz-bg-deep);
+  border: none;
+  border-radius: var(--vz-radius-pill);
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 4px 14px rgba(77,212,168,0.25);
+}
+.vz-explain-modal-back:hover,
+.vz-explain-modal-back:active {
+  background: var(--vz-accent-strong);
+  transform: translateY(-1px);
+}
+.vz-explain-modal-back:active {
+  transform: translateY(0) scale(0.98);
+  box-shadow: 0 2px 8px rgba(77,212,168,0.2);
+}
 @media (max-width: 768px) {
   .vz-explain-overlay { padding: 12px; align-items: flex-end; }
   .vz-explain-modal { max-height: 90vh; border-radius: 18px; }
@@ -5502,7 +5541,12 @@ onAuthStateChanged(auth, (user) => {
         </svg>
       </button>
     </div>
-    <div class="vz-explain-modal-body" id="vzExplainModalContent"></div>
+ <div class="vz-explain-modal-body" id="vzExplainModalContent"></div>
+    <div class="vz-explain-modal-footer">
+      <button class="vz-explain-modal-back" onclick="closeVisExplain()" type="button">
+        Fermer
+      </button>
+    </div>
   </div>
 </div>
 </body>
