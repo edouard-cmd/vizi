@@ -3917,7 +3917,95 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
     color: var(--vz-text-on-dark);
     font-weight: 500;
   }
-
+.vzm-verdict-explain strong {
+    color: var(--vz-text-on-dark);
+    font-weight: 500;
+  }
+  
+  /* === CHANTIER MOBILE — Mini-bloc Vent + Houle === */
+  .vzm-conditions-mini {
+    margin: 0 4px 10px;
+    padding: 12px 14px;
+    background: rgba(20, 48, 74, 0.35);
+    border: 0.5px solid var(--vz-border-glass);
+    border-radius: var(--vz-radius-card);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .vzm-cond-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: var(--vz-text-on-dark);
+  }
+  .vzm-cond-icon {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    color: var(--vz-accent);
+    opacity: 0.85;
+  }
+  .vzm-cond-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--vz-text-on-dark-muted);
+    min-width: 50px;
+  }
+  .vzm-cond-value {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--vz-text-on-dark);
+    flex: 1;
+  }
+  
+  /* === CHANTIER MOBILE — Bouton "Pourquoi cette visibilité" === */
+  .vzm-explain-trigger {
+    margin: 0 4px 14px;
+    padding: 14px 16px;
+    width: calc(100% - 8px);
+    background: rgba(77, 212, 168, 0.08);
+    border: 0.5px solid var(--vz-accent-border);
+    border-radius: var(--vz-radius-card);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    color: var(--vz-accent);
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.1s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .vzm-explain-trigger:active {
+    background: rgba(77, 212, 168, 0.15);
+    transform: scale(0.98);
+  }
+  .vzm-explain-trigger-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .vzm-explain-trigger-label svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+  .vzm-explain-trigger-chevron {
+    width: 18px;
+    height: 18px;
+    opacity: 0.7;
+    flex-shrink: 0;
+  }
+  
+  /* === FRISE 7 JOURS === */
   /* === FRISE 7 JOURS === */
   .vzm-forecast {
     padding: 14px 16px;
@@ -4944,7 +5032,46 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
           Chargement des conditions...
         </p>
       </div>
-
+<p class="vzm-verdict-explain" id="vzmVerdictExplain">
+          Chargement des conditions...
+        </p>
+      </div>
+      
+      <!-- CHANTIER MOBILE — Mini-bloc Vent + Houle + bouton Pourquoi -->
+      <div class="vzm-conditions-mini">
+        <div class="vzm-cond-row">
+          <svg class="vzm-cond-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"></path>
+          </svg>
+          <span class="vzm-cond-label">Vent</span>
+          <span class="vzm-cond-value" id="vzmCondWind">—</span>
+        </div>
+        <div class="vzm-cond-row">
+          <svg class="vzm-cond-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M2 12c2 -2 4 -2 6 0s4 2 6 0 4 -2 6 0"></path>
+            <path d="M2 18c2 -2 4 -2 6 0s4 2 6 0 4 -2 6 0"></path>
+            <path d="M2 6c2 -2 4 -2 6 0s4 2 6 0 4 -2 6 0"></path>
+          </svg>
+          <span class="vzm-cond-label">Houle</span>
+          <span class="vzm-cond-value" id="vzmCondSwell">—</span>
+        </div>
+      </div>
+      
+      <button class="vzm-explain-trigger" onclick="toggleVisExplain()" type="button">
+        <span class="vzm-explain-trigger-label">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="16" x2="12" y2="12"></line>
+            <line x1="12" y1="8" x2="12.01" y2="8"></line>
+          </svg>
+          <span>Pourquoi cette visibilité ?</span>
+        </span>
+        <svg class="vzm-explain-trigger-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+      </button>
+      
+      <div class="vzm-forecast">
       <div class="vzm-forecast">
         <div class="vzm-forecast-header">
           <span class="vzm-forecast-title">7 prochains jours</span>
