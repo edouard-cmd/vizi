@@ -4589,6 +4589,77 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
   }
 
 } /* Fin @media (max-width: 768px) */
+    /* FIX CHANTIER MOBILE - force taille mini-bloc + bouton */
+#spotDrawerMobile .vzm-conditions-mini {
+  margin: 0 4px 10px !important;
+  padding: 12px 14px !important;
+  background: rgba(20, 48, 74, 0.35) !important;
+  border: 0.5px solid var(--vz-border-glass) !important;
+  border-radius: var(--vz-radius-card) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+}
+#spotDrawerMobile .vzm-cond-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  font-size: 13px !important;
+  line-height: 1.3 !important;
+  color: var(--vz-text-on-dark) !important;
+}
+#spotDrawerMobile .vzm-cond-icon {
+  flex-shrink: 0 !important;
+  width: 16px !important;
+  height: 16px !important;
+  color: var(--vz-accent) !important;
+}
+#spotDrawerMobile .vzm-cond-label {
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 11px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+  color: var(--vz-text-on-dark-muted) !important;
+  min-width: 50px !important;
+}
+#spotDrawerMobile .vzm-cond-value {
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: var(--vz-text-on-dark) !important;
+  flex: 1 !important;
+}
+#spotDrawerMobile .vzm-explain-trigger {
+  margin: 0 4px 14px !important;
+  padding: 14px 16px !important;
+  width: calc(100% - 8px) !important;
+  background: rgba(77, 212, 168, 0.08) !important;
+  border: 0.5px solid var(--vz-accent-border) !important;
+  border-radius: var(--vz-radius-card) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+  color: var(--vz-accent) !important;
+  font-family: 'Inter', sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  height: auto !important;
+  min-height: 0 !important;
+}
+#spotDrawerMobile .vzm-explain-trigger-label {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+#spotDrawerMobile .vzm-explain-trigger-label svg {
+  width: 18px !important;
+  height: 18px !important;
+}
+#spotDrawerMobile .vzm-explain-trigger-chevron {
+  width: 18px !important;
+  height: 18px !important;
+}
   </style>
 </head>
 <body>
