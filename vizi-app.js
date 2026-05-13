@@ -5539,9 +5539,8 @@ function fetchSpotMarineAndSun(lat, lon) {
     + '&timezone=Europe/Paris'
     + '&start_date=' + fmt(start) + '&end_date=' + fmt(end);
 
-  fetch(marineUrl).then(function(r) { return r.json(); }).then(function(d) {
+var marinePromise = fetch(marineUrl).then(function(r) { return r.json(); }).then(function(d) {
     if (!d.hourly) return;
-
     // Stockage complet pour les briques physiques en aval
     S_spotMarineCache = d.hourly;
 
@@ -5552,9 +5551,10 @@ function fetchSpotMarineAndSun(lat, lon) {
         document.getElementById('spotSeaTemp').textContent = temp.toFixed(1) + ' C';
       }
     }
-  }).catch(function(err) {
+}).catch(function(err) {
     console.warn('[VIZI] marine API failed:', err);
     S_spotMarineCache = null;
+    throw err;  // CHANTIER 1 : rethrow pour propager au pipeline séquentiel
   });
 
   // Lever/coucher soleil - inchange
@@ -5569,8 +5569,12 @@ function fetchSpotMarineAndSun(lat, lon) {
       document.getElementById('spotSunset').textContent = d.daily.sunset[0].slice(11, 16);
       S._sunsetTime = d.daily.sunset[0].slice(11, 16);
     }
-    if (TIDES.data && TIDES.extremes) renderTidesForSelectedDate();
+if (TIDES.data && TIDES.extremes) renderTidesForSelectedDate();
   }).catch(function() {});
+  
+  // CHANTIER 1 : retourne la promise marine pour le pipeline séquentiel
+  // (le sun reste en side-effect, non critique pour V4)
+  return marinePromise;
 }
 
 // ============================================================
