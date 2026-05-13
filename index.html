@@ -418,6 +418,89 @@
   background: rgba(255,255,255,0.06) !important;
   border: 0.5px solid var(--vz-border-glass) !important;
 }
+    /* ============================================================
+   CHANTIER 1 — Loader pipeline 4 étapes (séquentiel)
+   ------------------------------------------------------------
+   Affiché pendant la cascade de fetchs au clic spot :
+   Profondeur → Sédiment → Conditions mer → Zone
+   Disparaît une fois le V4 calculé avec tout le contexte.
+   ============================================================ */
+#spotDrawer .vz-pipeline-loader {
+  padding: 14px 0 6px;
+  margin: -4px 0 8px;
+}
+#spotDrawer .vz-pipeline-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--vz-text-on-dark-faint);
+  text-align: center;
+  margin-bottom: 12px;
+}
+#spotDrawer .vz-pipeline-segments {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+#spotDrawer .vz-pipeline-step {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: center;
+}
+#spotDrawer .vz-pipeline-step-bar {
+  width: 100%;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+#spotDrawer .vz-pipeline-step-label {
+  font-family: 'Inter', sans-serif;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--vz-text-on-dark-faint);
+  text-align: center;
+  transition: color 0.3s ease;
+}
+
+/* État "en cours" : barre pulse en teal */
+#spotDrawer .vz-pipeline-step.is-active .vz-pipeline-step-bar::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    var(--vz-accent) 50%,
+    transparent 100%);
+  animation: vz-pipeline-shimmer 1.2s ease-in-out infinite;
+}
+#spotDrawer .vz-pipeline-step.is-active .vz-pipeline-step-label {
+  color: var(--vz-accent);
+}
+
+/* État "complété" : barre teal plein */
+#spotDrawer .vz-pipeline-step.is-done .vz-pipeline-step-bar {
+  background: linear-gradient(90deg,
+    var(--vz-accent-deep) 0%,
+    var(--vz-accent) 100%);
+}
+#spotDrawer .vz-pipeline-step.is-done .vz-pipeline-step-label {
+  color: var(--vz-accent-strong);
+}
+
+@keyframes vz-pipeline-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
 
 /* Blocs vent / mer / sea */
 #spotDrawer .spot-wind-block,
@@ -4714,6 +4797,28 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
     </div>
     <div id="spotTrendArrow" class="spot-trend-arrow" style="display:none;"></div>
 </div>
+      <!-- CHANTIER 1 - Loader pipeline 4 étapes (séquentiel) -->
+      <div class="vz-pipeline-loader" id="vzPipelineLoader" style="display:none;">
+        <div class="vz-pipeline-label">Calcul en cours</div>
+        <div class="vz-pipeline-segments">
+          <div class="vz-pipeline-step" data-step="depth">
+            <div class="vz-pipeline-step-bar"></div>
+            <div class="vz-pipeline-step-label">Profondeur</div>
+          </div>
+          <div class="vz-pipeline-step" data-step="sediment">
+            <div class="vz-pipeline-step-bar"></div>
+            <div class="vz-pipeline-step-label">Sédiment</div>
+          </div>
+          <div class="vz-pipeline-step" data-step="marine">
+            <div class="vz-pipeline-step-bar"></div>
+            <div class="vz-pipeline-step-label">Conditions mer</div>
+          </div>
+          <div class="vz-pipeline-step" data-step="zone">
+            <div class="vz-pipeline-step-bar"></div>
+            <div class="vz-pipeline-step-label">Zone</div>
+          </div>
+        </div>
+      </div>
       <div class="spot-vis-segments">
         <div class="spot-vis-seg" id="visSeg0"></div>
         <div class="spot-vis-seg" id="visSeg1"></div>
