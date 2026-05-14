@@ -3241,7 +3241,85 @@ function computeSuspendedConcentration(tau_max, shieldsResult, w_s, depth, sedim
   if (!isFinite(c_moyen) || c_moyen < 0) return null;
 
   // Conversion en kg/m^3 : c (sans dim) * rho_s
-  var c_moyen_kg = c_moyen * rho_s;
+  var c_moyen_kg_brut = c_moyen * rho_s;
+
+  // ============================================================
+  // PATCH 9-B - GATE DE SUSPENSION SELON LE NOMBRE DE ROUSE
+  // ------------------------------------------------------------
+  // La sortie c_moyen_kg de Rouse 1937 represente la concentration
+  // TOTALE en suspension dans la colonne d'eau, sans distinction
+  // du mode de transport. Or selon le nombre de Rouse P, le
+  // sediment ne contribue pas de la meme maniere a la visibilite
+  // horizontale du chasseur sous-marin :
+  //
+  //   - P < 0.8 : pleine suspension (Soulsby 1997 ch.8 §3.1)
+  //     Sediment reparti dans toute la colonne d'eau, contribue
+  //     a la visi horizontale a toutes les profondeurs.
+  //     => Facteur d'attenuation optique : 1.0 (pleine contribution)
+  //
+  //   - 0.8 <= P <= 2.5 : suspension partielle / saltation
+  //     Concentration decroit fortement avec la hauteur au-dessus
+  //     du fond. Contribue principalement dans les 1-2 m
+  //     au-dessus du fond, peu dans le reste de la colonne.
+  //     => Transition lineaire de 1.0 a 0.1.
+  //
+  //   - P > 2.5 : charriage / transport de fond
+  //     Sediment confine dans les premiers centimetres au-dessus
+  //     du fond, ne contribue PAS a la visi horizontale dans la
+  //     colonne d'eau. L'oeil du chasseur en percoit eventuellement
+  //     une trace en proximite immediate du fond.
+  //     => Facteur residuel : 0.1
+  //
+  // Justification physique :
+  // Le nombre de Rouse P = w_s / (kappa * u_*) caracterise
+  // l'equilibre entre la vitesse de chute (gravite) et la
+  // turbulence ascendante (cisaillement au fond). Plus P est
+  // grand, plus le sediment est "lourd" relativement a la
+  // turbulence disponible, et plus il reste confine au fond.
+  //
+  // Sources scientifiques :
+  //   - Rouse H. 1937, "Modern conceptions of the mechanics of
+  //     fluid turbulence", Trans. ASCE 102 (profil vertical de
+  //     concentration et nombre adimensionnel P)
+  //   - Bagnold R.A. 1966, "An approach to the sediment transport
+  //     problem from general physics", USGS Prof. Paper 422-I
+  //     (distinction charriage vs suspension)
+  //   - van Rijn L.C. 1984, "Sediment transport, part II:
+  //     Suspended load transport", J. Hydraul. Eng. 110
+  //     (seuils P=0.8 pour pleine suspension, P=2.5 pour charriage)
+  //   - Soulsby R.L. 1997, "Dynamics of Marine Sands", ch.8 §3.1
+  //     (synthese moderne des regimes de transport cotier)
+  //
+  // Compatibilite France entiere :
+  // Le gate est purement physique, sans coordonnee geographique.
+  // Il s'applique identiquement de Dunkerque a Menton :
+  //   - Sables fins en panache fluvial : P ~ 0.3, gate sans effet
+  //   - Sables medium en tempete : P ~ 1.0-1.5, gate en transition
+  //   - Cailloutis mobilises : P > 5, gate a 0.1 (charriage)
+  //
+  // Limites assumees :
+  //   - L'utilisateur en proximite immediate du fond (< 1m) percoit
+  //     plus de turbidite que la prediction. Acceptable car le
+  //     chasseur explore typiquement les 2-8m au-dessus du fond.
+  //   - La valeur residuelle 0.1 en charriage est conservatrice.
+  //     Calibrable en Phase 2 sur observations communautaires.
+  // ============================================================
+  var rouse_factor;
+  if (rouse_number < 0.8) {
+    rouse_factor = 1.0;
+  } else if (rouse_number > 2.5) {
+    rouse_factor = 0.1;
+  } else {
+    // Transition lineaire entre P=0.8 (facteur 1.0) et P=2.5 (facteur 0.1)
+    rouse_factor = 1.0 - 0.9 * (rouse_number - 0.8) / (2.5 - 0.8);
+  }
+  var c_moyen_kg = c_moyen_kg_brut * rouse_factor;
+
+  // Determine le label du mode de transport pour le log scientifique
+  var transport_mode;
+  if (rouse_number < 0.8) transport_mode = 'pleine suspension';
+  else if (rouse_number > 2.5) transport_mode = 'charriage';
+  else transport_mode = 'suspension partielle';
 
   // Sanity check : concentration plausible
   // En suspension cotiere typique : 0 - 100 kg/m^3 (Soulsby 1997 fig. 39)
@@ -3254,7 +3332,10 @@ function computeSuspendedConcentration(tau_max, shieldsResult, w_s, depth, sedim
     c_a: c_a,
     c_moyen: c_moyen,
     c_moyen_kg: c_moyen_kg,
+    c_moyen_kg_brut: c_moyen_kg_brut,
     rouse_number: rouse_number,
+    rouse_factor: rouse_factor,
+    transport_mode: transport_mode,
     u_star: u_star
   };
 }
@@ -3948,9 +4029,12 @@ result.trace.brique1 = { u_b: u_b };
     _chainCache[cacheKey] = r13;
     return r13;
   }
-  result.trace.brique6 = {
+result.trace.brique6 = {
     c_moyen_kg: concResult.c_moyen_kg,
-    rouse_number: concResult.rouse_number
+    c_moyen_kg_brut: concResult.c_moyen_kg_brut,
+    rouse_number: concResult.rouse_number,
+    rouse_factor: concResult.rouse_factor,
+    transport_mode: concResult.transport_mode
   };
 
 // ============================================================
@@ -4790,9 +4874,17 @@ function renderVisExplain_V2(scoreResult) {
           (t.brique7.w_s * 1000).toFixed(1) + ' mm/s</span></div>' +
         '<div class="vz-explain-row"><span>Concentration moyenne (Rouse 1937)</span><span class="vz-explain-num">' +
           t.brique6.c_moyen_kg.toFixed(4) + ' kg/m³</span></div>' +
-        (t.brique6.rouse_number !== null && t.brique6.rouse_number !== undefined
+      (t.brique6.rouse_number !== null && t.brique6.rouse_number !== undefined
           ? '<div class="vz-explain-row"><span>Nombre de Rouse</span><span class="vz-explain-num">' +
               t.brique6.rouse_number.toFixed(2) + '</span></div>'
+          : '') +
+        (t.brique6.transport_mode
+          ? '<div class="vz-explain-row"><span>Mode de transport</span><span>' +
+              t.brique6.transport_mode + '</span></div>'
+          : '') +
+        (t.brique6.rouse_factor !== undefined && t.brique6.rouse_factor < 1.0
+          ? '<div class="vz-explain-row"><span>Atténuation suspension</span><span class="vz-explain-num">×' +
+              t.brique6.rouse_factor.toFixed(2) + '</span></div>'
           : '') +
       '</div>' +
     '</div>';
@@ -5342,11 +5434,13 @@ function computeChainPerClass(ctx) {
       non_suspendable: true  // marqueur pour V4 mono-classe : si seul sédiment et non_suspendable → fallback empirical
     };
   }
-  trace.brique6 = {
+trace.brique6 = {
     c_moyen_kg: concResult.c_moyen_kg,
-    rouse_number: concResult.rouse_number
+    c_moyen_kg_brut: concResult.c_moyen_kg_brut,
+    rouse_number: concResult.rouse_number,
+    rouse_factor: concResult.rouse_factor,
+    transport_mode: concResult.transport_mode
   };
-
   // BRIQUE 9 — Cinétique de décantation (mémoire temporelle Krone 1962)
   var kinResult = computeKineticConcentration(
     ctx.h, ctx.idx, ctx.depth, ctx.lat, ctx.lon,
