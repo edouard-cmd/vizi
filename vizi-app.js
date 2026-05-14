@@ -1689,11 +1689,50 @@ function openSpotPopup(latlng, name) {
   S._spotDepth = depthEstimate;
   S._distToCoast = distToCoastMeters;
   
-  // Skeleton loader sur PROFONDEUR/COEF
+// Skeleton loader sur PROFONDEUR/COEF
   var depthEl = document.getElementById('spotDepthVal');
   var coefEl = document.getElementById('spotCoefVal');
   if (depthEl) { depthEl.textContent = ''; depthEl.className = 'spot-depth-coef-val is-loading'; }
   if (coefEl) { coefEl.textContent = ''; coefEl.className = 'spot-depth-coef-val is-loading'; }
+  // Injection one-shot du CSS skeleton du badge (idempotent)
+  if (!document.getElementById('vzBadgeLoadingStyle')) {
+    var bls = document.createElement('style');
+    bls.id = 'vzBadgeLoadingStyle';
+    bls.textContent =
+      '#spotVisBadge.is-loading {' +
+        'background: linear-gradient(90deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.06) 100%) !important;' +
+        'background-size: 200% 100% !important;' +
+        'animation: vzBadgePulse 1.4s ease-in-out infinite;' +
+      '}' +
+      '#spotVisBadge.is-loading #spotVisLabel {' +
+        'color: rgba(255,255,255,0.45);' +
+        'font-weight: 500;' +
+      '}' +
+      '@keyframes vzBadgePulse {' +
+        '0% { background-position: 200% 0; }' +
+        '100% { background-position: -200% 0; }' +
+      '}';
+    document.head.appendChild(bls);
+  }
+  // ============================================================
+  // PATCH UX : Skeleton du badge verdict pendant le pipeline
+  // ------------------------------------------------------------
+  // Évite d'afficher un verdict provisoire (souvent empirical)
+  // pendant les 1-2s de chargement du pipeline séquentiel.
+  // Le badge reprend sa valeur via renderSpotPopup quand
+  // _hidePipelineLoader() est appelé en fin de pipeline.
+  // ============================================================
+  var badgeEl = document.getElementById('spotVisBadge');
+  var labelEl = document.getElementById('spotVisLabel');
+  var trendEl = document.getElementById('spotTrendArrow');
+  if (badgeEl) badgeEl.classList.add('is-loading');
+  if (labelEl) labelEl.textContent = 'Calcul...';
+  if (trendEl) trendEl.style.display = 'none';
+  // Reset les 5 segments en gris pendant le calcul
+  for (var sIdx = 0; sIdx < 5; sIdx++) {
+    var segEl = document.getElementById('visSeg' + sIdx);
+    if (segEl) segEl.style.background = 'rgba(255,255,255,0.08)';
+  }
   
   // Reset caches V4
   S_spotWeatherCache = null;
@@ -1926,12 +1965,45 @@ function renderSpotPopup() {
   var score = scoreObj.score;
   S._lastScoreObj = scoreObj;
 
-  var visLabel = score >= 80 ? 'Excellente' : score >= 60 ? 'Bonne' : score >= 40 ? 'Moyenne' : score >= 20 ? 'Faible' : 'Nulle';
+var visLabel = score >= 80 ? 'Excellente' : score >= 60 ? 'Bonne' : score >= 40 ? 'Moyenne' : score >= 20 ? 'Faible' : 'Nulle';
   var badgeColors = { 'Nulle': '#C94A3D', 'Faible': '#E89B3C', 'Moyenne': '#D8C84A', 'Bonne': '#2DA888', 'Excellente': '#4DD4A8' };
   var segColors = ['#C94A3D', '#E89B3C', '#D8C84A', '#2DA888', '#4DD4A8'];
   var levelIdx = ['Nulle', 'Faible', 'Moyenne', 'Bonne', 'Excellente'].indexOf(visLabel);
-  document.getElementById('spotVisBadge').style.background = badgeColors[visLabel] || '#D8C84A';
-
+  
+  // ============================================================
+  // PATCH UX : Skip badge update tant que le pipeline tourne
+  // ------------------------------------------------------------
+  // renderSpotPopup peut etre appele par fetchSpotWeather avant
+  // la fin du pipeline (chemin parallele). On ne met le badge a
+  // jour que quand le loader est cache (= pipeline termine).
+  // ============================================================
+  // ============================================================
+  // PATCH UX : Skip badge update tant que le pipeline tourne
+  // ------------------------------------------------------------
+  // renderSpotPopup peut etre appele par fetchSpotWeather avant
+  // la fin du pipeline (chemin parallele). On ne met a jour le
+  // verdict (badge + label + segments) QUE quand le loader est
+  // cache (= pipeline termine). Le reste du rendu (vent, marees,
+  // meteo) continue normalement plus bas dans renderSpotPopup
+  // pour que l'utilisateur voie le vent et la meteo des que
+  // fetchSpotWeather repond, sans attendre le pipeline.
+  // ============================================================
+  var loaderEl = document.getElementById('vzPipelineLoader');
+  var pipelineRunning = loaderEl && loaderEl.style.display !== 'none' && loaderEl.style.display !== '';
+  if (!pipelineRunning) {
+    var badgeEl = document.getElementById('spotVisBadge');
+    if (badgeEl) {
+      badgeEl.classList.remove('is-loading');
+      badgeEl.style.background = badgeColors[visLabel] || '#D8C84A';
+    }
+    document.getElementById('spotVisLabel').textContent = visLabel;
+    for (var si = 0; si < 5; si++) {
+      var seg = document.getElementById('visSeg' + si);
+      if (seg) seg.style.background = si <= levelIdx ? segColors[si] : 'rgba(255,255,255,0.08)';
+    }
+  }
+  // Si pipeline en cours, le badge garde son etat skeleton (Calcul...)
+  // jusqu'au prochain render apres _hidePipelineLoader().
   function scoreToLabelKey(s) {
     if (s >= 80) return 4;
     if (s >= 60) return 3;
@@ -1966,11 +2038,6 @@ function renderSpotPopup() {
     } else {
       trendArrowEl.style.display = 'none';
     }
-  }
-  document.getElementById('spotVisLabel').textContent = visLabel;
-  for (var si = 0; si < 5; si++) {
-    var seg = document.getElementById('visSeg' + si);
-    if (seg) seg.style.background = si <= levelIdx ? segColors[si] : 'rgba(255,255,255,0.08)';
   }
 
   var windDisp = S_windUnit === 'kt' ? toKt(wind) : wind;
