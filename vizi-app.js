@@ -1824,9 +1824,16 @@ function openSpotPopup(latlng, name) {
           invalidateChainCache();
         }
         
-        // Render unique du drawer avec tout le contexte
+   // Render unique du drawer avec tout le contexte
         if (typeof renderSpotPopup === 'function') {
           renderSpotPopup();
+        }
+        
+        // Recalcule la profondeur instantanee maintenant que les
+        // marees sont chargees (le 1er render au Step 1 a pu donner
+        // le LAT seul si TIDES.data n'etait pas encore arrive).
+        if (S._spotDepth && S.clickLatLng && typeof renderDepthCoefBlock === 'function') {
+          renderDepthCoefBlock(S._spotDepth, S.clickLatLng.lat, S.clickLatLng.lng);
         }
         
         // Rafraîchit le bandeau Conditions s'il est ouvert (avec tout le contexte zonal)
@@ -1920,7 +1927,11 @@ var today = new Date().toISOString().split('T')[0];
   if (prevBtn) prevBtn.disabled = (input.value <= today);
   refreshSpotPopup();
 }
-  function refreshSpotPopup() {
+function refreshSpotPopup() {
+  // Recalcule la profondeur instantanee a la nouvelle date/heure
+  if (S._spotDepth && S.clickLatLng && typeof renderDepthCoefBlock === 'function') {
+    renderDepthCoefBlock(S._spotDepth, S.clickLatLng.lat, S.clickLatLng.lng);
+  }
   if (S_spotWeatherCache) renderSpotPopup();
   // Synchroniser le graphe de marée avec la date du haut
   var newDate = document.getElementById('spotDate').value;
@@ -2087,9 +2098,27 @@ function renderDepthCoefBlock(depth, lat, lon) {
   var coefDescEl = document.getElementById('spotCoefDesc');
   if (!depthEl || !coefEl) return;
 
-  // Profondeur (toujours teal)
+  // ============================================================
+  // PATCH UX : Affichage profondeur reelle avec maree
+  // ------------------------------------------------------------
+  // Le chasseur a besoin de la profondeur INSTANTANEE a l'heure
+  // selectionnee (LAT + hauteur de maree), pas du zero hydro
+  // qui ne signifie rien dans le contexte d'une session.
+  //
+  // Calcul via depthAtTimeCached deja utilise par la chaine
+  // physique 9 briques. Si TIDES.data pas encore charge
+  // (race condition au premier clic), retourne le LAT inchange
+  // - l'affichage sera recale des que les marees arrivent via
+  // refreshSpotPopup -> renderDepthCoefBlock.
+  // ============================================================
   if (depth && depth > 0) {
-    depthEl.textContent = '~' + Math.round(depth);
+    var dateVal = document.getElementById('spotDate').value;
+    var timeVal = document.getElementById('spotTime').value;
+    var timeISO = dateVal + 'T' + timeVal + ':00';
+    var depthInstant = (typeof depthAtTimeCached === 'function')
+      ? depthAtTimeCached(depth, timeISO)
+      : depth;
+    depthEl.textContent = '~' + Math.round(depthInstant);
     depthEl.className = 'spot-depth-coef-val';
   } else {
     depthEl.textContent = '-';
