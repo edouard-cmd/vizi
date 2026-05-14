@@ -4286,8 +4286,26 @@ if (zone && zone.classes && zone.classes.length >= 1) {
       }
     }
     
-    // ============================================================
+// ============================================================
     // PATCH 8-E — Mode B : mono-classe zonal (si Mode A pas activé)
+    // ------------------------------------------------------------
+    // PATCH 8-G : Dominance relative parmi les classes non-rock
+    // ------------------------------------------------------------
+    // Le seuil de 65% est applique sur la PROPORTION RELATIVE
+    // parmi les sediments mobilisables, pas sur la surface absolue.
+    // Justification : en zone cotiere, 30-50% du cercle Monte Carlo
+    // tombe hors polygones EMODnet (mer ouverte non cartographiee),
+    // ce qui ferait artificiellement chuter les pourcentages.
+    // Ce qui compte physiquement, c'est le rapport entre classes
+    // sedimentaires mobilisables qui contribuent a l'optique.
+    //
+    // Garde supplementaire : surface absolue >= 15% pour eviter
+    // d'activer Mode B sur une poche minuscule de sediment au
+    // milieu d'une zone majoritairement rocheuse.
+    //
+    // Source : Krumbein W.C. & Sloss L.L. 1963, "Stratigraphy
+    // and sedimentation", Freeman, ch.4 (geostatistique
+    // sedimentaire, normalisation sur base mobilisable).
     // ============================================================
     if (visResult === null) {
       // Cherche la classe non-rock dominante
@@ -4295,7 +4313,16 @@ if (zone && zone.classes && zone.classes.length >= 1) {
         return (curr.surface_pct > (prev ? prev.surface_pct : 0)) ? curr : prev;
       }, null);
       
-      if (dominantClass && dominantClass.surface_pct >= 65) {
+      // Calcule la dominance relative parmi les classes non-rock
+      var totalNonRockPct = nonRockClasses.reduce(function(s, c) {
+        return s + (c.surface_pct || 0);
+      }, 0);
+      var dominanceRelative = (totalNonRockPct > 0 && dominantClass)
+        ? (dominantClass.surface_pct / totalNonRockPct)
+        : 0;
+      
+      // Mode B s'active si : dominance relative >= 65% ET surface absolue >= 15%
+      if (dominantClass && dominanceRelative >= 0.65 && dominantClass.surface_pct >= 15) {
         // Vérifie que D50 zonal diffère significativement du ponctuel
         var d50Ponctuel = sediment.D50_mm || 0;
         var d50Zonal = dominantClass.D50_mm || 0;
