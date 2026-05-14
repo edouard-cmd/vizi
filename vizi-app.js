@@ -3895,12 +3895,16 @@ var sediment = S._spotSediment;
     // Sinon : early-return empirical comme avant (vraie zone
     // rocheuse a grande echelle).
     // ============================================================
-    var zoneKeyRock = lat.toFixed(4) + '|' + lon.toFixed(4);
-    var zoneRock = (typeof S_spotZoneCache !== 'undefined')
-      ? Object.keys(S_spotZoneCache).filter(function(k) {
-          return k.indexOf(zoneKeyRock) === 0;
-        }).map(function(k) { return S_spotZoneCache[k]; })[0]
-      : null;
+  // Patch 8-I : pipe final pour eviter collisions de prefixe
+    // (ex: 49.66|-1.905 matche 49.6618|-1.9053 sans pipe).
+    var zoneKeyRockPrefix = lat.toFixed(4) + '|' + lon.toFixed(4) + '|';
+    var zoneRock = null;
+    if (typeof S_spotZoneCache !== 'undefined') {
+      var zRockKeys = Object.keys(S_spotZoneCache).filter(function(k) {
+        return k.indexOf(zoneKeyRockPrefix) === 0;
+      });
+      if (zRockKeys.length > 0) zoneRock = S_spotZoneCache[zRockKeys[0]];
+    }
     
     var canActivateModeBUpstream = false;
     var dominantZonalSediment = null;
@@ -4248,9 +4252,24 @@ result.trace.brique6 = {
   var visResult = null;
   var multiClassesActive = false;
   
-// Clé cache zonal identique à celle de fetchSedimentZone (Patch 8-C-2c v2)
-  var zoneKey = lat.toFixed(4) + '|' + lon.toFixed(4);
-  var zone = (typeof S_spotZoneCache !== 'undefined') ? S_spotZoneCache[zoneKey] : null;
+// ============================================================
+  // PATCH 8-I : Lecture cache zonal compatible Patch 8-F
+  // ------------------------------------------------------------
+  // Depuis Patch 8-F, la cle de cache contient le rayon arrondi
+  // (lat|lon|R{rayon}). On cherche toutes les cles qui commencent
+  // par lat|lon| et on prend la premiere (normalement une seule).
+  // Sans ce correctif, Mode A multi-classes et Mode B aval ne
+  // lisent jamais le cache zonal et tombent systematiquement en
+  // fallback empirical, annulant tout l'effet du rayon adaptatif.
+  // ============================================================
+  var zoneKeyPrefix = lat.toFixed(4) + '|' + lon.toFixed(4) + '|';
+  var zone = null;
+  if (typeof S_spotZoneCache !== 'undefined') {
+    var zoneKeys = Object.keys(S_spotZoneCache).filter(function(k) {
+      return k.indexOf(zoneKeyPrefix) === 0;
+    });
+    if (zoneKeys.length > 0) zone = S_spotZoneCache[zoneKeys[0]];
+  }
   
 if (zone && zone.classes && zone.classes.length >= 1) {
     // Filtre les classes non-rock pour le calcul zonal
