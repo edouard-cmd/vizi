@@ -3868,15 +3868,80 @@ function computeVisibilityScore_V4(h, idx, depth, lat, lon) {
     return r1;
   }
 
-  var sediment = S._spotSediment;
+var sediment = S._spotSediment;
   if (sediment.regime === 'rock') {
-    // Roche : pas de sédiment mobilisable. Visibilité dépend
-    // uniquement de la turbidité ambiante de la zone optique.
-    // On bascule en empirical avec note explicite.
-    var r2 = _buildEmpiricalResult(h, idx, depth, lat, lon,
-      'fond rocheux (pas de sédiment mobilisable)');
-    _chainCache[cacheKey] = r2;
-    return r2;
+    // ============================================================
+    // PATCH 8-H : Tentative Mode B amont avant fallback empirical
+    // ------------------------------------------------------------
+    // Si le sediment ponctuel SHOM est rocheux MAIS qu'une zone
+    // sedimentaire est disponible dans le rayon advectif, on tente
+    // d'activer le Mode B mono-classe zonal AVANT de basculer en
+    // empirical. Justification : SHOM 1:250k a une resolution de
+    // 250m, donc un pixel "rocheux" peut etre adjacent a une plage
+    // de sable dont la turbidite advectee influence reellement la
+    // visibilite locale via les courants tidaux.
+    //
+    // Test d'activation Mode B amont :
+    //   - Cache zonal disponible (sinon empirical comme avant)
+    //   - >= 1 classe non-rock dans la zone
+    //   - dominance relative parmi non-rock >= 65%
+    //   - surface absolue de la dominante >= 15%
+    //
+    // Si activation : on utilise le sediment zonal dominant comme
+    // sediment de reference pour la chaine 1-9 (briques 2,3,5,7
+    // exigent D50 valide, donc on substitue le sediment rock par
+    // le sediment zonal).
+    //
+    // Sinon : early-return empirical comme avant (vraie zone
+    // rocheuse a grande echelle).
+    // ============================================================
+    var zoneKeyRock = lat.toFixed(4) + '|' + lon.toFixed(4);
+    var zoneRock = (typeof S_spotZoneCache !== 'undefined')
+      ? Object.keys(S_spotZoneCache).filter(function(k) {
+          return k.indexOf(zoneKeyRock) === 0;
+        }).map(function(k) { return S_spotZoneCache[k]; })[0]
+      : null;
+    
+    var canActivateModeBUpstream = false;
+    var dominantZonalSediment = null;
+    
+    if (zoneRock && zoneRock.classes && zoneRock.classes.length > 0) {
+      var nonRockZ = zoneRock.classes.filter(function(c) {
+        return c.sediment && c.sediment.regime !== 'rock';
+      });
+      if (nonRockZ.length > 0) {
+        var dominantZ = nonRockZ.reduce(function(prev, curr) {
+          return (curr.surface_pct > (prev ? prev.surface_pct : 0)) ? curr : prev;
+        }, null);
+        var totalNonRockZ = nonRockZ.reduce(function(s, c) {
+          return s + (c.surface_pct || 0);
+        }, 0);
+        var dominanceRelZ = (totalNonRockZ > 0 && dominantZ)
+          ? (dominantZ.surface_pct / totalNonRockZ)
+          : 0;
+        if (dominantZ && dominanceRelZ >= 0.65 && dominantZ.surface_pct >= 15) {
+          canActivateModeBUpstream = true;
+          dominantZonalSediment = dominantZ.sediment;
+        }
+      }
+    }
+    
+    if (canActivateModeBUpstream) {
+      // Substitue le sediment ponctuel rocheux par le sediment
+      // zonal dominant pour permettre l'execution de la chaine 1-9.
+      // Note : on ne mute pas S._spotSediment (effets de bord
+      // cross-fonction), on utilise une variable locale.
+      sediment = dominantZonalSediment;
+      // Le flux V4 continue normalement avec ce nouveau sediment.
+      // La branche Mode B en aval detectera deja l'activation et
+      // documentera correctement la trace.
+    } else {
+      // Vraie zone rocheuse a grande echelle : fallback empirical.
+      var r2 = _buildEmpiricalResult(h, idx, depth, lat, lon,
+        'fond rocheux (pas de sédiment mobilisable)');
+      _chainCache[cacheKey] = r2;
+      return r2;
+    }
   }
   if (sediment.regime === 'cohesive') {
     // Vase : chaîne non applicable (flocs en milieu salin,
