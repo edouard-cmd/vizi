@@ -6003,7 +6003,34 @@ function fetchSpotMarineAndSun(lat, lon) {
     + '&start_date=' + fmt(start) + '&end_date=' + fmt(end);
 
 var marinePromise = fetch(marineUrl).then(function(r) { return r.json(); }).then(function(d) {
-    if (!d.hourly) return;
+if (!d.hourly) return;
+    // ============================================================
+    // PATCH UNITÉ : Conversion ocean_current_velocity km/h → m/s
+    // ------------------------------------------------------------
+    // L'API Open-Meteo Marine retourne ocean_current_velocity en
+    // km/h (confirmé par d.hourly_units.ocean_current_velocity =
+    // 'km/h'), mais toute la chaîne physique Visimer (Brique 3
+    // Prandtl/Soulsby, garde V4 "courant aberrant", Patch 8-F
+    // rayon adaptatif, helper getMeanTidalCurrent) attend des m/s.
+    //
+    // Sans cette conversion, toutes les valeurs de courant sont
+    // surestimées d'un facteur 3.6, causant :
+    //   - Surestimation des contraintes au fond (Brique 3)
+    //   - Déclenchement abusif de la garde "courant aberrant"
+    //   - Rayon advectif Patch 8-F démesurément grand
+    //   - Visi prédite catastrophiquement basse sur spots côtiers
+    //
+    // Conversion à la source pour garantir cohérence sémantique :
+    // tous les consommateurs lisent désormais des m/s comme prévu.
+    //
+    // Garde de nullité : Open-Meteo peut retourner null sur les
+    // cellules de terre ferme ou hors couverture maritime.
+    // ============================================================
+    if (d.hourly.ocean_current_velocity && Array.isArray(d.hourly.ocean_current_velocity)) {
+      d.hourly.ocean_current_velocity = d.hourly.ocean_current_velocity.map(function(v) {
+        return (v === null || v === undefined || !isFinite(v)) ? v : (v / 3.6);
+      });
+    }
     // Stockage complet pour les briques physiques en aval
     S_spotMarineCache = d.hourly;
 
