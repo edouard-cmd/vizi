@@ -4890,10 +4890,20 @@ function renderVisExplain_V2(scoreResult) {
     var reason = (scoreResult.trace && scoreResult.trace.fallback_reason)
       ? scoreResult.trace.fallback_reason
       : 'cause inconnue';
-    return (
+return (
       '<div class="vz-explain-engine-tag vz-engine-empirical">' +
         'MODÈLE EMPIRIQUE — chaîne physique non disponible' +
       '</div>' +
+      (S.clickLatLng
+        ? '<div class="vz-explain-section">' +
+            '<div class="vz-explain-section-title">Coordonnées du spot</div>' +
+            '<div class="vz-explain-section-body">' +
+              '<div class="vz-explain-row"><span>GPS</span><span class="vz-explain-num">' +
+                S.clickLatLng.lat.toFixed(4) + ' / ' + S.clickLatLng.lng.toFixed(4) +
+              '</span></div>' +
+            '</div>' +
+          '</div>'
+        : '') +
       '<div class="vz-explain-section">' +
         '<div class="vz-explain-section-title">Pourquoi le modèle physique ne s\'applique pas</div>' +
         '<div class="vz-explain-section-body">' +
@@ -4929,9 +4939,13 @@ function renderVisExplain_V2(scoreResult) {
 
   // SECTION 1 - Données du spot
   html +=
-    '<div class="vz-explain-section">' +
-      '<div class="vz-explain-section-title">1. Données du spot</div>' +
+'<div class="vz-explain-section-title">1. Données du spot</div>' +
       '<div class="vz-explain-section-body">' +
+        (S.clickLatLng
+          ? '<div class="vz-explain-row"><span>Coordonnées GPS</span><span class="vz-explain-num">' +
+              S.clickLatLng.lat.toFixed(4) + ' / ' + S.clickLatLng.lng.toFixed(4) +
+            '</span></div>'
+          : '') +
         '<div class="vz-explain-row"><span>Profondeur (zéro hydro)</span><span class="vz-explain-num">' +
           t.spot.depth_lat.toFixed(2) + ' m</span></div>' +
         '<div class="vz-explain-row"><span>Profondeur avec marée</span><span class="vz-explain-num">' +
