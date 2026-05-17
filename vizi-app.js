@@ -4820,6 +4820,282 @@ function _computeEquilibriumConcentrationAt(h, k, depth_lat, lat, lon, sediment)
 
   return concResult.c_moyen_kg;
 }
+// ============================================================
+// SPRINT 2 — INVERSION BEER-LAMBERT (ZSD satellite → C_kg_m3)
+// ------------------------------------------------------------
+// Convertit la profondeur de Secchi mesurée par satellite en
+// concentration de sédiment équivalente dans la colonne d'eau.
+// C'est l'opération inverse de la Brique 8 (computeVisibility).
+//
+// Loi de Beer-Lambert appliquée au coefficient d'atténuation :
+//     c_total = 1.7 / ZSD                       (Preisendorfer 1986)
+//     c_total = c_baseline_régional + b_local·C
+//     => C_kg_m3 = (c_total - c_baseline) / b_local
+//
+// Sources scientifiques :
+//   - Preisendorfer R.W. 1986, "Secchi disk science: visual
+//     optics of natural waters", Limnol. Oceanogr. 31(5)
+//     (relation Secchi vs c_total : facteur 1.7)
+//   - Babin M. et al. 2003, "Variations in the light absorption
+//     coefficients of phytoplankton, non-algal particles, and
+//     dissolved organic matter in coastal waters around Europe",
+//     J. Geophys. Res. 108(C7) (b_local par zone optique)
+//   - Davies-Colley R.J. & Smith D.G. 2001, "Turbidity,
+//     suspended sediment, and water clarity", JAWRA 37
+//     (coefficient d'atténuation spécifique du sédiment marin
+//     côtier b = 1.0 m²/kg médiane, recalibré régionalement
+//     dans Babin 2003)
+//
+// Gestion des cas dégénérés :
+//   - ZSD null/invalide → retourne null (chaîne arrêtée)
+//   - c_sediment négatif (eau plus claire que baseline régional,
+//     rare mais possible en Atlantique sud par temps calme) →
+//     clamp à C_kg_m3 = 0 (eau ambient pure)
+//   - C résultant > 5 kg/m³ → warning (hyperconcentré, rare,
+//     possible en panache estuarien tempête)
+//
+// Domaine de validité :
+//   - Identique à la Brique 8 : sédiments minéraux marins,
+//     eaux côtières claires à très turbides (0.5m < ZSD < 30m)
+//   - Coefficients régionaux préexistants pour Manche/Atlantique
+//     via getRegionalOpticalBaseline
+// ============================================================
+function inverseBeerLambert_ZSDtoConcentration(ZSD_m, lat, lon) {
+  if (ZSD_m === null || ZSD_m === undefined || !isFinite(ZSD_m) || ZSD_m <= 0) {
+    return null;
+  }
+
+  var optical = getRegionalOpticalBaseline(lat, lon);
+  if (!optical) return null;
+
+  var c_total = 1.7 / ZSD_m;
+  var c_sediment = c_total - optical.c_baseline;
+
+  // Cas dégénéré : eau plus claire que le baseline régional.
+  // Physiquement, ça signifie que le baseline régional est
+  // surestimé pour ce pixel à cette date (variabilité naturelle
+  // de la masse d'eau, non capturée par la table régionale).
+  // On clamp à 0 plutôt que de retourner du négatif.
+  if (c_sediment < 0) {
+    return {
+      C_kg_m3: 0,
+      c_total: c_total,
+      c_baseline: optical.c_baseline,
+      zone: optical.zone,
+      warning: 'Eau plus claire que baseline régional (c_sediment=' +
+        c_sediment.toFixed(3) + '). Concentration clampée à 0.'
+    };
+  }
+
+  var C_kg_m3 = c_sediment / optical.b_local;
+
+  // Sanity check : concentration plausible
+  // Domaine côtier typique 0-5 kg/m³. Au-delà = hyperconcentré.
+  var warning = null;
+  if (C_kg_m3 > 5) {
+    warning = 'Concentration extrême ' + C_kg_m3.toFixed(2) +
+      ' kg/m³ (panache estuarien ou tempête majeure ?). À vérifier.';
+  }
+
+  return {
+    C_kg_m3: C_kg_m3,
+    c_total: c_total,
+    c_baseline: optical.c_baseline,
+    b_local: optical.b_local,
+    zone: optical.zone,
+    warning: warning
+  };
+}
+
+// ============================================================
+// SPRINT 2 — PROPAGATION 0D DE LA MESURE SATELLITE
+// ------------------------------------------------------------
+// Propage la concentration de sédiment mesurée par satellite à
+// T-ageHours jusqu'à l'instant cible T, en intégrant l'équation
+// de Krone 1962 / Mehta 1989 par pas horaire avec les forçages
+// hydrodynamiques réels de l'intervalle.
+//
+// Différence fondamentale avec Brique 9 actuelle :
+//   - Brique 9 : part de C(passé)=0, accumule sur lookback 5×τ_dep
+//                pour calculer C_équilibre courant via la chaîne
+//   - Sprint 2 : part de C(T-48h)=C_satellite mesuré, évolue
+//                vers T avec les forçages observés
+//
+// Architecture stratégique : option A "assimilation pure".
+// La mesure satellite est la vérité de référence. Le passé
+// pré-satellite est oublié. Pas de filtre de Kalman, pas de
+// terme de rappel. C'est défensif scientifiquement et clair
+// pour l'utilisateur : "on part de ce qu'on a mesuré le 15/05".
+//
+// Équation intégrée à chaque pas horaire (Δt = 3600s) :
+//     dC/dt = E(k) · (1/τ_resp) - w_s · C / H
+//
+// Solution analytique sur 1h avec E supposé constant sur 1h :
+//     C(k+1) = E(k) · (1 - decay) + C(k) · decay
+//     avec decay = exp(-w_s · 3600 / H(k))
+//     et E(k) = C_équilibre(k) calculé via chaîne 1-6
+//
+// Sources scientifiques :
+//   - Krone R.B. 1962, "Flume studies of the transport of
+//     sediment in estuarial shoaling processes", UC Berkeley
+//   - Mehta A.J. 1989, "On estuarine cohesive sediment
+//     suspension behavior", J. Geophys. Res. 94, 14303-14314
+//   - Soulsby R.L. 1997, "Dynamics of Marine Sands", Thomas
+//     Telford, ch.9 §2 "Time-dependent suspended load"
+//   - Sanford L.P. & Halka J.P. 1993, "Assessing the paradigm
+//     of mutually exclusive erosion and deposition of mud",
+//     Marine Geology 114, 37-57
+//
+// Limitations honnêtes (à signaler dans confiance F1-F5) :
+//   1. Modèle 0D (pas de dimension verticale ni horizontale)
+//   2. Pas d'advection horizontale (panache déplacé par
+//      courant non capturé)
+//   3. Hypothèse E constant sur 1h (forçages échantillonnés
+//      AROME/Marine au pas horaire, suffisant pour Visimer V1)
+//   4. Si sédiment ponctuel inconnu, fallback sable medium
+// ============================================================
+function propagate0D(C_sat_kg_m3, dateSatISO, h, idxTarget, depth, lat, lon, sediment) {
+  // ----- Garde-fous d'entrée -----
+  if (C_sat_kg_m3 === null || C_sat_kg_m3 === undefined || !isFinite(C_sat_kg_m3) || C_sat_kg_m3 < 0) {
+    return null;
+  }
+  if (!h || !h.time || idxTarget < 0 || idxTarget >= h.time.length) {
+    return null;
+  }
+  if (!depth || depth <= 0) return null;
+
+  var warnings = [];
+
+  // ----- Sédiment : fallback sable medium Manche si inconnu -----
+  // Race condition possible si fetchSedimentType pas encore résolu
+  // au moment du clic. On utilise un défaut conservateur plutôt
+  // que de bloquer la propagation.
+  if (!sediment || sediment.regime === 'rock' || sediment.regime === 'cohesive') {
+    sediment = {
+      folk5: 2,
+      name: 'Sand (fallback)',
+      nameFr: 'Sable (défaut)',
+      D50_mm: 0.250,
+      D50_m: 0.000250,
+      regime: 'non-cohesive',
+      canSuspend: true
+    };
+    warnings.push('Sédiment ponctuel indisponible, fallback sable medium (D50=0.25mm)');
+  }
+
+  // ----- Localisation de l'instant satellite dans le cache météo -----
+  var satMs = new Date(dateSatISO).getTime();
+  var idxStart = -1;
+  var bestDelta = Infinity;
+  for (var i = 0; i < h.time.length; i++) {
+    var d = Math.abs(new Date(h.time[i]).getTime() - satMs);
+    if (d < bestDelta) { bestDelta = d; idxStart = i; }
+  }
+
+  // Si la photo satellite est antérieure au cache météo disponible,
+  // on tronque l'intégration à h.time[0] et on signale.
+  // Cache météo = past_days=7 (cf. fetchSpotWeather), donc largement
+  // suffisant pour des photos satellite J-1 à J-3.
+  if (bestDelta > 7200000) {  // > 2h de décalage
+    warnings.push('Photo satellite hors fenêtre cache météo (' +
+      Math.round(bestDelta / 3600000) + 'h de décalage). Intégration tronquée.');
+    idxStart = 0;
+  }
+
+  // Cas dégénéré : satellite plus récent que l'instant cible.
+  // Peut arriver si l'utilisateur consulte une date passée alors que
+  // le satellite a une donnée plus récente. On retourne C_sat directement
+  // (pas de rétropropagation, cf. décision architecturale Sprint 2).
+  if (idxStart >= idxTarget) {
+    return _buildPropagationResult(C_sat_kg_m3, C_sat_kg_m3, 0, lat, lon, sediment,
+      'Photo satellite plus récente que cible, pas de propagation', warnings, []);
+  }
+
+  // ----- Vitesse de chute (constante sur l'intégration) -----
+  var w_s = computeSettlingVelocity(sediment);
+  if (w_s === null || w_s <= 0) {
+    return null;
+  }
+
+  // ----- Boucle d'intégration horaire -----
+  var C_current = C_sat_kg_m3;
+  var C_evolution = [{ idx: idxStart, time: h.time[idxStart], C: C_current, E: null }];
+  var n_skipped = 0;
+
+  for (var k = idxStart; k < idxTarget; k++) {
+    // Profondeur instantanée au pas k (LAT + marée)
+    var depth_k = depthAtTimeCached(depth, h.time[k]);
+
+    // Cas dégénéré : eau insuffisante (estran émergé à BM grand coef).
+    // On conserve C inchangé (eau quasi-stagnante) plutôt que de planter.
+    if (depth_k < 0.5) {
+      C_evolution.push({ idx: k + 1, time: h.time[k + 1], C: C_current, E: 0, skipped: true });
+      n_skipped++;
+      continue;
+    }
+
+    // Calcul E(k) via chaîne 1-6 (réutilise fonction existante de Brique 9)
+    var E_k = _computeEquilibriumConcentrationAt(h, k, depth, lat, lon, sediment);
+    if (E_k === null) E_k = 0;  // pré-conditions non satisfaites → pas d'érosion ce pas
+
+    // Solution analytique Krone sur 1h
+    var decay = Math.exp(-w_s * 3600 / depth_k);
+    C_current = E_k * (1 - decay) + C_current * decay;
+
+    C_evolution.push({ idx: k + 1, time: h.time[k + 1], C: C_current, E: E_k });
+  }
+
+  if (n_skipped > 0) {
+    warnings.push(n_skipped + ' pas horaires sautés (eau insuffisante à ces instants)');
+  }
+
+  return _buildPropagationResult(
+    C_sat_kg_m3, C_current, idxTarget - idxStart,
+    lat, lon, sediment, null, warnings, C_evolution
+  );
+}
+
+// ----- Helper interne : construction du résultat de propagation -----
+// Encapsule la conversion C → visi (Beer-Lambert direct) et l'analyse
+// de la phase dominante (érosion, décantation, équilibre) pour le récit
+// utilisateur dans l'UI.
+function _buildPropagationResult(C_initial, C_final, n_steps, lat, lon, sediment, note, warnings, evolution) {
+  // Conversion C_final → visi via Beer-Lambert direct (Brique 8)
+  var optical = getRegionalOpticalBaseline(lat, lon);
+  if (!optical) return null;
+
+  var c_total = optical.c_baseline + optical.b_local * C_final;
+  if (!isFinite(c_total) || c_total <= 0) return null;
+  var visi_m = 2.38 / c_total;
+
+  // Analyse de la phase dominante sur la trajectoire d'évolution
+  var dominant_phase = 'équilibre';
+  if (evolution && evolution.length >= 2) {
+    var delta = C_final - C_initial;
+    var threshold = C_initial * 0.10;  // ±10% de variation = phase active
+    if (delta > threshold) dominant_phase = 'érosion';
+    else if (delta < -threshold) dominant_phase = 'décantation';
+  }
+
+  return {
+    C_initial_kg_m3: C_initial,
+    C_propagated_kg_m3: C_final,
+    visi_propagated_m: visi_m,
+    n_steps_integrated: n_steps,
+    dominant_phase: dominant_phase,
+    delta_C_pct: C_initial > 0 ? ((C_final - C_initial) / C_initial * 100) : 0,
+    note: note,
+    warnings: warnings,
+    trace: {
+      sediment_used: sediment.nameFr,
+      zone_optique: optical.zone,
+      c_baseline: optical.c_baseline,
+      b_local: optical.b_local,
+      evolution_length: evolution ? evolution.length : 0
+      // evolution complète disponible si besoin debug, omise par défaut pour taille
+    }
+  };
+}
 // ----- Helper : construction de la phrase verdict en prose -----
 function _buildVerdictProse(result) {
   if (result.engine !== 'chain') return result.verdict || '';
