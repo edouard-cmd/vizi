@@ -2101,21 +2101,30 @@ var visLabel = score >= 80 ? 'Excellente' : score >= 60 ? 'Bonne' : score >= 40 
       document.getElementById('spotVisLabel').textContent = visLabel;
     }
     
-    // SPRINT 2 : libellé "prévision maintenant" sous le badge
+// SPRINT 2 : libellé "prévision maintenant" sous le badge + fiabilité inline
     // Adaptatif : "prévision maintenant" si date/heure ≈ instant courant, sinon date sélectionnée
+    // Fiabilité (option α) : pastille colorée selon confidence.label_color, inline après le contexte
     var predictionCtx = document.getElementById('vzPredictionContext');
     if (predictionCtx) {
       var nowMs = Date.now();
       var selectedMs = new Date(targetStr).getTime();
       var deltaH = Math.abs(nowMs - selectedMs) / 3600000;
+      var ctxLabel;
       if (deltaH < 1.5) {
-        predictionCtx.textContent = 'prévision maintenant';
+        ctxLabel = 'prévision maintenant';
       } else {
-        // Format français : "prévision pour le 18/05 à 14h"
         var selDateFr = dateVal.split('-').reverse().slice(0, 2).join('/');
         var selTimeFr = timeVal.split(':')[0] + 'h';
-        predictionCtx.textContent = 'prévision pour le ' + selDateFr + ' à ' + selTimeFr;
+        ctxLabel = 'prévision pour le ' + selDateFr + ' à ' + selTimeFr;
       }
+      // Pastille fiabilité (uniquement si voie satellite active et confidence.pct disponible)
+      var confidenceHTML = '';
+      if (scoreObj.confidence && typeof scoreObj.confidence.pct === 'number' && isFinite(scoreObj.confidence.pct)) {
+        var colorClass = 'is-' + (scoreObj.confidence.label_color || 'caution');
+        confidenceHTML = ' · fiabilité <span class="vz-confidence-pill ' + colorClass + '">' +
+          scoreObj.confidence.pct + '%</span>';
+      }
+      predictionCtx.innerHTML = ctxLabel + confidenceHTML;
       predictionCtx.style.display = 'block';
     }
     
