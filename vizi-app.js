@@ -3853,7 +3853,120 @@ function computeVisibilityScore_V4(h, idx, depth, lat, lon) {
   // ----- Cache mémo -----
   var cacheKey = lat.toFixed(4) + '|' + lon.toFixed(4) + '|' + idx + '|' + (depth || 0).toFixed(2);
   if (_chainCache[cacheKey]) return _chainCache[cacheKey];
+// ============================================================
+  // SPRINT 2 — VOIE SATELLITE PROPAGÉE (priorité 1)
+  // ------------------------------------------------------------
+  // Si une mesure satellite CMEMS valide est disponible pour ce
+  // spot, on l'utilise comme point de départ et on propage jusqu'à
+  // l'instant cible via Krone 1962 / Mehta 1989. Cette voie remplace
+  // la chaîne 9 briques (qui dérive en régime advectif fort) par
+  // une assimilation directe de la donnée terrain satellite.
+  //
+  // Fallback strangler : si satellite indisponible (no_data_72h,
+  // pas de cache, ou erreur en cascade), on continue avec la voie
+  // chaîne 9 briques (étape suivante de la fonction).
+  //
+  // Sources scientifiques (cf. fonctions appelées) :
+  //   - inverseBeerLambert : Preisendorfer 1986, Babin 2003
+  //   - propagate0D : Krone 1962, Mehta 1989, Soulsby 1997 ch.9
+  //   - computeConfidence : raisonnement multifactoriel V1
+  // ============================================================
+  if (typeof S_spotSatelliteCache !== 'undefined' && S_spotSatelliteCache &&
+      typeof S_spotSatelliteCache.lat === 'number' && typeof S_spotSatelliteCache.lon === 'number' &&
+      Math.abs(S_spotSatelliteCache.lat - lat) < 0.01 &&
+      Math.abs(S_spotSatelliteCache.lon - lon) < 0.01 &&
+      S_spotSatelliteCache.data && S_spotSatelliteCache.data.status &&
+      (S_spotSatelliteCache.data.status === 'ok' ||
+       S_spotSatelliteCache.data.status === 'cloudy_J1' ||
+       S_spotSatelliteCache.data.status === 'cloudy_J2')) {
 
+    // ----- Cache satellite : early return si hit -----
+    if (_satelliteV4Cache[cacheKey]) return _satelliteV4Cache[cacheKey];
+
+    var satResult = S_spotSatelliteCache.data;
+    var sediment = S._spotSediment;
+
+    // ----- Étape A : Inversion Beer-Lambert (ZSD → C_kg_m3) -----
+    var inversionResult = inverseBeerLambert_ZSDtoConcentration(satResult.value_zsd_m, lat, lon);
+    if (inversionResult !== null) {
+      var C_initial = inversionResult.C_kg_m3;
+
+      // ----- Étape B : Propagation 0D jusqu'à idx cible -----
+      var propResult = propagate0D(
+        C_initial,
+        satResult.date_observed,
+        h,
+        idx,
+        depth,
+        lat,
+        lon,
+        sediment
+      );
+
+      if (propResult !== null) {
+        // ----- Étape C : Calcul confiance F1-F5 -----
+        // idxStart = index dans h.time correspondant à date_observed
+        // (recalculé ici pour la confiance ; propagate0D l'a aussi
+        // calculé en interne mais ne l'expose pas)
+        var satMs = new Date(satResult.date_observed).getTime();
+        var idxStart_conf = 0;
+        var bestDelta = Infinity;
+        for (var ic = 0; ic < h.time.length; ic++) {
+          var d = Math.abs(new Date(h.time[ic]).getTime() - satMs);
+          if (d < bestDelta) { bestDelta = d; idxStart_conf = ic; }
+        }
+
+        var confResult = computeConfidence(satResult, propResult, h, idxStart_conf, idx, lat, lon);
+
+        // ----- Étape D : Construction objet result enrichi -----
+        var visi_propagated = propResult.visi_propagated_m;
+        var score_satellite = mapVisiToScore(visi_propagated);
+
+        var satelliteResult = {
+          // Champs legacy (rétrocompatibilité 5 consommateurs UI)
+          score: score_satellite,
+          visi_m: visi_propagated,
+          label: _scoreToLabel(score_satellite),
+          engine: 'satellite_propagated',
+          trace: {
+            fallback_reason: null,
+            spot: {
+              depth_lat: depth,
+              sediment_name: sediment ? sediment.nameFr : 'inconnu',
+              zone_optique: inversionResult.zone
+            },
+            satellite_source: 'CMEMS Ocean Colour multi-1km',
+            propagation: propResult.trace
+          },
+          verdict: _buildVerdictSatelliteProse(satResult, propResult, confResult),
+          warnings: propResult.warnings || [],
+
+          // Nouveaux champs satellite (Sprint 2)
+          satellite: {
+            visi_m: satResult.visi_plongeur_m,
+            zsd_m: satResult.value_zsd_m,
+            date_observed: satResult.date_observed,
+            age_hours: satResult.age_hours,
+            status: satResult.status
+          },
+          propagated: {
+            visi_m: visi_propagated,
+            C_propagated_kg_m3: propResult.C_propagated_kg_m3,
+            n_steps_integrated: propResult.n_steps_integrated,
+            dominant_phase: propResult.dominant_phase
+          },
+          confidence: confResult || { pct: null, label_color: 'caution' }
+        };
+
+        _satelliteV4Cache[cacheKey] = satelliteResult;
+        return satelliteResult;
+      }
+    }
+    // Si inversion ou propagation a échoué, fall-through vers voie chaîne.
+    // Comportement défensif : on ne jette pas, on dégrade silencieusement.
+  }
+  // Fin voie satellite. Si pas de satellite dispo ou échec, on continue
+  // avec la voie chaîne 9 briques (code existant ci-dessous).
   // ----- Initialisation du résultat -----
   var result = {
     score: 0,
@@ -5351,6 +5464,42 @@ function _buildVerdictProse(result) {
   // Zone turbide ?
   if (spot.c_baseline >= 0.5) {
     phrases.push('Zone naturellement turbide (silts en suspension chronique).');
+  }
+
+  return phrases.join(' ');
+}
+// ----- Helper : verdict prose pour la voie satellite propagée -----
+// Compose un récit humain de la prédiction satellite, mentionnant
+// la mesure d'origine, l'évolution propagée, et la confiance.
+// Différent de _buildVerdictProse qui s'adresse à la voie chaîne.
+function _buildVerdictSatelliteProse(satResult, propResult, confResult) {
+  if (!satResult || !propResult) return '';
+
+  var phrases = [];
+
+  // Mesure d'origine
+  var dateStr = satResult.date_observed ? satResult.date_observed.slice(0, 10) : '';
+  var visi_sat = satResult.visi_plongeur_m;
+  if (typeof visi_sat === 'number' && isFinite(visi_sat)) {
+    phrases.push('Mesure satellite du ' + dateStr + ' : visibilité ' + visi_sat.toFixed(1) + 'm.');
+  }
+
+  // Évolution propagée
+  var visi_prop = propResult.visi_propagated_m;
+  if (typeof visi_prop === 'number' && isFinite(visi_prop)) {
+    if (propResult.dominant_phase === 'décantation') {
+      phrases.push("Depuis, l'eau s'est éclaircie.");
+    } else if (propResult.dominant_phase === 'érosion') {
+      phrases.push('Depuis, le vent et la houle ont remis du sédiment en suspension.');
+    } else {
+      phrases.push("Depuis, les conditions sont restées stables.");
+    }
+    phrases.push('Prévision actuelle : ' + Math.round(visi_prop) + 'm.');
+  }
+
+  // Confiance
+  if (confResult && typeof confResult.pct === 'number') {
+    phrases.push('Fiabilité ' + confResult.pct + '%.');
   }
 
   return phrases.join(' ');
