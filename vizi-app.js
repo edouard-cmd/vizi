@@ -2090,10 +2090,83 @@ var visLabel = score >= 80 ? 'Excellente' : score >= 60 ? 'Bonne' : score >= 40 
       badgeEl.classList.remove('is-loading');
       badgeEl.style.background = badgeColors[visLabel] || '#D8C84A';
     }
-    document.getElementById('spotVisLabel').textContent = visLabel;
+// SPRINT 2 : affichage du chiffre concret si visi_m disponible
+    var visi_m_value = scoreObj.visi_m;
+    if (typeof visi_m_value === 'number' && isFinite(visi_m_value) && visi_m_value > 0) {
+      var visi_rounded = Math.round(visi_m_value);
+      document.getElementById('spotVisLabel').innerHTML =
+        '<span style="font-size:1.15em;font-weight:700;">~ ' + visi_rounded + ' m</span>' +
+        '<span style="font-size:0.55em;font-weight:500;opacity:0.75;margin-left:8px;">' + visLabel + '</span>';
+    } else {
+      document.getElementById('spotVisLabel').textContent = visLabel;
+    }
+    
+    // SPRINT 2 : libellé "prévision maintenant" sous le badge
+    // Adaptatif : "prévision maintenant" si date/heure ≈ instant courant, sinon date sélectionnée
+    var predictionCtx = document.getElementById('vzPredictionContext');
+    if (predictionCtx) {
+      var nowMs = Date.now();
+      var selectedMs = new Date(targetStr).getTime();
+      var deltaH = Math.abs(nowMs - selectedMs) / 3600000;
+      if (deltaH < 1.5) {
+        predictionCtx.textContent = 'prévision maintenant';
+      } else {
+        // Format français : "prévision pour le 18/05 à 14h"
+        var selDateFr = dateVal.split('-').reverse().slice(0, 2).join('/');
+        var selTimeFr = timeVal.split(':')[0] + 'h';
+        predictionCtx.textContent = 'prévision pour le ' + selDateFr + ' à ' + selTimeFr;
+      }
+      predictionCtx.style.display = 'block';
+    }
+    
+    // SPRINT 2 : segments legacy (cachés par défaut via CSS .vz-spot-vis-ticks-legacy)
+    // On les met à jour quand même au cas où on veut les réactiver plus tard
     for (var si = 0; si < 5; si++) {
       var seg = document.getElementById('visSeg' + si);
       if (seg) seg.style.background = si <= levelIdx ? segColors[si] : 'rgba(255,255,255,0.08)';
+    }
+    
+    // SPRINT 2 : affichage de la carte mesure satellite si voie satellite active
+    var satelliteCard = document.getElementById('vzSatelliteCard');
+    if (satelliteCard) {
+      if (scoreObj.engine === 'satellite_propagated' && scoreObj.satellite) {
+        var sat = scoreObj.satellite;
+        
+        // Temps relatif : mapping age_hours → texte humain
+        var ageH = sat.age_hours;
+        var relativeTxt = '';
+        if (typeof ageH === 'number' && isFinite(ageH)) {
+          if (ageH < 24) relativeTxt = 'aujourd\'hui';
+          else if (ageH < 36) relativeTxt = 'hier';
+          else if (ageH < 60) relativeTxt = 'il y a 2 jours';
+          else if (ageH < 84) relativeTxt = 'il y a 3 jours';
+          else relativeTxt = 'il y a ' + Math.round(ageH / 24) + ' jours';
+        }
+        document.getElementById('vzSatelliteRelative').textContent = relativeTxt;
+        
+        // Visibilité mesurée arrondie à 0.1m
+        var satVisi = typeof sat.visi_m === 'number' ? Math.round(sat.visi_m * 10) / 10 : null;
+        document.getElementById('vzSatelliteVisi').textContent = satVisi !== null ? '~ ' + satVisi + ' m' : '—';
+        
+        // Date factuelle : format français "15/05/2026 - 02h00"
+        var dateFactual = '—';
+        if (sat.date_observed) {
+          var d = new Date(sat.date_observed);
+          if (!isNaN(d.getTime())) {
+            var dd = String(d.getDate()).padStart(2, '0');
+            var mm = String(d.getMonth() + 1).padStart(2, '0');
+            var yyyy = d.getFullYear();
+            var hh = String(d.getHours()).padStart(2, '0');
+            var mn = String(d.getMinutes()).padStart(2, '0');
+            dateFactual = dd + '/' + mm + '/' + yyyy + ' - ' + hh + 'h' + mn;
+          }
+        }
+        document.getElementById('vzSatelliteDate').textContent = dateFactual;
+        
+        satelliteCard.style.display = 'flex';
+      } else {
+        satelliteCard.style.display = 'none';
+      }
     }
   }
   // Si pipeline en cours, le badge garde son etat skeleton (Calcul...)
