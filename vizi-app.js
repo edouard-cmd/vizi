@@ -733,6 +733,7 @@ var S_lastForecastData = null;
 var S_gridScores = [];
 var S_gridUpdatedAt = null;
 var S_spotWeatherCache = null;
+var S_spotSatelliteCache = null;   // Sprint 2 : { lat, lon, data: {...} } ou null
 var S_spotMarineCache = null;
 var S_spotSunCache = null;
 var S_hexLayer = null;
@@ -1649,6 +1650,8 @@ function openSpotPopup(latlng, name) {
   // ----- Reset cache de la chaîne physique (hygiène) -----
   if (typeof invalidateChainCache === 'function') {
     invalidateChainCache();
+  invalidateCmemsCache();
+  S_spotSatelliteCache = null;
   }
   
   // ----- Setup spot context -----
@@ -1752,9 +1755,34 @@ function openSpotPopup(latlng, name) {
   _showPipelineLoader();
   _setPipelineStep('depth', 'active');
   
-  // ----- Fetches indépendants en parallèle (non bloquants pour le pipeline) -----
+// ----- Fetches indépendants en parallèle (non bloquants pour le pipeline) -----
   fetchSpotWeather(latlng.lat, latlng.lng);
   loadDrawerTides(latlng.lat, latlng.lng);
+  
+  // Sprint 2 : fetch satellite CMEMS, indépendant du pipeline séquentiel.
+  // Quand la donnée arrive, on vérifie que la génération est encore valide
+  // (anti pollution clics rapides), on alimente S_spotSatelliteCache, on
+  // invalide les caches V4 pour forcer recalcul incluant la voie satellite,
+  // et on déclenche un re-render du drawer.
+  fetchCmemsZSD(latlng.lat, latlng.lng).then(function(satData) {
+    if (!_isGenValid()) return;  // clic obsolète, on ignore silencieusement
+    if (!satData) {
+      // Échec silencieux (réseau, GAS, ou no_data_72h)
+      S_spotSatelliteCache = null;
+      return;
+    }
+    // Stockage avec position de référence (anti-mélange entre spots)
+    S_spotSatelliteCache = {
+      lat: latlng.lat,
+      lon: latlng.lng,
+      data: satData
+    };
+    // Invalide les caches V4 pour forcer un recalcul incluant la voie satellite
+    if (typeof _satelliteV4Cache !== 'undefined') _satelliteV4Cache = {};
+    if (typeof _chainCache !== 'undefined') _chainCache = {};
+    // Re-render du drawer avec la donnée satellite disponible
+    if (typeof renderSpotPopup === 'function') renderSpotPopup();
+  });
   
   // ============================================================
   // PIPELINE SÉQUENTIEL : depth → sediment → marine → zone → V4
@@ -1905,6 +1933,61 @@ function fetchSpotWeather(lat, lon) {
   }).catch(function(err) {
     console.error('[VIZI] meteo spot failed:', err);
   });
+}
+// ============================================================
+// SPRINT 2 — FETCH SATELLITE CMEMS OCEAN COLOUR
+// ------------------------------------------------------------
+// Wrapper frontend qui appelle le proxy GAS 'cmems_zsd_v5_test'
+// livré au Sprint 1. Récupère la profondeur de Secchi mesurée par
+// satellite (multi-1km, latence J-1 à J-3 selon couverture nuageuse)
+// et la convertit en visibilité plongeur via Wright & Colling 1995.
+//
+// Cache TTL 6h indexé par (lat_4, lon_4, day) pour éviter de
+// marteler le GAS et le serveur CMEMS. La donnée satellite ne
+// change pas pendant la journée (1 dalle par jour).
+//
+// Comportement : retourne une Promise qui résout vers l'objet
+// satellite ou null si erreur. Ne throw jamais (silent fail).
+// ============================================================
+var _cmemsCache = {};
+
+function invalidateCmemsCache() {
+  _cmemsCache = {};
+}
+
+function fetchCmemsZSD(lat, lon) {
+  var dayStr = new Date().toISOString().slice(0, 10);
+  var cacheKey = lat.toFixed(4) + '|' + lon.toFixed(4) + '|' + dayStr;
+
+  if (_cmemsCache[cacheKey]) {
+    var entry = _cmemsCache[cacheKey];
+    var ageMs = Date.now() - entry.timestamp;
+    if (ageMs < 6 * 3600 * 1000) {
+      return Promise.resolve(entry.data);
+    }
+  }
+
+  var url = GAS_URL + '?action=cmems_zsd_v5_test&lat=' + lat + '&lon=' + lon;
+  return fetch(url)
+    .then(function(r) {
+      if (!r.ok) throw new Error('CMEMS HTTP ' + r.status);
+      return r.json();
+    })
+    .then(function(data) {
+      if (!data || data.error) {
+        console.warn('[VIZI] CMEMS fetch returned error:', data ? data.error : 'no data');
+        return null;
+      }
+      _cmemsCache[cacheKey] = {
+        timestamp: Date.now(),
+        data: data
+      };
+      return data;
+    })
+    .catch(function(err) {
+      console.warn('[VIZI] CMEMS fetch failed:', err);
+      return null;
+    });
 }
 function shiftSpotDate(delta) {
   var input = document.getElementById('spotDate');
