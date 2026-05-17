@@ -5096,6 +5096,219 @@ function _buildPropagationResult(C_initial, C_final, n_steps, lat, lon, sediment
     }
   };
 }
+// ============================================================
+// SPRINT 2 — CALCUL DE LA CONFIANCE F1-F5
+// ------------------------------------------------------------
+// Quantifie honnêtement la fiabilité d'une prédiction satellite
+// propagée, en combinant 5 facteurs indépendants chacun normalisé
+// dans [0, 1]. Le produit est ensuite reéchelonné via une racine
+// pour donner un pourcentage intuitif pour l'utilisateur final.
+//
+// F1 : fraîcheur de la donnée satellite (exp décroissante)
+// F2 : distance entre centre pixel CMEMS et clic utilisateur
+// F3 : variabilité des forçages hydrodynamiques sur la fenêtre
+// F4 : qualité intrinsèque CMEMS (mapping discret par status)
+// F5 : cohérence inter-produits satellite (placeholder Sprint 2)
+//
+// Affichage final via la formule :
+//     pct = round( (F1·F2·F3·F4·F5)^0.4 × 100 )
+//
+// L'exposant 0.4 réétalonne le produit (qui plafonne autour de
+// 0.5 même en conditions idéales) vers une échelle perçue par
+// l'utilisateur (0-100% lisible). Pas de mensonge : la valeur
+// brute reste accessible via _total_raw pour debug.
+//
+// Sources scientifiques du choix de chaque formule :
+//   - F1 demi-vie 48h : Tessier 2013 (autocorrélation MES en
+//     Manche 24-72h selon zones côtières/large)
+//   - F2 demi-vie 500m : Soulsby 1997 ch.9, échelles de cohérence
+//     spatiale du sédiment côtier (~1km en moyenne)
+//   - F3 indice composite : raisonnement sur la stabilité du
+//     régime hydrodynamique nécessaire à la validité de la
+//     propagation 0D Krone (E supposé constant sur l'intervalle)
+//   - F4 mapping discret : cumul J-1/J-2/J-3 = dégradation 
+//     additive de la qualité d'observation
+//   - F5 = 1.0 en V1 : honnête, on n'a qu'un produit (multi-1km),
+//     activé en Sprint 3 quand Sentinel-2 100m sera intégré
+//
+// Limitations honnêtes :
+//   1. La calibration des seuils et demi-vies est conservatrice,
+//      basée sur la littérature. Phase 2 raffinera avec les
+//      observations communautaires (régression empirique).
+//   2. F5 = 1.0 surestime la confiance V1 (on accepte ce biais
+//      car on a une seule source satellite, donc rien à dire
+//      sur la cohérence inter-produits).
+//   3. L'exposant 0.4 du réétalonnage est empirique. Si phase 2
+//      montre qu'il faut ajuster pour calibrer sur les vraies
+//      observations terrain, c'est trivial à modifier.
+// ============================================================
+function computeConfidence(satResult, propResult, h, idxStart, idxTarget, lat, lon) {
+  // ----- Garde-fous d'entrée -----
+  if (!satResult || !propResult) return null;
+  if (!h || idxStart < 0 || idxTarget < 0 || idxStart > idxTarget) return null;
+
+  // ============================================================
+  // F1 — Fraîcheur de la mesure satellite
+  // ------------------------------------------------------------
+  // Formule : F1 = exp(-age_h / 48)
+  // À 0h : F1 = 1.00 (impossible avec NRT, latence J-1 minimum)
+  // À 24h : F1 = 0.61
+  // À 48h : F1 = 0.37 (Bernières aujourd'hui, cloudy_J1)
+  // À 72h : F1 = 0.22 (cloudy_J2, limite acceptable)
+  // ============================================================
+  var age_h = satResult.age_hours;
+  if (typeof age_h !== 'number' || !isFinite(age_h) || age_h < 0) age_h = 48; // fallback
+  var F1 = Math.exp(-age_h / 48);
+
+  // ============================================================
+  // F2 — Distance entre centre pixel CMEMS et clic utilisateur
+  // ------------------------------------------------------------
+  // Formule : F2 = exp(-dist_m / 500)
+  // À 100m : F2 = 0.82 (pixel quasi-au-dessus du spot)
+  // À 500m : F2 = 0.37 (mi-distance d'un pixel voisin)
+  // À 1km : F2 = 0.14 (pixel adjacent, structure côtière différente)
+  // ------------------------------------------------------------
+  // NOTE BUG SPRINT 1 : la sortie GAS de fetchCmemsZSD_ inverse
+  // sémantiquement lat_pixel et lon_pixel. On lit donc :
+  //   lat réelle du pixel = satResult.lon_pixel
+  //   lon réelle du pixel = satResult.lat_pixel
+  // À corriger côté GAS en Sprint 5 lors du raffinement API.
+  // ============================================================
+  var pixel_lat_actual = satResult.lon_pixel;  // swap volontaire (bug sprint 1)
+  var pixel_lon_actual = satResult.lat_pixel;  // swap volontaire (bug sprint 1)
+  var dist_m = 0;
+  if (typeof pixel_lat_actual === 'number' && typeof pixel_lon_actual === 'number' &&
+      isFinite(pixel_lat_actual) && isFinite(pixel_lon_actual)) {
+    dist_m = haversineM(lat, lon, pixel_lat_actual, pixel_lon_actual);
+  } else {
+    dist_m = 500;  // fallback si pas de coords pixel (status no_data)
+  }
+  var F2 = Math.exp(-dist_m / 500);
+
+  // ============================================================
+  // F3 — Variabilité des forçages hydrodynamiques
+  // ------------------------------------------------------------
+  // Indice composite max(Δvent, Δhoule, Δcourant) normalisé
+  // entre 0 et 1. Capture le pire des trois, qui domine la
+  // non-linéarité de la propagation 0D.
+  //
+  // Δvent = stdev(windspeed_10m sur [idxStart, idxTarget]) / 20 kt
+  // Δhoule = stdev(wave_height) / 1.5 m
+  // Δcourant = stdev(ocean_current_velocity) / 0.5 m/s
+  //
+  // F3 = 1 / (1 + 1.5 × Δforcing)
+  // Δforcing=0.1 (calme) → F3 = 0.87
+  // Δforcing=0.5 (perturbé) → F3 = 0.57
+  // Δforcing=1.0 (passage frontal majeur) → F3 = 0.40
+  // ============================================================
+  function _stdev(arr) {
+    if (!arr || arr.length < 2) return 0;
+    var n = 0, sum = 0, sumSq = 0;
+    for (var i = 0; i < arr.length; i++) {
+      var v = arr[i];
+      if (typeof v === 'number' && isFinite(v)) {
+        n++;
+        sum += v;
+        sumSq += v * v;
+      }
+    }
+    if (n < 2) return 0;
+    var mean = sum / n;
+    var variance = (sumSq / n) - (mean * mean);
+    return variance > 0 ? Math.sqrt(variance) : 0;
+  }
+
+  function _slice(arr, start, end) {
+    if (!arr) return [];
+    return arr.slice(Math.max(0, start), Math.min(arr.length, end + 1));
+  }
+
+  // Vent depuis h (cache météo)
+  var wind_slice = _slice(h.windspeed_10m, idxStart, idxTarget);
+  var dWind_kmh = _stdev(wind_slice);
+  var dWind_kt = dWind_kmh * 0.539957;
+  var Delta_vent = dWind_kt / 20.0;
+
+  // Houle et courant depuis S_spotMarineCache (variable globale du frontend)
+  var Delta_houle = 0;
+  var Delta_courant = 0;
+  if (typeof S_spotMarineCache !== 'undefined' && S_spotMarineCache && S_spotMarineCache.time) {
+    // Re-aligner les indices marine sur les indices météo (les caches peuvent
+    // avoir des longueurs différentes mais commencent au même past_days=7).
+    // Pour simplifier en V1, on utilise les mêmes indices : assomption que
+    // h.time et S_spotMarineCache.time sont alignés à l'heure près (vérifié
+    // empiriquement en V1, raffinable en Sprint 5 si besoin).
+    var wave_slice = _slice(S_spotMarineCache.wave_height, idxStart, idxTarget);
+    var current_slice = _slice(S_spotMarineCache.ocean_current_velocity, idxStart, idxTarget);
+    Delta_houle = _stdev(wave_slice) / 1.5;
+    Delta_courant = _stdev(current_slice) / 0.5;
+  }
+
+  var Delta_forcing = Math.max(Delta_vent, Delta_houle, Delta_courant);
+  if (!isFinite(Delta_forcing) || Delta_forcing < 0) Delta_forcing = 0;
+  var F3 = 1 / (1 + 1.5 * Delta_forcing);
+
+  // ============================================================
+  // F4 — Qualité intrinsèque CMEMS via status
+  // ------------------------------------------------------------
+  // Mapping discret basé sur le champ status retourné par
+  // fetchCmemsZSD_ (Sprint 1).
+  //   'ok' (J-1)        → 1.00 (qualité optimale)
+  //   'cloudy_J1' (J-2) → 0.80 (un jour de retard supplémentaire)
+  //   'cloudy_J2' (J-3) → 0.60 (deux jours de retard supplémentaires)
+  //   'no_data_72h'     → chaîne arrêtée en amont, on ne calcule pas
+  //
+  // Note : F4 est partiellement redondant avec F1 (les deux pénalisent
+  // l'âge), mais F4 capture une dégradation **qualitative** (la dalle
+  // a-t-elle été obtenue facilement ou après plusieurs trous nuageux ?)
+  // tandis que F1 capture la dégradation **temporelle** pure. Acceptable
+  // en V1, on observera en Phase 2 si la corrélation est trop forte.
+  // ============================================================
+  var F4;
+  switch (satResult.status) {
+    case 'ok':         F4 = 1.00; break;
+    case 'cloudy_J1':  F4 = 0.80; break;
+    case 'cloudy_J2':  F4 = 0.60; break;
+    default:           F4 = 0.50;  // status inconnu, prudence
+  }
+
+  // ============================================================
+  // F5 — Cohérence inter-produits satellite
+  // ------------------------------------------------------------
+  // V1 : placeholder à 1.0 (on n'a qu'un produit, multi-1km ZSD).
+  // V2/Sprint 3 : intégration Sentinel-2 MSI 100m sur NWS/IBI.
+  // Si écart > 30% entre produits, F5 dégradé proportionnellement.
+  // ============================================================
+  var F5 = 1.00;
+
+  // ============================================================
+  // COMBINAISON ET RÉÉTALONNAGE
+  // ============================================================
+  var total_raw = F1 * F2 * F3 * F4 * F5;
+  var pct_displayed = Math.round(Math.pow(total_raw, 0.4) * 100);
+  pct_displayed = Math.max(0, Math.min(100, pct_displayed));
+
+  // Couleur de l'affichage selon palette Talisker
+  var label_color;
+  if (pct_displayed >= 75)      label_color = 'success';   // teal #4DD4A8
+  else if (pct_displayed >= 50) label_color = 'warning';   // jaune #D8C84A
+  else if (pct_displayed >= 30) label_color = 'caution';   // orange #E89B3C
+  else                          label_color = 'danger';    // rouge #C94A3D
+
+  return {
+    pct: pct_displayed,
+    label_color: label_color,
+    _factors: { F1: F1, F2: F2, F3: F3, F4: F4, F5: F5 },
+    _total_raw: total_raw,
+    _diagnostics: {
+      age_hours: age_h,
+      pixel_distance_m: Math.round(dist_m),
+      delta_forcing: Delta_forcing,
+      cmems_status: satResult.status,
+      f5_note: 'V1 placeholder, intégration Sentinel-2 100m en Sprint 3'
+    }
+  };
+}
 // ----- Helper : construction de la phrase verdict en prose -----
 function _buildVerdictProse(result) {
   if (result.engine !== 'chain') return result.verdict || '';
