@@ -3832,8 +3832,15 @@ function mapVisiToScore(visi_m) {
 
 var _chainCache = {};
 
+// Sprint 2 : cache séparé pour la voie satellite propagée.
+// Mémoïse les sorties complètes de computeVisibilityScore_V4 quand
+// la voie satellite est active, indexées par (lat, lon, idx, depth).
+// Évite de re-propager à chaque rotation date/heure dans le drawer.
+var _satelliteV4Cache = {};
+
 function invalidateChainCache() {
   _chainCache = {};
+  _satelliteV4Cache = {};
 }
 
 function computeVisibilityScore_V4(h, idx, depth, lat, lon) {
