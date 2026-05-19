@@ -2627,24 +2627,11 @@ var selDate = TIDES.selectedDate;
     return;
   }
 
-  var sunrise = S._sunriseTime || '06:00';
-  var sunset = S._sunsetTime || '21:00';
-  var srMin = parseInt(sunrise.slice(0,2)) * 60 + parseInt(sunrise.slice(3,5));
-  var ssMin = parseInt(sunset.slice(0,2)) * 60 + parseInt(sunset.slice(3,5));
-
-  var dayOnly = dayExtremes.filter(function(e) {
-    var t = new Date(e.time);
-    var min = t.getHours() * 60 + t.getMinutes();
-    return min >= srMin && min <= ssMin;
-  });
-
-  if (dayOnly.length === 0) {
-    content.innerHTML = '<div class="vz-pmbm-empty">Toutes les marées sont de nuit aujourd\'hui</div>';
-    return;
-  }
-
+// On affiche toutes les marées de la fenêtre 28h, y compris celles de nuit.
+  // Le chasseur planifie aussi pour les sorties tôt matin / fin de soirée,
+  // il a besoin de voir le cycle tidal complet.
   var html = '<div class="vz-pmbm-grid">';
-  dayOnly.forEach(function(e) {
+  dayExtremes.forEach(function(e) {
     var t = new Date(e.time);
     var timeStr = t.toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
     var typeShort = e.type === 'high' ? 'PM' : 'BM';
