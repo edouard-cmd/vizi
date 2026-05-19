@@ -2092,13 +2092,12 @@ var visLabel = score >= 80 ? 'Excellente' : score >= 60 ? 'Bonne' : score >= 40 
     }
 // SPRINT 2 : affichage du chiffre concret si visi_m disponible
     var visi_m_value = scoreObj.visi_m;
-    if (typeof visi_m_value === 'number' && isFinite(visi_m_value) && visi_m_value > 0) {
+if (typeof visi_m_value === 'number' && isFinite(visi_m_value) && visi_m_value > 0) {
       var visi_rounded = Math.round(visi_m_value);
       document.getElementById('spotVisLabel').innerHTML =
-        '<span style="font-size:1.15em;font-weight:700;">~ ' + visi_rounded + ' m</span>' +
-        '<span style="font-size:0.55em;font-weight:500;opacity:0.75;margin-left:8px;">' + visLabel + '</span>';
+        '<span style="font-size:1.15em;font-weight:700;">~ ' + visi_rounded + ' m</span>';
     } else {
-      document.getElementById('spotVisLabel').textContent = visLabel;
+      document.getElementById('spotVisLabel').textContent = '';
     }
     
 // SPRINT 2 : libellé "prévision maintenant" sous le badge + fiabilité inline
