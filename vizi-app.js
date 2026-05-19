@@ -2059,8 +2059,32 @@ function renderSpotPopup() {
   var score = scoreObj.score;
   S._lastScoreObj = scoreObj;
 
-var visLabel = score >= 80 ? 'Excellente' : score >= 60 ? 'Bonne' : score >= 40 ? 'Moyenne' : score >= 20 ? 'Faible' : 'Nulle';
-  var badgeColors = { 'Nulle': '#C94A3D', 'Faible': '#E89B3C', 'Moyenne': '#D8C84A', 'Bonne': '#2DA888', 'Excellente': '#4DD4A8' };
+// Échelle couleur basée sur visi_m (mètres) si disponible, fallback sur score sinon.
+// Cohérent avec le chiffre affiché et avec le ressenti plongeur :
+//   <1m  Nulle      (rouge)   "tu vois pas tes palmes"
+//   1-2m Faible     (orange)  "tu vois ta main"
+//   2-3m Moyenne    (jaune)   "tu vois ton binôme proche"
+//   3-5m Bonne      (teal)    "tu vois confortablement"
+//   ≥5m  Excellente (teal+)   "tu vois loin"
+var visi_for_label = (typeof scoreObj.visi_m === 'number' && isFinite(scoreObj.visi_m) && scoreObj.visi_m > 0)
+  ? scoreObj.visi_m
+  : null;
+var visLabel;
+if (visi_for_label !== null) {
+  visLabel = visi_for_label >= 5 ? 'Excellente'
+           : visi_for_label >= 3 ? 'Bonne'
+           : visi_for_label >= 2 ? 'Moyenne'
+           : visi_for_label >= 1 ? 'Faible'
+           : 'Nulle';
+} else {
+  // Fallback mode empirique : pas de visi_m, on garde le mapping score legacy.
+  visLabel = score >= 80 ? 'Excellente'
+           : score >= 60 ? 'Bonne'
+           : score >= 40 ? 'Moyenne'
+           : score >= 20 ? 'Faible'
+           : 'Nulle';
+}
+var badgeColors = { 'Nulle': '#C94A3D', 'Faible': '#E89B3C', 'Moyenne': '#D8C84A', 'Bonne': '#2DA888', 'Excellente': '#4DD4A8' };
   var segColors = ['#C94A3D', '#E89B3C', '#D8C84A', '#2DA888', '#4DD4A8'];
   var levelIdx = ['Nulle', 'Faible', 'Moyenne', 'Bonne', 'Excellente'].indexOf(visLabel);
   
