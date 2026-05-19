@@ -2611,8 +2611,12 @@ var selDate = TIDES.selectedDate;
   // Fenêtre 24h calée sur le jour civil sélectionné (00h00 inclus → lendemain 00h00 exclu).
   // Capture la 4ème marée quand elle tombe juste avant minuit.
   // Si elle tombe après minuit (lendemain matin), elle est dans la fenêtre du jour suivant.
+// Fenêtre 28h : 00h00 du jour sélectionné → 04h00 du lendemain.
+  // Capture la 4ème marée du cycle quand elle déborde de quelques heures
+  // sur le jour suivant. 4h de marge couvre tous les cas Manche/Atlantique
+  // (cycle tidal ~12h25min, donc 4 marées max sur 24h50min).
   var startMs = new Date(selDate + 'T00:00:00').getTime();
-  var endMs = startMs + 24 * 3600 * 1000;
+  var endMs = startMs + 28 * 3600 * 1000;
   var dayExtremes = TIDES.extremes.filter(function(e){
     var t = new Date(e.time).getTime();
     return t >= startMs && t < endMs;
