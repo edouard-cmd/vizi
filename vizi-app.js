@@ -2630,8 +2630,12 @@ var selDate = TIDES.selectedDate;
 // On affiche toutes les marées de la fenêtre 28h, y compris celles de nuit.
   // Le chasseur planifie aussi pour les sorties tôt matin / fin de soirée,
   // il a besoin de voir le cycle tidal complet.
+// Limite à 4 marées max : un cycle tidal complet sur ~25h en Manche.
+  // Au-delà on a une marée qui appartient déjà au jour suivant.
+  var displayExtremes = dayExtremes.slice(0, 4);
+
   var html = '<div class="vz-pmbm-grid">';
-  dayExtremes.forEach(function(e) {
+  displayExtremes.forEach(function(e) {
     var t = new Date(e.time);
     var timeStr = t.toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
     var typeShort = e.type === 'high' ? 'PM' : 'BM';
