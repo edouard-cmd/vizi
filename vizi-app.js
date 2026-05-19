@@ -2252,9 +2252,10 @@ if (typeof visi_m_value === 'number' && isFinite(visi_m_value) && visi_m_value >
   }
   document.getElementById('spotWindDeg').textContent = dir !== null ? dirName + ' ' + Math.round(dir) + 'deg' : '-';
 
-  renderDecantation(h, idx, depth, dir, S.clickLatLng);
+renderDecantation(h, idx, depth, dir, S.clickLatLng);
   buildVisExplanation(h, idx, depth, dir, dirFactor, bathyFactor, wind, gusts, wave, score, visLabel, lat, lon);
   renderPmBmDuJour();
+  renderTimelineDepuisMesure();
 }
 function renderDepthCoefBlock(depth, lat, lon) {
   var depthEl = document.getElementById('spotDepthVal');
@@ -2459,7 +2460,144 @@ function buildVisExplanation(h, idx, depth, dir, dirFactor, bathyFactor, wind, g
 
   content.innerHTML = html;
 }
+// ============================================================
+// TIMELINE "DEPUIS LA MESURE" — Vraies données vent + coef
+// ------------------------------------------------------------
+// Remplit #vzTimelineList avec 3 événements significatifs entre
+// la mesure satellite et maintenant :
+//   - Bloc 1 (warning) : jour de la mesure satellite, vent dominant
+//   - Bloc 2 : J-1 (hier), vent dominant + coef du jour
+//   - Bloc 3 (now) : créneau actuel, vent instantané + coef du jour
+//
+// Si pas de S_spotSatelliteCache, fallback sur J-2 / J-1 / now.
+// ============================================================
+function renderTimelineDepuisMesure() {
+  var list = document.getElementById('vzTimelineList');
+  if (!list) return;
+  var h = S_spotWeatherCache;
+  if (!h || !h.time || !h.time.length) return;
 
+  var fromNames = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
+  function dirToCardinal(deg) {
+    if (deg === null || deg === undefined) return '?';
+    return fromNames[Math.round(deg / 45) % 8];
+  }
+
+  // Trouve l'index météo le plus proche d'un timestamp
+  function findIdxNearMs(targetMs) {
+    var bestIdx = 0, bestDelta = Infinity;
+    for (var i = 0; i < h.time.length; i++) {
+      var delta = Math.abs(new Date(h.time[i]).getTime() - targetMs);
+      if (delta < bestDelta) { bestDelta = delta; bestIdx = i; }
+    }
+    return bestIdx;
+  }
+
+  // Calcule le vent dominant (moyenne pondérée par rafales) sur 24h centrées
+  function dominantWindAround(idx) {
+    var n = h.time.length;
+    var iStart = Math.max(0, idx - 12);
+    var iEnd = Math.min(n - 1, idx + 12);
+    var sumKt = 0, sumGustKt = 0, sumDirX = 0, sumDirY = 0, count = 0;
+    for (var i = iStart; i <= iEnd; i++) {
+      var wKmh = h.windspeed_10m[i] || 0;
+      var gKmh = h.windgusts_10m[i] || 0;
+      var d = h.winddirection_10m ? h.winddirection_10m[i] : null;
+      if (d === null) continue;
+      var rad = d * Math.PI / 180;
+      sumDirX += Math.cos(rad);
+      sumDirY += Math.sin(rad);
+      sumKt += wKmh * 0.539957;
+      sumGustKt += gKmh * 0.539957;
+      count++;
+    }
+    if (count === 0) return null;
+    var meanDir = (Math.atan2(sumDirY / count, sumDirX / count) * 180 / Math.PI + 360) % 360;
+    return {
+      windKt: Math.round(sumKt / count),
+      gustKt: Math.round(sumGustKt / count),
+      dirName: dirToCardinal(meanDir)
+    };
+  }
+
+  // Date format "JJ mois" français
+  function formatDayLabel(date) {
+    var mois = ['janv', 'fév', 'mars', 'avril', 'mai', 'juin',
+                'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
+    return date.getDate() + ' ' + mois[date.getMonth()];
+  }
+
+  // Détermine la date de référence pour le bloc 1
+  // Si on a une mesure satellite, on l'utilise. Sinon J-2.
+  var refDate;
+  if (S_spotSatelliteCache && S_spotSatelliteCache.data && S_spotSatelliteCache.data.date_observed) {
+    refDate = new Date(S_spotSatelliteCache.data.date_observed);
+  } else {
+    refDate = new Date();
+    refDate.setDate(refDate.getDate() - 2);
+  }
+
+  var nowDate = new Date();
+  var yesterdayDate = new Date(nowDate);
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+
+  // Bloc 1 — date de la mesure (warning)
+  var idxRef = findIdxNearMs(refDate.getTime());
+  var windRef = dominantWindAround(idxRef);
+  var labelRef = formatDayLabel(refDate);
+  var textRef = windRef
+    ? 'vent ' + windRef.dirName + ' ' + windRef.windKt + ' nds · rafales ' + windRef.gustKt
+    : 'données indisponibles';
+
+  // Bloc 2 — hier
+  var idxYest = findIdxNearMs(yesterdayDate.getTime());
+  var windYest = dominantWindAround(idxYest);
+  var coefYest = (typeof getCoefForDate === 'function')
+    ? getCoefForDate(yesterdayDate.toISOString().slice(0, 10))
+    : null;
+  var textYest = windYest
+    ? 'vent ' + windYest.dirName + ' ' + windYest.windKt
+    : 'données indisponibles';
+  if (coefYest !== null) textYest += ' · coef ' + coefYest;
+
+  // Bloc 3 — maintenant (créneau sélectionné dans le drawer)
+  var dateVal = document.getElementById('spotDate').value;
+  var timeVal = document.getElementById('spotTime').value;
+  var nowTargetMs = new Date(dateVal + 'T' + timeVal).getTime();
+  var idxNow = findIdxNearMs(nowTargetMs);
+  var windNowKt = Math.round((h.windspeed_10m[idxNow] || 0) * 0.539957);
+  var dirNow = h.winddirection_10m ? h.winddirection_10m[idxNow] : null;
+  var dirNowName = dirToCardinal(dirNow);
+  var coefNow = (typeof getCoefForDate === 'function')
+    ? getCoefForDate(dateVal)
+    : null;
+  var textNow = 'vent ' + dirNowName + ' ' + windNowKt;
+  if (coefNow !== null) textNow += ' · coef ' + coefNow;
+
+  // Injection HTML
+  list.innerHTML =
+    '<div class="vz-timeline-item is-warning">' +
+      '<div class="vz-timeline-dot"></div>' +
+      '<div class="vz-timeline-content">' +
+        '<div class="vz-timeline-item-label">' + labelRef + '</div>' +
+        '<div class="vz-timeline-item-text">' + textRef + '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="vz-timeline-item">' +
+      '<div class="vz-timeline-dot"></div>' +
+      '<div class="vz-timeline-content">' +
+        '<div class="vz-timeline-item-label">hier</div>' +
+        '<div class="vz-timeline-item-text">' + textYest + '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="vz-timeline-item is-now">' +
+      '<div class="vz-timeline-dot"></div>' +
+      '<div class="vz-timeline-content">' +
+        '<div class="vz-timeline-item-label">Maintenant</div>' +
+        '<div class="vz-timeline-item-text">' + textNow + '</div>' +
+      '</div>' +
+    '</div>';
+}
 function renderPmBmDuJour() {
   var content = document.getElementById('vzPmBmContent');
   if (!content) return;
