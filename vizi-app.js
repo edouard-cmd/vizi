@@ -2607,8 +2607,16 @@ function renderPmBmDuJour() {
     return;
   }
 
-  var selDate = TIDES.selectedDate;
-  var dayExtremes = TIDES.extremes.filter(function(e){ return e.time.slice(0,10) === selDate; });
+var selDate = TIDES.selectedDate;
+  // Fenêtre 24h calée sur le jour civil sélectionné (00h00 inclus → lendemain 00h00 exclu).
+  // Capture la 4ème marée quand elle tombe juste avant minuit.
+  // Si elle tombe après minuit (lendemain matin), elle est dans la fenêtre du jour suivant.
+  var startMs = new Date(selDate + 'T00:00:00').getTime();
+  var endMs = startMs + 24 * 3600 * 1000;
+  var dayExtremes = TIDES.extremes.filter(function(e){
+    var t = new Date(e.time).getTime();
+    return t >= startMs && t < endMs;
+  });
 
   if (dayExtremes.length === 0) {
     content.innerHTML = '<div class="vz-pmbm-empty">Pas de données pour cette date</div>';
