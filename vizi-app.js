@@ -2358,6 +2358,55 @@ if (typeof visi_m_value === 'number' && isFinite(visi_m_value) && visi_m_value >
         satelliteCard.style.display = 'none';
       }
     }
+    // SPRINT 3 : affichage de la carte mesure terrain Coriolis si bouée proche.
+    // Affichée INDÉPENDAMMENT du moteur V4 actif (transparence épistémique) :
+    // - engine=satellite_propagated : carte Coriolis en info complémentaire
+    // - engine=coriolis_propagated : carte Coriolis = source principale
+    // - engine=chain ou empirical : carte Coriolis quand même affichée si bouée dispo
+    // Source : S_spotCoriolisCache directement, pas scoreObj.coriolis
+    var coriolisCard = document.getElementById('vzCoriolisCard');
+    if (coriolisCard) {
+      if (typeof S_spotCoriolisCache !== 'undefined' &&
+          S_spotCoriolisCache && S_spotCoriolisCache.data &&
+          S_spotCoriolisCache.data.status === 'ok' &&
+          typeof S_spotCoriolisCache.data.value_ntu === 'number') {
+        
+        var cor = S_spotCoriolisCache.data;
+        
+        // Visibilité convertie via loi de puissance Secchi
+        var corVisi = inverseNTUtoVisibility(cor.value_ntu);
+        document.getElementById('vzCoriolisVisi').textContent =
+          (corVisi !== null && isFinite(corVisi))
+            ? '~ ' + (Math.round(corVisi * 10) / 10) + ' m'
+            : '—';
+        
+        // Nom bouée + distance
+        document.getElementById('vzCoriolisBuoy').textContent =
+          cor.buoy_name + ' · ' + cor.distance_km.toFixed(1) + ' km';
+        
+        // NTU brute (pour transparence scientifique)
+        document.getElementById('vzCoriolisNtu').textContent =
+          'turbidité ' + cor.value_ntu.toFixed(1) + ' NTU';
+        
+        // Temps relatif (mapping age_hours → texte humain, comme satellite)
+        var corAge = cor.age_hours;
+        var corRelTxt = '—';
+        if (typeof corAge === 'number' && isFinite(corAge)) {
+          if (corAge < 1) corRelTxt = 'il y a ' + Math.round(corAge * 60) + ' min';
+          else if (corAge < 24) {
+            var h = Math.floor(corAge);
+            var m = Math.round((corAge - h) * 60);
+            corRelTxt = 'il y a ' + (m > 0 ? h + 'h' + (m < 10 ? '0' + m : m) : h + 'h');
+          }
+          else corRelTxt = 'il y a ' + Math.round(corAge / 24) + ' jours';
+        }
+        document.getElementById('vzCoriolisRelative').textContent = corRelTxt;
+        
+        coriolisCard.style.display = 'flex';
+      } else {
+        coriolisCard.style.display = 'none';
+      }
+    }
   }
   // Si pipeline en cours, le badge garde son etat skeleton (Calcul...)
   // jusqu'au prochain render apres _hidePipelineLoader().
