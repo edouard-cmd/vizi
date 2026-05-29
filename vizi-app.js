@@ -734,6 +734,7 @@ var S_gridScores = [];
 var S_gridUpdatedAt = null;
 var S_spotWeatherCache = null;
 var S_spotSatelliteCache = null;   // Sprint 2 : { lat, lon, data: {...} } ou null
+var S_spotCoriolisCache = null;  // Sprint 3 — mesure terrain Coriolis Côtier IFREMER
 var S_spotMarineCache = null;
 var S_spotSunCache = null;
 var S_hexLayer = null;
@@ -1783,6 +1784,38 @@ function openSpotPopup(latlng, name) {
     // Re-render du drawer avec la donnée satellite disponible
     if (typeof renderSpotPopup === 'function') renderSpotPopup();
   });
+  // ============================================================
+  // SPRINT 3 — FETCH CORIOLIS COTIER (parallèle, non-bloquant)
+  // ------------------------------------------------------------
+  // Lance en parallèle du satellite. Quand la donnée arrive, on
+  // vérifie que la génération est encore valide (anti pollution
+  // clics rapides), on alimente S_spotCoriolisCache, on invalide
+  // les caches V4 pour forcer recalcul incluant la voie Coriolis,
+  // et on déclenche un re-render du drawer.
+  //
+  // Aucun affichage forcé si pas de bouée dans le rayon (retour null
+  // de fetchCoriolisTurbidity), le drawer reste comme avant.
+  // ============================================================
+  fetchCoriolisTurbidity(latlng.lat, latlng.lng).then(function(coriolisData) {
+    if (!_isGenValid()) return;  // clic obsolète, on ignore silencieusement
+    if (!coriolisData) {
+      // Pas de bouée proche, ou mesure trop ancienne, ou erreur
+      S_spotCoriolisCache = null;
+      return;
+    }
+    // Stockage avec position de référence (anti-mélange entre spots)
+    S_spotCoriolisCache = {
+      lat: latlng.lat,
+      lon: latlng.lng,
+      data: coriolisData
+    };
+    // Invalide les caches V4 pour forcer un recalcul incluant la voie Coriolis
+    if (typeof _coriolisV4Cache !== 'undefined') _coriolisV4Cache = {};
+    if (typeof _satelliteV4Cache !== 'undefined') _satelliteV4Cache = {};
+    if (typeof _chainCache !== 'undefined') _chainCache = {};
+    // Re-render du drawer avec la donnée Coriolis disponible
+    if (typeof renderSpotPopup === 'function') renderSpotPopup();
+  });
   
   // ============================================================
   // PIPELINE SÉQUENTIEL : depth → sediment → marine → zone → V4
@@ -1988,6 +2021,131 @@ function fetchCmemsZSD(lat, lon) {
       console.warn('[VIZI] CMEMS fetch failed:', err);
       return null;
     });
+}
+// ============================================================
+// SPRINT 3 — FETCH CORIOLIS COTIER (bouée IFREMER COAST-HF)
+// ------------------------------------------------------------
+// Wrapper frontend qui appelle le proxy GAS 'coriolis_turbidity'
+// livré au backend Sprint 3. Récupère la dernière mesure de
+// turbidité (NTU) d'une bouée IFREMER, avec son qc et son âge.
+//
+// Registre des bouées : pour l'instant uniquement SMILE Luc-sur-Mer.
+// Extensible à toutes les bouées COAST-HF en ajoutant des entrées
+// dans CORIOLIS_BUOYS (nom, lat, lon, platformCode, radiusKm).
+//
+// Cache TTL 30 min indexé par (platformCode, slot_30min) pour
+// limiter les appels IFREMER (mesure bouée toutes les 20 min en moyenne).
+//
+// Comportement : retourne une Promise qui résout vers l'objet
+// coriolis enrichi (incluant distance au spot) ou null si :
+//   - pas de bouée dans le rayon
+//   - bouée trop ancienne (>6h)
+//   - erreur réseau ou parse
+// ============================================================
+
+// Registre statique des bouées Coriolis COAST-HF
+// Extensible : ajouter platformCode + coords + rayon d'influence
+var CORIOLIS_BUOYS = [
+  {
+    name: 'SMILE Luc-sur-Mer',
+    platformCode: '6200310',
+    lat: 49.3438,
+    lon: -0.3074,
+    radiusKm: 15
+  }
+  // À étendre Sprint 3+ : Carnot Boulogne, MAREL Iroise, MOLIT Vilaine, MAGEST Gironde
+];
+
+var _coriolisCache = {};
+
+function invalidateCoriolisCache() {
+  _coriolisCache = {};
+}
+
+// Trouve la bouée Coriolis la plus proche d'un point, dans son rayon
+// d'influence. Retourne { buoy, distanceKm } ou null si aucune match.
+function findNearestCoriolisBuoy(lat, lon) {
+  var R = 6371; // rayon Terre km
+  var best = null;
+  var bestDist = Infinity;
+  CORIOLIS_BUOYS.forEach(function(buoy) {
+    var dLat = (buoy.lat - lat) * Math.PI / 180;
+    var dLon = (buoy.lon - lon) * Math.PI / 180;
+    var a = Math.sin(dLat/2) * Math.sin(dLat/2)
+      + Math.cos(lat * Math.PI / 180) * Math.cos(buoy.lat * Math.PI / 180)
+      * Math.sin(dLon/2) * Math.sin(dLon/2);
+    var dist = 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    if (dist <= buoy.radiusKm && dist < bestDist) {
+      bestDist = dist;
+      best = buoy;
+    }
+  });
+  return best ? { buoy: best, distanceKm: bestDist } : null;
+}
+
+// Fetch turbidité Coriolis pour un point (lat, lon)
+// Sélectionne automatiquement la bouée proche dans CORIOLIS_BUOYS
+function fetchCoriolisTurbidity(lat, lon) {
+  var match = findNearestCoriolisBuoy(lat, lon);
+  if (!match) return Promise.resolve(null); // pas de bouée dans le rayon
+
+  // Cache slot 30 min : Math.floor(timestamp_ms / 1800000)
+  var slot30 = Math.floor(Date.now() / 1800000);
+  var cacheKey = match.buoy.platformCode + '|' + slot30;
+
+  if (_coriolisCache[cacheKey]) {
+    var entry = _coriolisCache[cacheKey];
+    // Enrichit avec distance/buoy car cache indexé par bouée pas par spot
+    return Promise.resolve(Object.assign({}, entry.data, {
+      buoy_name: match.buoy.name,
+      buoy_lat: match.buoy.lat,
+      buoy_lon: match.buoy.lon,
+      distance_km: match.distanceKm
+    }));
+  }
+
+  var url = GAS_URL + '?action=coriolis_turbidity'
+    + '&platform=' + match.buoy.platformCode
+    + '&parameter=135'
+    + '&hours=720'; // 30 jours, fenêtre large requise par API IFREMER
+
+  return fetch(url)
+    .then(function(r) {
+      if (!r.ok) throw new Error('Coriolis HTTP ' + r.status);
+      return r.json();
+    })
+    .then(function(data) {
+      if (!data || data.status !== 'ok') {
+        console.warn('[VIZI] Coriolis fetch no data:', data ? data.error : 'null');
+        return null;
+      }
+      // Filtre âge : > 6h on rejette (mesure trop ancienne)
+      if (data.age_hours > 6) {
+        console.warn('[VIZI] Coriolis mesure trop ancienne:', data.age_hours, 'h');
+        return null;
+      }
+      _coriolisCache[cacheKey] = { timestamp: Date.now(), data: data };
+      return Object.assign({}, data, {
+        buoy_name: match.buoy.name,
+        buoy_lat: match.buoy.lat,
+        buoy_lon: match.buoy.lon,
+        distance_km: match.distanceKm
+      });
+    })
+    .catch(function(err) {
+      console.warn('[VIZI] Coriolis fetch failed:', err);
+      return null;
+    });
+}
+
+// Conversion NTU → visibilité plongeur (mètres)
+// Loi de puissance Secchi (Sestroretsky 2024) × facteur plongeur 0.7
+// visi_m = 5.6 × NTU^(-0.5)
+// Calibrage : 1 NTU = 5.6m | 3.43 NTU = 3.0m | 13 NTU = 1.5m | 50 NTU = 0.8m
+// Formule à recalibrer si observations terrain SMILE divergent.
+function inverseNTUtoVisibility(ntu) {
+  if (!ntu || ntu <= 0) return null;
+  return 5.6 * Math.pow(ntu, -0.5);
 }
 function shiftSpotDate(delta) {
   var input = document.getElementById('spotDate');
@@ -4205,9 +4363,12 @@ function computeVisibilityScore_V4(h, idx, depth, lat, lon) {
       Math.abs(S_spotSatelliteCache.lat - lat) < 0.01 &&
       Math.abs(S_spotSatelliteCache.lon - lon) < 0.01 &&
       S_spotSatelliteCache.data && S_spotSatelliteCache.data.status &&
-      (S_spotSatelliteCache.data.status === 'ok' ||
+(S_spotSatelliteCache.data.status === 'ok' ||
        S_spotSatelliteCache.data.status === 'cloudy_J1' ||
-       S_spotSatelliteCache.data.status === 'cloudy_J2')) {
+       S_spotSatelliteCache.data.status === 'cloudy_J2') &&
+      // Sprint 3 : check fraîcheur 72h. Au-delà, fall-through vers Coriolis.
+      (typeof S_spotSatelliteCache.data.age_hours !== 'number' ||
+       S_spotSatelliteCache.data.age_hours <= 72))
 
     // ----- Cache satellite : early return si hit -----
     if (_satelliteV4Cache[cacheKey]) return _satelliteV4Cache[cacheKey];
@@ -4295,6 +4456,98 @@ function computeVisibilityScore_V4(h, idx, depth, lat, lon) {
     // Comportement défensif : on ne jette pas, on dégrade silencieusement.
   }
   // Fin voie satellite. Si pas de satellite dispo ou échec, on continue
+  // avec la voie chaîne 9 briques (code existant ci-dessous).
+// ============================================================
+  // SPRINT 3 — VOIE CORIOLIS PROPAGÉE (priorité 2)
+  // ------------------------------------------------------------
+  // Si une mesure bouée IFREMER COAST-HF (Coriolis Côtier) est
+  // disponible pour la zone de ce spot (rayon configurable), on
+  // l'utilise comme ancrage in-situ. Plus précis que satellite
+  // mais limité géographiquement aux 10+ bouées du réseau national.
+  //
+  // Activée uniquement si la voie satellite a échoué (no_data,
+  // mesure > 72h, propagation impossible). Si Coriolis échoue
+  // aussi → fall-through vers voie chaîne 9 briques.
+  //
+  // Sources scientifiques :
+  //   - Bouée SMILE Luc-sur-Mer : réseau COAST-HF IFREMER
+  //   - Inversion NTU → visi : loi de puissance Sestroretsky 2024
+  //     (visi = 5.6 × NTU^(-0.5)) × facteur 0.7 plongeur
+  //   - Propagation 0D : identique voie satellite (Krone 1962)
+  // ============================================================
+  if (typeof S_spotCoriolisCache !== 'undefined' && S_spotCoriolisCache &&
+      typeof S_spotCoriolisCache.lat === 'number' && typeof S_spotCoriolisCache.lon === 'number' &&
+      Math.abs(S_spotCoriolisCache.lat - lat) < 0.01 &&
+      Math.abs(S_spotCoriolisCache.lon - lon) < 0.01 &&
+      S_spotCoriolisCache.data && S_spotCoriolisCache.data.status === 'ok' &&
+      typeof S_spotCoriolisCache.data.value_ntu === 'number') {
+
+    // ----- Cache Coriolis : early return si hit -----
+    if (typeof _coriolisV4Cache !== 'undefined' && _coriolisV4Cache[cacheKey]) {
+      return _coriolisV4Cache[cacheKey];
+    }
+    if (typeof _coriolisV4Cache === 'undefined') {
+      _coriolisV4Cache = {};
+    }
+
+    var coriolisData = S_spotCoriolisCache.data;
+
+    // ----- Étape A : NTU → visi plongeur (mètres) -----
+    var visi_coriolis = inverseNTUtoVisibility(coriolisData.value_ntu);
+
+    if (visi_coriolis !== null && isFinite(visi_coriolis)) {
+      // ----- Étape B : Construction objet result -----
+      // NB : pas de propagation 0D ici dans cette première version
+      // (besoin C_kg_m3 → dérivation NTU empirique incertaine pour
+      // l'instant). On affiche la mesure brute convertie. La voie
+      // satellite_propagated reste la seule à propager via Beer-Lambert.
+      // Évolution Sprint 3.5 : ajouter propagation Coriolis avec
+      // NTU → C empirique calibré sur 1 an d'historique SMILE.
+      var score_coriolis = mapVisiToScore(visi_coriolis);
+
+      var coriolisResult = {
+        // Champs legacy (rétrocompatibilité 5 consommateurs UI)
+        score: score_coriolis,
+        visi_m: visi_coriolis,
+        label: _scoreToLabel(score_coriolis),
+        engine: 'coriolis_propagated',
+        trace: {
+          fallback_reason: null,
+          buoy_name: coriolisData.buoy_name,
+          buoy_distance_km: coriolisData.distance_km,
+          ntu_measured: coriolisData.value_ntu,
+          qc: coriolisData.qc,
+          age_hours: coriolisData.age_hours
+        },
+        verdict: 'Mesure terrain IFREMER ' + coriolisData.buoy_name
+          + ' (' + coriolisData.distance_km.toFixed(1) + ' km) : '
+          + coriolisData.value_ntu.toFixed(1) + ' NTU mesurés il y a '
+          + Math.round(coriolisData.age_hours * 10) / 10 + ' h, '
+          + 'visibilité estimée ' + visi_coriolis.toFixed(1) + ' m.',
+        warnings: [],
+
+        // Nouveau bloc coriolis (pour drawer)
+        coriolis: {
+          value_ntu: coriolisData.value_ntu,
+          visi_m: visi_coriolis,
+          buoy_name: coriolisData.buoy_name,
+          distance_km: coriolisData.distance_km,
+          timestamp_observed: coriolisData.timestamp_observed,
+          age_hours: coriolisData.age_hours,
+          qc: coriolisData.qc
+        },
+        confidence: {
+          pct: 75,  // fiabilité statique correcte (mesure in-situ < 6h)
+          label_color: 'success'
+        }
+      };
+
+      _coriolisV4Cache[cacheKey] = coriolisResult;
+      return coriolisResult;
+    }
+    // Si inversion NTU a échoué, fall-through vers chaîne (comme satellite).
+  }
+  // Fin voie Coriolis. Si pas de bouée proche ou échec, on continue
   // avec la voie chaîne 9 briques (code existant ci-dessous).
   // ----- Initialisation du résultat -----
   var result = {
