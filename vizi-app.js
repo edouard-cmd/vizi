@@ -4417,7 +4417,7 @@ function computeVisibilityScore_V4(h, idx, depth, lat, lon) {
        S_spotSatelliteCache.data.status === 'cloudy_J2') &&
       // Sprint 3 : check fraîcheur 72h. Au-delà, fall-through vers Coriolis.
       (typeof S_spotSatelliteCache.data.age_hours !== 'number' ||
-       S_spotSatelliteCache.data.age_hours <= 72))
+       S_spotSatelliteCache.data.age_hours <= 72)) {
 
     // ----- Cache satellite : early return si hit -----
     if (_satelliteV4Cache[cacheKey]) return _satelliteV4Cache[cacheKey];
