@@ -2419,7 +2419,7 @@ if (typeof visi_m_value === 'number' && isFinite(visi_m_value) && visi_m_value >
   }
   var labelNowKey = scoreToLabelKey(score);
   var futureMinScore = score, futureMaxScore = score;
-  var lookAhead = Math.min(24, h.time.length - idx - 1);
+ var lookAhead = (h && h.time && h.time.length) ? Math.min(24, h.time.length - idx - 1) : 0;
  for (var fIdx = idx + 1; fIdx <= idx + lookAhead; fIdx++) {
     // Patch 5/6 : on récupère juste le score (pas besoin de stocker la trace ici)
     var sFut = computeVisibilityScore_V4(h, fIdx, depth, lat, lon).score;
