@@ -2120,7 +2120,7 @@ function fetchCoriolisTurbidity(lat, lon) {
         return null;
       }
       // Filtre âge : > 6h on rejette (mesure trop ancienne)
-      if (data.age_hours > 6) {
+      if (data.age_hours > 48) {
         console.warn('[VIZI] Coriolis mesure trop ancienne:', data.age_hours, 'h');
         return null;
       }
