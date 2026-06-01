@@ -4374,6 +4374,9 @@ var _chainCache = {};
 // Évite de re-propager à chaque rotation date/heure dans le drawer.
 var _satelliteV4Cache = {};
 
+// Sprint 3 : cache voie Coriolis propagée (même logique que satellite).
+var _coriolisV4Cache = {};
+
 function invalidateChainCache() {
   _chainCache = {};
   _satelliteV4Cache = {};
