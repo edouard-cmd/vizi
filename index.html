@@ -4540,7 +4540,19 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
     color: var(--vz-text-on-dark-muted);
     font-family: 'IBM Plex Mono', monospace;
   }
-
+/* ===== Courbe de marée mobile (Talisker) ===== */
+.vzm-tide{margin-top:18px;background:var(--vz-bg-surface);border:.5px solid var(--vz-border-glass);border-radius:14px;padding:14px 14px 12px;}
+.vzm-tide-head{display:flex;align-items:center;justify-content:space-between;}
+.vzm-tide-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--vz-faint);}
+.vzm-coef-wrap{display:flex;align-items:center;gap:10px;}
+.vzm-gauge{display:flex;align-items:flex-end;gap:3px;height:18px;}
+.vzm-gauge span{width:4px;border-radius:2px;background:var(--vz-faint);opacity:.4;}
+.vzm-gauge span:nth-child(1){height:7px}.vzm-gauge span:nth-child(2){height:11px}.vzm-gauge span:nth-child(3){height:14px}.vzm-gauge span:nth-child(4){height:18px}
+.vzm-gauge span.on{background:var(--vz-accent);opacity:1;}
+.vzm-cv{display:flex;align-items:baseline;gap:6px;}
+.vzm-cv .cnum{font-family:var(--font-mono);font-size:22px;font-weight:700;color:var(--vz-accent);}
+.vzm-cv .clbl{font-size:9px;font-weight:700;letter-spacing:.12em;color:var(--vz-faint);}
+.vzm-tide-svg{display:block;width:100%;height:auto;margin-top:8px;}
   /* === HINT TIER === */
   .vzm-tier-hint {
     text-align: center;
