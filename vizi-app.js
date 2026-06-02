@@ -2829,6 +2829,14 @@ function renderTimelineDepuisMesure() {
       '</div>' +
     '</div>';
 }
+function vzmFormatVisiM(m){
+  if (m === null || m === undefined || m === '') return '—';
+  if (typeof m === 'string') return m;
+  if (typeof m === 'object' && m.min != null && m.max != null) return Math.round(m.min) + '-' + Math.round(m.max);
+  if (isNaN(m)) return '—';
+  if (m < 0.5) return '~0';
+  return '~' + (Math.round(m * 10) / 10);
+}
 function vzmTimeToMin(t){var p=t.split(':');return (+p[0])*60+(+p[1]);}
 function vzmTideSVG(events, showNow){
   var W=340,TOP=22,BOT=84;
@@ -11886,6 +11894,7 @@ function vzmRenderForecast() {
     // Frise + marées semaine
     vzmRenderForecast();
     vzmRenderWeekTides();
+    vzmRenderTide();
   };
 
   // === Ouverture/fermeture du drawer mobile ===
