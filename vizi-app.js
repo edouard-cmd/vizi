@@ -2837,6 +2837,12 @@ function vzmFormatVisiM(m){
   if (m < 0.5) return '~0';
   return '~' + (Math.round(m * 10) / 10);
 }
+function vzmGetVisiM(r){
+  if (r == null) return null;
+  if (typeof r === 'number') return r;
+  if (typeof r.visi_m === 'number') return r.visi_m;
+  return null;
+}
 function vzmTimeToMin(t){var p=t.split(':');return (+p[0])*60+(+p[1]);}
 function vzmTideSVG(events, showNow){
   var W=340,TOP=22,BOT=84;
