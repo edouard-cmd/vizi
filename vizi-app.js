@@ -2902,23 +2902,26 @@ var selDate = TIDES.selectedDate;
 
   content.innerHTML = html;
 }
-function vzmRenderTide(){
+function vzmRenderTide(dateISO){
   var svg = document.getElementById('vzmTideSvg');
   if (!svg) return;
-  if (typeof TIDES === 'undefined' || !TIDES.extremes || !TIDES.selectedDate) return;
-  var startMs = new Date(TIDES.selectedDate + 'T00:00:00').getTime();
-  var endMs = startMs + 28 * 3600 * 1000;
+  if (typeof TIDES === 'undefined' || !TIDES.extremes) return;
+  if (!dateISO){
+    var n = new Date();
+    dateISO = n.getFullYear()+'-'+('0'+(n.getMonth()+1)).slice(-2)+'-'+('0'+n.getDate()).slice(-2);
+  }
+  var startMs = new Date(dateISO+'T00:00:00').getTime();
+  var endMs = startMs + 28*3600*1000;
   var evs = TIDES.extremes.filter(function(e){
     var t = new Date(e.time).getTime();
     return t >= startMs && t < endMs;
-  }).slice(0, 4).map(function(e){
-    var d = new Date(e.time);
-    var hh = ('0' + d.getHours()).slice(-2), mm = ('0' + d.getMinutes()).slice(-2);
-    return { type: e.type === 'high' ? 'haute' : 'basse', time: hh + ':' + mm, h: e.height };
+  }).slice(0,4).map(function(e){
+    var d = new Date(e.time), hh=('0'+d.getHours()).slice(-2), mm=('0'+d.getMinutes()).slice(-2);
+    return { type: e.type==='high'?'haute':'basse', time: hh+':'+mm, h: e.height };
   });
-  if (evs.length < 2) { svg.innerHTML = ''; return; }
-  var today = TIDES.selectedDate === new Date().toISOString().split('T')[0];
-  svg.innerHTML = vzmTideSVG(evs, today);
+  if (evs.length < 2){ svg.innerHTML=''; return; }
+  var today = (function(){var n=new Date();return n.getFullYear()+'-'+('0'+(n.getMonth()+1)).slice(-2)+'-'+('0'+n.getDate()).slice(-2);})();
+  svg.innerHTML = vzmTideSVG(evs, dateISO===today);
 }
 function renderDecantation(h, currentIdx, depth, currentDir, latlng) {
   var banner = document.getElementById('decantBannerV2');
