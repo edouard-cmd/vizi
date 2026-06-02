@@ -11767,21 +11767,13 @@ function vzmRenderForecast() {
     var badge = document.getElementById('vzmVerdictBadge');
     if (badge) badge.textContent = label;
 
-    // Valeur visi en mètres approx (basée sur le label)
-    var valueText = '—';
-    if (verdictKey === 'excellente') valueText = '~ 8 m';
-    else if (verdictKey === 'bonne') valueText = '~ 6 m';
-    else if (verdictKey === 'correcte') valueText = '~ 4 m';
-    else if (verdictKey === 'faible') valueText = '~ 2 m';
-    else if (verdictKey === 'nulle') valueText = '~ 1 m';
-    var valueEl = document.getElementById('vzmVerdictValue');
-    if (valueEl) valueEl.textContent = valueText;
+// Visi en mètres : valeur réelle écrite plus bas, une fois scoreResult calculé.
 
     // Calcul des params pour la phrase explicative
     var depth = (S && S._spotDepth) ? S._spotDepth : 5;
     var lat = (S && S.clickLatLng) ? S.clickLatLng.lat : 49.35;
     var lon = (S && S.clickLatLng) ? S.clickLatLng.lng : -0.5;
-    var wind = 0, gusts = 0, dir = null, dirFactor = 1.0, score = 50;
+    var wind = 0, gusts = 0, dir = null, dirFactor = 1.0, score = 50, scoreResult = null;
     if (S_spotWeatherCache) {
       var dateVal = document.getElementById('spotDate') ? document.getElementById('spotDate').value : '';
       var timeVal = document.getElementById('spotTime') ? document.getElementById('spotTime').value : '12:00';
@@ -11797,11 +11789,16 @@ function vzmRenderForecast() {
       if (typeof getDirFactorForPoint === 'function') {
         dirFactor = getDirFactorForPoint(dir, lat, lon);
       }
-     // Patch 5/6
+    // Patch visi réelle : on garde l'objet complet, pas juste .score.
       if (typeof computeVisibilityScore_V4 === 'function') {
-        score = computeVisibilityScore_V4(S_spotWeatherCache, idx, depth, lat, lon).score;
+        scoreResult = computeVisibilityScore_V4(S_spotWeatherCache, idx, depth, lat, lon);
+        score = scoreResult.score;
       }
     }
+
+    // Verdict en mètres : vraie valeur (Coriolis > chaîne > empirique).
+    var valueEl = document.getElementById('vzmVerdictValue');
+    if (valueEl) valueEl.textContent = vzmFormatVisiM(vzmGetVisiM(scoreResult));
 
     // Phrase explicative
     var explainEl = document.getElementById('vzmVerdictExplain');
