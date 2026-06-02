@@ -2829,6 +2829,25 @@ function renderTimelineDepuisMesure() {
       '</div>' +
     '</div>';
 }
+function vzmTimeToMin(t){var p=t.split(':');return (+p[0])*60+(+p[1]);}
+function vzmTideSVG(events, showNow){
+  var W=340,TOP=22,BOT=84;
+  var pts=[{t:0,h:events[events.length-1].h}].concat(events.map(function(e){return {t:vzmTimeToMin(e.time),h:e.h};}));
+  var hMin=Math.min.apply(null,pts.map(function(p){return p.h;})),hMax=Math.max.apply(null,pts.map(function(p){return p.h;}));
+  var xOf=function(t){return t/1440*W;},yOf=function(h){return TOP+(1-(h-hMin)/(hMax-hMin||1))*(BOT-TOP);};
+  var hAt=function(t){for(var i=0;i<pts.length-1;i++){var a=pts[i],b=pts[i+1];if(t>=a.t&&t<=b.t){var f=(t-a.t)/(b.t-a.t);return a.h+(b.h-a.h)*(1-Math.cos(Math.PI*f))/2;}}return pts[pts.length-1].h;};
+  var d='';for(var t=0;t<=1440;t+=10){d+=(t===0?'M':'L')+xOf(t).toFixed(1)+' '+yOf(hAt(t)).toFixed(1)+' ';}
+  var s='<defs><linearGradient id="vzmTg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4DD4A8" stop-opacity="0.30"/><stop offset="1" stop-color="#4DD4A8" stop-opacity="0"/></linearGradient></defs>';
+  s+='<path d="'+d+'L'+W+' '+BOT+' L0 '+BOT+' Z" fill="url(#vzmTg)"/><path d="'+d+'" fill="none" stroke="#4DD4A8" stroke-width="3" stroke-linejoin="round"/>';
+  events.forEach(function(e){var x=xOf(vzmTimeToMin(e.time)),y=yOf(e.h),tx=Math.max(26,Math.min(W-26,x));
+    s+='<circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="4" fill="#0F2438" stroke="rgba(255,255,255,0.65)" stroke-width="2"/>';
+    s+='<text x="'+tx+'" y="104" fill="rgba(255,255,255,0.85)" font-family="\'IBM Plex Mono\',monospace" font-size="12.5" font-weight="600" text-anchor="middle">'+e.time+'</text>';
+    s+='<text x="'+tx+'" y="118" fill="rgba(255,255,255,0.55)" font-family="\'IBM Plex Mono\',monospace" font-size="10.5" font-weight="600" text-anchor="middle">'+(e.type==='haute'?'PM':'BM')+' '+e.h.toFixed(1)+'m</text>';});
+  if(showNow){var now=new Date(),nm=now.getHours()*60+now.getMinutes(),nx=xOf(nm),ny=yOf(hAt(nm));
+    s+='<line x1="'+nx.toFixed(1)+'" y1="8" x2="'+nx.toFixed(1)+'" y2="'+BOT+'" stroke="#fff" stroke-opacity="0.25" stroke-width="1" stroke-dasharray="2 3"/>';
+    s+='<circle cx="'+nx.toFixed(1)+'" cy="'+ny.toFixed(1)+'" r="5.5" fill="#fff"/>';}
+  return s;
+}
 function renderPmBmDuJour() {
   var content = document.getElementById('vzPmBmContent');
   if (!content) return;
