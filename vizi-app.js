@@ -2902,6 +2902,24 @@ var selDate = TIDES.selectedDate;
 
   content.innerHTML = html;
 }
+function vzmRenderTide(){
+  var svg = document.getElementById('vzmTideSvg');
+  if (!svg) return;
+  if (typeof TIDES === 'undefined' || !TIDES.extremes || !TIDES.selectedDate) return;
+  var startMs = new Date(TIDES.selectedDate + 'T00:00:00').getTime();
+  var endMs = startMs + 28 * 3600 * 1000;
+  var evs = TIDES.extremes.filter(function(e){
+    var t = new Date(e.time).getTime();
+    return t >= startMs && t < endMs;
+  }).slice(0, 4).map(function(e){
+    var d = new Date(e.time);
+    var hh = ('0' + d.getHours()).slice(-2), mm = ('0' + d.getMinutes()).slice(-2);
+    return { type: e.type === 'high' ? 'haute' : 'basse', time: hh + ':' + mm, h: e.height };
+  });
+  if (evs.length < 2) { svg.innerHTML = ''; return; }
+  var today = TIDES.selectedDate === new Date().toISOString().split('T')[0];
+  svg.innerHTML = vzmTideSVG(evs, today);
+}
 function renderDecantation(h, currentIdx, depth, currentDir, latlng) {
   var banner = document.getElementById('decantBannerV2');
   if (!banner) return;
