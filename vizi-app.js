@@ -2837,6 +2837,76 @@ function vzmFormatVisiM(m){
   if (m < 0.5) return '~0';
   return '~' + (Math.round(m * 10) / 10);
 }
+// === Bloc "sources" du drawer mobile (remplace la phrase verdict) ===
+// Lit directement S_spotSatelliteCache / S_spotCoriolisCache, avec EXACTEMENT
+// les memes calculs et formats que les cartes desktop (vzSatelliteCard L2320,
+// vzCoriolisCard L2367) : visi arrondie 0.1, distance toFixed(1), memes mappings
+// d'age. Garantit l'iso desktop/mobile sur les valeurs.
+// Barres = fraicheur de la mesure (fenetre 72h satellite, 48h bouee).
+function vzmFreshBars(ageH, fenetreH){
+  if (typeof ageH !== 'number' || !isFinite(ageH)) return 0;
+  var r = ageH / fenetreH;
+  if (r <= 0.25) return 4;
+  if (r <= 0.50) return 3;
+  if (r <= 0.75) return 2;
+  if (r <= 1.00) return 1;
+  return 0;
+}
+function vzmBuildSources(){
+  var TEAL='#4DD4A8', CAUTION='#E89B3C', OFF='rgba(234,241,245,0.16)';
+  var LBL='rgba(234,241,245,0.74)', LBLOFF='rgba(234,241,245,0.55)';
+  var VAL='#EAF1F5', CTX='rgba(234,241,245,0.62)';
+  function bars(n){
+    var hgt=[7,11,15,20];
+    var s='<span style="display:inline-flex;align-items:flex-end;gap:2.5px;height:20px;width:22px;flex:none;margin-top:1px;">';
+    for(var i=0;i<4;i++){
+      var col=(i<n) ? ((n===1)?CAUTION:TEAL) : OFF;
+      s+='<i style="width:3.5px;height:'+hgt[i]+'px;border-radius:1px;background:'+col+';"></i>';
+    }
+    return s+'</span>';
+  }
+  function rowHtml(n,label,line,dim){
+    return '<div style="display:flex;gap:13px;padding:9px 0;align-items:flex-start;">'
+      + bars(n)
+      + '<div style="flex:1;min-width:0;">'
+      +   '<div style="font-size:12.5px;letter-spacing:.07em;text-transform:uppercase;font-weight:600;line-height:1.3;color:'+(dim?LBLOFF:LBL)+';">'+label+'</div>'
+      +   '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:15px;margin-top:3px;line-height:1.35;color:'+(dim?LBLOFF:CTX)+';">'+line+'</div>'
+      + '</div></div>';
+  }
+  // --- SATELLITE (iso vzSatelliteCard) ---
+  var satRow, sd=(typeof S_spotSatelliteCache!=='undefined' && S_spotSatelliteCache && S_spotSatelliteCache.data)?S_spotSatelliteCache.data:null;
+  if(sd && typeof sd.visi_plongeur_m==='number'){
+    var sv=Math.round(sd.visi_plongeur_m*10)/10, sa=sd.age_hours, st='';
+    if(typeof sa==='number' && isFinite(sa)){
+      if(sa<24) st='aujourd\'hui'; else if(sa<36) st='hier';
+      else if(sa<60) st='il y a 2 jours'; else if(sa<84) st='il y a 3 jours';
+      else st='il y a '+Math.round(sa/24)+' jours';
+    }
+    var sl='<b style="color:'+VAL+';font-weight:600;">~ '+sv+' m</b>'+(st?' &middot; '+st:'');
+    satRow=rowHtml(vzmFreshBars(sa,72),'Observation satellite',sl,false);
+  } else {
+    satRow=rowHtml(0,'Observation satellite','hors zone',true);
+  }
+  // --- BOUEE CORIOLIS (iso vzCoriolisCard) ---
+  var corRow, cd=(typeof S_spotCoriolisCache!=='undefined' && S_spotCoriolisCache && S_spotCoriolisCache.data
+    && S_spotCoriolisCache.data.status==='ok' && typeof S_spotCoriolisCache.data.value_ntu==='number')?S_spotCoriolisCache.data:null;
+  if(cd){
+    var cvRaw=inverseNTUtoVisibility(cd.value_ntu);
+    var cv=(cvRaw!==null && isFinite(cvRaw))?(Math.round(cvRaw*10)/10):null;
+    var ca=cd.age_hours, ct='';
+    if(typeof ca==='number' && isFinite(ca)){
+      if(ca<1) ct='il y a '+Math.round(ca*60)+' min';
+      else if(ca<24){ var h=Math.floor(ca), m=Math.round((ca-h)*60); ct='il y a '+(m>0?h+'h'+(m<10?'0'+m:m):h+'h'); }
+      else ct='il y a '+Math.round(ca/24)+' jours';
+    }
+    var cl='<b style="color:'+VAL+';font-weight:600;">'+(cv!==null?'~ '+cv+' m':'&mdash;')+'</b>'
+      +' &middot; '+cd.distance_km.toFixed(1)+' km'+(ct?' &middot; '+ct:'');
+    corRow=rowHtml(vzmFreshBars(ca,48),'Bou&eacute;e '+cd.buoy_name,cl,false);
+  } else {
+    corRow=rowHtml(0,'Bou&eacute;e','pas de mesure r&eacute;cente',true);
+  }
+  return satRow+corRow;
+}
 function vzmGetVisiM(r){
   if (r == null) return null;
   if (typeof r === 'number') return r;
@@ -11863,7 +11933,7 @@ function vzmRenderForecast() {
     // Phrase explicative
     var explainEl = document.getElementById('vzmVerdictExplain');
     if (explainEl) {
-      explainEl.innerHTML = vzmBuildVerdictExplain(score, depth, wind, gusts, dir, dirFactor);
+      explainEl.innerHTML = vzmBuildSources();
     }
 
     // Stats grid
