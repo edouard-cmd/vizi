@@ -2846,7 +2846,13 @@ function vzmGetVisiM(r){
 function vzmTimeToMin(t){var p=t.split(':');return (+p[0])*60+(+p[1]);}
 function vzmTideSVG(events, showNow){
   var W=340,TOP=22,BOT=84;
-  var pts=[{t:0,h:events[events.length-1].h}].concat(events.map(function(e){return {t:vzmTimeToMin(e.time),h:e.h};}));
+  var ev = events.map(function(e){return {t:vzmTimeToMin(e.time),h:e.h};});
+var pts;
+if (ev.length >= 2){
+  var preT  = ev[0].t - (ev[1].t - ev[0].t);
+  var postT = ev[ev.length-1].t + (ev[ev.length-1].t - ev[ev.length-2].t);
+  pts = [{t:preT, h:ev[1].h}].concat(ev).concat([{t:postT, h:ev[ev.length-2].h}]);
+} else { pts = ev; }
   var hMin=Math.min.apply(null,pts.map(function(p){return p.h;})),hMax=Math.max.apply(null,pts.map(function(p){return p.h;}));
   var xOf=function(t){return t/1440*W;},yOf=function(h){return TOP+(1-(h-hMin)/(hMax-hMin||1))*(BOT-TOP);};
   var hAt=function(t){for(var i=0;i<pts.length-1;i++){var a=pts[i],b=pts[i+1];if(t>=a.t&&t<=b.t){var f=(t-a.t)/(b.t-a.t);return a.h+(b.h-a.h)*(1-Math.cos(Math.PI*f))/2;}}return pts[pts.length-1].h;};
