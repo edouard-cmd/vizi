@@ -2120,9 +2120,8 @@ function fetchCoriolisTurbidity(lat, lon) {
         return null;
       }
       // Filtre âge : > 6h on rejette (mesure trop ancienne)
-      if (data.age_hours > 48) {
-        console.warn('[VIZI] Coriolis mesure trop ancienne:', data.age_hours, 'h');
-        return null;
+     if (data.age_hours > 48) {
+        console.warn('[VIZI] Coriolis mesure ancienne (affichee, hors score):', data.age_hours, 'h');
       }
       _coriolisCache[cacheKey] = { timestamp: Date.now(), data: data };
       return Object.assign({}, data, {
@@ -4662,7 +4661,8 @@ function computeVisibilityScore_V4(h, idx, depth, lat, lon) {
       Math.abs(S_spotCoriolisCache.lat - lat) < 0.01 &&
       Math.abs(S_spotCoriolisCache.lon - lon) < 0.01 &&
       S_spotCoriolisCache.data && S_spotCoriolisCache.data.status === 'ok' &&
-      typeof S_spotCoriolisCache.data.value_ntu === 'number') {
+      typeof S_spotCoriolisCache.data.value_ntu === 'number' &&
+      S_spotCoriolisCache.data.age_hours <= 48) {
 
     // ----- Cache Coriolis : early return si hit -----
     if (typeof _coriolisV4Cache !== 'undefined' && _coriolisV4Cache[cacheKey]) {
