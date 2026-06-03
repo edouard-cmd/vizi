@@ -2850,6 +2850,7 @@ function vzmFreshBars(ageH, fenetreH){
   if (r <= 0.75) return 2;
   if (r <= 1.00) return 1;
   return 1;
+  }
 function vzmBuildSources(){
   var TEAL='#4DD4A8', CAUTION='#E89B3C', OFF='rgba(234,241,245,0.16)';
   var LBL='rgba(234,241,245,0.74)', LBLOFF='rgba(234,241,245,0.55)';
