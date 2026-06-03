@@ -5433,23 +5433,30 @@ if (zone && zone.classes && zone.classes.length >= 1) {
 // Bascule transparente vers visScoreV2, en conservant la structure
 // d'objet pour rétrocompatibilité avec les consommateurs.
 function _buildEmpiricalResult(h, idx, depth, lat, lon, reason) {
-  var empiricalScore = 50;  // valeur de secours absolue
-  try {
-    if (typeof visScoreV2 === 'function') {
-      empiricalScore = visScoreV2(h, idx, depth, lat, lon);
-    }
-  } catch (e) {
-    console.warn('[V4] visScoreV2 fallback a planté:', e);
-  }
+  // Repli optique regional : quand la chaine physique ne peut pas tourner
+  // (roche, pas de sediment mobilisable, etc.), la visibilite se reduit a
+  // l'etat optique de fond de la masse d'eau, sans contribution sedimentaire.
+  // C_mobilise = 0 -> c_total = c_baseline. visi = 2.38 / c_baseline,
+  // identique a computeVisibility / Brique 8 (Preisendorfer 1986, Davies-Colley 1988).
+  // Calibre par zone optique regionale (Babin 2003), valable sur tout le littoral.
+  var optical = getRegionalOpticalBaseline(lat, lon);
+  var visi_baseline = (optical && typeof optical.c_baseline === 'number' &&
+                       isFinite(optical.c_baseline) && optical.c_baseline > 0)
+    ? 2.38 / optical.c_baseline
+    : null;
+  var baselineScore = (visi_baseline !== null) ? mapVisiToScore(visi_baseline) : 0;
   return {
-    score: empiricalScore,
-    visi_m: null,
-    label: _scoreToLabel(empiricalScore),
+    score: baselineScore,
+    visi_m: visi_baseline,
+    label: _scoreToLabel(baselineScore),
     engine: 'empirical',
-    trace: { fallback_reason: reason },
-    verdict: 'Modèle physique non applicable sur ce point (' + reason +
-             '). Score calculé par le modèle empirique de secours ' +
-             '(calibré Courseulles avril 2026).',
+    trace: {
+      fallback_reason: reason,
+      zone: optical ? optical.zone : null,
+      c_baseline: optical ? optical.c_baseline : null
+    },
+    verdict: 'Visibilite de fond regionale estimee (' + (optical ? optical.zone : 'zone inconnue') +
+             '). Chaine physique locale inapplicable ici (' + reason + ').',
     warnings: []
   };
 }
