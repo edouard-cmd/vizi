@@ -5171,8 +5171,8 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
     <span id="vzHuntCount">0 spot</span>
     <button class="vz-hunt-clear" onclick="vzClearHunts()">Effacer</button>
   </div>
-  <div class="vz-hunt-hint">Clique sur une structure repérée sur le fond pour la marquer.</div>
-  <button class="vz-hunt-get" id="vzHuntGet" onclick="vzOpenHuntCapture()" disabled>Récupérer mes spots (GPX)</button>
+<div class="vz-hunt-hint" id="vzHuntHint">Clique sur une structure repérée sur le fond pour la marquer.</div>
+  <div id="vzHuntList"></div>
   <div id="vzHuntForm" style="display:none">
     <input type="email" id="vzHuntEmail" class="vz-hunt-input" placeholder="ton@email.fr" autocomplete="email">
     <label class="vz-hunt-consent"><input type="checkbox" id="vzHuntConsent"> J'accepte de recevoir mes spots et des nouvelles de Visimer.</label>
