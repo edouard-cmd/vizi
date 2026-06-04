@@ -1136,9 +1136,41 @@ function vzRenderHuntBar() {
   var n = S.huntPoints.length;
   var cnt = document.getElementById('vzHuntCount');
   if (cnt) cnt.textContent = n + (n > 1 ? ' spots' : ' spot');
-  var btn = document.getElementById('vzHuntGet');
-  if (btn) btn.disabled = (n === 0);
-  if (n === 0) { var f = document.getElementById('vzHuntForm'); if (f) f.style.display = 'none'; }
+  var hint = document.getElementById('vzHuntHint');
+  if (hint) hint.style.display = (n === 0) ? 'block' : 'none';
+  var form = document.getElementById('vzHuntForm');
+  if (form) form.style.display = (n === 0) ? 'none' : 'block';
+  var list = document.getElementById('vzHuntList');
+  if (list) {
+    list.innerHTML = S.huntPoints.map(function(p, i) {
+      var ddm = vzFormatDDM(p.lat, p.lon);
+      var dd = p.lat.toFixed(5) + ', ' + p.lon.toFixed(5);
+      return '<div class="vz-hunt-item">'
+        + '<span class="vz-hunt-item-n">Spot ' + (i + 1) + '</span>'
+        + '<span class="vz-hunt-coord" title="Copier" onclick="vzCopyCoord(this)">' + ddm + '</span>'
+        + '<span class="vz-hunt-coord vz-hunt-coord-dd" title="Copier" onclick="vzCopyCoord(this)">' + dd + '</span>'
+        + '</div>';
+    }).join('');
+  }
+}
+function vzFormatDDM(lat, lon) {
+  function fmt(v, pos, neg) {
+    var hemi = v >= 0 ? pos : neg;
+    var a = Math.abs(v);
+    var deg = Math.floor(a);
+    var min = (a - deg) * 60;
+    return deg + '\u00B0' + min.toFixed(2).padStart(5, '0') + "'" + hemi;
+  }
+  return fmt(lat, 'N', 'S') + ' ' + fmt(lon, 'E', 'W');
+}
+function vzCopyCoord(el) {
+  var txt = el.textContent;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(txt).then(function() {
+      el.classList.add('copied');
+      setTimeout(function() { el.classList.remove('copied'); }, 900);
+    }).catch(function() {});
+  }
 }
 function vzOpenHuntCapture() {
   if (!S.huntPoints.length) return;
