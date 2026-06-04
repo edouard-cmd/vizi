@@ -2279,6 +2279,33 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
 .vz-layers-row:hover { background: rgba(255,255,255,0.06); }
 .vz-layers-row.active { color: var(--vz-accent); }
 .vz-layers-row.disabled { opacity: 0.4; cursor: not-allowed; }
+    #vzHuntBar {
+  position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%);
+  z-index: 1300; width: 300px; max-width: calc(100vw - 32px);
+  background: var(--vz-bg-glass-strong);
+  backdrop-filter: blur(var(--vz-blur)); -webkit-backdrop-filter: blur(var(--vz-blur));
+  border: 0.5px solid var(--vz-accent-border); border-radius: var(--vz-radius-card);
+  padding: 12px 14px; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  display: none; flex-direction: column; gap: 10px; font-family: 'Inter', sans-serif;
+}
+#vzHuntBar.open { display: flex; }
+.vz-hunt-head { display: flex; align-items: center; justify-content: space-between; }
+#vzHuntCount { font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: var(--vz-accent); }
+.vz-hunt-clear { background: transparent; border: none; color: var(--vz-text-on-dark-muted); font-size: 12px; cursor: pointer; }
+.vz-hunt-hint { font-size: 11px; color: var(--vz-text-on-dark-faint); line-height: 1.35; }
+.vz-hunt-get, .vz-hunt-send {
+  width: 100%; padding: 9px; border: none; border-radius: 8px;
+  background: var(--vz-accent); color: #0A1520;
+  font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer;
+}
+.vz-hunt-get:disabled { opacity: 0.4; cursor: not-allowed; }
+.vz-hunt-input {
+  width: 100%; padding: 8px 10px; border-radius: 8px; box-sizing: border-box;
+  border: 0.5px solid var(--vz-accent-border); background: rgba(255,255,255,0.06);
+  color: var(--vz-text-on-dark); font-family: 'Inter', sans-serif; font-size: 13px;
+}
+.vz-hunt-consent { display: flex; gap: 7px; align-items: flex-start; font-size: 11px; color: var(--vz-text-on-dark-muted); line-height: 1.3; margin: 8px 0; }
+.vz-hunt-msg { font-size: 11px; min-height: 14px; }
     .vz-units-toggle {
   display: flex;
   gap: 2px;
@@ -5124,6 +5151,13 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
     </div>
   </div>
   <div>
+    <div class="vz-layers-section-title">Mes spots</div>
+    <div class="vz-layers-row" id="vzRowSpots" onclick="toggleLayer('spots')">
+      <div class="vz-layers-check"></div>
+      <span>Marquer mes spots</span>
+    </div>
+  </div>
+  <div>
     <div class="vz-layers-section-title">Unités</div>
     <div class="vz-units-toggle">
       <button class="vz-units-btn" id="vzUnitKt" onclick="setWindUnit('kt')">noeuds</button>
@@ -5133,7 +5167,20 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
 </div>
 <canvas id="heatmapCanvas"></canvas>
 <div id="landToast"></div>
-
+<div id="vzHuntBar">
+  <div class="vz-hunt-head">
+    <span id="vzHuntCount">0 spot</span>
+    <button class="vz-hunt-clear" onclick="vzClearHunts()">Effacer</button>
+  </div>
+  <div class="vz-hunt-hint">Clique sur une structure repérée sur le fond pour la marquer.</div>
+  <button class="vz-hunt-get" id="vzHuntGet" onclick="vzOpenHuntCapture()" disabled>Récupérer mes spots (GPX)</button>
+  <div id="vzHuntForm" style="display:none">
+    <input type="email" id="vzHuntEmail" class="vz-hunt-input" placeholder="ton@email.fr" autocomplete="email">
+    <label class="vz-hunt-consent"><input type="checkbox" id="vzHuntConsent"> J'accepte de recevoir mes spots et des nouvelles de Visimer.</label>
+    <button class="vz-hunt-send" onclick="vzSubmitHunt()">Recevoir le GPX</button>
+    <div id="vzHuntMsg" class="vz-hunt-msg"></div>
+  </div>
+</div>
 <div id="turbBadge">
   <div class="tb-dot"></div>
   <div class="tb-text" id="turbBadgeText">-</div>
