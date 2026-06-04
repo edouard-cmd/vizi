@@ -724,7 +724,8 @@ var S = {
   isoDeep: null, isoShom: null, sedLayer: null,
   spotMarkers: {}, clickMarker: null, clickLatLng: null,
   canvas: null, ctx: null, _spotDepth: 5,
-  showLitto3d: true, litto3d: null
+showLitto3d: true, litto3d: null,
+  spotMode: false, huntPoints: [], huntLayer: null
 };
 
 var S_forecastOpen = false;
@@ -1041,6 +1042,7 @@ initLitto3dLayer();
   });
 
 S.map.on('click', function(e) {
+    if (S.spotMode) { vzAddHuntPoint(e.latlng); return; }
     // Si le bandeau bas est déployé, le clic sur la carte le ferme et stop
     var sheet = document.getElementById('vzSheet');
     if (sheet && (sheet.classList.contains('sheet-half') || sheet.classList.contains('sheet-full'))) {
@@ -1090,10 +1092,105 @@ function toggleLayer(type) {
       } else if (S.currentBasemap === 'ign' && S.map.hasLayer(S.basemapIGN)) {
         if (S.basemapIGN.bringToBack) S.basemapIGN.bringToBack();
       }
-    } else {
+ } else {
       if (S.map.hasLayer(S.litto3d)) S.map.removeLayer(S.litto3d);
     }
+  } else if (type === 'spots') {
+    S.spotMode = !S.spotMode;
+    var rowSp = document.getElementById('vzRowSpots');
+    if (rowSp) rowSp.classList.toggle('active', S.spotMode);
+    if (S.spotMode && !S.huntLayer) S.huntLayer = L.layerGroup().addTo(S.map);
+    var mc = S.map.getContainer();
+    if (mc) mc.style.cursor = S.spotMode ? 'crosshair' : '';
+    vzRenderHuntBar();
   }
+}
+/* ============================================================
+   SPOTS CHASSE - marquage XY sur fond Litto3D + export GPX
+   Le chasseur lit une structure sur l'image Litto3D (laser vert)
+   et clique pour capturer sa position. Aucun fetch, aucun Z.
+   GPX universel (Garmin/Lowrance/Raymarine). Email = liste
+   marketing (RGPD : consentement explicite).
+   ============================================================ */
+function vzAddHuntPoint(latlng) {
+  if (!S.huntLayer) S.huntLayer = L.layerGroup().addTo(S.map);
+  var idx = S.huntPoints.length + 1;
+  var m = L.circleMarker(latlng, {
+    radius: 6, fillColor: '#4DD4A8', color: '#0A1520', weight: 1.5, fillOpacity: 0.95
+  }).addTo(S.huntLayer);
+  m.bindTooltip('Spot ' + idx, { direction: 'top', className: 'visim-tooltip', offset: [0, -6] });
+  S.huntPoints.push({ lat: latlng.lat, lon: latlng.lng, marker: m });
+  vzRenderHuntBar();
+}
+function vzClearHunts() {
+  if (S.huntLayer) S.huntLayer.clearLayers();
+  S.huntPoints = [];
+  vzRenderHuntBar();
+}
+function vzRenderHuntBar() {
+  var bar = document.getElementById('vzHuntBar');
+  if (!bar) return;
+  bar.classList.toggle('open', !!S.spotMode);
+  var n = S.huntPoints.length;
+  var cnt = document.getElementById('vzHuntCount');
+  if (cnt) cnt.textContent = n + (n > 1 ? ' spots' : ' spot');
+  var btn = document.getElementById('vzHuntGet');
+  if (btn) btn.disabled = (n === 0);
+  if (n === 0) { var f = document.getElementById('vzHuntForm'); if (f) f.style.display = 'none'; }
+}
+function vzOpenHuntCapture() {
+  if (!S.huntPoints.length) return;
+  var f = document.getElementById('vzHuntForm');
+  if (f) f.style.display = 'block';
+  var inp = document.getElementById('vzHuntEmail');
+  if (inp) inp.focus();
+}
+function vzSubmitHunt() {
+  var email = ((document.getElementById('vzHuntEmail') || {}).value || '').trim();
+  var consent = document.getElementById('vzHuntConsent');
+  var msg = document.getElementById('vzHuntMsg');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (msg) { msg.textContent = 'Email invalide.'; msg.style.color = '#E89B3C'; }
+    return;
+  }
+  if (consent && !consent.checked) {
+    if (msg) { msg.textContent = 'Coche le consentement pour recevoir tes spots.'; msg.style.color = '#E89B3C'; }
+    return;
+  }
+  downloadHuntGPX();
+  saveHuntLead(email);
+  if (msg) { msg.textContent = 'GPX telecharge. Tu es inscrit, merci.'; msg.style.color = '#4DD4A8'; }
+}
+function buildHuntGPX() {
+  var head = '<?xml version="1.0" encoding="UTF-8"?>\n'
+    + '<gpx version="1.1" creator="Visimer" xmlns="http://www.topografix.com/GPX/1/1">\n';
+  var body = S.huntPoints.map(function(p, i) {
+    return '  <wpt lat="' + p.lat.toFixed(6) + '" lon="' + p.lon.toFixed(6) + '">\n'
+      + '    <name>Spot ' + (i + 1) + '</name>\n'
+      + '    <sym>Diamond</sym>\n'
+      + '  </wpt>';
+  }).join('\n');
+  return head + body + '\n</gpx>\n';
+}
+function downloadHuntGPX() {
+  var blob = new Blob([buildHuntGPX()], { type: 'application/gpx+xml;charset=utf-8' });
+  var url = URL.createObjectURL(blob);
+  var link = document.createElement('a');
+  link.href = url; link.download = 'visimer-spots.gpx';
+  document.body.appendChild(link); link.click(); document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+function saveHuntLead(email) {
+  var c = S.huntPoints[0] || { lat: null, lon: null };
+  var url = GAS_URL + '?action=save_lead'
+    + '&email=' + encodeURIComponent(email)
+    + '&count=' + S.huntPoints.length
+    + '&lat=' + (c.lat ? c.lat.toFixed(4) : '')
+    + '&lon=' + (c.lon ? c.lon.toFixed(4) : '');
+  fetch(url)
+    .then(function(r) { return r.json(); })
+    .then(function(d) { if (!d || d.status !== 'ok') console.warn('[VIZI] save_lead:', d); })
+    .catch(function(e) { console.warn('[VIZI] save_lead failed:', e); });
 }
 function switchBasemap(type) {
   if (S.currentBasemap === type) return;
