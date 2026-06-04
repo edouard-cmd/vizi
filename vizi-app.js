@@ -2052,8 +2052,23 @@ var CORIOLIS_BUOYS = [
     lat: 49.3438,
     lon: -0.3074,
     radiusKm: 15
+  },
+  {
+    name: 'MAREL Carnot Boulogne',
+    platformCode: '6200443',
+    lat: 50.7275,
+    lon: 1.5717,
+    radiusKm: 8
+  },
+  {
+    name: 'MAREL-Iroise Brest',
+    platformCode: '6200450',
+    lat: 48.3580,
+    lon: -4.5515,
+    radiusKm: 8
   }
-  // À étendre Sprint 3+ : Carnot Boulogne, MAREL Iroise, MOLIT Vilaine, MAGEST Gironde
+  // MOLIT baie de Vilaine : turbidite TUR4 horaire, lat 47.4601 lon -2.6567.
+  // platformCode a lire sur data.coriolis-cotier.org (viewer MOLIT), puis ajouter ici.
 ];
 
 var _coriolisCache = {};
@@ -2902,7 +2917,7 @@ function vzmBuildSources(){
       +' &middot; '+cd.distance_km.toFixed(1)+' km'+(ct?' &middot; '+ct:'');
     corRow=rowHtml(vzmFreshBars(ca,48),'Bou&eacute;e '+cd.buoy_name,cl,false);
   } else {
-    corRow=rowHtml(0,'Bou&eacute;e','pas de mesure r&eacute;cente',true);
+    corRow='';
   }
   return satRow+corRow;
 }
