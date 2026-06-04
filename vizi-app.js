@@ -1097,8 +1097,10 @@ function toggleLayer(type) {
     }
   } else if (type === 'spots') {
     S.spotMode = !S.spotMode;
-    var rowSp = document.getElementById('vzRowSpots');
+  var rowSp = document.getElementById('vzRowSpots');
     if (rowSp) rowSp.classList.toggle('active', S.spotMode);
+    var btnSp = document.getElementById('vzBtnSpots');
+    if (btnSp) btnSp.classList.toggle('active', S.spotMode);
     if (S.spotMode && !S.huntLayer) S.huntLayer = L.layerGroup().addTo(S.map);
     var mc = S.map.getContainer();
     if (mc) mc.style.cursor = S.spotMode ? 'crosshair' : '';
