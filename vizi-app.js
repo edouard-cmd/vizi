@@ -11371,7 +11371,7 @@ function escapeHtml(s) {
   }
 
   // === Drag handle peek/mid/full ===
-  var SNAP_POINTS = { peek: 38, mid: 70, full: 95 };
+  var SNAP_POINTS = { peek: 55, mid: 70, full: 95 };
   var isDragging = false;
   var startY = 0, startTranslate = 0, currentTranslate = 0;
   var velocity = 0, lastY = 0, lastTime = 0;
