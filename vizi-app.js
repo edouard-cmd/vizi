@@ -1194,6 +1194,7 @@ function vzSubmitHunt() {
 downloadHuntGPX();
   sendHuntSpots(email);
   if (msg) { msg.textContent = 'GPX telecharge et envoye a ' + email + '.'; msg.style.color = '#4DD4A8'; }
+}
 function buildHuntGPX() {
   var head = '<?xml version="1.0" encoding="UTF-8"?>\n'
     + '<gpx version="1.1" creator="Visimer" xmlns="http://www.topografix.com/GPX/1/1">\n';
