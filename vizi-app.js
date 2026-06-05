@@ -10462,10 +10462,11 @@ function visLabel(score) {
       var tr = vzVisiTrend(s.i);
       return { cls: '', html: tr.svg, attrs: ' title="' + tr.label + '"' };
     }
-    var score = computeVisibilityScore_V4(h, s.i, depth, spot.lat, spot.lng).score;
+ var sObj = computeVisibilityScore_V4(h, s.i, depth, spot.lat, spot.lng);
+    var vm = (typeof sObj.visi_m === 'number' && isFinite(sObj.visi_m) && sObj.visi_m > 0) ? Math.round(sObj.visi_m) : null;
     return {
-      cls: visClass(score),
-      html: visLabel(score),
+      cls: visClass(sObj.score),
+      html: vm !== null ? vm + 'm' : visLabel(sObj.score),
       attrs: ' onclick="vzSheetCellClick(\'' + s.t + '\')" title="Voir détail"'
     };
   });
