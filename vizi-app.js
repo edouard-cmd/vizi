@@ -10434,8 +10434,34 @@ function visLabel(score) {
     row += '</tr>';
     return row;
   }
-// Patch 5/6 : utilise computeVisibilityScore_V4 (chaîne 9 briques)
-  html += renderRow('Visibilité', 'vz-cond-row-vis', function(s) {
+// Voie B : chiffre mesuré sur présent/passé, tendance météo qualifiée sur le futur.
+  // La tendance dérive uniquement de la météo (houle + vent/rafales = remise en
+  // suspension), conforme a la doctrine "météo = tendance, pas de chiffre concurrent".
+  var _nowSlotI = (nowIdx >= 0 && slots[nowIdx]) ? slots[nowIdx].i : (slots[0] ? slots[0].i : 0);
+  function vzMeteoLoad(i) {
+    var wave = (h.wave_height && h.wave_height[i] != null) ? h.wave_height[i] : 0;
+    var wind = h.windspeed_10m[i] || 0;
+    var gust = (h.windgusts_10m && h.windgusts_10m[i] != null) ? h.windgusts_10m[i] : wind;
+    return wave * 12 + wind * 0.4 + gust * 0.2;
+  }
+  var _trSvg = {
+    trouble: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C94A3D" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="7" x2="17" y2="17"/><polyline points="17 7 17 17 7 17"/></svg>',
+    clear:   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4DD4A8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="17 17 17 7 7 7"/></svg>',
+    stable:  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5A7184" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="12" x2="18" y2="12"/></svg>'
+  };
+  function vzVisiTrend(i) {
+    var loadNow = vzMeteoLoad(_nowSlotI);
+    var d = vzMeteoLoad(i) - loadNow;
+    var thr = Math.max(3, loadNow * 0.25);
+    if (d > thr)  return { svg: _trSvg.trouble, label: 'se trouble' };
+    if (d < -thr) return { svg: _trSvg.clear,   label: "s'éclaircit" };
+    return { svg: _trSvg.stable, label: 'stable' };
+  }
+  html += renderRow('Visibilité', 'vz-cond-row-vis', function(s, idx) {
+    if (idx > nowIdx) {
+      var tr = vzVisiTrend(s.i);
+      return { cls: '', html: tr.svg, attrs: ' title="' + tr.label + '"' };
+    }
     var score = computeVisibilityScore_V4(h, s.i, depth, spot.lat, spot.lng).score;
     return {
       cls: visClass(score),
