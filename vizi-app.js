@@ -9878,17 +9878,17 @@ var css = `
       text-transform: uppercase;
       margin-left: auto;
     }
-    .vz-cond-table {
+ .vz-cond-table {
       width: 100%;
       border-collapse: separate;
       border-spacing: 0;
       font-family: 'IBM Plex Mono', monospace;
-      font-size: 13px;
+      font-size: 14px;
       color: var(--vz-text-on-dark);
     }
     .vz-cond-table th, .vz-cond-table td {
       padding: 0 10px;
-      height: 40px;
+      height: 46px;
       text-align: center;
       white-space: nowrap;
       border-right: 1px solid rgba(255,255,255,0.05);
@@ -10001,6 +10001,45 @@ var css = `
       flex-wrap: wrap;
     }
     .vz-cond-footer strong { color: var(--vz-accent); font-weight: 600; }
+    .vz-cond-dayname { display: inline; }
+    .vz-cond-daycoef {
+      margin-left: 8px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-weight: 700;
+      font-size: 12px;
+    }
+    .vz-cond-rowlabel { font-size: 12px !important; }
+    .vz-cond-hourhead { font-size: 12px !important; }
+    .vz-cond-table tbody td:not(.vz-cond-rowlabel) { font-size: 13px; }
+    .vz-cond-row-wind td, .vz-cond-row-gusts td { font-size: 13px; }
+    .vz-cond-row-tide td.vz-cond-tideband {
+      padding: 0 !important;
+      height: 104px;
+      border-right: none;
+    }
+    .vz-tideband-wrap { position: relative; width: 100%; height: 104px; }
+    .vz-tideband-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+    .vz-tide-mark { position: absolute; top: 0; bottom: 0; transform: translateX(-50%); pointer-events: none; }
+    .vz-tide-dot {
+      position: absolute; left: 50%;
+      width: 8px; height: 8px; border-radius: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 0 2px var(--vz-bg-deep);
+    }
+    .vz-tide-time {
+      position: absolute; left: 50%;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px; font-weight: 600; white-space: nowrap;
+    }
+    .vz-tide-pm .vz-tide-dot { background: #4DD4A8; }
+    .vz-tide-pm .vz-tide-time { transform: translate(-50%, -170%); color: #4DD4A8; }
+    .vz-tide-bm .vz-tide-dot { background: #86C7D6; }
+    .vz-tide-bm .vz-tide-time { transform: translate(-50%, 70%); color: #86C7D6; }
+    .vz-tideband-empty {
+      padding: 36px 16px; text-align: center;
+      color: var(--vz-text-on-dark-muted);
+      font-family: 'IBM Plex Mono', monospace; font-size: 12px;
+    }
     @media (max-width: 768px) {
       .vz-sheet-cond-wrap { padding: 12px 12px 20px; }
       .vz-cond-table { font-size: 12px; }
@@ -10221,7 +10260,7 @@ function fetchSheetTides(spot) {
   var url = GAS_URL + '?action=tides_range&site=' + near.siteId + '&from=' + fromStr + '&days=5';
   return fetch(url).then(function(r) { return r.json(); }).then(function(data) {
     if (!data || !data.data) return null;
-    return { points: data.data, port: near };
+    return { points: data.data, extremes: data.extremes || [], port: near };
   }).catch(function() { return null; });
 }
 
@@ -10264,7 +10303,7 @@ function renderSheetTable() {
     if (dt.getHours() % 3 === 0) {
       slots.push({ i: i, time: dt, t: h.time[i] });
     }
-    if (slots.length >= 40) break;
+    if (slots.length >= 24) break;
   }
   if (slots.length === 0) {
     body.innerHTML = '<div class="vz-sheet-loading">Pas de données disponibles</div>';
@@ -10286,7 +10325,7 @@ function renderSheetTable() {
     var dKey = s.time.toDateString();
     if (dKey !== lastDay) {
       lastDay = dKey;
-      dayGroups.push({ label: formatSheetDayLabel(s.time), count: 1 });
+      dayGroups.push({ label: formatSheetDayLabel(s.time), count: 1, date: s.time });
     } else {
       dayGroups[dayGroups.length - 1].count++;
     }
@@ -10406,7 +10445,12 @@ function visLabel(score) {
   html += '<tr><th class="vz-cond-cornerlabel"></th>';
   dayGroups.forEach(function(g, gIdx) {
     var cls = 'vz-cond-dayhead' + (gIdx > 0 ? ' vz-cond-dayboundary' : '');
-    html += '<th class="' + cls + '" colspan="' + g.count + '">' + g.label + '</th>';
+    var cd = g.date;
+    var dayCoef = getCoefForDate(cd.getFullYear() + '-' + String(cd.getMonth() + 1).padStart(2, '0') + '-' + String(cd.getDate()).padStart(2, '0'));
+    html += '<th class="' + cls + '" colspan="' + g.count + '">'
+      + '<span class="vz-cond-dayname">' + g.label + '</span>'
+      + '<span class="vz-cond-daycoef ' + coefCls(dayCoef) + '">coef ' + dayCoef + '</span>'
+      + '</th>';
   });
   html += '</tr>';
 
@@ -10470,27 +10514,10 @@ function visLabel(score) {
       attrs: ' onclick="vzSheetCellClick(\'' + s.t + '\')" title="Voir détail"'
     };
   });
-
-  // Marée (m) — interpolation depuis les hauteurs SHOM
-  var tideData = VZ_SHEET.data.tides;
-  html += renderRow('Marée (m)', null, function(s) {
-    if (!tideData || !tideData.points) return { cls: '', html: '—' };
-    var target = s.time.getTime();
-    var best = null, bestDiff = Infinity;
-    for (var k = 0; k < tideData.points.length; k++) {
-      var diff = Math.abs(new Date(tideData.points[k].time).getTime() - target);
-      if (diff < bestDiff) { bestDiff = diff; best = tideData.points[k]; }
-    }
-    if (!best || bestDiff > 1800000) return { cls: '', html: '—' }; // > 30min
-    return { cls: '', html: best.height.toFixed(1) };
-  });
-
-  // Coef
-  html += renderRow('Coef', null, function(s) {
-    var c = getCoefForDate(s.time.toISOString().slice(0,10));
-    return { cls: coefCls(c), html: '<strong>' + c + '</strong>' };
-  });
-
+// Bande marée : courbe alignée sur les colonnes + PM/BM (heures).
+  // Le coef est desormais affiché une fois par jour dans l'en-tête (header jours).
+  // Remplace les anciennes lignes "Marée (m)" et "Coef" (chiffres répétés par créneau).
+  html += buildTideBandRow(slots, VZ_SHEET.data.tides);
   // Vent
   html += renderRow('Vent (' + unitLabel + ')', 'vz-cond-row-wind', function(s) {
     var v = h.windspeed_10m[s.i] || 0;
@@ -10527,7 +10554,79 @@ function visLabel(score) {
   html += '</div>';
   body.innerHTML = html;
 }
+// Extraction locale des PM/BM si le GAS ne renvoie pas data.extremes (fallback).
+function localExtremes(pts) {
+  var out = [];
+  for (var i = 1; i < pts.length - 1; i++) {
+    var a = pts[i - 1].height, b = pts[i].height, c = pts[i + 1].height;
+    if (b >= a && b > c) out.push({ time: pts[i].time, height: b, type: 'high' });
+    else if (b <= a && b < c) out.push({ time: pts[i].time, height: b, type: 'low' });
+  }
+  return out;
+}
 
+// Bande marée : courbe sinusoïde (fond SVG étiré) + marqueurs PM/BM en heures
+// (overlay HTML positionné en %, donc texte net et aligné sur les colonnes).
+function buildTideBandRow(slots, tideData) {
+  var N = slots.length;
+  var labelCell = '<td class="vz-cond-rowlabel">Marée</td>';
+  if (!tideData || !tideData.points || tideData.points.length === 0) {
+    return '<tr class="vz-cond-row-tide">' + labelCell
+      + '<td class="vz-cond-tideband" colspan="' + N + '"><div class="vz-tideband-empty">Marées indisponibles</div></td></tr>';
+  }
+  var t0 = slots[0].time.getTime();
+  var tN = slots[N - 1].time.getTime();
+  var span = Math.max(tN - t0, 1);
+  function posFrac(ms) {
+    var frac = (ms - t0) / span;
+    return (0.5 + frac * (N - 1)) / N;
+  }
+  var pts = tideData.points;
+  var win = [];
+  for (var i = 0; i < pts.length; i++) {
+    var pm = new Date(pts[i].time).getTime();
+    if (pm >= t0 - 5400000 && pm <= tN + 5400000) win.push({ ms: pm, height: pts[i].height });
+  }
+  if (win.length === 0) {
+    for (var w0 = 0; w0 < pts.length; w0++) win.push({ ms: new Date(pts[w0].time).getTime(), height: pts[w0].height });
+  }
+  var heights = win.map(function(p) { return p.height; });
+  var minH = Math.min.apply(null, heights);
+  var maxH = Math.max.apply(null, heights);
+  var rangeH = Math.max(maxH - minH, 0.3);
+  var VBW = 1000, VBH = 100, yTop = 18, yBot = 80;
+  function X(ms) { return posFrac(ms) * VBW; }
+  function Y(hh) { return yBot - ((hh - minH) / rangeH) * (yBot - yTop); }
+  win.sort(function(a, b) { return a.ms - b.ms; });
+  var path = '';
+  for (var c = 0; c < win.length; c++) path += (c === 0 ? 'M' : 'L') + X(win[c].ms).toFixed(1) + ' ' + Y(win[c].height).toFixed(1) + ' ';
+  var firstX = X(win[0].ms).toFixed(1);
+  var lastX = X(win[win.length - 1].ms).toFixed(1);
+  var area = path + 'L' + lastX + ' ' + VBH + ' L' + firstX + ' ' + VBH + ' Z';
+  var svg = '<svg class="vz-tideband-svg" viewBox="0 0 ' + VBW + ' ' + VBH + '" preserveAspectRatio="none">'
+    + '<path d="' + area + '" fill="rgba(77,212,168,0.16)"/>'
+    + '<path d="' + path + '" fill="none" stroke="#4DD4A8" stroke-width="2" vector-effect="non-scaling-stroke"/>'
+    + '</svg>';
+  var ext = (tideData.extremes && tideData.extremes.length) ? tideData.extremes : localExtremes(pts);
+  var marks = '';
+  for (var e = 0; e < ext.length; e++) {
+    var ems = new Date(ext[e].time).getTime();
+    if (ems < t0 - 1800000 || ems > tN + 1800000) continue;
+    var isHigh = (ext[e].type === 'high');
+    var leftPct = posFrac(ems) * 100;
+    if (leftPct < 0) leftPct = 0;
+    if (leftPct > 100) leftPct = 100;
+    var topPct = Y(ext[e].height) / VBH * 100;
+    if (topPct < 0) topPct = 0;
+    if (topPct > 100) topPct = 100;
+    var hhmm = new Date(ext[e].time).toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
+    marks += '<span class="vz-tide-mark ' + (isHigh ? 'vz-tide-pm' : 'vz-tide-bm') + '" style="left:' + leftPct.toFixed(2) + '%;">'
+      + '<span class="vz-tide-dot" style="top:' + topPct.toFixed(1) + '%;"></span>'
+      + '<span class="vz-tide-time" style="top:' + topPct.toFixed(1) + '%;">' + hhmm + '</span></span>';
+  }
+  return '<tr class="vz-cond-row-tide">' + labelCell
+    + '<td class="vz-cond-tideband" colspan="' + N + '"><div class="vz-tideband-wrap">' + svg + marks + '</div></td></tr>';
+}
 // Click cellule visi → ouvre drawer spot à la date/heure choisie
 window.vzSheetCellClick = function(timeStr) {
   if (!VZ_SHEET.spot) return;
