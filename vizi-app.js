@@ -1191,10 +1191,9 @@ function vzSubmitHunt() {
     if (msg) { msg.textContent = 'Coche le consentement pour recevoir tes spots.'; msg.style.color = '#E89B3C'; }
     return;
   }
-  downloadHuntGPX();
-  saveHuntLead(email);
-  if (msg) { msg.textContent = 'GPX telecharge. Tu es inscrit, merci.'; msg.style.color = '#4DD4A8'; }
-}
+downloadHuntGPX();
+  sendHuntSpots(email);
+  if (msg) { msg.textContent = 'GPX telecharge et envoye a ' + email + '.'; msg.style.color = '#4DD4A8'; }
 function buildHuntGPX() {
   var head = '<?xml version="1.0" encoding="UTF-8"?>\n'
     + '<gpx version="1.1" creator="Visimer" xmlns="http://www.topografix.com/GPX/1/1">\n';
@@ -1214,17 +1213,28 @@ function downloadHuntGPX() {
   document.body.appendChild(link); link.click(); document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
-function saveHuntLead(email) {
-  var c = S.huntPoints[0] || { lat: null, lon: null };
-  var url = GAS_URL + '?action=save_lead'
-    + '&email=' + encodeURIComponent(email)
-    + '&count=' + S.huntPoints.length
-    + '&lat=' + (c.lat ? c.lat.toFixed(4) : '')
-    + '&lon=' + (c.lon ? c.lon.toFixed(4) : '');
-  fetch(url)
-    .then(function(r) { return r.json(); })
-    .then(function(d) { if (!d || d.status !== 'ok') console.warn('[VIZI] save_lead:', d); })
-    .catch(function(e) { console.warn('[VIZI] save_lead failed:', e); });
+function sendHuntSpots(email) {
+  var spots = S.huntPoints.map(function(p, i) {
+    return {
+      n: i + 1,
+      ddm: vzFormatDDM(p.lat, p.lon),
+      dd: p.lat.toFixed(5) + ', ' + p.lon.toFixed(5),
+      lat: p.lat.toFixed(6),
+      lon: p.lon.toFixed(6)
+    };
+  });
+  var payload = {
+    action: 'send_spots',
+    email: email,
+    spots: spots,
+    gpx: buildHuntGPX()
+  };
+  fetch(GAS_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload)
+  }).catch(function(e) { console.warn('[VIZI] send_spots failed:', e); });
 }
 function switchBasemap(type) {
   if (S.currentBasemap === type) return;
