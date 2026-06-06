@@ -10493,7 +10493,7 @@ function visLabel(score) {
   var _trSvg = {
     trouble: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C94A3D" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="7" x2="17" y2="17"/><polyline points="17 7 17 17 7 17"/></svg>',
     clear:   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4DD4A8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="17 17 17 7 7 7"/></svg>',
-    stable:  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5A7184" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="12" x2="18" y2="12"/></svg>'
+    stable:  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7FA0B4" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="9" x2="18" y2="9"/><line x1="6" y1="15" x2="18" y2="15"/></svg>'
   };
   function vzVisiTrend(i) {
     var loadNow = vzMeteoLoad(_nowSlotI);
