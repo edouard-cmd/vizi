@@ -10486,7 +10486,9 @@ function visLabel(score) {
     var wave = (h.wave_height && h.wave_height[i] != null) ? h.wave_height[i] : 0;
     var wind = h.windspeed_10m[i] || 0;
     var gust = (h.windgusts_10m && h.windgusts_10m[i] != null) ? h.windgusts_10m[i] : wind;
-    return wave * 12 + wind * 0.4 + gust * 0.2;
+    var dir = (h.winddirection_10m && h.winddirection_10m[i] != null) ? h.winddirection_10m[i] : null;
+    var dirF = getDirFactorForPoint(dir, spot.lat, spot.lng);
+    return wave * 12 + (wind * 0.4 + gust * 0.2) * dirF;
   }
   var _trSvg = {
     trouble: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C94A3D" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="7" x2="17" y2="17"/><polyline points="17 7 17 17 7 17"/></svg>',
