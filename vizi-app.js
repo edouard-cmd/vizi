@@ -952,7 +952,11 @@ function initLitto3dLayer() {
   // Bounds [latMin, lonMin] / [latMax, lonMax] issus du GetCapabilities SHOM
   var subLayers = [
     // Bretagne
-    makeLayer('LITTO3D_BZH_2018_2021_PYR_3857_WMSR', [47.00, -5.25], [49.00, -1.37]),
+   makeLayer('LITTO3D_BZH_2018_2021_PYR_3857_WMSR', [47.24, -3.87], [49.00, -1.37]),
+    // Finistere - partie maritime (absente de la dalle BZH 2018-2021)
+    makeLayer('L3D_MAR_FINISTR_2014_PYR_3857_WMSR', [47.70, -5.20], [48.90, -3.90]),
+    // Mer d'Iroise (Parc Naturel Marin) - Ouessant, Sein, goulet de Brest
+    makeLayer('L3D_MAR_PNMI_2012_PYR_3857_WMSR', [48.00, -5.25], [48.55, -4.30]),
     // Normandie + Hauts-de-France
     makeLayer('L3D_MAR_NHDF_2016_2018_PYR_3857_WMSR', [48.57, -1.98], [51.17,  2.96]),
     // Nouvelle-Aquitaine
