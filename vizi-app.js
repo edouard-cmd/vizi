@@ -952,7 +952,7 @@ function initLitto3dLayer() {
   // Bounds [latMin, lonMin] / [latMax, lonMax] issus du GetCapabilities SHOM
   var subLayers = [
     // Bretagne
-    makeLayer('LITTO3D_BZH_2018_2021_PYR_3857_WMSR', [47.24, -3.87], [49.00, -1.37]),
+    makeLayer('LITTO3D_BZH_2018_2021_PYR_3857_WMSR', [47.00, -5.25], [49.00, -1.37]),
     // Normandie + Hauts-de-France
     makeLayer('L3D_MAR_NHDF_2016_2018_PYR_3857_WMSR', [48.57, -1.98], [51.17,  2.96]),
     // Nouvelle-Aquitaine
