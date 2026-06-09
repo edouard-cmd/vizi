@@ -10908,104 +10908,33 @@ var html = '<div class="vz-tides-wrap">';
   html += renderTidesDateChips(selDate);
 
   // --- Section title ---
-  html += '<div class="vz-tides-sectiontitle">Créneaux chassables</div>';
+  html += '<div class="vz-tides-sectiontitle">Marées du jour</div>';
 
-// --- Grid 2x2 (créneaux jour uniquement, fenêtre ±2h chevauchant le jour ≥30 min) ---
-  function slotOverlapsDay(timeStr) {
-    var t = new Date(timeStr);
-    var startMin = t.getHours() * 60 + t.getMinutes() - 120;
-    var endMin = t.getHours() * 60 + t.getMinutes() + 120;
-    var srParts = sunTimes.sunrise.split(':');
-    var ssParts = sunTimes.sunset.split(':');
-    if (srParts.length < 2 || ssParts.length < 2) return true;
-    var sunriseMin = parseInt(srParts[0]) * 60 + parseInt(srParts[1]);
-    var sunsetMin = parseInt(ssParts[0]) * 60 + parseInt(ssParts[1]);
-    var overlap = Math.min(endMin, sunsetMin) - Math.max(startMin, sunriseMin);
-    return overlap >= 30;
-  }
-  var dayOnlyExtremes = dayExtremes.filter(function(e){ return slotOverlapsDay(e.time); });
-  if (dayOnlyExtremes && dayOnlyExtremes.length > 0) {
-    html += '<div class="vz-tides-windowsgrid">';
-    dayOnlyExtremes.forEach(function(e, idx) {
-      var etaleTime = new Date(e.time);
-      var startTime = new Date(etaleTime.getTime() - 120 * 60000);
-      var endTime = new Date(etaleTime.getTime() + 120 * 60000);
-      var isPast = isToday && endTime < now;
-      var origIdx = dayExtremes.indexOf(e);
-      var isNext = (origIdx === nextExtremeIdx);
-      var isNight = false;
-
-      var typeColor = e.type === 'high' ? 'var(--vz-accent)' : '#E89B3C';
+  // --- Tableau PM/BM factuel (heure locale lue sur l'horodatage, jour/nuit) ---
+  function todMinISO(s) { return parseInt(String(s).slice(11, 13), 10) * 60 + parseInt(String(s).slice(14, 16), 10); }
+  var srPt = sunTimes.sunrise.split(':'), ssPt = sunTimes.sunset.split(':');
+  var srMinT = parseInt(srPt[0], 10) * 60 + parseInt(srPt[1], 10);
+  var ssMinT = parseInt(ssPt[0], 10) * 60 + parseInt(ssPt[1], 10);
+  if (dayExtremes && dayExtremes.length > 0) {
+    html += '<div class="vz-tides-table" style="background:#0F2438;border:1px solid rgba(255,255,255,0.07);border-radius:13px;overflow:hidden;">';
+    dayExtremes.forEach(function(e, i) {
+      var em = todMinISO(e.time);
+      var isDay = em >= srMinT && em <= ssMinT;
+      var col = e.type === 'high' ? '#4DD4A8' : '#E89B3C';
       var typeShort = e.type === 'high' ? 'PM' : 'BM';
-      var startStr = startTime.toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
-      var endStr = endTime.toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
-      var etaleStr = etaleTime.toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
-
-      var cardClass = 'vz-tides-windowcard';
-      if (isNext) cardClass += ' is-next';
-      if (isPast) cardClass += ' is-past';
-      if (isNight) cardClass += ' is-night';
-
-      // Badge "PROCHAIN" en débordement
-      var nextBadge = isNext ? '<div class="vz-tides-windownext-badge">PROCHAIN</div>' : '';
-
-      // Bouton agenda (icône seule)
-      var agendaBtn = isPast ? '' : (
-        '<button class="vz-tides-agendabtn" title="Ajouter à l\'agenda" ' +
-        'data-etale="' + etaleTime.toISOString() + '" ' +
-        'data-type="' + e.type + '" ' +
-        'data-start="' + startTime.toISOString() + '" ' +
-        'data-end="' + endTime.toISOString() + '" ' +
-        'onclick="openAgendaModalFromSheet(this)">' +
-        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' +
-          '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>' +
-          '<line x1="16" y1="2" x2="16" y2="6"></line>' +
-          '<line x1="8" y1="2" x2="8" y2="6"></line>' +
-          '<line x1="3" y1="10" x2="21" y2="10"></line>' +
-        '</svg>' +
-        '</button>'
-      );
-
-      // Footer : chip "Dans X" si prochain et aujourd'hui, "Passé" si passé
-      var footerEl = '';
-      if (isNext && isToday) {
-        var diffMs = startTime.getTime() - now.getTime();
-        var inLabel;
-        if (diffMs < 0) {
-          inLabel = 'EN COURS';
-        } else {
-          var diffMin = Math.round(diffMs / 60000);
-          if (diffMin < 60) {
-            inLabel = 'DANS ' + diffMin + ' MIN';
-          } else {
-            var hours = Math.floor(diffMin / 60);
-            var mins = diffMin % 60;
-            inLabel = 'DANS ' + hours + 'H' + (mins > 0 ? String(mins).padStart(2, '0') : '');
-          }
-        }
-        footerEl = '<div class="vz-tides-windownow-chip">' + inLabel + '</div>';
-      } else if (isPast) {
-        footerEl = '<div class="vz-tides-windowpast-tag">Passé</div>';
-      }
-
-      html += '<div class="' + cardClass + '">' +
-        nextBadge +
-        '<div class="vz-tides-windowtop">' +
-          '<span class="vz-tides-windowtype" style="color:' + typeColor + ';">' + typeShort + '</span>' +
-          '<span class="vz-tides-windowetale">' + etaleStr + '</span>' +
-          agendaBtn +
-        '</div>' +
-        '<div class="vz-tides-windowrange">' +
-          '<span class="vz-tides-windowtime">' + startStr + '</span>' +
-          '<span class="vz-tides-windowarrow">→</span>' +
-          '<span class="vz-tides-windowtime">' + endStr + '</span>' +
-        '</div>' +
-        footerEl +
+      var glyph = isDay
+        ? '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#90A8B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><line x1="12" y1="2" x2="12" y2="5"></line><line x1="12" y1="19" x2="12" y2="22"></line><line x1="2" y1="12" x2="5" y2="12"></line><line x1="19" y1="12" x2="22" y2="12"></line><line x1="5" y1="5" x2="7" y2="7"></line><line x1="17" y1="17" x2="19" y2="19"></line><line x1="5" y1="19" x2="7" y2="17"></line><line x1="17" y1="7" x2="19" y2="5"></line></svg>'
+        : '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#90A8B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>';
+      var sep = (i < dayExtremes.length - 1) ? 'border-bottom:1px solid rgba(255,255,255,0.07);' : '';
+      html += '<div style="display:grid;grid-template-columns:46px 22px 1fr auto;align-items:center;gap:10px;padding:11px 16px;' + sep + '">' +
+        '<span style="font-family:IBM Plex Mono,monospace;font-size:13px;font-weight:600;color:' + col + ';">' + typeShort + '</span>' +
+        '<span style="text-align:center;line-height:0;">' + glyph + '</span>' +
+        '<span style="font-family:IBM Plex Mono,monospace;font-size:19px;font-weight:600;color:#E8F0F4;">' + String(e.time).slice(11, 16) + '</span>' +
+        '<span style="font-family:IBM Plex Mono,monospace;font-size:14px;color:#90A8B8;">' + e.height.toFixed(1) + ' m</span>' +
       '</div>';
     });
-    html += '</div>'; // fin .vz-tides-windowsgrid
+    html += '</div>';
   }
-
   // --- Footer contextuel : phase / courant approx / soleil ---
   html += renderTidesContextFooter(phase, coef, dayPoints, selDate);
 
