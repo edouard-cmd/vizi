@@ -11037,9 +11037,12 @@ function computeTidalPhase(dayPoints, now, isToday) {
 // Helper : footer contextuel (phase + courant approx + soleil)
 // ============================================================
 function renderTidesContextFooter(phase, coef, dayPoints, selDate) {
-  // Estimation grossière du courant basée sur le coef
-  // (en nœuds, max ~2.5 pour coef 120, min ~0.3 pour coef 20)
-  var currentEst = (coef / 120 * 2.2 + 0.3).toFixed(1);
+// Marnage du jour (factuel) = hauteur max - min sur les points du jour
+  var marnageM = 0;
+  if (dayPoints && dayPoints.length) {
+    var hhFoot = dayPoints.map(function(p){ return p.height; });
+    marnageM = Math.max.apply(null, hhFoot) - Math.min.apply(null, hhFoot);
+  }
 
   // Lever / coucher (approx pour la latitude France métropolitaine)
   // Si tu as déjà une fonction getSunTimes(date, lat, lng), utilise-la
@@ -11059,9 +11062,9 @@ function renderTidesContextFooter(phase, coef, dayPoints, selDate) {
       '<div class="vz-tides-ctxlabel">Phase</div>' +
       '<div class="vz-tides-ctxvalue">' + iconSvg + '<span>' + phase.label + '</span></div>' +
     '</div>' +
-    '<div class="vz-tides-ctxitem">' +
-      '<div class="vz-tides-ctxlabel">Courant</div>' +
-      '<div class="vz-tides-ctxvalue is-mono">~' + currentEst + ' nœud' + (parseFloat(currentEst) >= 2 ? 's' : '') + '</div>' +
+'<div class="vz-tides-ctxitem">' +
+      '<div class="vz-tides-ctxlabel">Marnage</div>' +
+      '<div class="vz-tides-ctxvalue is-mono">' + marnageM.toFixed(1) + ' m</div>' +
     '</div>' +
     '<div class="vz-tides-ctxitem">' +
       '<div class="vz-tides-ctxlabel">Soleil</div>' +
