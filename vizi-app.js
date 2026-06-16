@@ -3013,9 +3013,9 @@ function vzmFreshBars(ageH, fenetreH){
   return 1;
   }
 function vzmBuildSources(){
-  var TEAL='#4DD4A8', CAUTION='#E89B3C', OFF='rgba(234,241,245,0.16)';
+  var TEAL='#0E7C62', CAUTION='#B5611E', OFF='rgba(11,26,38,0.14)';
   var LBL='rgba(234,241,245,0.74)', LBLOFF='rgba(234,241,245,0.55)';
-  var VAL='#EAF1F5', CTX='rgba(234,241,245,0.62)';
+  var VAL='#0B1A26', CTX='#51677A';
   function bars(n){
     var hgt=[7,11,15,20];
     var s='<span style="display:inline-flex;align-items:flex-end;gap:2.5px;height:20px;width:22px;flex:none;margin-top:1px;">';
