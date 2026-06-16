@@ -12825,6 +12825,7 @@ function vzmInit() {
     var allBtns = document.querySelectorAll('button, a');
     allBtns.forEach(function(btn) {
       // Skip si dans un drawer (spot, marée, sheet, modale, login...)
+            if (btn.closest('#vzmAimWrap')) return;
       if (btn.closest('#spotDrawerMobile')) return;
       if (btn.closest('#spotDrawer')) return;
       if (btn.closest('#tidesDrawer')) return;
@@ -12852,6 +12853,7 @@ function vzmInit() {
     // On cherche les boutons en position fixed/absolute bas-droite contenant un SVG œil
     var floatingBtns = document.querySelectorAll('button, div[onclick]');
     floatingBtns.forEach(function(el) {
+      if (el.closest('#vzmAimWrap')) return;
       if (el.closest('#spotDrawerMobile')) return;
       if (el.closest('#spotDrawer')) return;
       if (el.closest('#tidesDrawer')) return;
