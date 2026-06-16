@@ -10916,11 +10916,11 @@ var html = '<div class="vz-tides-wrap">';
   var srMinT = parseInt(srPt[0], 10) * 60 + parseInt(srPt[1], 10);
   var ssMinT = parseInt(ssPt[0], 10) * 60 + parseInt(ssPt[1], 10);
   if (dayExtremes && dayExtremes.length > 0) {
-    html += '<div class="vz-tides-table" style="background:#0F2438;border:1px solid rgba(255,255,255,0.07);border-radius:13px;overflow:hidden;">';
+    html += '<div class="vz-tides-table" style="background:#FFFFFF;border:1px solid rgba(11,26,38,0.10);border-radius:13px;overflow:hidden;">';
     dayExtremes.forEach(function(e, i) {
       var em = todMinISO(e.time);
       var isDay = em >= srMinT && em <= ssMinT;
-      var col = e.type === 'high' ? '#4DD4A8' : '#E89B3C';
+      var col = e.type === 'high' ? '#0E7C62' : '#B5611E'
       var typeShort = e.type === 'high' ? 'PM' : 'BM';
       var glyph = isDay
         ? '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#90A8B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><line x1="12" y1="2" x2="12" y2="5"></line><line x1="12" y1="19" x2="12" y2="22"></line><line x1="2" y1="12" x2="5" y2="12"></line><line x1="19" y1="12" x2="22" y2="12"></line><line x1="5" y1="5" x2="7" y2="7"></line><line x1="17" y1="17" x2="19" y2="19"></line><line x1="5" y1="19" x2="7" y2="17"></line><line x1="17" y1="7" x2="19" y2="5"></line></svg>'
@@ -10929,8 +10929,8 @@ var html = '<div class="vz-tides-wrap">';
       html += '<div style="display:grid;grid-template-columns:46px 22px 1fr auto;align-items:center;gap:10px;padding:11px 16px;' + sep + '">' +
         '<span style="font-family:IBM Plex Mono,monospace;font-size:13px;font-weight:600;color:' + col + ';">' + typeShort + '</span>' +
         '<span style="text-align:center;line-height:0;">' + glyph + '</span>' +
-        '<span style="font-family:IBM Plex Mono,monospace;font-size:19px;font-weight:600;color:#E8F0F4;">' + String(e.time).slice(11, 16) + '</span>' +
-        '<span style="font-family:IBM Plex Mono,monospace;font-size:14px;color:#90A8B8;">' + e.height.toFixed(1) + ' m</span>' +
+        '<span style="font-family:IBM Plex Mono,monospace;font-size:19px;font-weight:600;color:#0B1A26;">' + String(e.time).slice(11, 16) + '</span>' +
+        '<span style="font-family:IBM Plex Mono,monospace;font-size:14px;color:#51677A;">' + e.height.toFixed(1) + ' m</span>' +
       '</div>';
     });
     html += '</div>';
@@ -11143,8 +11143,8 @@ function renderTidesSheetCurve(dayPoints, dayExtremes, isToday, now, nextExtreme
   '</linearGradient></defs>';
 
   // Ombrage nuit (avant lever + apres coucher)
-  svg += '<rect x="' + padL + '" y="' + padT + '" width="' + Math.max(0, xSr - padL).toFixed(1) + '" height="' + (h - padT - padB) + '" fill="#04101C" fill-opacity="0.5"/>';
-  svg += '<rect x="' + xSs.toFixed(1) + '" y="' + padT + '" width="' + Math.max(0, w - padR - xSs).toFixed(1) + '" height="' + (h - padT - padB) + '" fill="#04101C" fill-opacity="0.5"/>';
+svg += '<rect x="' + padL + '" y="' + padT + '" width="' + Math.max(0, xSr - padL).toFixed(1) + '" height="' + (h - padT - padB) + '" fill="#0B1A26" fill-opacity="0.06"/>';
+  svg += '<rect x="' + xSs.toFixed(1) + '" y="' + padT + '" width="' + Math.max(0, w - padR - xSs).toFixed(1) + '" height="' + (h - padT - padB) + '" fill="#0B1A26" fill-opacity="0.06"/>';
 
   // Grille horizontale (3 lignes)
   for (var g = 0; g < 3; g++) {
@@ -11166,7 +11166,7 @@ function renderTidesSheetCurve(dayPoints, dayExtremes, isToday, now, nextExtreme
   });
   areaD += ' L ' + xOf(todMin(dayPoints[dayPoints.length - 1].time)).toFixed(1) + ' ' + (h - padB) + ' Z';
   svg += '<path d="' + areaD + '" fill="url(#vzTideFill)"/>';
-  svg += '<path d="' + pathD + '" fill="none" stroke="#4DD4A8" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>';
+  svg += '<path d="' + pathD + '" fill="none" stroke="#0E7C62" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>';
 
   // Labels Y (max / min reels)
   svg += '<text x="' + (padL - 10) + '" y="' + (padT + 5) + '" text-anchor="end" font-family="IBM Plex Mono,monospace" font-size="13" fill="#5E7385">' + maxH.toFixed(1) + 'm</text>';
@@ -11185,7 +11185,7 @@ function renderTidesSheetCurve(dayPoints, dayExtremes, isToday, now, nextExtreme
       var col = e.type === 'high' ? '#4DD4A8' : '#E89B3C';
       var lo = e.type === 'high' ? -1 : 1;
       var label = String(e.time).slice(11, 16);
-      svg += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="5" fill="' + col + '" stroke="#0A1520" stroke-width="2"/>';
+      svg += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="5" fill="' + col + '" stroke="#FFFFFF" stroke-width="2"/>';
       svg += '<text x="' + x.toFixed(1) + '" y="' + (y + lo * 16).toFixed(1) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="15" font-weight="600" fill="' + col + '">' + label + '</text>';
       svg += '<text x="' + x.toFixed(1) + '" y="' + (y + lo * 31).toFixed(1) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="11" fill="' + col + '" opacity="0.7">' + e.height.toFixed(1) + 'm</text>';
     });
@@ -11212,9 +11212,9 @@ function renderTidesSheetCurve(dayPoints, dayExtremes, isToday, now, nextExtreme
         break;
       }
     }
-    svg += '<line x1="' + nowX.toFixed(1) + '" y1="' + padT + '" x2="' + nowX.toFixed(1) + '" y2="' + (h - padB) + '" stroke="#4DD4A8" stroke-width="1.3" opacity="0.5"/>';
-    svg += '<circle cx="' + nowX.toFixed(1) + '" cy="' + nowY.toFixed(1) + '" r="4.5" fill="#FFFFFF" stroke="#4DD4A8" stroke-width="2"/>';
-    svg += '<text x="' + nowX.toFixed(1) + '" y="' + (padT - 9) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="12" fill="#4DD4A8">maintenant</text>';
+    svg += '<line x1="' + nowX.toFixed(1) + '" y1="' + padT + '" x2="' + nowX.toFixed(1) + '" y2="' + (h - padB) + '" stroke="#0E7C62" stroke-width="1.3" opacity="0.5"/>';
+    svg += '<circle cx="' + nowX.toFixed(1) + '" cy="' + nowY.toFixed(1) + '" r="4.5" fill="#FFFFFF" stroke="#0E7C62" stroke-width="2"/>';
+    svg += '<text x="' + nowX.toFixed(1) + '" y="' + (padT - 9) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="12" fill="#0E7C62">maintenant</text>';
   }
 
   svg += '</svg>';
