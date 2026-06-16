@@ -3094,10 +3094,14 @@ function vzmInitCrosshair(){
   S.map.on('zoomstart', showAim);
   S.map.on('moveend', settleAim);
 
-  document.getElementById('vzmAimBtn').addEventListener('click', function(){
+document.getElementById('vzmAimBtn').addEventListener('click', function(){
     hideAll();
     var c = S.map.getCenter();
-    if (typeof openSpotPopup === 'function') openSpotPopup(c, null);
+    S.clickLatLng = c;
+    S._spotDepth = null;
+    if (typeof VZ_SHEET !== 'undefined' && VZ_SHEET && VZ_SHEET.mode === 'cond') VZ_SHEET.mode = null;
+    if (typeof openCondDrawer === 'function') openCondDrawer();
+    else if (typeof openSpotPopup === 'function') openSpotPopup(c, null);
   });
   document.getElementById('vzmAimClose').addEventListener('click', hideAll);
 }
@@ -10323,6 +10327,31 @@ function getSpotDisplayName(lat, lng) {
 }
 
 // ----- Chargement parallèle météo + profondeur -----
+// Bandeau verdict satellite en tete du bandeau Conditions (option B)
+function vzRenderCondVerdict(){
+  var body = document.getElementById('vzSheetBody');
+  if (!body || !VZ_SHEET.data) return;
+  var sat = VZ_SHEET.data.satellite;
+  var html;
+  if (sat && typeof sat.visi_plongeur_m === 'number') {
+    var v = Math.round(sat.visi_plongeur_m * 10) / 10;
+    var age = sat.age_hours, when = '';
+    if (typeof age === 'number' && isFinite(age)) {
+      if (age < 24) when = "aujourd'hui"; else if (age < 36) when = 'hier';
+      else if (age < 60) when = 'il y a 2 jours'; else if (age < 84) when = 'il y a 3 jours';
+      else when = 'il y a ' + Math.round(age / 24) + ' jours';
+    }
+    html = '<div style="margin:0 0 14px;padding:14px 16px;background:rgba(14,124,98,0.06);border:1px solid rgba(14,124,98,0.22);border-radius:12px;display:flex;align-items:center;gap:14px;">'
+      + '<div style="font-family:IBM Plex Mono,monospace;font-size:30px;font-weight:700;color:#0E7C62;line-height:1;white-space:nowrap;">~ ' + v + ' <span style="font-size:15px;font-weight:500;color:#51677A;">m</span></div>'
+      + '<div style="flex:1;min-width:0;">'
+      +   '<div style="font-family:IBM Plex Mono,monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#51677A;">Visibilite mesuree</div>'
+      +   '<div style="font-size:13px;color:#0B1A26;font-weight:600;">Satellite' + (when ? ' &middot; ' + when : '') + '</div>'
+      + '</div></div>';
+  } else {
+    html = '<div style="margin:0 0 14px;padding:12px 16px;background:rgba(11,26,38,0.04);border:1px solid rgba(11,26,38,0.10);border-radius:12px;font-size:13px;color:#51677A;">Pas de mesure satellite sur ce point &mdash; previsions estimees ci-dessous.</div>';
+  }
+  body.insertAdjacentHTML('afterbegin', html);
+}
 function loadSheetConditions(spot) {
   var meteoPromise = fetchSheetMeteo(spot.lat, spot.lng);
   var depthPromise = (spot.depth != null && spot.depth > 0)
@@ -10331,18 +10360,23 @@ function loadSheetConditions(spot) {
         ? fetchRealDepth(spot.lat, spot.lng).catch(function(){ return null; })
         : Promise.resolve(null));
   var tidesPromise = fetchSheetTides(spot);
+  var satPromise = (typeof fetchCmemsZSD === 'function')
+    ? fetchCmemsZSD(spot.lat, spot.lng).catch(function(){ return null; })
+    : Promise.resolve(null);
 
-  Promise.all([meteoPromise, depthPromise, tidesPromise]).then(function(results) {
+  Promise.all([meteoPromise, depthPromise, tidesPromise, satPromise]).then(function(results) {
     if (VZ_SHEET.mode !== 'cond') return;
     var meteo = results[0];
     var depth = results[1];
     var tides = results[2];
+    var sat = results[3];
     if (!meteo || !meteo.time) {
       document.getElementById('vzSheetBody').innerHTML = '<div class="vz-sheet-loading">Données météo indisponibles</div>';
       return;
     }
-    VZ_SHEET.data = { meteo: meteo, depth: depth, tides: tides, spot: spot };
+    VZ_SHEET.data = { meteo: meteo, depth: depth, tides: tides, spot: spot, satellite: sat };
     renderSheetTable();
+    if (typeof vzRenderCondVerdict === 'function') vzRenderCondVerdict();
   }).catch(function(err) {
     console.error('[Sheet] erreur chargement', err);
     document.getElementById('vzSheetBody').innerHTML = '<div class="vz-sheet-loading">Erreur de chargement</div>';
