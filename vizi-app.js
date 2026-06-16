@@ -3013,7 +3013,7 @@ function vzmFreshBars(ageH, fenetreH){
   if (r <= 1.00) return 1;
   return 1;
   }
-// ============ VISEUR MOBILE (Windy-style) - etape 1 visuel ============
+/// ============ VISEUR MOBILE (Windy-style) - etape 1 visuel ============
 function vzmInitCrosshair(){
   if (document.getElementById('vzmAimWrap')) return;        // idempotent
   if (!(S && S.map)) return;
@@ -3024,16 +3024,18 @@ function vzmInitCrosshair(){
 .vzm-xhair{position:fixed;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;z-index:1200;pointer-events:none;opacity:0;transform:scale(.55);transition:opacity .22s ease,transform .26s cubic-bezier(.2,.9,.3,1.2);}
 .vzm-xhair.on{opacity:1;transform:scale(1);}
 .vzm-xhair svg{width:100%;height:100%;display:block;overflow:visible;}
-.vzm-xhair .vzm-xhair-ping{transform-origin:32px 32px;animation:vzmXping 2.2s ease-out infinite;}
-@keyframes vzmXping{0%{transform:scale(.6);opacity:.5;}70%{transform:scale(1.7);opacity:0;}100%{opacity:0;}}
-.vzm-aimbar{position:fixed;left:50%;top:70px;transform:translate(-50%,-160%);width:min(92vw,440px);z-index:1201;display:flex;align-items:center;gap:12px;padding:10px 12px 10px 16px;box-sizing:border-box;background:rgba(15,36,56,0.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(77,212,168,0.35);border-radius:16px;box-shadow:0 10px 30px rgba(4,16,28,0.45);opacity:0;pointer-events:none;transition:transform .32s cubic-bezier(.2,.9,.3,1.1),opacity .28s ease;}
+.vzm-xhair .vzm-xhair-ping{transform-origin:32px 32px;animation:vzmXping 2.6s ease-out infinite;}
+@keyframes vzmXping{0%{transform:scale(.7);opacity:.4;}70%{transform:scale(1.55);opacity:0;}100%{opacity:0;}}
+.vzm-aimbar{position:fixed;left:50%;top:70px;transform:translate(-50%,-160%);width:min(92vw,440px);z-index:1201;display:flex;align-items:center;gap:10px;padding:10px 10px 10px 16px;box-sizing:border-box;background:rgba(15,36,56,0.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(77,212,168,0.35);border-radius:16px;box-shadow:0 10px 30px rgba(4,16,28,0.45);opacity:0;pointer-events:none;transition:transform .32s cubic-bezier(.2,.9,.3,1.1),opacity .28s ease;}
 .vzm-aimbar.on{transform:translate(-50%,0);opacity:1;}
 .vzm-aimbar-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;}
 .vzm-aimbar-label{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:rgba(234,241,245,0.6);}
 .vzm-aimbar-visi{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:700;line-height:1.1;color:#4DD4A8;}
 .vzm-aimbar-visi small{font-size:12px;font-weight:500;color:rgba(234,241,245,0.55);}
-.vzm-aimbar-btn{flex:none;pointer-events:auto;border:0;cursor:pointer;font-family:'Space Grotesk',Inter,sans-serif;font-size:13px;font-weight:600;color:#072018;background:#4DD4A8;padding:11px 16px;border-radius:11px;transition:filter .15s ease,transform .1s ease;}
+.vzm-aimbar-btn{flex:none;pointer-events:auto;border:0;cursor:pointer;font-family:'Space Grotesk',Inter,sans-serif;font-size:13px;font-weight:600;color:#072018;background:#4DD4A8;padding:11px 14px;border-radius:11px;transition:filter .15s ease,transform .1s ease;}
 .vzm-aimbar-btn:active{transform:scale(.96);filter:brightness(.92);}
+.vzm-aimbar-close{flex:none;pointer-events:auto;width:34px;height:34px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.06);color:rgba(234,241,245,0.8);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s ease;}
+.vzm-aimbar-close:active{background:rgba(255,255,255,0.16);}
 `;
   document.head.appendChild(st);
 
@@ -3056,7 +3058,8 @@ function vzmInitCrosshair(){
     + '<span class="vzm-aimbar-label">Visibilite au point vise</span>'
     + '<span class="vzm-aimbar-visi" id="vzmAimVisi">&mdash;</span>'
     + '</div>'
-    + '<button class="vzm-aimbar-btn" id="vzmAimBtn">Analyser ce point</button>';
+    + '<button class="vzm-aimbar-btn" id="vzmAimBtn">Analyser ce point</button>'
+    + '<button class="vzm-aimbar-close" id="vzmAimClose" aria-label="Fermer"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>';
   document.body.appendChild(bar);
 
   function drawerOpen(){
@@ -3064,7 +3067,7 @@ function vzmInitCrosshair(){
     return d && (d.classList.contains('vzm-peek') || d.classList.contains('vzm-mid') || d.classList.contains('vzm-full'));
   }
   function showAim(){ if (!isMobile() || drawerOpen()) return; xh.classList.add('on'); bar.classList.add('on'); }
-  function settleAim(){ if (!isMobile()) return; xh.classList.remove('on'); }
+  function settleAim(){ /* le viseur et la bande restent affiches; fermeture via la croix */ }
   function hideAll(){ xh.classList.remove('on'); bar.classList.remove('on'); }
 
   S.map.on('dragstart', showAim);
@@ -3076,6 +3079,7 @@ function vzmInitCrosshair(){
     var c = S.map.getCenter();
     if (typeof openSpotPopup === 'function') openSpotPopup(c, null);
   });
+  document.getElementById('vzmAimClose').addEventListener('click', hideAll);
 }
 (function vzmXhairBoot(){
   if (typeof S !== 'undefined' && S && S.map) { try { vzmInitCrosshair(); } catch(e){ console.warn('[vzm] xhair init', e); } }
