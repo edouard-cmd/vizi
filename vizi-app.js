@@ -10651,7 +10651,35 @@ function visLabel(score) {
 // Bande marée : courbe alignée sur les colonnes + PM/BM (heures).
   // Le coef est desormais affiché une fois par jour dans l'en-tête (header jours).
   // Remplace les anciennes lignes "Marée (m)" et "Coef" (chiffres répétés par créneau).
-  html += buildTideBandRow(slots, VZ_SHEET.data.tides);
+html += buildTideBandRow(slots, VZ_SHEET.data.tides);
+
+  // Profondeur d'eau reelle au creneau = fond (zero hydro EMODnet) + hauteur de maree
+  // interpolee sur les memes points que la bande maree ci-dessus (coherence visuelle).
+  // On ne touche pas a depthAtTime (chemin de l'algo physique) : ce calcul est local au tableau.
+  function sheetTideHeightAt(ms) {
+    var td = VZ_SHEET.data.tides;
+    if (!td || !td.points || !td.points.length) return null;
+    var pts = td.points, prev = null, next = null;
+    for (var k = 0; k < pts.length; k++) {
+      var pms = new Date(pts[k].time).getTime();
+      if (pms <= ms) prev = { ms: pms, h: pts[k].height };
+      if (pms >= ms) { next = { ms: pms, h: pts[k].height }; break; }
+    }
+    if (prev && next) {
+      if (next.ms === prev.ms) return prev.h;
+      var f = (ms - prev.ms) / (next.ms - prev.ms);
+      return prev.h + f * (next.h - prev.h);
+    }
+    return prev ? prev.h : (next ? next.h : null);
+  }
+  var depthLAT = (data.depth != null && data.depth > 0) ? data.depth : null;
+  html += renderRow('Profondeur (m)', null, function(s) {
+    if (depthLAT == null) return { cls: '', html: '—' };
+    var th = sheetTideHeightAt(s.time.getTime());
+    if (th == null) return { cls: '', html: '—' };
+    var wd = Math.max(0.3, depthLAT + th);
+    return { cls: '', html: Math.round(wd) };
+  });
   // Vent
   html += renderRow('Vent (' + unitLabel + ')', 'vz-cond-row-wind', function(s) {
     var v = h.windspeed_10m[s.i] || 0;
