@@ -2053,7 +2053,7 @@ function openSpotPopup(latlng, name) {
             depth: S._spotDepth || null
           };
           VZ_SHEET.spot = newSpot;
-          updateSheetHeader('', '');;
+          updateSheetHeader('', '');
           var bodySheet = document.getElementById('vzSheetBody');
           if (bodySheet) bodySheet.innerHTML = '<div class="vz-sheet-loading">Chargement des prévisions...</div>';
           loadSheetConditions(newSpot);
@@ -10240,7 +10240,7 @@ window.openConditionsInSheet = function() {
   var spot = resolveSheetSpot();
   VZ_SHEET.spot = spot;
 
-  updateSheetHeader('', ''); : 'Choisis un point en mer');
+  updateSheetHeader('', '');
 
   var body = document.getElementById('vzSheetBody');
   if (!body) return;
