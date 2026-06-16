@@ -3013,7 +3013,7 @@ function vzmFreshBars(ageH, fenetreH){
   if (r <= 1.00) return 1;
   return 1;
   }
-/// ============ VISEUR MOBILE (Windy-style) - etape 1 visuel ============
+// ============ VISEUR MOBILE (Windy-style) - viseur + visi satellite ============
 function vzmInitCrosshair(){
   if (document.getElementById('vzmAimWrap')) return;        // idempotent
   if (!(S && S.map)) return;
@@ -3026,15 +3026,15 @@ function vzmInitCrosshair(){
 .vzm-xhair svg{width:100%;height:100%;display:block;overflow:visible;}
 .vzm-xhair .vzm-xhair-ping{transform-origin:32px 32px;animation:vzmXping 2.6s ease-out infinite;}
 @keyframes vzmXping{0%{transform:scale(.7);opacity:.4;}70%{transform:scale(1.55);opacity:0;}100%{opacity:0;}}
-.vzm-aimbar{position:fixed;left:50%;top:104px;transform:translate(-50%,-160%);width:min(92vw,440px);z-index:1201;display:flex;align-items:center;gap:10px;padding:10px 10px 10px 16px;box-sizing:border-box;background:rgba(15,36,56,0.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(77,212,168,0.35);border-radius:16px;box-shadow:0 10px 30px rgba(4,16,28,0.45);opacity:0;pointer-events:none;transition:transform .32s cubic-bezier(.2,.9,.3,1.1),opacity .28s ease;}
+.vzm-aimbar{position:fixed;left:50%;top:104px;transform:translate(-50%,-160%);width:min(92vw,440px);z-index:1201;display:flex;flex-direction:column;gap:9px;padding:13px 14px;box-sizing:border-box;background:rgba(15,36,56,0.94);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(77,212,168,0.35);border-radius:16px;box-shadow:0 10px 30px rgba(4,16,28,0.45);opacity:0;pointer-events:none;transition:transform .32s cubic-bezier(.2,.9,.3,1.1),opacity .28s ease;}
 .vzm-aimbar.on{transform:translate(-50%,0);opacity:1;}
-.vzm-aimbar-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;}
+.vzm-aimbar-info{display:flex;flex-direction:column;gap:2px;padding-right:34px;}
 .vzm-aimbar-label{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:rgba(234,241,245,0.6);}
-.vzm-aimbar-visi{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:700;line-height:1.1;color:#4DD4A8;}
-.vzm-aimbar-visi small{font-size:12px;font-weight:500;color:rgba(234,241,245,0.55);}
-.vzm-aimbar-btn{flex:none;pointer-events:auto;border:0;cursor:pointer;font-family:'Space Grotesk',Inter,sans-serif;font-size:13px;font-weight:600;color:#072018;background:#4DD4A8;padding:11px 14px;border-radius:11px;transition:filter .15s ease,transform .1s ease;}
-.vzm-aimbar-btn:active{transform:scale(.96);filter:brightness(.92);}
-.vzm-aimbar-close{flex:none;pointer-events:auto;width:34px;height:34px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.06);color:rgba(234,241,245,0.8);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s ease;}
+.vzm-aimbar-visi{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:700;line-height:1.1;color:#4DD4A8;min-height:24px;}
+.vzm-aimbar-visi small{font-size:13px;font-weight:500;color:rgba(234,241,245,0.55);}
+.vzm-aimbar-btn{pointer-events:auto;width:100%;border:0;cursor:pointer;font-family:'Space Grotesk',Inter,sans-serif;font-size:14px;font-weight:600;color:#072018;background:#4DD4A8;padding:13px;border-radius:11px;transition:filter .15s ease,transform .1s ease;}
+.vzm-aimbar-btn:active{transform:scale(.98);filter:brightness(.92);}
+.vzm-aimbar-close{pointer-events:auto;position:absolute;top:10px;right:10px;width:30px;height:30px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.06);color:rgba(234,241,245,0.8);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s ease;}
 .vzm-aimbar-close:active{background:rgba(255,255,255,0.16);}
 `;
   document.head.appendChild(st);
@@ -3054,20 +3054,40 @@ function vzmInitCrosshair(){
 
   var bar = document.createElement('div');
   bar.className = 'vzm-aimbar'; bar.id = 'vzmAimWrap';
-  bar.innerHTML = '<div class="vzm-aimbar-info">'
-    + '<span class="vzm-aimbar-label">Visibilite au point vise</span>'
-    + '<span class="vzm-aimbar-visi" id="vzmAimVisi">&mdash;</span>'
+  bar.innerHTML = '<button class="vzm-aimbar-close" id="vzmAimClose" aria-label="Fermer"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>'
+    + '<div class="vzm-aimbar-info">'
+    +   '<span class="vzm-aimbar-label">Visibilite au point vise</span>'
+    +   '<span class="vzm-aimbar-visi" id="vzmAimVisi">&mdash;</span>'
     + '</div>'
-    + '<button class="vzm-aimbar-btn" id="vzmAimBtn">Analyser ce point</button>'
-    + '<button class="vzm-aimbar-close" id="vzmAimClose" aria-label="Fermer"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>';
+    + '<button class="vzm-aimbar-btn" id="vzmAimBtn">Analyser ce point</button>';
   document.body.appendChild(bar);
 
+  var aimTok = 0;
   function drawerOpen(){
     var d = document.getElementById('spotDrawerMobile');
     return d && (d.classList.contains('vzm-peek') || d.classList.contains('vzm-mid') || d.classList.contains('vzm-full'));
   }
-  function showAim(){ if (!isMobile() || drawerOpen()) return; xh.classList.add('on'); bar.classList.add('on'); }
-  function settleAim(){ /* le viseur et la bande restent affiches; fermeture via la croix */ }
+  function showAim(){
+    if (!isMobile() || drawerOpen()) return;
+    xh.classList.add('on'); bar.classList.add('on');
+    var v = document.getElementById('vzmAimVisi');
+    if (v) v.innerHTML = '<span style="opacity:.45;">...</span>';
+  }
+  function settleAim(){
+    if (!isMobile() || !bar.classList.contains('on')) return;
+    var v = document.getElementById('vzmAimVisi');
+    var tok = ++aimTok;
+    if (typeof fetchCmemsZSD !== 'function') { if (v) v.innerHTML = '&mdash;'; return; }
+    var c = S.map.getCenter();
+    fetchCmemsZSD(c.lat, c.lng).then(function(sat){
+      if (tok !== aimTok || !v) return;
+      if (sat && typeof sat.visi_plongeur_m === 'number') {
+        v.innerHTML = '~ ' + (Math.round(sat.visi_plongeur_m * 10) / 10) + ' <small>m</small>';
+      } else {
+        v.innerHTML = '<small style="font-size:13px;font-weight:500;color:rgba(234,241,245,0.5);">hors zone satellite</small>';
+      }
+    }).catch(function(){ if (tok === aimTok && v) v.innerHTML = '&mdash;'; });
+  }
   function hideAll(){ xh.classList.remove('on'); bar.classList.remove('on'); }
 
   S.map.on('dragstart', showAim);
