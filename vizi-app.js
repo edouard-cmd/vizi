@@ -3026,7 +3026,7 @@ function vzmInitCrosshair(){
 .vzm-xhair svg{width:100%;height:100%;display:block;overflow:visible;}
 .vzm-xhair .vzm-xhair-ping{transform-origin:32px 32px;animation:vzmXping 2.6s ease-out infinite;}
 @keyframes vzmXping{0%{transform:scale(.7);opacity:.4;}70%{transform:scale(1.55);opacity:0;}100%{opacity:0;}}
-.vzm-aimbar{position:fixed;left:50%;top:70px;transform:translate(-50%,-160%);width:min(92vw,440px);z-index:1201;display:flex;align-items:center;gap:10px;padding:10px 10px 10px 16px;box-sizing:border-box;background:rgba(15,36,56,0.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(77,212,168,0.35);border-radius:16px;box-shadow:0 10px 30px rgba(4,16,28,0.45);opacity:0;pointer-events:none;transition:transform .32s cubic-bezier(.2,.9,.3,1.1),opacity .28s ease;}
+.vzm-aimbar{position:fixed;left:50%;top:104px;transform:translate(-50%,-160%);width:min(92vw,440px);z-index:1201;display:flex;align-items:center;gap:10px;padding:10px 10px 10px 16px;box-sizing:border-box;background:rgba(15,36,56,0.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(77,212,168,0.35);border-radius:16px;box-shadow:0 10px 30px rgba(4,16,28,0.45);opacity:0;pointer-events:none;transition:transform .32s cubic-bezier(.2,.9,.3,1.1),opacity .28s ease;}
 .vzm-aimbar.on{transform:translate(-50%,0);opacity:1;}
 .vzm-aimbar-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;}
 .vzm-aimbar-label{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:rgba(234,241,245,0.6);}
