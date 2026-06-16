@@ -1053,6 +1053,7 @@ S.map.on('click', function(e) {
       closeSheetCompletely();
       return;
     }
+      if (isMobile()) return; // sur mobile, le viseur central gere la selection
     isOnSea(e.latlng.lat, e.latlng.lng, function(onSea) {
       if (!onSea) { showLandMessage(e.latlng); return; }
       openSpotPopup(e.latlng, null);
@@ -3012,6 +3013,75 @@ function vzmFreshBars(ageH, fenetreH){
   if (r <= 1.00) return 1;
   return 1;
   }
+// ============ VISEUR MOBILE (Windy-style) - etape 1 visuel ============
+function vzmInitCrosshair(){
+  if (document.getElementById('vzmAimWrap')) return;        // idempotent
+  if (!(S && S.map)) return;
+
+  var st = document.createElement('style');
+  st.id = 'vzmAimStyle';
+  st.textContent = `
+.vzm-xhair{position:fixed;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;z-index:1200;pointer-events:none;opacity:0;transform:scale(.55);transition:opacity .22s ease,transform .26s cubic-bezier(.2,.9,.3,1.2);}
+.vzm-xhair.on{opacity:1;transform:scale(1);}
+.vzm-xhair svg{width:100%;height:100%;display:block;overflow:visible;}
+.vzm-xhair .vzm-xhair-ping{transform-origin:32px 32px;animation:vzmXping 2.2s ease-out infinite;}
+@keyframes vzmXping{0%{transform:scale(.6);opacity:.5;}70%{transform:scale(1.7);opacity:0;}100%{opacity:0;}}
+.vzm-aimbar{position:fixed;left:50%;top:70px;transform:translate(-50%,-160%);width:min(92vw,440px);z-index:1201;display:flex;align-items:center;gap:12px;padding:10px 12px 10px 16px;box-sizing:border-box;background:rgba(15,36,56,0.92);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(77,212,168,0.35);border-radius:16px;box-shadow:0 10px 30px rgba(4,16,28,0.45);opacity:0;pointer-events:none;transition:transform .32s cubic-bezier(.2,.9,.3,1.1),opacity .28s ease;}
+.vzm-aimbar.on{transform:translate(-50%,0);opacity:1;}
+.vzm-aimbar-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;}
+.vzm-aimbar-label{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:rgba(234,241,245,0.6);}
+.vzm-aimbar-visi{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:700;line-height:1.1;color:#4DD4A8;}
+.vzm-aimbar-visi small{font-size:12px;font-weight:500;color:rgba(234,241,245,0.55);}
+.vzm-aimbar-btn{flex:none;pointer-events:auto;border:0;cursor:pointer;font-family:'Space Grotesk',Inter,sans-serif;font-size:13px;font-weight:600;color:#072018;background:#4DD4A8;padding:11px 16px;border-radius:11px;transition:filter .15s ease,transform .1s ease;}
+.vzm-aimbar-btn:active{transform:scale(.96);filter:brightness(.92);}
+`;
+  document.head.appendChild(st);
+
+  var xh = document.createElement('div');
+  xh.className = 'vzm-xhair'; xh.id = 'vzmXhair';
+  xh.innerHTML = '<svg viewBox="0 0 64 64">'
+    + '<circle class="vzm-xhair-ping" cx="32" cy="32" r="14" fill="none" stroke="#4DD4A8" stroke-width="2"/>'
+    + '<circle cx="32" cy="32" r="15" fill="rgba(7,32,24,0.35)" stroke="#4DD4A8" stroke-width="2.4"/>'
+    + '<line x1="32" y1="4" x2="32" y2="16" stroke="#4DD4A8" stroke-width="2.4" stroke-linecap="round"/>'
+    + '<line x1="32" y1="48" x2="32" y2="60" stroke="#4DD4A8" stroke-width="2.4" stroke-linecap="round"/>'
+    + '<line x1="4" y1="32" x2="16" y2="32" stroke="#4DD4A8" stroke-width="2.4" stroke-linecap="round"/>'
+    + '<line x1="48" y1="32" x2="60" y2="32" stroke="#4DD4A8" stroke-width="2.4" stroke-linecap="round"/>'
+    + '<circle cx="32" cy="32" r="3.2" fill="#fff"/>'
+    + '</svg>';
+  document.body.appendChild(xh);
+
+  var bar = document.createElement('div');
+  bar.className = 'vzm-aimbar'; bar.id = 'vzmAimWrap';
+  bar.innerHTML = '<div class="vzm-aimbar-info">'
+    + '<span class="vzm-aimbar-label">Visibilite au point vise</span>'
+    + '<span class="vzm-aimbar-visi" id="vzmAimVisi">&mdash;</span>'
+    + '</div>'
+    + '<button class="vzm-aimbar-btn" id="vzmAimBtn">Analyser ce point</button>';
+  document.body.appendChild(bar);
+
+  function drawerOpen(){
+    var d = document.getElementById('spotDrawerMobile');
+    return d && (d.classList.contains('vzm-peek') || d.classList.contains('vzm-mid') || d.classList.contains('vzm-full'));
+  }
+  function showAim(){ if (!isMobile() || drawerOpen()) return; xh.classList.add('on'); bar.classList.add('on'); }
+  function settleAim(){ if (!isMobile()) return; xh.classList.remove('on'); }
+  function hideAll(){ xh.classList.remove('on'); bar.classList.remove('on'); }
+
+  S.map.on('dragstart', showAim);
+  S.map.on('zoomstart', showAim);
+  S.map.on('moveend', settleAim);
+
+  document.getElementById('vzmAimBtn').addEventListener('click', function(){
+    hideAll();
+    var c = S.map.getCenter();
+    if (typeof openSpotPopup === 'function') openSpotPopup(c, null);
+  });
+}
+(function vzmXhairBoot(){
+  if (typeof S !== 'undefined' && S && S.map) { try { vzmInitCrosshair(); } catch(e){ console.warn('[vzm] xhair init', e); } }
+  else setTimeout(vzmXhairBoot, 300);
+})();
+// ======================================================================
 function vzmBuildSources(){
   var TEAL='#0E7C62', CAUTION='#B5611E', OFF='rgba(11,26,38,0.14)';
   var LBL='rgba(234,241,245,0.74)', LBLOFF='rgba(234,241,245,0.55)';
