@@ -2053,7 +2053,7 @@ function openSpotPopup(latlng, name) {
             depth: S._spotDepth || null
           };
           VZ_SHEET.spot = newSpot;
-          updateSheetHeader('Prévisions 5 jours', newSpot.name);
+          updateSheetHeader('', '');;
           var bodySheet = document.getElementById('vzSheetBody');
           if (bodySheet) bodySheet.innerHTML = '<div class="vz-sheet-loading">Chargement des prévisions...</div>';
           loadSheetConditions(newSpot);
@@ -10240,7 +10240,7 @@ window.openConditionsInSheet = function() {
   var spot = resolveSheetSpot();
   VZ_SHEET.spot = spot;
 
-  updateSheetHeader('Prévisions 5 jours', spot ? spot.name : 'Choisis un point en mer');
+  updateSheetHeader('', ''); : 'Choisis un point en mer');
 
   var body = document.getElementById('vzSheetBody');
   if (!body) return;
@@ -10402,8 +10402,9 @@ function fetchSheetMeteo(lat, lon) {
     + '&hourly=windspeed_10m,winddirection_10m,windgusts_10m,wave_height,temperature_2m,precipitation,cloud_cover'
     + '&wind_speed_unit=kmh&timezone=Europe/Paris&forecast_days=2'
     + '&models=meteofrance_arome_france';
-  var arpegeUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon
+var arpegeUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon
     + '&hourly=windspeed_10m,winddirection_10m,windgusts_10m,wave_height,temperature_2m,precipitation,cloud_cover'
+    + '&daily=sunrise,sunset'
     + '&wind_speed_unit=kmh&timezone=Europe/Paris&forecast_days=5'
     + '&models=meteofrance_arpege_europe';
   return Promise.all([
@@ -10412,7 +10413,8 @@ function fetchSheetMeteo(lat, lon) {
   ]).then(function(results) {
     var arome = results[0].hourly;
     var arpege = results[1].hourly;
-    var fused = fuseForecasts(arome, arpege);
+var fused = fuseForecasts(arome, arpege);
+    if (fused && fused.h) fused.h.sun = (results[1] && results[1].daily) ? results[1].daily : null;
     return fused.h;
   });
 }
@@ -10561,16 +10563,7 @@ function visLabel(score) {
   // ---- Build HTML ----
   var html = '<div class="vz-sheet-cond-wrap">';
 
-// Header sur une seule ligne : profondeur + coords + source
-  var depthLabel = depth != null ? Math.round(depth) : '—';
-
-  html += '<div class="vz-sheet-cond-header">';
-  html += '<div class="vz-sheet-depth-inline"><span class="vz-sheet-depth-mini">FOND</span><span class="vz-sheet-depth-num">' + depthLabel + '</span><span class="vz-sheet-depth-unit-mini">m</span></div>';
-  html += '<div class="vz-sheet-coords-inline">' + spot.lat.toFixed(4) + 'N · ' + Math.abs(spot.lng).toFixed(4) + (spot.lng < 0 ? 'O' : 'E') + '</div>';
-  html += '<div class="vz-sheet-source-inline">EMODnet ~115m</div>';
-  html += '</div>';
-
-  html += '<div style="overflow-x:auto;">';
+html += '<div style="overflow-x:auto;">';
   html += '<table class="vz-cond-table">';
 
   // Header jours
@@ -10579,9 +10572,25 @@ function visLabel(score) {
     var cls = 'vz-cond-dayhead' + (gIdx > 0 ? ' vz-cond-dayboundary' : '');
     var cd = g.date;
     var dayCoef = getCoefForDate(cd.getFullYear() + '-' + String(cd.getMonth() + 1).padStart(2, '0') + '-' + String(cd.getDate()).padStart(2, '0'));
+  var sunHtml = '';
+    if (h.sun && h.sun.time) {
+      var dkey = cd.getFullYear() + '-' + String(cd.getMonth() + 1).padStart(2, '0') + '-' + String(cd.getDate()).padStart(2, '0');
+      var si = h.sun.time.indexOf(dkey);
+      if (si >= 0) {
+        var sr = (h.sun.sunrise && h.sun.sunrise[si]) ? h.sun.sunrise[si].slice(11, 16) : null;
+        var ss = (h.sun.sunset && h.sun.sunset[si]) ? h.sun.sunset[si].slice(11, 16) : null;
+        if (sr && ss) {
+          sunHtml = '<span style="display:block;margin-top:3px;font-family:IBM Plex Mono,monospace;font-size:10px;color:#51677A;white-space:nowrap;">'
+            + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#E89B3C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:2px;"><path d="M4 18h16"/><path d="M7.5 18a4.5 4.5 0 0 1 9 0"/><path d="M12 3v4"/><path d="M9.7 5.3 12 3l2.3 2.3"/></svg>' + sr
+            + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#51677A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin:0 2px 0 9px;"><path d="M4 18h16"/><path d="M7.5 18a4.5 4.5 0 0 1 9 0"/><path d="M12 7V3"/><path d="M9.7 4.7 12 7l2.3-2.3"/></svg>' + ss
+            + '</span>';
+        }
+      }
+    }
     html += '<th class="' + cls + '" colspan="' + g.count + '">'
       + '<span class="vz-cond-dayname">' + g.label + '</span>'
       + '<span class="vz-cond-daycoef ' + coefCls(dayCoef) + '">coef ' + dayCoef + '</span>'
+      + sunHtml
       + '</th>';
   });
   html += '</tr>';
