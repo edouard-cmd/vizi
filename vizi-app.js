@@ -12866,7 +12866,7 @@ function vzmInit() {
     });
 
     // === 3. AJOUTE le message glassmorphism centré en bas ===
-    if (document.getElementById('vzmTapHint')) return;
+    return; // toast desactive: le viseur mobile remplace
 
     var hint = document.createElement('div');
     hint.id = 'vzmTapHint';
