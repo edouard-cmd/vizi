@@ -3108,7 +3108,7 @@ function vzmInitCrosshair(){
 // ======================================================================
 function vzmBuildSources(){
   var TEAL='#0E7C62', CAUTION='#B5611E', OFF='rgba(11,26,38,0.14)';
-  var LBL='rgba(234,241,245,0.74)', LBLOFF='rgba(234,241,245,0.55)';
+var LBL='#51677A', LBLOFF='#90A1AE';
   var VAL='#0B1A26', CTX='#51677A';
   function bars(n){
     var hgt=[7,11,15,20];
@@ -11601,7 +11601,7 @@ function escapeHtml(s) {
   }
 
   // === Drag handle peek/mid/full ===
-  var SNAP_POINTS = { peek: 55, mid: 82, full: 95 };
+  var SNAP_POINTS = { peek: 55, mid: 82, full: 88 };
   var isDragging = false;
   var startY = 0, startTranslate = 0, currentTranslate = 0;
   var velocity = 0, lastY = 0, lastTime = 0;
@@ -12241,8 +12241,8 @@ function vzmRenderForecast() {
       if (drawer) {
         drawer.classList.remove('vzm-closed');
         if (!drawer.classList.contains('vzm-peek') && !drawer.classList.contains('vzm-mid') && !drawer.classList.contains('vzm-full')) {
-          drawer.classList.add('vzm-mid');
-          VZM.currentSnap = 'mid';
+          drawer.classList.add('vzm-full');
+          VZM.currentSnap = 'full';
         }
         vzmUpdateTierHint(VZM.currentSnap);
       }
