@@ -6060,5 +6060,15 @@ onAuthStateChanged(auth, (user) => {
     </div>
   </div>
 </div>
+  <script>
+// Enregistrement du service worker (cache network-first, voir sw.js).
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('sw.js').catch(function(e) {
+      console.warn('[sw] registration failed', e);
+    });
+  });
+}
+</script>
 </body>
 </html>
