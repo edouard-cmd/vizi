@@ -9996,29 +9996,30 @@ var css = `
       border-right: 1px solid rgba(255,255,255,0.05);
       border-bottom: 1px solid rgba(255,255,255,0.05);
     }
-    .vz-cond-rowlabel {
+.vz-cond-rowlabel {
       font-family: 'Inter', sans-serif;
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--vz-accent);
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      text-align: left !important;
-      padding: 0 16px !important;
-      min-width: 130px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--vz-text-on-dark-muted);
+      text-transform: none;
+      letter-spacing: 0;
+      text-align: right !important;
+      padding: 0 12px !important;
+      min-width: 100px;
       position: sticky;
       left: 0;
       background: var(--vz-bg-deep);
       z-index: 3;
       border-right: 1px solid var(--vz-accent-border) !important;
     }
-    .vz-cond-cornerlabel, .vz-cond-cornerhour {
-      position: sticky;
-      left: 0;
-      background: var(--vz-bg-deep);
-      z-index: 3;
-      border-right: 1px solid var(--vz-accent-border) !important;
-      min-width: 130px;
+    .vz-cond-unit {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 9px;
+      font-weight: 500;
+      color: var(--vz-text-on-dark-muted);
+      opacity: 0.65;
+      margin-left: 3px;
+      letter-spacing: 0;
     }
     .vz-cond-dayhead {
       font-family: 'Inter', sans-serif;
@@ -10042,15 +10043,15 @@ var css = `
       height: 32px;
     }
     .vz-cond-dayboundary { border-left: 1px solid var(--vz-accent-border) !important; }
-    .vz-cond-now {
-      background: rgba(77,212,168,0.10) !important;
-      box-shadow: inset 2px 0 0 var(--vz-accent), inset -1px 0 0 var(--vz-accent);
+   .vz-cond-now {
+      background: rgba(14,124,98,0.06) !important;
+      box-shadow: inset 2px 0 0 var(--vz-accent), inset -2px 0 0 var(--vz-accent);
     }
     .vz-cond-now-header {
-      background: rgba(77,212,168,0.20) !important;
+      background: rgba(14,124,98,0.13) !important;
       color: var(--vz-accent) !important;
       font-weight: 700 !important;
-      box-shadow: inset 2px 0 0 var(--vz-accent);
+      box-shadow: inset 2px 0 0 var(--vz-accent), inset -2px 0 0 var(--vz-accent), inset 0 2px 0 var(--vz-accent);
     }
     /* Visi : grosse typo Inter, couleurs saturées */
     .vz-cond-row-vis td {
@@ -10341,14 +10342,17 @@ function vzRenderCondVerdict(){
       else if (age < 60) when = 'il y a 2 jours'; else if (age < 84) when = 'il y a 3 jours';
       else when = 'il y a ' + Math.round(age / 24) + ' jours';
     }
-    html = '<div style="margin:0 0 14px;padding:14px 16px;background:rgba(14,124,98,0.06);border:1px solid rgba(14,124,98,0.22);border-radius:12px;display:flex;align-items:center;gap:14px;">'
-      + '<div style="font-family:IBM Plex Mono,monospace;font-size:30px;font-weight:700;color:#0E7C62;line-height:1;white-space:nowrap;">~ ' + v + ' <span style="font-size:15px;font-weight:500;color:#51677A;">m</span></div>'
-      + '<div style="flex:1;min-width:0;">'
-      +   '<div style="font-family:IBM Plex Mono,monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:#51677A;">Visibilite mesuree</div>'
-      +   '<div style="font-size:13px;color:#0B1A26;font-weight:600;">Satellite' + (when ? ' &middot; ' + when : '') + '</div>'
+    html = '<div style="margin:0 0 14px;padding:2px 2px 13px;border-bottom:1px solid rgba(11,26,38,0.08);display:flex;align-items:baseline;gap:11px;">'
+      + '<div style="white-space:nowrap;line-height:0.9;">'
+      +   '<span style="font-family:IBM Plex Mono,monospace;font-size:17px;font-weight:500;color:#90A1AE;margin-right:2px;">~</span>'
+      +   '<span style="font-family:Inter,sans-serif;font-size:34px;font-weight:700;color:#0E7C62;">' + v + '</span>'
+      +   '<span style="font-family:Inter,sans-serif;font-size:15px;font-weight:600;color:#90A1AE;margin-left:2px;">m</span>'
+      + '</div>'
+      + '<div style="font-family:IBM Plex Mono,monospace;font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:#90A1AE;line-height:1.45;padding-bottom:2px;">'
+      +   'Visibilité mesurée<br><span style="color:#51677A;font-weight:600;">Satellite' + (when ? ' · ' + when : '') + '</span>'
       + '</div></div>';
   } else {
-    html = '<div style="margin:0 0 14px;padding:12px 16px;background:rgba(11,26,38,0.04);border:1px solid rgba(11,26,38,0.10);border-radius:12px;font-size:13px;color:#51677A;">Pas de mesure satellite sur ce point &mdash; previsions estimees ci-dessous.</div>';
+    html = '<div style="margin:0 0 14px;padding:8px 2px 13px;border-bottom:1px solid rgba(11,26,38,0.08);font-family:IBM Plex Mono,monospace;font-size:11px;letter-spacing:.04em;color:#90A1AE;">Pas de mesure satellite sur ce point. Prévisions estimées ci-dessous.</div>';
   }
   body.insertAdjacentHTML('afterbegin', html);
 }
@@ -10682,7 +10686,7 @@ html += buildTideBandRow(slots, VZ_SHEET.data.tides);
     return prev ? prev.h : (next ? next.h : null);
   }
   var depthLAT = (data.depth != null && data.depth > 0) ? data.depth : null;
-  html += renderRow('Profondeur (m)', null, function(s) {
+  html += renderRow('Profondeur <span class="vz-cond-unit">m</span>', null, function(s) {
     if (depthLAT == null) return { cls: '', html: '—' };
     var th = sheetTideHeightAt(s.time.getTime());
     if (th == null) return { cls: '', html: '—' };
@@ -10690,13 +10694,13 @@ html += buildTideBandRow(slots, VZ_SHEET.data.tides);
     return { cls: '', html: Math.round(wd) };
   });
   // Vent
-  html += renderRow('Vent (' + unitLabel + ')', 'vz-cond-row-wind', function(s) {
+  html += renderRow('Vent <span class="vz-cond-unit">' + unitLabel + '</span>', 'vz-cond-row-wind', function(s) {
     var v = h.windspeed_10m[s.i] || 0;
     return { cls: windCls(v), html: conv(v) };
   });
 
   // Rafales
-  html += renderRow('Rafales (' + unitLabel + ')', 'vz-cond-row-gusts', function(s) {
+  html += renderRow('Rafales <span class="vz-cond-unit">' + unitLabel + '</span>', 'vz-cond-row-gusts', function(s) {
     var v = h.windgusts_10m[s.i] || 0;
     return { cls: windCls(v), html: conv(v) };
   });
