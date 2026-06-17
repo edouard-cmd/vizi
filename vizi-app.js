@@ -10541,7 +10541,7 @@ function renderSheetTable() {
     if (dt.getHours() % 3 === 0) {
       slots.push({ i: i, time: dt, t: h.time[i] });
     }
-    if (slots.length >= 24) break;
+if (slots.length >= 40) break;
   }
   if (slots.length === 0) {
     body.innerHTML = '<div class="vz-sheet-loading">Pas de données disponibles</div>';
