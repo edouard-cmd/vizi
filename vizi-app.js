@@ -10681,11 +10681,33 @@ html += '<div style="overflow-x:auto;">';
     if (d < -thr) return { svg: _trSvg.clear,   label: "s'éclaircit" };
     return { svg: _trSvg.stable, label: 'stable' };
   }
-  html += renderRow('Visibilité', 'vz-cond-row-vis', function(s, idx) {
+html += renderRow('Visibilité', 'vz-cond-row-vis', function(s, idx) {
     if (idx > nowIdx) {
       var tr = vzVisiTrend(s.i);
       return { cls: '', html: tr.svg, attrs: ' title="' + tr.label + '"' };
     }
+    // ----- Priorité 1 (doctrine) : satellite frais <=72h = vérité plate -----
+    // Mesure CMEMS ZSD chargée par loadSheetConditions (VZ_SHEET.data.satellite),
+    // affichée telle quelle, identique sur tous les créneaux passés/présents :
+    // une photo prise un jour donné, jamais propagée heure par heure.
+    var _sat = VZ_SHEET.data.satellite;
+    if (_sat && typeof _sat.visi_plongeur_m === 'number' && isFinite(_sat.visi_plongeur_m) && _sat.visi_plongeur_m > 0 &&
+        (typeof _sat.age_hours !== 'number' || _sat.age_hours <= 72) &&
+        (!_sat.status || _sat.status === 'ok' || _sat.status === 'cloudy_J1' || _sat.status === 'cloudy_J2')) {
+      var _vmSat = Math.round(_sat.visi_plongeur_m);
+      // metres -> classe couleur, alignee sur l'echelle visLabel (1/2/4/6/8 m)
+      var _satCls = _sat.visi_plongeur_m < 1.5 ? 'vz-cond-vis-0'
+        : _sat.visi_plongeur_m < 2.5 ? 'vz-cond-vis-1'
+        : _sat.visi_plongeur_m < 5 ? 'vz-cond-vis-2'
+        : _sat.visi_plongeur_m < 7 ? 'vz-cond-vis-3'
+        : 'vz-cond-vis-4';
+      return {
+        cls: _satCls,
+        html: _vmSat + 'm',
+        attrs: ' onclick="vzSheetCellClick(\'' + s.t + '\')" title="Mesure satellite"'
+      };
+    }
+    // ----- Fallback : pas de satellite frais -> moteur (Coriolis / chaine 9 briques / empirique) -----
  var sObj = computeVisibilityScore_V4(h, s.i, depth, spot.lat, spot.lng);
     var vm = (typeof sObj.visi_m === 'number' && isFinite(sObj.visi_m) && sObj.visi_m > 0) ? Math.round(sObj.visi_m) : null;
     return {
