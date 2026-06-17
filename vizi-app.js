@@ -10444,14 +10444,26 @@ var arpegeUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&lon
     + '&daily=sunrise,sunset'
     + '&wind_speed_unit=kmh&timezone=Europe/Paris&forecast_days=5'
     + '&models=meteofrance_arpege_europe';
+var marineUrl = 'https://marine-api.open-meteo.com/v1/marine?latitude=' + lat + '&longitude=' + lon
+    + '&hourly=wave_height&timezone=Europe/Paris&forecast_days=5';
   return Promise.all([
     fetch(aromeUrl).then(function(r){ return r.json(); }),
-    fetch(arpegeUrl).then(function(r){ return r.json(); })
+    fetch(arpegeUrl).then(function(r){ return r.json(); }),
+    fetch(marineUrl).then(function(r){ return r.json(); }).catch(function(){ return null; })
   ]).then(function(results) {
     var arome = results[0].hourly;
     var arpege = results[1].hourly;
-var fused = fuseForecasts(arome, arpege);
+    var fused = fuseForecasts(arome, arpege);
     if (fused && fused.h) fused.h.sun = (results[1] && results[1].daily) ? results[1].daily : null;
+    // Vagues : l'endpoint meteo ne sert pas wave_height. On prend l'API Marine
+    // (modele de houle) et on l'aligne sur la grille horaire fusionnee
+    // (meme timezone Europe/Paris, donc les chaines de temps coincident).
+    var marine = (results[2] && results[2].hourly) ? results[2].hourly : null;
+    if (fused && fused.h && marine && marine.time && marine.wave_height) {
+      var wmap = {};
+      for (var k = 0; k < marine.time.length; k++) wmap[marine.time[k]] = marine.wave_height[k];
+      fused.h.wave_height = fused.h.time.map(function(t){ return (t in wmap) ? wmap[t] : null; });
+    }
     return fused.h;
   });
 }
