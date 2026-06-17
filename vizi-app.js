@@ -10827,6 +10827,11 @@ html += buildTideBandRow(slots, VZ_SHEET.data.tides);
     return { cls: windCls(v), html: conv(v) };
   });
 
+  // Direction
+  html += renderRow('Direction', null, function(s) {
+    return { cls: '', html: dirArrowSvg(h.winddirection_10m[s.i]) };
+  });
+
   // Vagues (etat de la mer) : houle significative Open-Meteo, deja dans h.wave_height
   html += renderRow('Vagues <span class="vz-cond-unit">m</span>', 'vz-cond-row-wave', function(s) {
     var wv = (h.wave_height && h.wave_height[s.i] != null) ? h.wave_height[s.i] : null;
@@ -10838,11 +10843,6 @@ html += buildTideBandRow(slots, VZ_SHEET.data.tides);
       : wv < 2.0 ? 'vz-cond-w-4'
       : 'vz-cond-w-5';
     return { cls: wvCls, html: (Math.round(wv * 10) / 10).toFixed(1).replace('.', ',') };
-  });
-
-  // Direction
-  html += renderRow('Direction', null, function(s) {
-    return { cls: '', html: dirArrowSvg(h.winddirection_10m[s.i]) };
   });
 
   // Ciel
