@@ -11103,7 +11103,48 @@ window.onTidesSheetDateChange = function(newDate) {
     renderTidesSheetContent();
   }
 };
+// Selecteur de port (menu deroulant) du panneau Marees, groupe par region.
+// Defaut = port geolocalise (deja calcule a l'ouverture). Le changement
+// recharge les marees du port choisi, deplace le halo carte et redessine.
+function renderTidesPortSelect(currentId) {
+  var ports = (typeof getTidePortsForDrawer === 'function') ? getTidePortsForDrawer() : [];
+  if (!ports || ports.length === 0) return '';
+  var order = [];
+  var byRegion = {};
+  ports.forEach(function(p) {
+    var r = p.region || 'Autres';
+    if (!byRegion[r]) { byRegion[r] = []; order.push(r); }
+    byRegion[r].push(p);
+  });
+  var opts = '';
+  order.forEach(function(r) {
+    opts += '<optgroup label="' + r + '">';
+    byRegion[r].forEach(function(p) {
+      var sel = (p.id === currentId) ? ' selected' : '';
+      opts += '<option value="' + p.id + '"' + sel + '>' + p.name + '</option>';
+    });
+    opts += '</optgroup>';
+  });
+  return '<div class="vz-tides-portselect" style="flex-shrink:0;">' +
+    '<select class="vz-tides-port" onchange="onTidesSheetPortChange(this.value)" ' +
+    'style="width:100%;max-width:300px;padding:9px 12px;font-family:Inter,sans-serif;' +
+    'font-size:14px;font-weight:600;color:#0B1A26;background:#FFFFFF;' +
+    'border:1px solid rgba(11,26,38,0.14);border-radius:11px;cursor:pointer;">' +
+    opts +
+    '</select>' +
+  '</div>';
+}
 
+window.onTidesSheetPortChange = function(portId) {
+  var ports = (typeof getTidePortsForDrawer === 'function') ? getTidePortsForDrawer() : [];
+  var port = null;
+  for (var i = 0; i < ports.length; i++) { if (ports[i].id === portId) { port = ports[i]; break; } }
+  if (!port) return;
+  TIDES_DRAWER.currentPort = port;
+  if (typeof addTidesPortHalo === 'function') addTidesPortHalo(port.lat, port.lon);
+  updateSheetHeader('Marées', port.name);
+  fetchTidesSheetData();
+};
 window.tidesSheetGoToToday = function() {
   var today = new Date();
   TIDES_DRAWER.selectedDate = today.toISOString().split('T')[0];
@@ -11189,6 +11230,8 @@ var html = '<div class="vz-tides-wrap">';
 
   // ====== COLONNE GAUCHE ======
   html += '<div class="vz-tides-leftcol">';
+  // --- Selecteur de port ---
+  html += renderTidesPortSelect(port.id);
 
   // --- Bloc coef ---
   if (isMed) {
