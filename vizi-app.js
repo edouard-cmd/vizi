@@ -10021,6 +10021,20 @@ var css = `
       margin-left: 3px;
       letter-spacing: 0;
     }
+    .vz-cond-rowlabel, .vz-cond-cornerlabel, .vz-cond-cornerhour {
+      transition: min-width 0.2s ease, padding 0.2s ease;
+    }
+    .vz-cond-lbl-icon { display: none; line-height: 0; color: var(--vz-text-on-dark-muted); }
+    .vz-cond-lbl-icon svg { vertical-align: middle; }
+    .vz-cond-scrolled .vz-cond-lbl-word { display: none; }
+    .vz-cond-scrolled .vz-cond-lbl-icon { display: inline-flex; }
+    .vz-cond-scrolled .vz-cond-rowlabel,
+    .vz-cond-scrolled .vz-cond-cornerlabel,
+    .vz-cond-scrolled .vz-cond-cornerhour {
+      min-width: 44px !important;
+      padding: 0 8px !important;
+      text-align: center !important;
+    }
     .vz-cond-dayhead {
       font-family: 'Inter', sans-serif;
       font-size: 11px;
@@ -10355,6 +10369,46 @@ function vzRenderCondVerdict(){
   }
   body.insertAdjacentHTML('afterbegin', html);
 }
+// Scroll horizontal du tableau Conditions : libelles -> icones SVG, et retour.
+function vzCondScrollIcons(){
+  var body = document.getElementById('vzSheetBody');
+  if (!body) return;
+  var table = body.querySelector('.vz-cond-table');
+  if (!table) return;
+  var scroller = table.parentElement;
+  var I = {
+    visi:  '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.6"/></svg>',
+    maree: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9c2 0 2.3-2.4 4.5-2.4S8.8 9 11 9s2.3-2.4 4.5-2.4S17.8 9 20 9"/><path d="M2 15c2 0 2.3-2.4 4.5-2.4S8.8 15 11 15s2.3-2.4 4.5-2.4S17.8 15 20 15"/></svg>',
+    prof:  '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"/><path d="M8 11l4 4 4-4"/><path d="M5 20h14"/></svg>',
+    vent:  '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10.5a2.2 2.2 0 1 0-2.2-2.2"/><path d="M3 13h14a2.2 2.2 0 1 1-2.2 2.2"/></svg>',
+    raf:   '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h7"/><path d="M3 12h12a2 2 0 1 0-2-2"/><path d="M3 17h9a1.8 1.8 0 1 1-1.8 1.8"/></svg>',
+    dir:   '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.3l2.3 6.9L12 13l-2.3 1.2z"/></svg>',
+    ciel:  '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="8.8" cy="8" r="2.6"/><path d="M7.5 18.5h9a3.3 3.3 0 0 0 0-6.6 4.6 4.6 0 0 0-8.7-1A3.4 3.4 0 0 0 7.5 18.5z"/></svg>'
+  };
+  var labels = table.querySelectorAll('.vz-cond-rowlabel');
+  labels.forEach(function(cell){
+    if (cell.querySelector('.vz-cond-lbl-word')) return;
+    var t = (cell.textContent || '').trim().toLowerCase();
+    var ic = '';
+    if (t.indexOf('visi') === 0) ic = I.visi;
+    else if (t.indexOf('mar') === 0) ic = I.maree;
+    else if (t.indexOf('prof') === 0) ic = I.prof;
+    else if (t.indexOf('vent') === 0) ic = I.vent;
+    else if (t.indexOf('raf') === 0) ic = I.raf;
+    else if (t.indexOf('dir') === 0) ic = I.dir;
+    else if (t.indexOf('ciel') === 0) ic = I.ciel;
+    cell.innerHTML = '<span class="vz-cond-lbl-icon">' + ic + '</span><span class="vz-cond-lbl-word">' + cell.innerHTML + '</span>';
+  });
+  if (scroller && !scroller._vzScrollHooked) {
+    scroller._vzScrollHooked = true;
+    var sync = function(){
+      if (scroller.scrollLeft > 24) table.classList.add('vz-cond-scrolled');
+      else table.classList.remove('vz-cond-scrolled');
+    };
+    scroller.addEventListener('scroll', sync, { passive: true });
+    sync();
+  }
+}
 function loadSheetConditions(spot) {
   var meteoPromise = fetchSheetMeteo(spot.lat, spot.lng);
   var depthPromise = (spot.depth != null && spot.depth > 0)
@@ -10380,6 +10434,7 @@ function loadSheetConditions(spot) {
     VZ_SHEET.data = { meteo: meteo, depth: depth, tides: tides, spot: spot, satellite: sat };
     renderSheetTable();
     if (typeof vzRenderCondVerdict === 'function') vzRenderCondVerdict();
+    if (typeof vzCondScrollIcons === 'function') vzCondScrollIcons();
   }).catch(function(err) {
     console.error('[Sheet] erreur chargement', err);
     document.getElementById('vzSheetBody').innerHTML = '<div class="vz-sheet-loading">Erreur de chargement</div>';
