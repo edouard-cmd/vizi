@@ -10135,10 +10135,10 @@ var css = `
     .vz-cond-row-wind td, .vz-cond-row-gusts td { font-size: 13px; }
     .vz-cond-row-tide td.vz-cond-tideband {
       padding: 0 !important;
-      height: 104px;
+      height: 128px;
       border-right: none;
     }
-    .vz-tideband-wrap { position: relative; width: 100%; height: 104px; }
+    .vz-tideband-wrap { position: relative; width: 100%; height: 128px; }
     .vz-tideband-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
     .vz-tide-mark { position: absolute; top: 0; bottom: 0; transform: translateX(-50%); pointer-events: none; }
     .vz-tide-dot {
@@ -10351,25 +10351,34 @@ function vzRenderCondVerdict(){
   var body = document.getElementById('vzSheetBody');
   if (!body || !VZ_SHEET.data) return;
   var sat = VZ_SHEET.data.satellite;
+  var spot = VZ_SHEET.data.spot;
   var html;
   if (sat && typeof sat.visi_plongeur_m === 'number') {
     var v = Math.round(sat.visi_plongeur_m * 10) / 10;
-    var dateStr = '';
+    var phrase = 'mesuré par satellite';
     if (typeof sat.age_hours === 'number' && isFinite(sat.age_hours)) {
       var d = new Date(Date.now() - sat.age_hours * 3600 * 1000);
-      var mois = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
-      dateStr = d.getDate() + ' ' + mois[d.getMonth()];
+      var mois = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+      var hh = String(d.getHours()).padStart(2, '0'), mm = String(d.getMinutes()).padStart(2, '0');
+      phrase += ' le ' + d.getDate() + ' ' + mois[d.getMonth()] + ' à ' + hh + 'h' + mm;
     }
-    html = '<div style="margin:0 0 12px;padding:0 2px 9px;border-bottom:1px solid rgba(11,26,38,0.08);display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;">'
-      + '<span style="white-space:nowrap;">'
-      +   '<span style="font-family:IBM Plex Mono,monospace;font-size:13px;font-weight:500;color:#90A1AE;margin-right:1px;">~</span>'
-      +   '<span style="font-family:Inter,sans-serif;font-size:22px;font-weight:700;color:#0E7C62;">' + v + '</span>'
-      +   '<span style="font-family:Inter,sans-serif;font-size:12px;font-weight:600;color:#90A1AE;margin-left:1px;">m</span>'
-      + '</span>'
-      + '<span style="font-family:IBM Plex Mono,monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#90A1AE;align-self:center;">Mesuré par satellite' + (dateStr ? ' · ' + dateStr : '') + '</span>'
+    var coords = '';
+    if (spot && typeof spot.lat === 'number' && typeof spot.lng === 'number') {
+      coords = spot.lat.toFixed(4) + ' N · ' + Math.abs(spot.lng).toFixed(4) + (spot.lng < 0 ? ' O' : ' E');
+    }
+    html = '<div style="margin:0 0 16px;padding:0 2px 13px;border-bottom:1px solid rgba(11,26,38,0.08);">'
+      + '<div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:9px;">'
+      +   '<span style="white-space:nowrap;line-height:1;">'
+      +     '<span style="font-family:IBM Plex Mono,monospace;font-size:14px;font-weight:500;color:#90A1AE;margin-right:1px;">~</span>'
+      +     '<span style="font-family:Inter,sans-serif;font-size:26px;font-weight:700;color:#0E7C62;">' + v + '</span>'
+      +     '<span style="font-family:Inter,sans-serif;font-size:14px;font-weight:600;color:#90A1AE;margin-left:1px;">m</span>'
+      +   '</span>'
+      +   '<span style="font-family:Inter,sans-serif;font-size:13px;font-weight:500;color:#51677A;line-height:1.35;">' + phrase + '</span>'
+      + '</div>'
+      + (coords ? '<div style="font-family:IBM Plex Mono,monospace;font-size:11px;color:#90A1AE;letter-spacing:.02em;margin-top:5px;">' + coords + '</div>' : '')
       + '</div>';
   } else {
-    html = '<div style="margin:0 0 12px;padding:0 2px 9px;border-bottom:1px solid rgba(11,26,38,0.08);font-family:IBM Plex Mono,monospace;font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:#90A1AE;">Pas de mesure satellite ici · prévisions estimées</div>';
+    html = '<div style="margin:0 0 16px;padding:0 2px 13px;border-bottom:1px solid rgba(11,26,38,0.08);font-family:Inter,sans-serif;font-size:13px;color:#90A1AE;">Pas de mesure satellite sur ce point. Prévisions estimées ci-dessous.</div>';
   }
   body.insertAdjacentHTML('afterbegin', html);
 }
@@ -10642,9 +10651,9 @@ html += '<div style="overflow-x:auto;">';
         var sr = (h.sun.sunrise && h.sun.sunrise[si]) ? h.sun.sunrise[si].slice(11, 16) : null;
         var ss = (h.sun.sunset && h.sun.sunset[si]) ? h.sun.sunset[si].slice(11, 16) : null;
         if (sr && ss) {
-          sunHtml = '<span style="display:block;margin-top:3px;font-family:IBM Plex Mono,monospace;font-size:10px;color:#51677A;white-space:nowrap;">'
-            + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#E89B3C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:2px;"><path d="M4 18h16"/><path d="M7.5 18a4.5 4.5 0 0 1 9 0"/><path d="M12 3v4"/><path d="M9.7 5.3 12 3l2.3 2.3"/></svg>' + sr
-            + '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#51677A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin:0 2px 0 9px;"><path d="M4 18h16"/><path d="M7.5 18a4.5 4.5 0 0 1 9 0"/><path d="M12 7V3"/><path d="M9.7 4.7 12 7l2.3-2.3"/></svg>' + ss
+        sunHtml = '<span style="display:block;margin-top:5px;font-family:IBM Plex Mono,monospace;font-size:12px;font-weight:500;color:#51677A;white-space:nowrap;">'
+            + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E89B3C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:3px;"><path d="M4 18h16"/><path d="M7.5 18a4.5 4.5 0 0 1 9 0"/><path d="M12 3v4"/><path d="M9.7 5.3 12 3l2.3 2.3"/></svg>' + sr
+            + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#51677A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin:0 3px 0 12px;"><path d="M4 18h16"/><path d="M7.5 18a4.5 4.5 0 0 1 9 0"/><path d="M12 7V3"/><path d="M9.7 4.7 12 7l2.3-2.3"/></svg>' + ss
             + '</span>';
         }
       }
@@ -10827,7 +10836,7 @@ function buildTideBandRow(slots, tideData) {
   var minH = Math.min.apply(null, heights);
   var maxH = Math.max.apply(null, heights);
   var rangeH = Math.max(maxH - minH, 0.3);
-  var VBW = 1000, VBH = 100, yTop = 18, yBot = 80;
+  var VBW = 1000, VBH = 100, yTop = 32, yBot = 70;
   function X(ms) { return posFrac(ms) * VBW; }
   function Y(hh) { return yBot - ((hh - minH) / rangeH) * (yBot - yTop); }
   win.sort(function(a, b) { return a.ms - b.ms; });
