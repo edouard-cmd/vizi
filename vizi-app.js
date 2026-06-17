@@ -11268,7 +11268,7 @@ var html = '<div class="vz-tides-wrap">';
   if (dayExtremes && dayExtremes.length > 0) {
     html += '<div class="vz-tides-table" style="background:#FFFFFF;border:1px solid rgba(11,26,38,0.10);border-radius:13px;overflow:hidden;">';
     dayExtremes.forEach(function(e, i) {
-      var em = todMinISO(e.time);
+      var em = vzTideLocalMin(e.time);
       var isDay = em >= srMinT && em <= ssMinT;
       var col = e.type === 'high' ? '#0E7C62' : '#B5611E'
       var typeShort = e.type === 'high' ? 'PM' : 'BM';
@@ -11279,7 +11279,7 @@ var html = '<div class="vz-tides-wrap">';
       html += '<div style="display:grid;grid-template-columns:46px 22px 1fr auto;align-items:center;gap:10px;padding:11px 16px;' + sep + '">' +
         '<span style="font-family:IBM Plex Mono,monospace;font-size:13px;font-weight:600;color:' + col + ';">' + typeShort + '</span>' +
         '<span style="text-align:center;line-height:0;">' + glyph + '</span>' +
-        '<span style="font-family:IBM Plex Mono,monospace;font-size:19px;font-weight:600;color:#0B1A26;">' + String(e.time).slice(11, 16) + '</span>' +
+        '<span style="font-family:IBM Plex Mono,monospace;font-size:19px;font-weight:600;String(e.time).slice(11, 16) par vzTideLocalHHMM(e.time) +
         '<span style="font-family:IBM Plex Mono,monospace;font-size:14px;color:#51677A;">' + e.height.toFixed(1) + ' m</span>' +
       '</div>';
     });
@@ -11312,6 +11312,18 @@ function capitalize(s) {
 // ============================================================
 // Helper : chips de date (Aujourd'hui / Demain / +2j / +3j / +4j / picker)
 // ============================================================
+// Heure locale (fuseau navigateur) d'une maree, alignee sur l'onglet Conditions :
+// on parse l'instant reel puis on lit getHours/getMinutes (jamais de slice du wall-clock).
+function vzTideLocalMin(isoStr) {
+  var d = new Date(isoStr);
+  if (isNaN(d.getTime())) return parseInt(String(isoStr).slice(11, 13), 10) * 60 + parseInt(String(isoStr).slice(14, 16), 10);
+  return d.getHours() * 60 + d.getMinutes();
+}
+function vzTideLocalHHMM(isoStr) {
+  var d = new Date(isoStr);
+  if (isNaN(d.getTime())) return String(isoStr).slice(11, 16);
+  return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+}
 function renderTidesDateChips(selDate) {
   var now = new Date();
   var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -11457,7 +11469,9 @@ function renderTidesSheetCurve(dayPoints, dayExtremes, isToday, now, nextExtreme
   var padL = 16, padR = 12, padT = 26, padB = 28;
 
   function todMin(isoStr) {
-    return parseInt(String(isoStr).slice(11, 13), 10) * 60 + parseInt(String(isoStr).slice(14, 16), 10);
+    var d = new Date(isoStr);
+    if (isNaN(d.getTime())) return parseInt(String(isoStr).slice(11, 13), 10) * 60 + parseInt(String(isoStr).slice(14, 16), 10);
+    return d.getHours() * 60 + d.getMinutes();
   }
   function clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
 
@@ -11513,7 +11527,7 @@ function renderTidesSheetCurve(dayPoints, dayExtremes, isToday, now, nextExtreme
       var x = xOf(todMin(e.time)), y = yOf(e.height);
       var high = e.type === 'high';
       var col = high ? '#0E7C62' : '#B5611E';
-      var label = String(e.time).slice(11, 16);
+      var label = vzTideLocalHHMM(e.time);
       var ly = high ? clamp(y - 9, padT + 11, h - padB - 4)
                     : clamp(y + 15, padT + 11, h - padB - 4);
       svg += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="3.5" fill="' + col + '" stroke="#FFFFFF" stroke-width="1.5"/>';
@@ -11521,15 +11535,8 @@ function renderTidesSheetCurve(dayPoints, dayExtremes, isToday, now, nextExtreme
     });
   }
 
-  if (isToday) {
-    var offMatch = String(dayPoints[0].time).match(/([+-])(\d{2}):?(\d{2})$/);
-    var offMin = 0;
-    if (offMatch) {
-      var sign = offMatch[1] === '-' ? -1 : 1;
-      offMin = sign * (parseInt(offMatch[2], 10) * 60 + parseInt(offMatch[3], 10));
-    }
-    var nowUtcMin = now.getUTCHours() * 60 + now.getUTCMinutes();
-    var nowTod = ((nowUtcMin + offMin) % 1440 + 1440) % 1440;
+if (isToday) {
+    var nowTod = now.getHours() * 60 + now.getMinutes();
     var nowX = xOf(nowTod);
     var nowY = padT + (h - padT - padB) / 2;
     for (var k = 0; k < dayPoints.length - 1; k++) {
