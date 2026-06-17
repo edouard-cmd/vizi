@@ -3032,6 +3032,11 @@ function vzmInitCrosshair(){
 .vzm-aimbar-label{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:rgba(234,241,245,0.6);}
 .vzm-aimbar-visi{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:700;line-height:1.1;color:#4DD4A8;min-height:24px;}
 .vzm-aimbar-visi small{font-size:13px;font-weight:500;color:rgba(234,241,245,0.55);}
+.vzm-aim-load{display:inline-flex;align-items:center;height:24px;width:78px;position:relative;overflow:hidden;vertical-align:middle;}
+.vzm-aim-load .vzm-fish{position:absolute;top:50%;left:0;transform:translate(-34px,-50%);opacity:0;animation:vzmSwim 1.8s linear infinite;}
+.vzm-aim-load .vzm-fish:nth-child(2){animation-delay:.6s;}
+.vzm-aim-load .vzm-fish:nth-child(3){animation-delay:1.2s;}
+@keyframes vzmSwim{0%{transform:translate(-34px,-50%);opacity:0;}14%{opacity:.95;}86%{opacity:.95;}100%{transform:translate(88px,-50%);opacity:0;}}
 .vzm-aimbar-btn{pointer-events:auto;width:100%;border:0;cursor:pointer;font-family:'Space Grotesk',Inter,sans-serif;font-size:14px;font-weight:600;color:#072018;background:#4DD4A8;padding:13px;border-radius:11px;transition:filter .15s ease,transform .1s ease;}
 .vzm-aimbar-btn:active{transform:scale(.98);filter:brightness(.92);}
 .vzm-aimbar-close{pointer-events:auto;position:absolute;top:10px;right:10px;width:30px;height:30px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.06);color:rgba(234,241,245,0.8);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s ease;}
@@ -3071,7 +3076,7 @@ function vzmInitCrosshair(){
     if (!isMobile() || drawerOpen()) return;
     xh.classList.add('on'); bar.classList.add('on');
     var v = document.getElementById('vzmAimVisi');
-    if (v) v.innerHTML = '<span style="opacity:.45;">...</span>';
+    if (v) v.innerHTML = '<span class="vzm-aim-load">' + '<svg class="vzm-fish" viewBox="0 0 30 14" width="22" height="11"><path d="M7 7C11 3 22 3 26.5 6.2 27.4 6.8 27.4 7.2 26.5 7.8 22 11 11 11 7 7Z" fill="#4DD4A8"/><path d="M7 7 1 3.5 3.2 7 1 10.5Z" fill="#4DD4A8"/><circle cx="23.5" cy="6.4" r="0.9" fill="#0F2438"/></svg>'.repeat(3) + '</span>';
   }
   function settleAim(){
     if (!isMobile() || !bar.classList.contains('on')) return;
