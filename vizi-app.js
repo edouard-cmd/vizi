@@ -11277,9 +11277,9 @@ var html = '<div class="vz-tides-wrap">';
         : '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="#90A8B8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>';
       var sep = (i < dayExtremes.length - 1) ? 'border-bottom:1px solid rgba(255,255,255,0.07);' : '';
       html += '<div style="display:grid;grid-template-columns:46px 22px 1fr auto;align-items:center;gap:10px;padding:11px 16px;' + sep + '">' +
-        '<span style="font-family:IBM Plex Mono,monospace;font-size:13px;font-weight:600;color:' + col + ';">' + typeShort + '</span>' +
+  '<span style="font-family:IBM Plex Mono,monospace;font-size:13px;font-weight:600;color:' + col + ';">' + typeShort + '</span>' +
         '<span style="text-align:center;line-height:0;">' + glyph + '</span>' +
-        '<span style="font-family:IBM Plex Mono,monospace;font-size:19px;'<span style="font-family:IBM Plex Mono,monospace;font-size:19px;font-weight:600;color:#0B1A26;">' + vzTideLocalHHMM(e.time) + '</span>' + vzTideLocalHHMM(e.time) +
+        '<span style="font-family:IBM Plex Mono,monospace;font-size:19px;font-weight:600;color:#0B1A26;">' + vzTideLocalHHMM(e.time) + '</span>' +
         '<span style="font-family:IBM Plex Mono,monospace;font-size:14px;color:#51677A;">' + e.height.toFixed(1) + ' m</span>' +
       '</div>';
     });
