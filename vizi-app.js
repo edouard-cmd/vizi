@@ -10336,23 +10336,22 @@ function vzRenderCondVerdict(){
   var html;
   if (sat && typeof sat.visi_plongeur_m === 'number') {
     var v = Math.round(sat.visi_plongeur_m * 10) / 10;
-    var age = sat.age_hours, when = '';
-    if (typeof age === 'number' && isFinite(age)) {
-      if (age < 24) when = "aujourd'hui"; else if (age < 36) when = 'hier';
-      else if (age < 60) when = 'il y a 2 jours'; else if (age < 84) when = 'il y a 3 jours';
-      else when = 'il y a ' + Math.round(age / 24) + ' jours';
+    var dateStr = '';
+    if (typeof sat.age_hours === 'number' && isFinite(sat.age_hours)) {
+      var d = new Date(Date.now() - sat.age_hours * 3600 * 1000);
+      var mois = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+      dateStr = d.getDate() + ' ' + mois[d.getMonth()];
     }
-    html = '<div style="margin:0 0 14px;padding:2px 2px 13px;border-bottom:1px solid rgba(11,26,38,0.08);display:flex;align-items:baseline;gap:11px;">'
-      + '<div style="white-space:nowrap;line-height:0.9;">'
-      +   '<span style="font-family:IBM Plex Mono,monospace;font-size:17px;font-weight:500;color:#90A1AE;margin-right:2px;">~</span>'
-      +   '<span style="font-family:Inter,sans-serif;font-size:34px;font-weight:700;color:#0E7C62;">' + v + '</span>'
-      +   '<span style="font-family:Inter,sans-serif;font-size:15px;font-weight:600;color:#90A1AE;margin-left:2px;">m</span>'
-      + '</div>'
-      + '<div style="font-family:IBM Plex Mono,monospace;font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:#90A1AE;line-height:1.45;padding-bottom:2px;">'
-      +   'Visibilité mesurée<br><span style="color:#51677A;font-weight:600;">Satellite' + (when ? ' · ' + when : '') + '</span>'
-      + '</div></div>';
+    html = '<div style="margin:0 0 12px;padding:0 2px 9px;border-bottom:1px solid rgba(11,26,38,0.08);display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;">'
+      + '<span style="white-space:nowrap;">'
+      +   '<span style="font-family:IBM Plex Mono,monospace;font-size:13px;font-weight:500;color:#90A1AE;margin-right:1px;">~</span>'
+      +   '<span style="font-family:Inter,sans-serif;font-size:22px;font-weight:700;color:#0E7C62;">' + v + '</span>'
+      +   '<span style="font-family:Inter,sans-serif;font-size:12px;font-weight:600;color:#90A1AE;margin-left:1px;">m</span>'
+      + '</span>'
+      + '<span style="font-family:IBM Plex Mono,monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#90A1AE;align-self:center;">Mesuré par satellite' + (dateStr ? ' · ' + dateStr : '') + '</span>'
+      + '</div>';
   } else {
-    html = '<div style="margin:0 0 14px;padding:8px 2px 13px;border-bottom:1px solid rgba(11,26,38,0.08);font-family:IBM Plex Mono,monospace;font-size:11px;letter-spacing:.04em;color:#90A1AE;">Pas de mesure satellite sur ce point. Prévisions estimées ci-dessous.</div>';
+    html = '<div style="margin:0 0 12px;padding:0 2px 9px;border-bottom:1px solid rgba(11,26,38,0.08);font-family:IBM Plex Mono,monospace;font-size:10px;letter-spacing:.05em;text-transform:uppercase;color:#90A1AE;">Pas de mesure satellite ici · prévisions estimées</div>';
   }
   body.insertAdjacentHTML('afterbegin', html);
 }
