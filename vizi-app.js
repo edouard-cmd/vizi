@@ -11454,15 +11454,14 @@ function getSunTimesForDate(isoDate) {
 function renderTidesSheetCurve(dayPoints, dayExtremes, isToday, now, nextExtremeIdx) {
   if (!dayPoints || dayPoints.length === 0) return '';
 
-  var w = 1200, h = 480;
-  var padL = 52, padR = 20, padT = 30, padB = 52;
+  var w = 1200, h = 520;
+  var padL = 28, padR = 24, padT = 46, padB = 46;
 
-  // Minutes depuis minuit LOCAL, lues directement sur l'horodatage SHOM
-  // (ex "2026-06-09T16:38:00+02:00" -> 16*60+38). Independant du fuseau du
-  // navigateur : c'etait la cause du bug ou la courbe partait hors-cadre.
+  // Minutes depuis minuit LOCAL, lues sur l'horodatage SHOM (TZ-safe).
   function todMin(isoStr) {
     return parseInt(String(isoStr).slice(11, 13), 10) * 60 + parseInt(String(isoStr).slice(14, 16), 10);
   }
+  function clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); }
 
   var heights = dayPoints.map(function(p){ return p.height; });
   var maxH = Math.max.apply(null, heights);
@@ -11475,7 +11474,7 @@ function renderTidesSheetCurve(dayPoints, dayExtremes, isToday, now, nextExtreme
   function xOf(min) { return padL + (min / 1440) * (w - padL - padR); }
   function yOf(height) { return padT + (1 - (height - loH) / spanH) * (h - padT - padB); }
 
-  // Soleil (jour / nuit) pour l'ombrage uniquement
+  // Soleil (jour / nuit) pour l'ombrage des plages de nuit
   var selDate = TIDES_DRAWER.selectedDate;
   var sunTimes = getSunTimesForDate(selDate);
   var srP = sunTimes.sunrise.split(':'), ssP = sunTimes.sunset.split(':');
@@ -11485,19 +11484,13 @@ function renderTidesSheetCurve(dayPoints, dayExtremes, isToday, now, nextExtreme
 
   var svg = '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;display:block;">';
   svg += '<defs><linearGradient id="vzTideFill" x1="0" x2="0" y1="0" y2="1">' +
-    '<stop offset="0%" stop-color="#4DD4A8" stop-opacity="0.30"/>' +
+    '<stop offset="0%" stop-color="#4DD4A8" stop-opacity="0.26"/>' +
     '<stop offset="100%" stop-color="#4DD4A8" stop-opacity="0.02"/>' +
   '</linearGradient></defs>';
 
-  // Ombrage nuit (avant lever + apres coucher)
-svg += '<rect x="' + padL + '" y="' + padT + '" width="' + Math.max(0, xSr - padL).toFixed(1) + '" height="' + (h - padT - padB) + '" fill="#0B1A26" fill-opacity="0.06"/>';
-  svg += '<rect x="' + xSs.toFixed(1) + '" y="' + padT + '" width="' + Math.max(0, w - padR - xSs).toFixed(1) + '" height="' + (h - padT - padB) + '" fill="#0B1A26" fill-opacity="0.06"/>';
-
-  // Grille horizontale (3 lignes)
-  for (var g = 0; g < 3; g++) {
-    var gy = padT + (g / 2) * (h - padT - padB);
-    svg += '<line x1="' + padL + '" y1="' + gy + '" x2="' + (w - padR) + '" y2="' + gy + '" stroke="rgba(255,255,255,0.06)" stroke-dasharray="2,5"/>';
-  }
+  // Plages de nuit (avant lever + apres coucher) : gris leger lisible sur clair
+  svg += '<rect x="' + padL + '" y="' + padT + '" width="' + Math.max(0, xSr - padL).toFixed(1) + '" height="' + (h - padT - padB) + '" fill="#0B1A26" fill-opacity="0.05"/>';
+  svg += '<rect x="' + xSs.toFixed(1) + '" y="' + padT + '" width="' + Math.max(0, w - padR - xSs).toFixed(1) + '" height="' + (h - padT - padB) + '" fill="#0B1A26" fill-opacity="0.05"/>';
 
   // Courbe + aire
   var pathD = '', areaD = '';
@@ -11515,31 +11508,28 @@ svg += '<rect x="' + padL + '" y="' + padT + '" width="' + Math.max(0, xSr - pad
   svg += '<path d="' + areaD + '" fill="url(#vzTideFill)"/>';
   svg += '<path d="' + pathD + '" fill="none" stroke="#0E7C62" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>';
 
-  // Labels Y (max / min reels)
-  svg += '<text x="' + (padL - 10) + '" y="' + (padT + 5) + '" text-anchor="end" font-family="IBM Plex Mono,monospace" font-size="13" fill="#5E7385">' + maxH.toFixed(1) + 'm</text>';
-  svg += '<text x="' + (padL - 10) + '" y="' + (h - padB + 4) + '" text-anchor="end" font-family="IBM Plex Mono,monospace" font-size="13" fill="#5E7385">' + minH.toFixed(1) + 'm</text>';
-
-  // Axe X (heures)
+  // Axe horaire (gris lisible)
   [0, 6, 12, 18, 24].forEach(function(hr) {
     var x = xOf(hr * 60);
-    svg += '<text x="' + x.toFixed(1) + '" y="' + (h - padB + 24) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="13" fill="#5E7385">' + hr + 'h</text>';
+    svg += '<text x="' + x.toFixed(1) + '" y="' + (h - padB + 26) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="14" fill="#5E7385">' + hr + 'h</text>';
   });
 
-  // Points PM / BM (heure lue sur l'horodatage = TZ-safe)
+  // Extremes : point + HEURE seule (la hauteur est deja dans la liste).
+  // Couleurs lisibles sur clair, libelle clampe pour rester dans le cadre.
   if (dayExtremes && dayExtremes.length > 0) {
     dayExtremes.forEach(function(e) {
       var x = xOf(todMin(e.time)), y = yOf(e.height);
-      var col = e.type === 'high' ? '#4DD4A8' : '#E89B3C';
-      var lo = e.type === 'high' ? -1 : 1;
+      var high = e.type === 'high';
+      var col = high ? '#0E7C62' : '#B5611E';
       var label = String(e.time).slice(11, 16);
+      var ly = high ? clamp(y - 16, padT + 13, h - padB - 6)
+                    : clamp(y + 26, padT + 13, h - padB - 6);
       svg += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="5" fill="' + col + '" stroke="#FFFFFF" stroke-width="2"/>';
-      svg += '<text x="' + x.toFixed(1) + '" y="' + (y + lo * 16).toFixed(1) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="15" font-weight="600" fill="' + col + '">' + label + '</text>';
-      svg += '<text x="' + x.toFixed(1) + '" y="' + (y + lo * 31).toFixed(1) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="11" fill="' + col + '" opacity="0.7">' + e.height.toFixed(1) + 'm</text>';
+      svg += '<text x="' + x.toFixed(1) + '" y="' + ly.toFixed(1) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="16" font-weight="600" fill="' + col + '">' + label + '</text>';
     });
   }
 
-  // Curseur "maintenant" : position en heure locale de la donnee (offset de l'horodatage),
-  // robuste meme si le navigateur n'est pas en heure de France.
+  // Curseur "maintenant" (heure locale de la donnee, TZ-safe)
   if (isToday) {
     var offMatch = String(dayPoints[0].time).match(/([+-])(\d{2}):?(\d{2})$/);
     var offMin = 0;
@@ -11554,14 +11544,14 @@ svg += '<rect x="' + padL + '" y="' + padT + '" width="' + Math.max(0, xSr - pad
     for (var k = 0; k < dayPoints.length - 1; k++) {
       var m1 = todMin(dayPoints[k].time), m2 = todMin(dayPoints[k + 1].time);
       if (nowTod >= m1 && nowTod <= m2 && m2 > m1) {
-        var r = (nowTod - m1) / (m2 - m1);
-        nowY = yOf(dayPoints[k].height + r * (dayPoints[k + 1].height - dayPoints[k].height));
+        var rr = (nowTod - m1) / (m2 - m1);
+        nowY = yOf(dayPoints[k].height + rr * (dayPoints[k + 1].height - dayPoints[k].height));
         break;
       }
     }
-    svg += '<line x1="' + nowX.toFixed(1) + '" y1="' + padT + '" x2="' + nowX.toFixed(1) + '" y2="' + (h - padB) + '" stroke="#0E7C62" stroke-width="1.3" opacity="0.5"/>';
+    svg += '<line x1="' + nowX.toFixed(1) + '" y1="' + padT + '" x2="' + nowX.toFixed(1) + '" y2="' + (h - padB) + '" stroke="#0E7C62" stroke-width="1.3" opacity="0.45"/>';
     svg += '<circle cx="' + nowX.toFixed(1) + '" cy="' + nowY.toFixed(1) + '" r="4.5" fill="#FFFFFF" stroke="#0E7C62" stroke-width="2"/>';
-    svg += '<text x="' + nowX.toFixed(1) + '" y="' + (padT - 9) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="12" fill="#0E7C62">maintenant</text>';
+    svg += '<text x="' + nowX.toFixed(1) + '" y="' + (padT - 14) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="12" fill="#0E7C62">maintenant</text>';
   }
 
   svg += '</svg>';
