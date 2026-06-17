@@ -10228,7 +10228,22 @@ window.cycleSheetState = function() {
   }
   setSheetState(next);
 };
-
+// La croix de fermeture et la poignee se superposent dans le coin haut-droit.
+// Selon le point exact du tap, c'est la poignee qui recoit le clic au lieu de
+// la croix. On resout l'ambiguite ici : si le clic tombe dans la zone de la
+// croix, on ferme completement ; sinon on cycle l'etat normalement.
+window.onSheetHandleClick = function(e) {
+  var closeBtn = document.querySelector('.vz-sheet-close');
+  if (closeBtn) {
+    var r = closeBtn.getBoundingClientRect();
+    if (r.width > 0 && e.clientX >= r.left && e.clientX <= r.right &&
+        e.clientY >= r.top && e.clientY <= r.bottom) {
+      closeSheetCompletely();
+      return;
+    }
+  }
+  cycleSheetState();
+};
 window.setSheetState = function(state) {
   var sheet = document.getElementById('vzSheet');
   if (!sheet) return;
