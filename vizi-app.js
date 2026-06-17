@@ -729,7 +729,7 @@ showLitto3d: true, litto3d: null,
 };
 
 var S_forecastOpen = false;
-var S_windUnit = 'kt';
+var S_windUnit = 'kmh';
 var S_lastForecastData = null;
 var S_gridScores = [];
 var S_gridUpdatedAt = null;
@@ -10099,7 +10099,7 @@ var css = `
     .vz-cond-vis-3 { background: rgba(77,212,168,0.65) !important; color: #1A2535 !important; }
     .vz-cond-vis-4 { background: rgba(45,168,136,0.92) !important; }
     /* Vent : Inter 600 */
-    .vz-cond-row-wind td, .vz-cond-row-gusts td {
+.vz-cond-row-wind td, .vz-cond-row-gusts td, .vz-cond-row-wave td {
       font-family: 'Inter', sans-serif;
       font-weight: 600;
       font-size: 12px;
@@ -10143,7 +10143,7 @@ var css = `
     .vz-cond-rowlabel { font-size: 12px !important; }
     .vz-cond-hourhead { font-size: 12px !important; }
     .vz-cond-table tbody td:not(.vz-cond-rowlabel) { font-size: 13px; }
-    .vz-cond-row-wind td, .vz-cond-row-gusts td { font-size: 13px; }
+    .vz-cond-row-wind td, .vz-cond-row-gusts td, .vz-cond-row-wave td { font-size: 13px; }
     .vz-cond-row-tide td.vz-cond-tideband {
       padding: 0 !important;
       height: 128px;
@@ -10754,10 +10754,23 @@ html += buildTideBandRow(slots, VZ_SHEET.data.tides);
     return { cls: windCls(v), html: conv(v) };
   });
 
-  // Rafales
+// Rafales
   html += renderRow('Rafales <span class="vz-cond-unit">' + unitLabel + '</span>', 'vz-cond-row-gusts', function(s) {
     var v = h.windgusts_10m[s.i] || 0;
     return { cls: windCls(v), html: conv(v) };
+  });
+
+  // Vagues (etat de la mer) : houle significative Open-Meteo, deja dans h.wave_height
+  html += renderRow('Vagues <span class="vz-cond-unit">m</span>', 'vz-cond-row-wave', function(s) {
+    var wv = (h.wave_height && h.wave_height[s.i] != null) ? h.wave_height[s.i] : null;
+    if (wv == null) return { cls: '', html: '\u2014' };
+    var wvCls = wv < 0.3 ? 'vz-cond-w-0'
+      : wv < 0.6 ? 'vz-cond-w-1'
+      : wv < 1.0 ? 'vz-cond-w-2'
+      : wv < 1.5 ? 'vz-cond-w-3'
+      : wv < 2.0 ? 'vz-cond-w-4'
+      : 'vz-cond-w-5';
+    return { cls: wvCls, html: (Math.round(wv * 10) / 10).toFixed(1).replace('.', ',') };
   });
 
   // Direction
