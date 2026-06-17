@@ -11279,7 +11279,7 @@ var html = '<div class="vz-tides-wrap">';
       html += '<div style="display:grid;grid-template-columns:46px 22px 1fr auto;align-items:center;gap:10px;padding:11px 16px;' + sep + '">' +
         '<span style="font-family:IBM Plex Mono,monospace;font-size:13px;font-weight:600;color:' + col + ';">' + typeShort + '</span>' +
         '<span style="text-align:center;line-height:0;">' + glyph + '</span>' +
-        '<span style="font-family:IBM Plex Mono,monospace;font-size:19px;font-weight:600;String(e.time).slice(11, 16) par vzTideLocalHHMM(e.time) +
+        '<span style="font-family:IBM Plex Mono,monospace;font-size:19px;'<span style="font-family:IBM Plex Mono,monospace;font-size:19px;font-weight:600;color:#0B1A26;">' + vzTideLocalHHMM(e.time) + '</span>' + vzTideLocalHHMM(e.time) +
         '<span style="font-family:IBM Plex Mono,monospace;font-size:14px;color:#51677A;">' + e.height.toFixed(1) + ' m</span>' +
       '</div>';
     });
