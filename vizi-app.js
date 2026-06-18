@@ -1131,12 +1131,13 @@ function vzDesktopPointSelect(latlng) {
   function _ptMakeIcon(inner) {
     return L.divIcon({
       className: 'vz-point-cta-wrap',
-      html: '<button class="vz-point-cta" onclick="window.vzOpenCondFromPoint()">' + inner + '</button>',
-      iconSize: [140, 34], iconAnchor: [70, 54]
+      html: '<button class="vz-point-cta">' + inner + '</button>',
+      iconSize: [230, 34], iconAnchor: [115, 54]
     });
   }
   if (S.clickLabel) S.map.removeLayer(S.clickLabel);
-  S.clickLabel = L.marker([latlng.lat, latlng.lng], { icon: _ptMakeIcon(_ptRing), interactive: true }).addTo(S.map);
+  S.clickLabel = L.marker([latlng.lat, latlng.lng], { icon: _ptMakeIcon(_ptRing + _ptChevron), interactive: true }).addTo(S.map);
+  S.clickLabel.on('click', function() { if (typeof window.vzOpenCondFromPoint === 'function') window.vzOpenCondFromPoint(); });
 
   function _ptSetLabel(inner) {
     if (S._ptGen !== _ptGen || !S.clickLabel) return;
@@ -1147,7 +1148,7 @@ function vzDesktopPointSelect(latlng) {
       var ok = sat && typeof sat.visi_plongeur_m === 'number' && isFinite(sat.visi_plongeur_m) && sat.visi_plongeur_m > 0
         && (typeof sat.age_hours !== 'number' || sat.age_hours <= 72)
         && (!sat.status || sat.status === 'ok' || sat.status === 'cloudy_J1' || sat.status === 'cloudy_J2');
-      _ptSetLabel(ok ? (Math.round(sat.visi_plongeur_m) + ' m ' + _ptChevron) : ('Conditions ' + _ptChevron));
+      _ptSetLabel(ok ? ('Visibilité estimée : ' + Math.round(sat.visi_plongeur_m) + ' m' + _ptChevron) : ('Conditions' + _ptChevron));
     }).catch(function() {
       _ptSetLabel('Conditions ' + _ptChevron);
     });
