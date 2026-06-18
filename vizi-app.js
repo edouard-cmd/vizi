@@ -3036,7 +3036,7 @@ function vzmInitCrosshair(){
 .vzm-aim-load::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 11px,rgba(77,212,168,0.13) 11px 12px);}
 .vzm-aim-load::before{content:'';position:absolute;top:-2px;bottom:-2px;width:22px;left:-22px;background:linear-gradient(90deg,transparent,rgba(77,212,168,0.92),transparent);animation:vzmScan 1.5s linear infinite;z-index:1;}
 @keyframes vzmScan{0%{left:-22px;}100%{left:84px;}}
-.vzm-aimbar-btn{pointer-events:auto;width:100%;border:0;cursor:pointer;font-family:'Space Grotesk',Inter,sans-serif;font-size:14px;font-weight:600;color:#072018;background:#4DD4A8;padding:13px;border-radius:11px;transition:filter .15s ease,transform .1s ease;}
+.vzm-aimbar-btn{pointer-events:auto;width:100%;box-sizing:border-box;border:1.5px solid #1A6B5D;cursor:pointer;font-family:'Space Grotesk',Inter,sans-serif;font-size:14px;font-weight:600;color:#072018;background:#4DD4A8;padding:13px;border-radius:11px;box-shadow:0 4px 14px rgba(4,16,28,0.30);transition:filter .15s ease,transform .1s ease;}
 .vzm-aimbar-btn:active{transform:scale(.98);filter:brightness(.92);}
 .vzm-aimbar-close{pointer-events:auto;position:absolute;top:10px;right:10px;width:30px;height:30px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.06);color:rgba(234,241,245,0.8);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s ease;}
 .vzm-aimbar-close:active{background:rgba(255,255,255,0.16);}
