@@ -1032,7 +1032,7 @@ initLitto3dLayer();
   SPOTS.forEach(function(spot) {
     var color = regionColors[spot.region] || '#3A5A78';
     var m = L.circleMarker([spot.lat, spot.lon], {
-      radius: 7, fillColor: color, color: 'rgba(0,0,0,0.45)', weight: 1.5, fillOpacity: 0.88
+      radius: 7, fillColor: color, color: '#FFFFFF', weight: 1, fillOpacity: 0.88
     }).addTo(S.map);
     m.bindTooltip('<b>' + spot.name + '</b><br><span style="color:' + color + ';font-size:11px">' + spot.region + '</span>', {
       permanent: false, direction: 'top', className: 'visim-tooltip', offset: [0, -8]
@@ -1044,6 +1044,25 @@ initLitto3dLayer();
     });
     S.spotMarkers[spot.id] = m;
   });
+
+  function vzSpotStyleForZoom(z) {
+    if (z >= 11) return { radius: 7,   fillOpacity: 0.90, weight: 1.2 };
+    if (z >= 9)  return { radius: 5.5, fillOpacity: 0.85, weight: 1.1 };
+    if (z >= 7)  return { radius: 4,   fillOpacity: 0.75, weight: 0.9 };
+    return         { radius: 2.8, fillOpacity: 0.55, weight: 0.6 };
+  }
+  function vzUpdateSpotMarkers() {
+    if (!S.spotMarkers) return;
+    var st = vzSpotStyleForZoom(S.map.getZoom());
+    Object.keys(S.spotMarkers).forEach(function(id) {
+      var mm = S.spotMarkers[id];
+      if (!mm) return;
+      if (mm.setRadius) mm.setRadius(st.radius);
+      if (mm.setStyle) mm.setStyle({ fillOpacity: st.fillOpacity, weight: st.weight });
+    });
+  }
+  S.map.on('zoomend', vzUpdateSpotMarkers);
+  vzUpdateSpotMarkers();
 
 S.map.on('click', function(e) {
     if (S.spotMode) { vzAddHuntPoint(e.latlng); return; }
