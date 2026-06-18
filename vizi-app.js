@@ -1143,7 +1143,7 @@ function toggleLayer(type) {
   if (!document.getElementById('vzEditTopbar')) {
     var bar = document.createElement('div');
     bar.id = 'vzEditTopbar';
-    bar.innerHTML = '<span class="vz-edit-title">Marque tes spots</span>'
+    bar.innerHTML = '<span class="vz-edit-title">Placer les points</span>'
       + '<button class="vz-edit-done" onclick="toggleLayer(\'spots\')">Terminer</button>';
     document.body.appendChild(bar);
   }
@@ -1155,7 +1155,7 @@ function vzAddHuntPoint(latlng) {
   var m = L.circleMarker(latlng, {
     radius: 6, fillColor: '#4DD4A8', color: '#0A1520', weight: 1.5, fillOpacity: 0.95
   }).addTo(S.huntLayer);
-  m.bindTooltip('Spot ' + idx, { direction: 'top', className: 'visim-tooltip', offset: [0, -6] });
+  m.bindTooltip('Point ' + idx, { direction: 'top', className: 'visim-tooltip', offset: [0, -6] });
   S.huntPoints.push({ lat: latlng.lat, lon: latlng.lng, marker: m });
   vzRenderHuntBar();
 }
@@ -1170,7 +1170,7 @@ function vzRenderHuntBar() {
   bar.classList.toggle('open', !!S.spotMode);
   var n = S.huntPoints.length;
   var cnt = document.getElementById('vzHuntCount');
-  if (cnt) cnt.textContent = n + (n > 1 ? ' spots' : ' spot');
+  if (cnt) cnt.textContent = n + (n > 1 ? ' points' : ' point');
   var hint = document.getElementById('vzHuntHint');
   if (hint) hint.style.display = (n === 0) ? 'block' : 'none';
   var form = document.getElementById('vzHuntForm');
@@ -1181,9 +1181,11 @@ function vzRenderHuntBar() {
       var ddm = vzFormatDDM(p.lat, p.lon);
       var dd = p.lat.toFixed(5) + ', ' + p.lon.toFixed(5);
       return '<div class="vz-hunt-item">'
-        + '<span class="vz-hunt-item-n">Spot ' + (i + 1) + '</span>'
+        + '<span class="vz-hunt-badge">' + (i + 1) + '</span>'
+        + '<span class="vz-hunt-coords">'
         + '<span class="vz-hunt-coord" title="Copier" onclick="vzCopyCoord(this)">' + ddm + '</span>'
         + '<span class="vz-hunt-coord vz-hunt-coord-dd" title="Copier" onclick="vzCopyCoord(this)">' + dd + '</span>'
+        + '</span>'
         + '</div>';
     }).join('');
   }
@@ -1228,14 +1230,14 @@ function vzSubmitHunt() {
   }
 downloadHuntGPX();
   sendHuntSpots(email);
-  if (msg) { msg.textContent = 'GPX telecharge et envoye a ' + email + '.'; msg.style.color = '#4DD4A8'; }
+  if (msg) { msg.textContent = 'Points téléchargés et envoyés à ' + email + '.'; msg.style.color = '#4DD4A8'; }
 }
 function buildHuntGPX() {
   var head = '<?xml version="1.0" encoding="UTF-8"?>\n'
     + '<gpx version="1.1" creator="Visimer" xmlns="http://www.topografix.com/GPX/1/1">\n';
   var body = S.huntPoints.map(function(p, i) {
     return '  <wpt lat="' + p.lat.toFixed(6) + '" lon="' + p.lon.toFixed(6) + '">\n'
-      + '    <name>Spot ' + (i + 1) + '</name>\n'
+      + '    <name>' + (i + 1) + '</name>\n'
       + '    <sym>Diamond</sym>\n'
       + '  </wpt>';
   }).join('\n');
