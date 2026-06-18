@@ -1121,15 +1121,39 @@ function vzDesktopPointSelect(latlng) {
   });
   S.clickMarker = L.marker([latlng.lat, latlng.lng], { icon: pulseIcon, interactive: false }).addTo(S.map);
 
+  // ----- Etiquette ancree : ring de calcul -> visi satellite (m) + chevron -----
+  // La visi affichee = satellite.visi_plongeur_m arrondi, identique a la case
+  // "maintenant" du tableau Conditions (meme source fetchCmemsZSD, mise en cache).
+  S._ptGen = (S._ptGen || 0) + 1;
+  var _ptGen = S._ptGen;
+  var _ptChevron = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+  var _ptRing = '<span class="vsm-spinner vsm-sm vsm-on-teal" role="status" aria-label="Calcul"><svg viewBox="0 0 48 48"><circle class="vsm-track" cx="24" cy="24" r="20" stroke-width="8"/><path class="vsm-arc" d="M 24 4 A 20 20 0 0 1 44 24" stroke-width="8"/></svg></span>';
+  function _ptMakeIcon(inner) {
+    return L.divIcon({
+      className: 'vz-point-cta-wrap',
+      html: '<button class="vz-point-cta" onclick="window.vzOpenCondFromPoint()">' + inner + '</button>',
+      iconSize: [140, 34], iconAnchor: [70, 54]
+    });
+  }
   if (S.clickLabel) S.map.removeLayer(S.clickLabel);
-  var labelIcon = L.divIcon({
-    className: 'vz-point-cta-wrap',
-    html: '<button class="vz-point-cta" onclick="window.vzOpenCondFromPoint()">Conditions' +
-          '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>' +
-          '</button>',
-    iconSize: [140, 34], iconAnchor: [70, 54]
-  });
-  S.clickLabel = L.marker([latlng.lat, latlng.lng], { icon: labelIcon, interactive: true }).addTo(S.map);
+  S.clickLabel = L.marker([latlng.lat, latlng.lng], { icon: _ptMakeIcon(_ptRing), interactive: true }).addTo(S.map);
+
+  function _ptSetLabel(inner) {
+    if (S._ptGen !== _ptGen || !S.clickLabel) return;
+    S.clickLabel.setIcon(_ptMakeIcon(inner));
+  }
+  if (typeof fetchCmemsZSD === 'function') {
+    fetchCmemsZSD(latlng.lat, latlng.lng).then(function(sat) {
+      var ok = sat && typeof sat.visi_plongeur_m === 'number' && isFinite(sat.visi_plongeur_m) && sat.visi_plongeur_m > 0
+        && (typeof sat.age_hours !== 'number' || sat.age_hours <= 72)
+        && (!sat.status || sat.status === 'ok' || sat.status === 'cloudy_J1' || sat.status === 'cloudy_J2');
+      _ptSetLabel(ok ? (Math.round(sat.visi_plongeur_m) + ' m ' + _ptChevron) : ('Conditions ' + _ptChevron));
+    }).catch(function() {
+      _ptSetLabel('Conditions ' + _ptChevron);
+    });
+  } else {
+    _ptSetLabel('Conditions ' + _ptChevron);
+  }
 }
 
 
