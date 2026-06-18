@@ -3026,7 +3026,7 @@ function vzmInitCrosshair(){
 .vzm-xhair svg{width:100%;height:100%;display:block;overflow:visible;}
 .vzm-xhair .vzm-xhair-ping{transform-origin:32px 32px;animation:vzmXping 2.6s ease-out infinite;}
 @keyframes vzmXping{0%{transform:scale(.7);opacity:.4;}70%{transform:scale(1.55);opacity:0;}100%{opacity:0;}}
-.vzm-aimbar{position:fixed;left:50%;top:104px;transform:translate(-50%,-160%);width:min(92vw,440px);z-index:1201;display:flex;flex-direction:column;gap:9px;padding:13px 14px;box-sizing:border-box;background:rgba(15,36,56,0.94);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(77,212,168,0.35);border-radius:16px;box-shadow:0 10px 30px rgba(4,16,28,0.45);opacity:0;pointer-events:none;transition:transform .32s cubic-bezier(.2,.9,.3,1.1),opacity .28s ease;}
+.vzm-aimbar{position:fixed;left:50%;top:104px;transform:translate(-50%,-160%);width:min(92vw,440px);z-index:1201;opacity:0;pointer-events:none;transition:transform .32s cubic-bezier(.2,.9,.3,1.1),opacity .28s ease;}
 .vzm-aimbar.on{transform:translate(-50%,0);opacity:1;}
 .vzm-aimbar-info{display:flex;flex-direction:column;gap:2px;padding-right:34px;}
 .vzm-aimbar-label{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:rgba(234,241,245,0.6);}
@@ -3058,11 +3058,7 @@ function vzmInitCrosshair(){
 
   var bar = document.createElement('div');
   bar.className = 'vzm-aimbar'; bar.id = 'vzmAimWrap';
-  bar.innerHTML = '<button class="vzm-aimbar-close" id="vzmAimClose" aria-label="Fermer"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>'
-    + '<div class="vzm-aimbar-info">'
-    +   '<span class="vzm-aimbar-label">Visibilite au point vise</span>'
-    + '</div>'
-    + '<button class="vzm-aimbar-btn" id="vzmAimBtn">Analyser ce point</button>';
+  bar.innerHTML = '<button class="vzm-aimbar-btn" id="vzmAimBtn">Analyser ce point</button>';
   document.body.appendChild(bar);
 
   var aimTok = 0;
@@ -3104,7 +3100,6 @@ document.getElementById('vzmAimBtn').addEventListener('click', function(){
     if (typeof openCondDrawer === 'function') openCondDrawer();
     else if (typeof openSpotPopup === 'function') openSpotPopup(c, null);
   });
-  document.getElementById('vzmAimClose').addEventListener('click', hideAll);
 }
 (function vzmXhairBoot(){
   if (typeof S !== 'undefined' && S && S.map) { try { vzmInitCrosshair(); } catch(e){ console.warn('[vzm] xhair init', e); } }
