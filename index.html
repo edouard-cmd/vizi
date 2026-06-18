@@ -1591,14 +1591,13 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
   min-height: 0;
 }
 .vz-tides-curveinner {
-  flex: 1;
-  min-height: 320px;
   width: 100%;
-  display: flex;
+  display: block;
 }
 .vz-tides-curveinner svg {
   width: 100% !important;
-  height: 100% !important;
+  height: auto !important;
+  display: block;
 }
 .vz-tides-curvelegend {
   display: flex;
@@ -1662,7 +1661,6 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
   .vz-tides-windowsgrid { gap: 6px; }
   .vz-tides-windowtime { font-size: 13px; }
   .vz-tides-windowcard.is-next .vz-tides-windowtime { font-size: 15px; }
-  .vz-tides-curvewrap { min-height: 220px; }
   .vz-tides-contextfooter { padding: 8px 10px; }
   .vz-tides-ctxitem { padding: 0 6px; }
   .vz-tides-ctxvalue { font-size: 11px; }
