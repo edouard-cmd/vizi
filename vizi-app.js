@@ -11327,8 +11327,8 @@ var html = '<div class="vz-tides-wrap">';
         '<div class="vz-tides-coeftitle">Coefficient</div>' +
       '</div>' +
       '<div class="vz-tides-sun">' +
-        '<div class="vz-tides-sun-row"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#E89B3C" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 17a6 6 0 0 1 12 0"/><line x1="3" y1="20" x2="21" y2="20"/><line x1="12" y1="3" x2="12" y2="7"/><polyline points="9 6 12 3 15 6"/></svg><span>' + sunTimes.sunrise + '</span></div>' +
-        '<div class="vz-tides-sun-row"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#E89B3C" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 17a6 6 0 0 1 12 0"/><line x1="3" y1="20" x2="21" y2="20"/><line x1="12" y1="3" x2="12" y2="7"/><polyline points="9 4 12 7 15 4"/></svg><span>' + sunTimes.sunset + '</span></div>' +
+        '<div class="vz-tides-sun-row"><span class="vz-tides-sun-lbl">Lever</span><span class="vz-tides-sun-time">' + sunTimes.sunrise + '</span></div>' +
+        '<div class="vz-tides-sun-row"><span class="vz-tides-sun-lbl">Coucher</span><span class="vz-tides-sun-time">' + sunTimes.sunset + '</span></div>' +
       '</div>' +
     '</div>';
   }
