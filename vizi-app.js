@@ -1868,6 +1868,13 @@ function renderForecastTable(h, now, modelMap) {
   document.getElementById('forecastTable').innerHTML = html;
 }
 function openSpotPopup(latlng, name) {
+  // Refonte desktop facon Windy : sur desktop on ne remplit plus le panneau droit.
+  // On bascule vers le flux carte (pastille + etiquette visi + bandeau Conditions).
+  // #spotDrawer reste reserve au mobile (comportement inchange).
+  if (typeof isMobile === 'function' && !isMobile() && typeof vzDesktopPointSelect === 'function') {
+    vzDesktopPointSelect(latlng);
+    return;
+  }
   // ============================================================
   // CHANTIER 1 — Pipeline séquentiel avec compteur génération
   // ------------------------------------------------------------
@@ -9975,14 +9982,9 @@ function handleUserPosition(lat, lon, source) {
     setTimeout(function() { toast.classList.remove('show'); }, 4000);
   }
 
-  // Sur mobile : pas d'ouverture auto du drawer spot, juste centrage carte
-  // Sur desktop : on ouvre le drawer pour montrer les conditions
-  if (!isMobile()) {
-    setTimeout(function() {
-      openSpotPopup(L.latLng(nearest.spot.lat, nearest.spot.lon), nearest.spot.name);
-      if (S_forecastOpen) loadForecast(nearest.spot.lat, nearest.spot.lon, nearest.spot.name);
-    }, 1000);
-  }
+  // Refonte desktop facon Windy : plus d'ouverture auto au chargement.
+  // La carte reste degagee ; l'utilisateur clique un point pour voir les conditions.
+  // (centrage carte deja effectue en amont, toast "port le plus proche" conserve)
 }
 
 function findNearestPort(lat, lon) {
