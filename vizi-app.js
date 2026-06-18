@@ -1075,11 +1075,64 @@ S.map.on('click', function(e) {
       if (isMobile()) return; // sur mobile, le viseur central gere la selection
     isOnSea(e.latlng.lat, e.latlng.lng, function(onSea) {
       if (!onSea) { showLandMessage(e.latlng); return; }
-      openSpotPopup(e.latlng, null);
+      vzDesktopPointSelect(e.latlng);
       if (S_forecastOpen) loadForecast(e.latlng.lat, e.latlng.lng, null);
     });
   });
 }
+/* ============================================================
+   SELECTION DE POINT DESKTOP - facon Windy (etape 2a)
+   Le clic en mer pose la pastille pulsante + une etiquette CTA
+   ancree au-dessus, qui ouvre le bandeau Conditions (meme moteur
+   que mobile via openCondDrawer). Remplace l'ancien panneau droit.
+   L'etiquette accueillera en 2b le ring de chargement + la visi
+   satellite en metres.
+   ============================================================ */
+(function vzPointCtaCSS(){
+  if (document.getElementById('vzPointCtaStyle')) return;
+  var st = document.createElement('style'); st.id = 'vzPointCtaStyle';
+  st.textContent =
+    ".vz-point-cta-wrap{background:transparent !important;border:0 !important;display:flex;justify-content:center;align-items:flex-start;}"
+  + ".vz-point-cta{display:inline-flex;align-items:center;gap:5px;background:#4DD4A8;color:#072018;border:1.5px solid #1A6B5D;border-radius:10px;padding:7px 12px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 4px 14px rgba(4,16,28,0.35);white-space:nowrap;line-height:1;}"
+  + ".vz-point-cta:hover{filter:brightness(1.05);}";
+  (document.head || document.documentElement).appendChild(st);
+})();
+
+window.vzOpenCondFromPoint = function() {
+  if (typeof window.openCondDrawer === 'function') window.openCondDrawer();
+};
+
+function vzDesktopPointSelect(latlng) {
+  S.clickLatLng = latlng;
+  S._spotDepth = null;
+
+  if (S.clickMarker) S.map.removeLayer(S.clickMarker);
+  var pulseIcon = L.divIcon({
+    className: '',
+    html: '<div class="vz-pulse-marker">' +
+            '<div class="vz-pulse-ring"></div>' +
+            '<div class="vz-pulse-wave vz-pulse-wave-1"></div>' +
+            '<div class="vz-pulse-wave vz-pulse-wave-2"></div>' +
+            '<div class="vz-pulse-wave vz-pulse-wave-3"></div>' +
+            '<div class="vz-pulse-core"></div>' +
+            '<div class="vz-pulse-dot"></div>' +
+          '</div>',
+    iconSize: [40, 40], iconAnchor: [20, 20]
+  });
+  S.clickMarker = L.marker([latlng.lat, latlng.lng], { icon: pulseIcon, interactive: false }).addTo(S.map);
+
+  if (S.clickLabel) S.map.removeLayer(S.clickLabel);
+  var labelIcon = L.divIcon({
+    className: 'vz-point-cta-wrap',
+    html: '<button class="vz-point-cta" onclick="window.vzOpenCondFromPoint()">Conditions' +
+          '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>' +
+          '</button>',
+    iconSize: [140, 34], iconAnchor: [70, 54]
+  });
+  S.clickLabel = L.marker([latlng.lat, latlng.lng], { icon: labelIcon, interactive: true }).addTo(S.map);
+}
+
+
 function toggleLayer(type) {
   if (type === 'heatmap') {
     S.showHeatmap = !S.showHeatmap;
