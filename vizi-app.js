@@ -1813,7 +1813,7 @@ function openSpotPopup(latlng, name) {
       addTidesPortHalo(nearestPort.lat, nearestPort.lon);
       var today = new Date();
       TIDES_DRAWER.selectedDate = today.toISOString().split('T')[0];
-      updateSheetHeader('Marées', nearestPort.name);
+      updateSheetHeader('Marées', '');
       fetchTidesSheetData();
     }
   }
@@ -11125,9 +11125,9 @@ function renderTidesPortSelect(currentId) {
     });
     opts += '</optgroup>';
   });
-  return '<div class="vz-tides-portselect" style="flex-shrink:0;">' +
+  return '<div class="vz-tides-portselect" style="flex:1 1 auto;min-width:0;">' +
     '<select class="vz-tides-port" onchange="onTidesSheetPortChange(this.value)" ' +
-    'style="width:100%;max-width:300px;padding:9px 12px;font-family:Inter,sans-serif;' +
+    'style="width:100%;max-width:none;padding:9px 12px;font-family:Inter,sans-serif;' +
     'font-size:14px;font-weight:600;color:#0B1A26;background:#FFFFFF;' +
     'border:1px solid rgba(11,26,38,0.14);border-radius:11px;cursor:pointer;">' +
     opts +
@@ -11142,7 +11142,7 @@ window.onTidesSheetPortChange = function(portId) {
   if (!port) return;
   TIDES_DRAWER.currentPort = port;
   if (typeof addTidesPortHalo === 'function') addTidesPortHalo(port.lat, port.lon);
-  updateSheetHeader('Marées', port.name);
+  updateSheetHeader('Marées', '');
   fetchTidesSheetData();
 };
 window.tidesSheetGoToToday = function() {
@@ -11163,6 +11163,54 @@ window.tidesSheetGoToToday = function() {
 // (remplacée ici par renderTidesDateChips).
 // ============================================================
 
+window.vzTidesAttachScrubber = function() {
+  var svg = document.getElementById('vzTidesCurveSvg');
+  var cfg = window.VZ_TIDES_SCRUB;
+  if (!svg || !cfg) return;
+  var grp = document.getElementById('vzScrubGroup');
+  var line = document.getElementById('vzScrubLine');
+  var dot = document.getElementById('vzScrubDot');
+  var lbl = document.getElementById('vzScrubLabel');
+  if (!grp || !line || !dot || !lbl) return;
+  var innerW = cfg.w - cfg.padL - cfg.padR;
+  var innerH = cfg.h - cfg.padT - cfg.padB;
+  function xOf(m) { return cfg.padL + (m / 1440) * innerW; }
+  function yOf(hh) { return cfg.padT + (1 - (hh - cfg.loH) / cfg.spanH) * innerH; }
+  function interpH(m) {
+    var pts = cfg.pts;
+    if (!pts || !pts.length) return cfg.loH;
+    if (m <= pts[0].m) return pts[0].h;
+    for (var i = 0; i < pts.length - 1; i++) {
+      if (m >= pts[i].m && m <= pts[i + 1].m) {
+        var span = (pts[i + 1].m - pts[i].m) || 1;
+        return pts[i].h + ((m - pts[i].m) / span) * (pts[i + 1].h - pts[i].h);
+      }
+    }
+    return pts[pts.length - 1].h;
+  }
+  function show(clientX) {
+    var rect = svg.getBoundingClientRect();
+    if (!rect.width) return;
+    var frac = (clientX - rect.left) / rect.width;
+    frac = frac < 0 ? 0 : (frac > 1 ? 1 : frac);
+    var m = Math.round(((frac * cfg.w - cfg.padL) / innerW) * 1440);
+    m = m < 0 ? 0 : (m > 1440 ? 1440 : m);
+    var x = xOf(m), hgt = interpH(m), y = yOf(hgt);
+    line.setAttribute('x1', x.toFixed(1)); line.setAttribute('x2', x.toFixed(1));
+    dot.setAttribute('cx', x.toFixed(1)); dot.setAttribute('cy', y.toFixed(1));
+    var lx = Math.max(cfg.padL + 18, Math.min(cfg.w - cfg.padR - 18, x));
+    var H = ('0' + Math.floor(m / 60)).slice(-2), M = ('0' + (m % 60)).slice(-2);
+    lbl.setAttribute('x', lx.toFixed(1));
+    lbl.textContent = H + ':' + M + ' \u00b7 ' + hgt.toFixed(1) + ' m';
+    grp.setAttribute('opacity', '1');
+  }
+  function hide() { grp.setAttribute('opacity', '0'); }
+  svg.onpointermove = function(e) { show(e.clientX); };
+  svg.onpointerdown = function(e) { show(e.clientX); };
+  svg.onpointerleave = hide;
+  svg.onpointerup = hide;
+  svg.onpointercancel = hide;
+};
 function renderTidesSheetContent() {
   var body = document.getElementById('vzSheetBody');
   if (!body) return;
@@ -11224,14 +11272,18 @@ function renderTidesSheetContent() {
   // ===== Phase actuelle (mer montante / descendante) =====
   var phase = computeTidalPhase(dayPoints, now, isToday);
 
-  updateSheetHeader('Marées', port.name);
+  updateSheetHeader('Marées', '');
 
 var html = '<div class="vz-tides-wrap">';
 
   // ====== COLONNE GAUCHE ======
   html += '<div class="vz-tides-leftcol">';
-  // --- Selecteur de port ---
-  html += renderTidesPortSelect(port.id);
+  // --- Selecteur de port + selecteur de date ---
+  html += '<div class="vz-tides-toprow" style="display:flex;gap:8px;align-items:stretch;">' +
+    renderTidesPortSelect(port.id) +
+    '<input type="date" class="vz-tides-datefield" value="' + selDate + '" onchange="onTidesSheetDateChange(this.value)" ' +
+    'style="flex-shrink:0;width:148px;padding:9px 10px;font-family:Inter,sans-serif;font-size:14px;font-weight:600;color:#0B1A26;background:#FFFFFF;border:1px solid rgba(11,26,38,0.14);border-radius:11px;cursor:pointer;">' +
+  '</div>';
 
   // --- Bloc coef ---
   if (isMed) {
@@ -11245,8 +11297,7 @@ var html = '<div class="vz-tides-wrap">';
     html += '<div class="vz-tides-coefbloc">' +
       '<div class="vz-tides-coefbig" style="color:' + color + ';border-color:' + color + ';">' + coef + '</div>' +
       '<div class="vz-tides-coefinfo">' +
-        '<div class="vz-tides-coeftitle">' + capitalize(label) + '</div>' +
-        '<div class="vz-tides-coefmeta">marnage ' + marnage.toFixed(1) + 'm · ' + description.toLowerCase() + '</div>' +
+        '<div class="vz-tides-coeftitle">Coefficient</div>' +
       '</div>' +
     '</div>';
   }
@@ -11291,6 +11342,7 @@ var html = '<div class="vz-tides-wrap">';
 html += '</div>'; // fin .vz-tides-leftcol
   html += '</div>'; // fin .vz-tides-wrap
   body.innerHTML = html;
+  if (typeof vzTidesAttachScrubber === 'function') vzTidesAttachScrubber();
 }
 
 // ============================================================
@@ -11350,17 +11402,6 @@ function renderTidesDateChips(selDate) {
       subLabel +
       '</button>';
   }
-
-  // Bouton picker custom
-  html += '<label class="vz-tides-datepicker-btn" title="Choisir une date">' +
-    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
-      '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>' +
-      '<line x1="16" y1="2" x2="16" y2="6"></line>' +
-      '<line x1="8" y1="2" x2="8" y2="6"></line>' +
-      '<line x1="3" y1="10" x2="21" y2="10"></line>' +
-    '</svg>' +
-    '<input type="date" value="' + selDate + '" onchange="onTidesSheetDateChange(this.value)">' +
-  '</label>';
 
   html += '</div>';
   return html;
@@ -11493,7 +11534,7 @@ function renderTidesSheetCurve(dayPoints, dayExtremes, isToday, now, nextExtreme
   var sunsetMin  = parseInt(ssP[0], 10) * 60 + parseInt(ssP[1], 10);
   var xSr = xOf(sunriseMin), xSs = xOf(sunsetMin);
 
-  var svg = '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;display:block;">';
+  var svg = '<svg id="vzTidesCurveSvg" viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;display:block;touch-action:none;cursor:crosshair;">';
   svg += '<defs><linearGradient id="vzTideFill" x1="0" x2="0" y1="0" y2="1">' +
     '<stop offset="0%" stop-color="#4DD4A8" stop-opacity="0.26"/>' +
     '<stop offset="100%" stop-color="#4DD4A8" stop-opacity="0.02"/>' +
@@ -11551,6 +11592,19 @@ if (isToday) {
     svg += '<circle cx="' + nowX.toFixed(1) + '" cy="' + nowY.toFixed(1) + '" r="3.5" fill="#FFFFFF" stroke="#0E7C62" stroke-width="1.5"/>';
     svg += '<text x="' + nowX.toFixed(1) + '" y="' + (padT - 9) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" fill="#0E7C62">maintenant</text>';
   }
+
+  // Barre de scrub interactive (deplacable au doigt / souris), cachee au repos
+  svg += '<g id="vzScrubGroup" opacity="0" pointer-events="none">' +
+    '<line id="vzScrubLine" x1="0" y1="' + padT + '" x2="0" y2="' + (h - padB) + '" stroke="#0B1A26" stroke-width="1.4" opacity="0.5"/>' +
+    '<circle id="vzScrubDot" cx="0" cy="0" r="4" fill="#0B1A26" stroke="#FFFFFF" stroke-width="1.5"/>' +
+    '<text id="vzScrubLabel" x="0" y="' + (padT - 9) + '" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="11" font-weight="600" fill="#0B1A26"></text>' +
+  '</g>';
+
+  window.VZ_TIDES_SCRUB = {
+    w: w, h: h, padL: padL, padR: padR, padT: padT, padB: padB,
+    loH: loH, spanH: spanH,
+    pts: dayPoints.map(function(p){ return { m: vzTideLocalMin(p.time), h: p.height }; })
+  };
 
   svg += '</svg>';
 
