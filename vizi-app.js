@@ -1862,7 +1862,15 @@ function openSpotPopup(latlng, name) {
       '@keyframes vzBadgePulse {' +
         '0% { background-position: 200% 0; }' +
         '100% { background-position: -200% 0; }' +
-      '}';
+      '}' +
+      '.vsm-spinner{--vsm-size:24px;--vsm-track:#1A6657;--vsm-arc:#4DD4A8;--vsm-speed:0.9s;display:inline-block;width:var(--vsm-size);height:var(--vsm-size);vertical-align:middle;}' +
+      '.vsm-spinner svg{display:block;width:100%;height:100%;animation:vsm-rot var(--vsm-speed) linear infinite;}' +
+      '.vsm-spinner .vsm-track{fill:none;stroke:var(--vsm-track);}' +
+      '.vsm-spinner .vsm-arc{fill:none;stroke:var(--vsm-arc);stroke-linecap:round;}' +
+      '@keyframes vsm-rot{to{transform:rotate(360deg);}}' +
+      '.vsm-spinner.vsm-sm{--vsm-size:16px;}.vsm-spinner.vsm-md{--vsm-size:24px;}.vsm-spinner.vsm-lg{--vsm-size:32px;}.vsm-spinner.vsm-xl{--vsm-size:48px;}' +
+      '.vsm-spinner.vsm-on-teal{--vsm-track:rgba(10,21,32,0.25);--vsm-arc:#0A1520;}' +
+      '@media (prefers-reduced-motion: reduce){.vsm-spinner svg{animation-duration:2.4s;}}';
     document.head.appendChild(bls);
   }
   // ============================================================
@@ -1877,7 +1885,7 @@ function openSpotPopup(latlng, name) {
   var labelEl = document.getElementById('spotVisLabel');
   var trendEl = document.getElementById('spotTrendArrow');
   if (badgeEl) badgeEl.classList.add('is-loading');
-  if (labelEl) labelEl.textContent = 'Calcul...';
+  if (labelEl) labelEl.innerHTML = '<span class="vsm-spinner vsm-sm" role="status" aria-label="Chargement"><svg viewBox="0 0 48 48"><circle class="vsm-track" cx="24" cy="24" r="20" stroke-width="8"/><path class="vsm-arc" d="M 24 4 A 20 20 0 0 1 44 24" stroke-width="8"/></svg></span> Calcul...';
   if (trendEl) trendEl.style.display = 'none';
   // Reset les 5 segments en gris pendant le calcul
   for (var sIdx = 0; sIdx < 5; sIdx++) {
@@ -3061,7 +3069,6 @@ function vzmInitCrosshair(){
   bar.innerHTML = '<button class="vzm-aimbar-close" id="vzmAimClose" aria-label="Fermer"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg></button>'
     + '<div class="vzm-aimbar-info">'
     +   '<span class="vzm-aimbar-label">Visibilite au point vise</span>'
-    +   '<span class="vzm-aimbar-visi" id="vzmAimVisi">&mdash;</span>'
     + '</div>'
     + '<button class="vzm-aimbar-btn" id="vzmAimBtn">Analyser ce point</button>';
   document.body.appendChild(bar);
@@ -3074,8 +3081,6 @@ function vzmInitCrosshair(){
   function showAim(){
     if (!isMobile() || drawerOpen()) return;
     xh.classList.add('on'); bar.classList.add('on');
-    var v = document.getElementById('vzmAimVisi');
-    if (v) v.innerHTML = '<span class="vzm-aim-load"></span>'; + '<svg class="vzm-fish" viewBox="0 0 30 14" width="22" height="11"><path d="M7 7C11 3 22 3 26.5 6.2 27.4 6.8 27.4 7.2 26.5 7.8 22 11 11 11 7 7Z" fill="#4DD4A8"/><path d="M7 7 1 3.5 3.2 7 1 10.5Z" fill="#4DD4A8"/><circle cx="23.5" cy="6.4" r="0.9" fill="#0F2438"/></svg>'.repeat(3) + '</span>';
   }
   function settleAim(){
     if (!isMobile() || !bar.classList.contains('on')) return;
@@ -3096,7 +3101,6 @@ function vzmInitCrosshair(){
 
   S.map.on('dragstart', showAim);
   S.map.on('zoomstart', showAim);
-  S.map.on('moveend', settleAim);
 
 document.getElementById('vzmAimBtn').addEventListener('click', function(){
     hideAll();
