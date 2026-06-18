@@ -1862,15 +1862,7 @@ function openSpotPopup(latlng, name) {
       '@keyframes vzBadgePulse {' +
         '0% { background-position: 200% 0; }' +
         '100% { background-position: -200% 0; }' +
-      '}' +
-      '.vsm-spinner{--vsm-size:24px;--vsm-track:#1A6657;--vsm-arc:#4DD4A8;--vsm-speed:0.9s;display:inline-block;width:var(--vsm-size);height:var(--vsm-size);vertical-align:middle;}' +
-      '.vsm-spinner svg{display:block;width:100%;height:100%;animation:vsm-rot var(--vsm-speed) linear infinite;}' +
-      '.vsm-spinner .vsm-track{fill:none;stroke:var(--vsm-track);}' +
-      '.vsm-spinner .vsm-arc{fill:none;stroke:var(--vsm-arc);stroke-linecap:round;}' +
-      '@keyframes vsm-rot{to{transform:rotate(360deg);}}' +
-      '.vsm-spinner.vsm-sm{--vsm-size:16px;}.vsm-spinner.vsm-md{--vsm-size:24px;}.vsm-spinner.vsm-lg{--vsm-size:32px;}.vsm-spinner.vsm-xl{--vsm-size:48px;}' +
-      '.vsm-spinner.vsm-on-teal{--vsm-track:rgba(10,21,32,0.25);--vsm-arc:#0A1520;}' +
-      '@media (prefers-reduced-motion: reduce){.vsm-spinner svg{animation-duration:2.4s;}}';
+      '}';
     document.head.appendChild(bls);
   }
   // ============================================================
@@ -2063,7 +2055,7 @@ function openSpotPopup(latlng, name) {
           VZ_SHEET.spot = newSpot;
           updateSheetHeader('', '');
           var bodySheet = document.getElementById('vzSheetBody');
-          if (bodySheet) bodySheet.innerHTML = '<div class="vz-sheet-loading">Chargement des prévisions...</div>';
+          if (bodySheet) bodySheet.innerHTML = '<div class="vz-sheet-loading"><span class="vsm-spinner vsm-lg" role="status" aria-label="Chargement"><svg viewBox="0 0 48 48"><circle class="vsm-track" cx="24" cy="24" r="20" stroke-width="5.8"/><path class="vsm-arc" d="M 24 4 A 20 20 0 0 1 44 24" stroke-width="5.8"/></svg></span><div style="margin-top:14px;">Chargement des prévisions...</div></div>';
           loadSheetConditions(newSpot);
         }
       }, 250);
@@ -3079,7 +3071,7 @@ function vzmInitCrosshair(){
     return d && (d.classList.contains('vzm-peek') || d.classList.contains('vzm-mid') || d.classList.contains('vzm-full'));
   }
   function showAim(){
-    if (!isMobile() || drawerOpen()) return;
+    if (!isMobile() || drawerOpen() || (typeof VZ_SHEET !== 'undefined' && VZ_SHEET && VZ_SHEET.mode)) return;
     xh.classList.add('on'); bar.classList.add('on');
   }
   function settleAim(){
@@ -3098,6 +3090,7 @@ function vzmInitCrosshair(){
     }).catch(function(){ if (tok === aimTok && v) v.innerHTML = '&mdash;'; });
   }
   function hideAll(){ xh.classList.remove('on'); bar.classList.remove('on'); }
+  window.vzmHideAim = hideAll;
 
   S.map.on('dragstart', showAim);
   S.map.on('zoomstart', showAim);
@@ -10275,6 +10268,7 @@ window.openConditionsInSheet = function() {
   }
   
   VZ_SHEET.mode = 'cond';
+  if (window.vzmHideAim) window.vzmHideAim();
   // Affiche le bandeau s'il était caché
   var sheet = document.getElementById('vzSheet');
   if (sheet) sheet.style.display = '';
@@ -10299,7 +10293,7 @@ window.openConditionsInSheet = function() {
     return;
   }
 
-  body.innerHTML = '<div class="vz-sheet-loading">Chargement des prévisions...</div>';
+  body.innerHTML = '<div class="vz-sheet-loading"><span class="vsm-spinner vsm-lg" role="status" aria-label="Chargement"><svg viewBox="0 0 48 48"><circle class="vsm-track" cx="24" cy="24" r="20" stroke-width="5.8"/><path class="vsm-arc" d="M 24 4 A 20 20 0 0 1 44 24" stroke-width="5.8"/></svg></span><div style="margin-top:14px;">Chargement des prévisions...</div></div>';
   loadSheetConditions(spot);
 };
 
@@ -10986,6 +10980,7 @@ window.openTidesInSheet = function() {
   if (typeof closeSpotPopup === 'function') closeSpotPopup();
 
   VZ_SHEET.mode = 'tides';
+  if (window.vzmHideAim) window.vzmHideAim();
   var sheet = document.getElementById('vzSheet');
   if (sheet) sheet.style.display = '';
 
@@ -11380,6 +11375,21 @@ function vzTideLocalHHMM(isoStr) {
   if (isNaN(d.getTime())) return String(isoStr).slice(11, 16);
   return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
 }
+(function vzmInjectSpinnerCSS(){
+  if (typeof document === 'undefined' || document.getElementById('vsmSpinnerStyle')) return;
+  var st = document.createElement('style');
+  st.id = 'vsmSpinnerStyle';
+  st.textContent =
+    '.vsm-spinner{--vsm-size:24px;--vsm-track:#1A6657;--vsm-arc:#4DD4A8;--vsm-speed:0.9s;display:inline-block;width:var(--vsm-size);height:var(--vsm-size);vertical-align:middle;}' +
+    '.vsm-spinner svg{display:block;width:100%;height:100%;animation:vsm-rot var(--vsm-speed) linear infinite;}' +
+    '.vsm-spinner .vsm-track{fill:none;stroke:var(--vsm-track);}' +
+    '.vsm-spinner .vsm-arc{fill:none;stroke:var(--vsm-arc);stroke-linecap:round;}' +
+    '@keyframes vsm-rot{to{transform:rotate(360deg);}}' +
+    '.vsm-spinner.vsm-sm{--vsm-size:16px;}.vsm-spinner.vsm-md{--vsm-size:24px;}.vsm-spinner.vsm-lg{--vsm-size:32px;}.vsm-spinner.vsm-xl{--vsm-size:48px;}' +
+    '.vsm-spinner.vsm-on-teal{--vsm-track:rgba(10,21,32,0.25);--vsm-arc:#0A1520;}' +
+    '@media (prefers-reduced-motion: reduce){.vsm-spinner svg{animation-duration:2.4s;}}';
+  (document.head || document.documentElement).appendChild(st);
+})();
 function renderTidesDateChips(selDate) {
   var now = new Date();
   var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
