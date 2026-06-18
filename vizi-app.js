@@ -3021,7 +3021,7 @@ function vzmInitCrosshair(){
   var st = document.createElement('style');
   st.id = 'vzmAimStyle';
   st.textContent = `
-.vzm-xhair{position:fixed;left:50%;top:50%;width:64px;height:64px;margin:-32px 0 0 -32px;z-index:1200;pointer-events:none;opacity:0;transform:scale(.55);transition:opacity .22s ease,transform .26s cubic-bezier(.2,.9,.3,1.2);}
+.vzm-xhair{position:fixed;left:50%;top:33.333%;width:64px;height:64px;margin:-32px 0 0 -32px;z-index:1200;pointer-events:none;opacity:0;transform:scale(.55);transition:opacity .22s ease,transform .26s cubic-bezier(.2,.9,.3,1.2);}
 .vzm-xhair.on{opacity:1;transform:scale(1);}
 .vzm-xhair svg{width:100%;height:100%;display:block;overflow:visible;}
 .vzm-xhair .vzm-xhair-ping{transform-origin:32px 32px;animation:vzmXping 2.6s ease-out infinite;}
@@ -3093,7 +3093,8 @@ function vzmInitCrosshair(){
 
 document.getElementById('vzmAimBtn').addEventListener('click', function(){
     hideAll();
-    var c = S.map.getCenter();
+    var sz = S.map.getSize();
+    var c = S.map.containerPointToLatLng([sz.x / 2, sz.y / 3]);
     S.clickLatLng = c;
     S._spotDepth = null;
     if (typeof VZ_SHEET !== 'undefined' && VZ_SHEET && VZ_SHEET.mode === 'cond') VZ_SHEET.mode = null;
