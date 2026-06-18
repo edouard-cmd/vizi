@@ -11079,8 +11079,7 @@ window.closeTidesInSheet = function() {
 };
 
 function fetchTidesSheetData() {
-  var today = new Date();
-  TIDES_DRAWER.fromDate = today.toISOString().split('T')[0];
+  TIDES_DRAWER.fromDate = TIDES_DRAWER.selectedDate || new Date().toISOString().split('T')[0];
 
   var body = document.getElementById('vzSheetBody');
   if (body) {
