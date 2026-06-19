@@ -940,7 +940,8 @@ function initLitto3dLayer() {
     version: '1.3.0',
     attribution: '&copy; SHOM Litto3D',
     opacity: 1.0,
-    maxZoom: 19
+    maxZoom: 19,
+    pane: 'litto3dPane'
   };
   function makeLayer(layerName, southWest, northEast) {
     var opts = Object.assign({}, common, {
@@ -975,9 +976,10 @@ function initLitto3dLayer() {
 // ------------------------------------------------------------
 // Litto3D est un raster topo-bathy continu : il colore aussi les
 // terres emergees (laser rouge topographique). Pour ne garder que
-// le fond marin, on masque chaque sous-couche par un clip-path SVG
-// = grand rectangle MOINS les polygones terre (regle evenodd),
-// recalcule quand le repere change (zoom / reset d'origine).
+// le fond marin, on masque LE PANE Litto3D (un seul element :
+// contourne le bug WebKit/Safari du meme clip-path partage par
+// plusieurs noeuds) avec un clip-path SVG = rectangle monde MOINS
+// les polygones terre (evenodd), recalcule sur zoom / reset d'origine.
 // Trait de cote : vz-coastline.json, contour IGN France metropole
 // simplifie (~10 m, iles incluses). Source IGN / Etalab.
 // Effet de bord : purement visuel, confine a S.litto3d.
@@ -997,9 +999,15 @@ function vzBuildSeaClipPath() {
   if (!VZ_COAST || !S.map) return;
   var path = document.getElementById('vzSeaClipPath');
   if (!path) return;
-  var R = 100000000;
-  var d = 'M' + (-R) + ' ' + (-R) + 'L' + R + ' ' + (-R) + 'L' + R + ' ' + R + 'L' + (-R) + ' ' + R + 'Z';
   var map = S.map;
+  // Rectangle = monde projete entier (coords reelles bornees, pas de valeurs
+  // geantes qui font degenerer le clip sous Safari). Couvre tout pan a ce zoom.
+  var nw = map.latLngToLayerPoint(L.latLng(85.0511, -180));
+  var se = map.latLngToLayerPoint(L.latLng(-85.0511, 180));
+  var d = 'M' + nw.x.toFixed(1) + ' ' + nw.y.toFixed(1)
+        + 'L' + se.x.toFixed(1) + ' ' + nw.y.toFixed(1)
+        + 'L' + se.x.toFixed(1) + ' ' + se.y.toFixed(1)
+        + 'L' + nw.x.toFixed(1) + ' ' + se.y.toFixed(1) + 'Z';
   for (var i = 0; i < VZ_COAST.length; i++) {
     var ring = VZ_COAST[i];
     if (ring.length < 3) continue;
@@ -1013,18 +1021,16 @@ function vzBuildSeaClipPath() {
   }
   path.setAttribute('d', d);
 }
-function vzApplySeaClipToLitto3d() {
-  if (!S.litto3d || !VZ_CLIP_READY) return;
-  S.litto3d.eachLayer(function(l) {
-    var c = (l.getContainer && l.getContainer()) || l._container;
-    if (c) { c.style.clipPath = 'url(#vzSeaClip)'; c.style.webkitClipPath = 'url(#vzSeaClip)'; }
-  });
+function vzApplySeaClip() {
+  if (!VZ_CLIP_READY || !S.map) return;
+  var pane = S.map.getPane('litto3dPane');
+  if (pane) { pane.style.clipPath = 'url(#vzSeaClip)'; pane.style.webkitClipPath = 'url(#vzSeaClip)'; }
 }
 function vzInitSeaClip() {
   vzEnsureSeaClipDefs();
   S.map.on('viewreset zoomend', function() {
     vzBuildSeaClipPath();
-    vzApplySeaClipToLitto3d();
+    vzApplySeaClip();
   });
   fetch('vz-coastline.json')
     .then(function(r) { return r.ok ? r.json() : null; })
@@ -1033,12 +1039,19 @@ function vzInitSeaClip() {
       VZ_COAST = j.rings;
       VZ_CLIP_READY = true;
       vzBuildSeaClipPath();
-      vzApplySeaClipToLitto3d();
+      vzApplySeaClip();
     })
     .catch(function() {});
 }
 function initMap() {
   S.map = L.map('map', { center:[49.32, -0.55], zoom:11, zoomControl:false });
+  // Panes dedies. Litto3D dans son propre pane = un seul element a masquer
+  // (le clip-path partage cassait l'affichage sous Safari iOS). Isobathes et
+  // sediment au-dessus de Litto3D.
+  S.map.createPane('litto3dPane');
+  S.map.getPane('litto3dPane').style.zIndex = 250;
+  S.map.createPane('vzSeaOverlayPane');
+  S.map.getPane('vzSeaOverlayPane').style.zIndex = 350;
 
 S.basemapSat = L.layerGroup([
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
@@ -1058,14 +1071,14 @@ S.basemapSat = L.layerGroup([
 
   S.isoDeep = L.tileLayer.wms('https://ows.emodnet-bathymetry.eu/wms', {
     layers: 'emodnet:contours', format: 'image/png', transparent: true,
-    version: '1.3.0', attribution: 'Isobathes EMODnet', opacity: 0.9, maxZoom: 19
+    version: '1.3.0', attribution: 'Isobathes EMODnet', opacity: 0.9, maxZoom: 19, pane: 'vzSeaOverlayPane'
   });
   S.isoShom = L.tileLayer('https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png', {
-    attribution: 'Signalisation OpenSeaMap', opacity: 0.95, maxZoom: 19
+    attribution: 'Signalisation OpenSeaMap', opacity: 0.95, maxZoom: 19, pane: 'vzSeaOverlayPane'
   });
  S.sedLayer = L.tileLayer.wms('https://services.data.shom.fr/INSPIRE/wms/v', {
     layers: 'NDF_BDD_WLD_WGS84G_WMS', format: 'image/png', transparent: true,
-    version: '1.3.0', attribution: 'Nature du fond SHOM', opacity: 0.75, maxZoom: 19
+    version: '1.3.0', attribution: 'Nature du fond SHOM', opacity: 0.75, maxZoom: 19, pane: 'vzSeaOverlayPane'
   });
 
 initLitto3dLayer();
@@ -1263,7 +1276,7 @@ function toggleLayer(type) {
       // Ordre Z : basemap < Litto3D < sediment/isobathes/markers
       S.litto3d.eachLayer(function(l) { if (l.bringToBack) l.bringToBack(); });
       vzBuildSeaClipPath();
-      vzApplySeaClipToLitto3d();
+      vzApplySeaClip();
       // Remet la basemap encore plus en arriere
       if (S.currentBasemap === 'sat' && S.map.hasLayer(S.basemapSat)) {
         S.basemapSat.eachLayer(function(l) { if (l.bringToBack) l.bringToBack(); });
