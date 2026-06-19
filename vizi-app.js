@@ -1,4 +1,4 @@
-"use strict";
+ "use strict";
 
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxyjkavoaEJ6AdhK1MKzph68IH3ZKL8QadDGuU_GyzruxqUsXRv6nP9dJqenTCf6u7Z/exec';
 
@@ -391,7 +391,7 @@ var WEBCAMS = [
   { id:'wc_cany', name:'Cany-Barville', lat:49.7861, lon:0.6394, url:'https://www.vision-environnement.com/live/player/cany-barville0.php' },
   { id:'wc_yport', name:'Yport', lat:49.7406, lon:0.3147, url:'https://www.vision-environnement.com/live/player/yport0.php' },
   { id:'wc_fecamp', name:'Fecamp', lat:49.7589, lon:0.3719, url:'https://www.vision-environnement.com/live/player/fecam0.php' },
-  { id:'wc_etretat', name:'Etretat', lat:49.7075, lon:0.2058, url:'https://www.vision-environnement.com/live/player/etretat2-0.php' },
+  { id:'wc_etretat', name:'Etretat', lat:49.7075, lon:0.2058, url:'https://www.vision-environnement.com/live/player/etretat20.php' },
   { id:'wc_sjb', name:'Saint-Jouin-Bruneval', lat:49.6383, lon:0.1547, url:'https://www.vision-environnement.com/live/player/sjb0.php' },
   { id:'wc_le_havre', name:'Le Havre - Malraux', lat:49.4833, lon:0.1078, url:'https://www.vision-environnement.com/live/player/le-havre-malraux0.php' },
   // Cote Fleurie (Calvados)
@@ -440,10 +440,10 @@ var WEBCAMS = [
   { id:'wc_carantec', name:'Carantec', lat:48.6678, lon:-3.9111, url:'https://www.vision-environnement.com/live/player/carantec0.php' },
   { id:'wc_stpol', name:'Saint-Pol-de-Leon', lat:48.6856, lon:-3.9881, url:'https://www.vision-environnement.com/live/player/stpol0.php' },
   { id:'wc_roscoff', name:'Roscoff', lat:48.7256, lon:-3.9817, url:'https://www.vision-environnement.com/live/player/roscoff0.php' },
-  { id:'wc_roscoff2', name:'Roscoff - Île de Batz', lat:48.7311, lon:-3.9928, url:'https://www.vision-environnement.com/live/player/Roscoff20.php' },
+  { id:'wc_roscoff2', name:'Roscoff - Île de Batz', lat:48.7311, lon:-3.9928, url:'https://www.vision-environnement.com/live/player/roscoff20.php' },
   { id:'wc_iledebatz', name:'Île de Batz', lat:48.7444, lon:-4.0125, url:'https://www.vision-environnement.com/live/player/iledebatz0.php' },
   { id:'wc_plouescat', name:'Plouescat', lat:48.6683, lon:-4.1817, url:'https://www.vision-environnement.com/live/player/plouescat0.php' },
-  { id:'wc_plouescat_porsguen', name:'Plouescat - Porsguen', lat:48.6917, lon:-4.1972, url:'https://www.vision-environnement.com/live/player/plouescat-porsguen0.php' },
+  { id:'wc_plouescat_porsguen', name:'Plouescat - Porsguen', lat:48.6917, lon:-4.1972, url:'https://www.vision-environnement.com/live/player/porsguen0.php' },
   // Pays des Abers / Iroise (Finistère Ouest)
   { id:'wc_landeda', name:'Landeda - Aber Wrac h', lat:48.5961, lon:-4.5594, url:'https://www.vision-environnement.com/live/player/landeda0.php' },
   { id:'wc_portsall', name:'Ploudalmezeau - Portsall', lat:48.5658, lon:-4.7094, url:'https://www.vision-environnement.com/live/player/portsall0.php' },
@@ -468,7 +468,7 @@ var WEBCAMS = [
   { id:'wc_houat', name:'Houat', lat:47.3933, lon:-2.9528, url:'https://www.vision-environnement.com/live/player/houat0.php' },
   { id:'wc_gavres', name:'Gavres', lat:47.7042, lon:-3.3792, url:'https://www.vision-environnement.com/live/player/gavres0.php' },
   { id:'wc_vannes', name:'Vannes', lat:47.6478, lon:-2.7619, url:'https://www.vision-environnement.com/live/player/vannes0.php' },
-  { id:'wc_damgan', name:'Damgan', lat:47.5083, lon:-2.5847, url:'https://www.vision-environnement.com/live/player/Damgan0.php' },
+  { id:'wc_damgan', name:'Damgan', lat:47.5083, lon:-2.5847, url:'https://www.vision-environnement.com/live/player/damgan0.php' },
   { id:'wc_penestin', name:'Penestin', lat:47.4856, lon:-2.4858, url:'https://www.vision-environnement.com/live/player/penestin0.php' },
   // ============= PAYS DE LA LOIRE =============
   { id:'wc_piriac', name:'Piriac-sur-Mer', lat:47.3789, lon:-2.5469, url:'https://www.vision-environnement.com/live/player/piriac-sur-mer0.php' },
@@ -476,7 +476,7 @@ var WEBCAMS = [
   { id:'wc_labaule', name:'La Baule', lat:47.2867, lon:-2.4103, url:'https://www.vision-environnement.com/live/player/labaule0.php' },
   { id:'wc_gois', name:'Noirmoutier - Passage du Gois', lat:46.9419, lon:-2.1369, url:'https://www.vision-environnement.com/live/player/gois0.php' },
   { id:'wc_herbaudiere', name:'Noirmoutier - Herbaudiere', lat:47.0156, lon:-2.2997, url:'https://www.vision-environnement.com/live/player/herbaudiere0.php' },
-  { id:'wc_portmorin', name:'Noirmoutier - Port de Morin', lat:46.9817, lon:-2.2728, url:'https://www.vision-environnement.com/live/player/noirmoutier-port-de-morin0.php' },
+  { id:'wc_portmorin', name:'Noirmoutier - Port de Morin', lat:46.9817, lon:-2.2728, url:'https://www.vision-environnement.com/live/player/port-de-morin0.php' },
   { id:'wc_noirmoutier', name:'Noirmoutier en l Ile', lat:47.0028, lon:-2.2497, url:'https://www.vision-environnement.com/live/player/noirmoutier0.php' },
   { id:'wc_sthilaire', name:'Saint-Hilaire-de-Riez', lat:46.7197, lon:-1.9928, url:'https://www.vision-environnement.com/live/player/sthilairederiez0.php' },
   { id:'wc_olonnes', name:'Les Sables d Olonne', lat:46.4956, lon:-1.7958, url:'https://www.vision-environnement.com/live/player/olonnes0.php' },
