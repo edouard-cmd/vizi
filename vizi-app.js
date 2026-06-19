@@ -562,6 +562,24 @@ var WEBCAMS = [
 var S_webcamsLayer = null;
 var S_webcamsActive = false;
 
+// Liste des webcams mortes, calculee chaque nuit cote serveur (Google Apps
+// Script, sans limite CORS) et servie en JSON. L'app n'affiche que les
+// vivantes. Repli sur : tout afficher si l'endpoint ne repond pas.
+var VZ_WEBCAM_STATUS_URL = 'https://script.google.com/macros/s/AKfycbw1-V70wvZ_ssE5n8zQi8EKiQVO6T78LHUYBpZDupqwntOg1U8x-3EWCVzZMiXE6aagXA/exec?action=webcamstatus';
+var S_deadWebcams = [];
+var S_deadWebcamsLoaded = false;
+function vzLoadDeadWebcams() {
+  if (S_deadWebcamsLoaded) return Promise.resolve(S_deadWebcams);
+  return fetch(VZ_WEBCAM_STATUS_URL)
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(j){
+      if (j && Array.isArray(j.dead)) S_deadWebcams = j.dead;
+      S_deadWebcamsLoaded = true;
+      return S_deadWebcams;
+    })
+    .catch(function(){ S_deadWebcamsLoaded = true; return S_deadWebcams; });
+}
+
 function toggleWebcams() {
   S_webcamsActive = !S_webcamsActive;
   if (S_webcamsActive) closeSpotPopup();
@@ -576,27 +594,33 @@ function toggleWebcams() {
 
 function showWebcamsLayer() {
   if (S_webcamsLayer) return;
-  var markers = [];
-  WEBCAMS.forEach(function(wc) {
-    var icon = L.divIcon({
-      className: '',
-      html: '<div class="webcam-marker">' +
-        '<svg width="20" height="20" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="0.5">' +
-        '<path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/>' +
-        '</svg></div>',
-      iconSize: [32, 32], iconAnchor: [16, 16]
+  vzLoadDeadWebcams().then(function(dead) {
+    if (!S_webcamsActive || S_webcamsLayer) return;   // referme entre-temps : on abandonne
+    var deadSet = {};
+    dead.forEach(function(id){ deadSet[id] = true; });
+    var markers = [];
+    WEBCAMS.forEach(function(wc) {
+      if (deadSet[wc.id]) return;                      // cam morte : aucun marqueur
+      var icon = L.divIcon({
+        className: '',
+        html: '<div class="webcam-marker">' +
+          '<svg width="20" height="20" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="0.5">' +
+          '<path d="M17 10.5V7a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3.5l4 4v-11l-4 4z"/>' +
+          '</svg></div>',
+        iconSize: [32, 32], iconAnchor: [16, 16]
+      });
+      var m = L.marker([wc.lat, wc.lon], { icon: icon });
+      m.bindTooltip('<b>Webcam ' + wc.name + '</b><br><span style="font-size:10px;opacity:0.85">Cliquer pour voir le live</span>', {
+        direction: 'top', className: 'visim-tooltip', offset: [0, -10]
+      });
+      m.on('click', function(e) {
+        L.DomEvent.stopPropagation(e);
+        openWebcamPopup(wc);
+      });
+      markers.push(m);
     });
-    var m = L.marker([wc.lat, wc.lon], { icon: icon });
-    m.bindTooltip('<b>Webcam ' + wc.name + '</b><br><span style="font-size:10px;opacity:0.85">Cliquer pour voir le live</span>', {
-      direction: 'top', className: 'visim-tooltip', offset: [0, -10]
-    });
-    m.on('click', function(e) {
-      L.DomEvent.stopPropagation(e);
-      openWebcamPopup(wc);
-    });
-    markers.push(m);
+    S_webcamsLayer = L.featureGroup(markers).addTo(S.map);
   });
-  S_webcamsLayer = L.featureGroup(markers).addTo(S.map);
 }
 
 function hideWebcamsLayer() {
