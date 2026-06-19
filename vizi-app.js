@@ -10014,16 +10014,11 @@ var GEO_STATE = {
 function initGeolocationFlow() {
   var choice = null;
   try { choice = localStorage.getItem('vizi_geo_choice'); } catch(e) {}
-
+  // Carte d'onboarding "#geoBanner" retiree : le bouton localiser (croix)
+  // declenche deja la demande native d'autorisation, la carte faisait doublon.
+  // On conserve la geoloc auto pour qui l'avait deja acceptee.
   if (choice === 'accepted') {
     geolocateUser(false);
-  } else if (choice === 'dismissed') {
-    return;
-  } else {
-    setTimeout(function() {
-      var banner = document.getElementById('geoBanner');
-      if (banner) banner.classList.add('show');
-    }, 1500);
   }
 }
 
