@@ -11413,7 +11413,7 @@ var html = '<div class="vz-tides-wrap">';
   // --- Selecteur de port + selecteur de date ---
   html += '<div class="vz-tides-toprow" style="display:flex;gap:8px;align-items:stretch;">' +
     renderTidesPortSelect(port.id) +
-    '<input type="date" class="vz-tides-datefield" value="' + selDate + '" onchange="onTidesSheetDateChange(this.value)" ' +
+    '<input type="date" class="vz-tides-datefield" value="' + selDate + '" onchange="onTidesSheetDateChange(this.value)" onclick="if(this.showPicker)this.showPicker()" ' +
     'style="flex-shrink:0;width:148px;padding:9px 10px;font-family:Inter,sans-serif;font-size:14px;font-weight:600;color:#0B1A26;background:#FFFFFF;border:1px solid rgba(11,26,38,0.14);border-radius:11px;cursor:pointer;">' +
   '</div>';
 
