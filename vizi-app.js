@@ -11183,8 +11183,16 @@ window.closeTidesInSheet = function() {
   removeTidesPortHalo();
 };
 
+var TIDES_SHEET_HORIZON_DAYS = 14;
 function fetchTidesSheetData() {
   TIDES_DRAWER.fromDate = TIDES_DRAWER.selectedDate || new Date().toISOString().split('T')[0];
+
+  var _lim = new Date(); _lim.setHours(0,0,0,0); _lim.setDate(_lim.getDate() + TIDES_SHEET_HORIZON_DAYS);
+  if (new Date(TIDES_DRAWER.fromDate + 'T00:00:00') > _lim) {
+    var bodyLim = document.getElementById('vzSheetBody');
+    if (bodyLim) bodyLim.innerHTML = '<div class="vz-tides-loading" style="color:var(--vz-danger);">Marées indisponibles au-delà de ' + TIDES_SHEET_HORIZON_DAYS + ' jours</div>';
+    return;
+  }
 
   var body = document.getElementById('vzSheetBody');
   if (body) {
@@ -11411,9 +11419,11 @@ var html = '<div class="vz-tides-wrap">';
   html += '<div class="vz-tides-leftcol">';
   html += '<div class="vz-tides-body"><div class="vz-tides-colmeta">';
   // --- Selecteur de port + selecteur de date ---
+  var _md = new Date(); _md.setDate(_md.getDate() + TIDES_SHEET_HORIZON_DAYS);
+  var tidesMaxDate = _md.toISOString().split('T')[0];
   html += '<div class="vz-tides-toprow" style="display:flex;gap:8px;align-items:stretch;">' +
     renderTidesPortSelect(port.id) +
-    '<input type="date" class="vz-tides-datefield" value="' + selDate + '" onchange="onTidesSheetDateChange(this.value)" onclick="if(this.showPicker)this.showPicker()" ' +
+    '<input type="date" class="vz-tides-datefield" value="' + selDate + '" max="' + tidesMaxDate + '" onchange="onTidesSheetDateChange(this.value)" onclick="if(this.showPicker)this.showPicker()" ' +
     'style="flex-shrink:0;width:148px;padding:9px 10px;font-family:Inter,sans-serif;font-size:14px;font-weight:600;color:#0B1A26;background:#FFFFFF;border:1px solid rgba(11,26,38,0.14);border-radius:11px;cursor:pointer;">' +
   '</div>';
 
