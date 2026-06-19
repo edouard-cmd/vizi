@@ -1246,7 +1246,7 @@ function vzDesktopPointSelect(latlng) {
   var _ptGen = S._ptGen;
   var _ptChevron = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
   var _ptClose = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>';
-  var _ptRing = '<span class="vsm-spinner vsm-sm vsm-on-teal" role="status" aria-label="Calcul"><svg viewBox="0 0 48 48"><circle class="vsm-track" cx="24" cy="24" r="20" stroke-width="8"/><path class="vsm-arc" d="M 24 4 A 20 20 0 0 1 44 24" stroke-width="8"/></svg></span>';
+  var _ptRing = '<span class="vsm-spinner vsm-sm" role="status" aria-label="Calcul"><svg viewBox="0 0 48 48"><circle class="vsm-track" cx="24" cy="24" r="20" stroke-width="8"/><path class="vsm-arc" d="M 24 4 A 20 20 0 0 1 44 24" stroke-width="8"/></svg></span>';
   function _ptMakeIcon(inner) {
     return L.divIcon({
       className: 'vz-point-cta-wrap',
