@@ -1097,8 +1097,8 @@ S.map.on('click', function(e) {
   + ".vz-point-cta:hover{filter:brightness(1.08);border-color:#6FE0BC;}"
   + "#zoomControls{--vz-bg-glass:rgba(10,21,32,0.78);--vz-bg-glass-strong:rgba(10,21,32,0.88);--vz-accent:#4DD4A8;--vz-accent-glow:rgba(77,212,168,0.15);--vz-text-on-dark:#D8E1EB;--vz-border-glass:rgba(255,255,255,0.1);}"
   + ".vz-tides-body{display:flex;flex-direction:column;gap:10px;}"
-  + ".vz-tides-colcurve,.vz-tides-colinfo{display:flex;flex-direction:column;gap:10px;min-width:0;}"
-  + "@media (min-width:769px){.vz-tides-wrap{max-width:1100px;margin-left:auto;margin-right:auto;}.vz-tides-body{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);column-gap:18px;align-items:start;}}";
+  + ".vz-tides-colmeta,.vz-tides-colcurve,.vz-tides-colinfo{display:flex;flex-direction:column;gap:10px;min-width:0;}"
+  + "@media (min-width:769px){.vz-tides-wrap{max-width:1240px;margin-left:auto;margin-right:auto;}.vz-tides-body{display:grid;grid-template-columns:minmax(0,0.9fr) minmax(0,1.55fr) minmax(0,1fr);column-gap:18px;align-items:start;}.vz-tides-colmeta{gap:12px;}}";
   (document.head || document.documentElement).appendChild(st);
 })();
 
@@ -11407,6 +11407,7 @@ var html = '<div class="vz-tides-wrap">';
 
   // ====== COLONNE GAUCHE ======
   html += '<div class="vz-tides-leftcol">';
+  html += '<div class="vz-tides-body"><div class="vz-tides-colmeta">';
   // --- Selecteur de port + selecteur de date ---
   html += '<div class="vz-tides-toprow" style="display:flex;gap:8px;align-items:stretch;">' +
     renderTidesPortSelect(port.id) +
@@ -11438,7 +11439,7 @@ var html = '<div class="vz-tides-wrap">';
 // --- Date chips ---
   html += renderTidesDateChips(selDate);
 
-  html += '<div class="vz-tides-body"><div class="vz-tides-colcurve">';
+  html += '</div><div class="vz-tides-colcurve">';
 
   // --- Courbe pleine largeur (placee comme le mockup : entre les jours et la liste) ---
   html += renderTidesSheetCurve(dayPoints, dayExtremes, isToday, now, nextExtremeIdx);
