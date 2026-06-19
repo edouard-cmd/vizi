@@ -5250,16 +5250,11 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
 <div id="sedLegend">
   <div class="sed-legend-header" onclick="toggleSedLegend()">
     <div class="sed-legend-title">Natures de fond</div>
-    <div class="sed-legend-toggle" id="sedLegendArrow">&#9650;</div>
+    <div class="sed-legend-toggle" id="sedLegendArrow" style="transform:rotate(180deg);">&#9650;</div>
   </div>
-  <div class="sed-legend-body" id="sedLegendBody" style="display:none;">
-    <div class="sed-legend-row"><div class="sed-swatch" style="background:#CC2200"></div>Cailloutis / gravier</div>
-    <div class="sed-legend-row"><div class="sed-swatch" style="background:#E86030"></div>Sable grossier</div>
-    <div class="sed-legend-row"><div class="sed-swatch" style="background:#F0C060"></div>Sable fin</div>
-    <div class="sed-legend-row"><div class="sed-swatch" style="background:#F5E8A0"></div>Sable vaseux</div>
-    <div class="sed-legend-row"><div class="sed-swatch" style="background:#C8A878"></div>Vase sableuse</div>
-    <div class="sed-legend-row"><div class="sed-swatch" style="background:#8B6A40"></div>Vase</div>
-    <div class="sed-legend-row"><div class="sed-swatch" style="background:#B0B0B0"></div>Roche</div>
+  <div class="sed-legend-body" id="sedLegendBody" style="display:block;">
+    <img src="https://services.data.shom.fr/INSPIRE/wms/v?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetLegendGraphic&LAYER=NDF_BDD_WLD_WGS84G_WMS&FORMAT=image/png" alt="Legende SHOM - Natures de fond" style="display:block;max-width:100%;height:auto;" onerror="this.style.display='none';var f=document.getElementById('sedLegendFallback');if(f)f.style.display='block';">
+    <div id="sedLegendFallback" style="display:none;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text-3);padding:4px 2px;">Legende SHOM indisponible</div>
   </div>
 </div>
 
