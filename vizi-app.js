@@ -1048,7 +1048,7 @@ function vzInitSeaMask() {
     .catch(function() {});
 }
 function initMap() {
-  S.map = L.map('map', { center:[49.32, -0.55], zoom:11, zoomControl:false });
+  S.map = L.map('map', { center:[49.333, -0.424], zoom:9, zoomControl:false });
   // Panes dedies. Litto3D dans son propre pane = un seul element a masquer
   // (le clip-path partage cassait l'affichage sous Safari iOS). Isobathes et
   // sediment au-dessus de Litto3D.
@@ -9969,11 +9969,16 @@ var GEO_STATE = {
 function initGeolocationFlow() {
   var choice = null;
   try { choice = localStorage.getItem('vizi_geo_choice'); } catch(e) {}
-  // Carte d'onboarding "#geoBanner" retiree : le bouton localiser (croix)
-  // declenche deja la demande native d'autorisation, la carte faisait doublon.
-  // On conserve la geoloc auto pour qui l'avait deja acceptee.
+
   if (choice === 'accepted') {
     geolocateUser(false);
+  } else if (choice === 'dismissed') {
+    return;
+  } else {
+    setTimeout(function() {
+      var banner = document.getElementById('geoBanner');
+      if (banner) banner.classList.add('show');
+    }, 1500);
   }
 }
 
