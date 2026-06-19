@@ -1100,7 +1100,8 @@ S.map.on('click', function(e) {
   + "#zoomControls{--vz-bg-glass:rgba(10,21,32,0.78);--vz-bg-glass-strong:rgba(10,21,32,0.88);--vz-accent:#4DD4A8;--vz-accent-glow:rgba(77,212,168,0.15);--vz-text-on-dark:#D8E1EB;--vz-border-glass:rgba(255,255,255,0.1);}"
   + ".vz-tides-body{display:flex;flex-direction:column;gap:10px;}"
   + ".vz-tides-colmeta,.vz-tides-colcurve,.vz-tides-colinfo{display:flex;flex-direction:column;gap:10px;min-width:0;}"
-  + "@media (min-width:769px){.vz-tides-wrap{max-width:1240px;margin-left:auto;margin-right:auto;}.vz-tides-body{display:grid;grid-template-columns:minmax(0,0.92fr) minmax(0,1.55fr) minmax(0,1.02fr);column-gap:18px;align-items:stretch;}.vz-tides-colmeta{gap:14px;justify-content:space-between;background:#FFFFFF;border:0.5px solid rgba(11,26,38,0.13);border-radius:13px;padding:14px;}.vz-tides-colcurve{gap:8px;}.vz-tides-curvewrap{flex:1;justify-content:center;}.vz-tides-datechips{display:grid;grid-template-columns:1fr 1fr;gap:6px;}.vz-tides-datechip{text-align:center;justify-content:center;}.vz-tides-contextfooter{margin-top:auto;}}";
+  + ".vz-tides-metacard{display:flex;flex-direction:column;gap:14px;background:#FFFFFF;border:0.5px solid rgba(11,26,38,0.13);border-radius:13px;padding:14px;}"
+  + "@media (min-width:769px){.vz-tides-wrap{max-width:1240px;margin-left:auto;margin-right:auto;}.vz-tides-body{display:grid;grid-template-columns:minmax(0,0.92fr) minmax(0,1.55fr) minmax(0,1.02fr);column-gap:18px;align-items:stretch;}.vz-tides-colmeta{gap:8px;}.vz-tides-metacard{flex:1;justify-content:space-between;}.vz-tides-toprow{flex-direction:column;align-items:stretch;}.vz-tides-portselect{flex:0 0 auto !important;}.vz-tides-datefield{width:100% !important;flex:0 0 auto !important;}.vz-tides-colcurve{gap:8px;}.vz-tides-curvewrap{flex:1;justify-content:center;}.vz-tides-datechips{display:grid;grid-template-columns:1fr 1fr;gap:6px;}.vz-tides-datechip{text-align:center;justify-content:center;}.vz-tides-contextfooter{margin-top:auto;}}";
   (document.head || document.documentElement).appendChild(st);
 })();
 
@@ -11418,6 +11419,7 @@ var html = '<div class="vz-tides-wrap">';
   // ====== COLONNE GAUCHE ======
   html += '<div class="vz-tides-leftcol">';
   html += '<div class="vz-tides-body"><div class="vz-tides-colmeta">';
+  html += '<div class="vz-tides-sectiontitle">Port et marée</div><div class="vz-tides-metacard">';
   // --- Selecteur de port + selecteur de date ---
   var _md = new Date(); _md.setDate(_md.getDate() + TIDES_SHEET_HORIZON_DAYS);
   var tidesMaxDate = _md.toISOString().split('T')[0];
@@ -11452,7 +11454,7 @@ var html = '<div class="vz-tides-wrap">';
 // --- Date chips ---
   html += renderTidesDateChips(selDate);
 
-  html += '</div><div class="vz-tides-colcurve">';
+  html += '</div></div><div class="vz-tides-colcurve">';
   html += '<div class="vz-tides-sectiontitle">Courbe du jour</div>';
 
   // --- Courbe pleine largeur (placee comme le mockup : entre les jours et la liste) ---
