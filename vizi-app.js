@@ -948,7 +948,7 @@ function initLitto3dLayer() {
       layers: layerName,
       bounds: L.latLngBounds(southWest, northEast)
     });
-    return L.tileLayer.wms(SHOM_WMS, opts);
+    return new VZSeaTileLayer(SHOM_WMS, opts);
   }
   // Bounds [latMin, lonMin] / [latMax, lonMax] issus du GetCapabilities SHOM
   var subLayers = [
@@ -972,74 +972,78 @@ function initLitto3dLayer() {
   S.litto3d = L.layerGroup(subLayers);
 }
 // ============================================================
-// LITTO3D - DECOUPAGE SUR LE TRAIT DE COTE
+// LITTO3D - MASQUAGE DU TRAIT DE COTE (canvas)
 // ------------------------------------------------------------
 // Litto3D est un raster topo-bathy continu : il colore aussi les
 // terres emergees (laser rouge topographique). Pour ne garder que
-// le fond marin, on masque LE PANE Litto3D (un seul element :
-// contourne le bug WebKit/Safari du meme clip-path partage par
-// plusieurs noeuds) avec un clip-path SVG = rectangle monde MOINS
-// les polygones terre (evenodd), recalcule sur zoom / reset d'origine.
+// le fond marin, chaque tuile est dessinee dans un canvas puis la
+// terre est gommee dessus (composition destination-out) a partir
+// du trait de cote. 100% canvas 2D : insensible aux bugs WebKit du
+// clip-path SVG sous Safari iOS (qui faisaient disparaitre Litto3D).
 // Trait de cote : vz-coastline.json, contour IGN France metropole
 // simplifie (~10 m, iles incluses). Source IGN / Etalab.
 // Effet de bord : purement visuel, confine a S.litto3d.
 // ============================================================
 var VZ_COAST = null;
-var VZ_CLIP_READY = false;
-function vzEnsureSeaClipDefs() {
-  if (document.getElementById('vzSeaClipSvg')) return;
-  var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('id', 'vzSeaClipSvg');
-  svg.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden;pointer-events:none;';
-  svg.innerHTML = '<defs><clipPath id="vzSeaClip" clipPathUnits="userSpaceOnUse">'
-    + '<path id="vzSeaClipPath" clip-rule="evenodd" d=""></path></clipPath></defs>';
-  document.body.appendChild(svg);
-}
-function vzBuildSeaClipPath() {
-  if (!VZ_COAST || !S.map) return;
-  var path = document.getElementById('vzSeaClipPath');
-  if (!path) return;
+var VZ_LAND_PATHS = {};   // cache Path2D de la terre (pixels monde), par zoom
+function vzGetLandPath(z) {
+  if (!VZ_COAST || !S.map) return null;
+  if (VZ_LAND_PATHS[z]) return VZ_LAND_PATHS[z];
+  var path = new Path2D();
   var map = S.map;
-  // Rectangle = monde projete entier (coords reelles bornees, pas de valeurs
-  // geantes qui font degenerer le clip sous Safari). Couvre tout pan a ce zoom.
-  var nw = map.latLngToLayerPoint(L.latLng(85.0511, -180));
-  var se = map.latLngToLayerPoint(L.latLng(-85.0511, 180));
-  var d = 'M' + nw.x.toFixed(1) + ' ' + nw.y.toFixed(1)
-        + 'L' + se.x.toFixed(1) + ' ' + nw.y.toFixed(1)
-        + 'L' + se.x.toFixed(1) + ' ' + se.y.toFixed(1)
-        + 'L' + nw.x.toFixed(1) + ' ' + se.y.toFixed(1) + 'Z';
   for (var i = 0; i < VZ_COAST.length; i++) {
     var ring = VZ_COAST[i];
     if (ring.length < 3) continue;
-    var p0 = map.latLngToLayerPoint([ring[0][1], ring[0][0]]);
-    d += 'M' + p0.x.toFixed(1) + ' ' + p0.y.toFixed(1);
-    for (var j = 1; j < ring.length; j++) {
-      var p = map.latLngToLayerPoint([ring[j][1], ring[j][0]]);
-      d += 'L' + p.x.toFixed(1) + ' ' + p.y.toFixed(1);
+    var p0 = map.project(L.latLng(ring[0][1], ring[0][0]), z);
+    path.moveTo(p0.x, p0.y);
+    for (var k = 1; k < ring.length; k++) {
+      var p = map.project(L.latLng(ring[k][1], ring[k][0]), z);
+      path.lineTo(p.x, p.y);
     }
-    d += 'Z';
+    path.closePath();
   }
-  path.setAttribute('d', d);
+  VZ_LAND_PATHS[z] = path;
+  return path;
 }
-function vzApplySeaClip() {
-  if (!VZ_CLIP_READY || !S.map) return;
-  var pane = S.map.getPane('litto3dPane');
-  if (pane) { pane.style.clipPath = 'url(#vzSeaClip)'; pane.style.webkitClipPath = 'url(#vzSeaClip)'; }
-}
-function vzInitSeaClip() {
-  vzEnsureSeaClipDefs();
-  S.map.on('viewreset zoomend', function() {
-    vzBuildSeaClipPath();
-    vzApplySeaClip();
-  });
+var VZSeaTileLayer = L.TileLayer.WMS.extend({
+  createTile: function(coords, done) {
+    var tile = document.createElement('canvas');
+    var size = this.getTileSize();
+    tile.width = size.x; tile.height = size.y;
+    var ctx = tile.getContext('2d');
+    var url = this.getTileUrl(coords);
+    var img = new Image();
+    // pas de crossOrigin : la tuile SHOM teinte le canvas mais reste
+    // affichable et composable (jamais de readback de pixels).
+    img.onload = function() {
+      try {
+        ctx.drawImage(img, 0, 0, size.x, size.y);
+        var land = vzGetLandPath(coords.z);
+        if (land) {
+          var ox = coords.x * size.x, oy = coords.y * size.y;
+          ctx.save();
+          ctx.globalCompositeOperation = 'destination-out';
+          ctx.translate(-ox, -oy);
+          ctx.fill(land);                 // gomme la terre, garde la mer
+          ctx.restore();
+        }
+      } catch (e) {}
+      done(null, tile);
+    };
+    img.onerror = function(e) { done(e, tile); };
+    img.src = url;
+    return tile;
+  }
+});
+function vzInitSeaMask() {
   fetch('vz-coastline.json')
     .then(function(r) { return r.ok ? r.json() : null; })
     .then(function(j) {
       if (!j || !j.rings) return;
       VZ_COAST = j.rings;
-      VZ_CLIP_READY = true;
-      vzBuildSeaClipPath();
-      vzApplySeaClip();
+      VZ_LAND_PATHS = {};
+      // le trait de cote arrive apres les 1eres tuiles : on les redessine
+      if (S.litto3d) S.litto3d.eachLayer(function(l) { if (l.redraw) l.redraw(); });
     })
     .catch(function() {});
 }
@@ -1084,7 +1088,7 @@ S.basemapSat = L.layerGroup([
 initLitto3dLayer();
   S.litto3d.addTo(S.map);
   S.litto3d.eachLayer(function(l) { if (l.bringToBack) l.bringToBack(); });
-  vzInitSeaClip();
+  vzInitSeaMask();
   if (S.basemapSat) S.basemapSat.eachLayer(function(l) { if (l.bringToBack) l.bringToBack(); });
   S.isoDeep.addTo(S.map);
 
@@ -1275,8 +1279,6 @@ function toggleLayer(type) {
       S.litto3d.addTo(S.map);
       // Ordre Z : basemap < Litto3D < sediment/isobathes/markers
       S.litto3d.eachLayer(function(l) { if (l.bringToBack) l.bringToBack(); });
-      vzBuildSeaClipPath();
-      vzApplySeaClip();
       // Remet la basemap encore plus en arriere
       if (S.currentBasemap === 'sat' && S.map.hasLayer(S.basemapSat)) {
         S.basemapSat.eachLayer(function(l) { if (l.bringToBack) l.bringToBack(); });
