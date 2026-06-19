@@ -5197,15 +5197,11 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
     </div>
     <div class="vz-layers-row" id="vzRowIGN" onclick="selectBasemap('ign')">
       <div class="vz-layers-radio"></div>
-      <span>Relief</span>
+      <span>Carte</span>
     </div>
   </div>
   <div>
     <div class="vz-layers-section-title">Couches</div>
-    <div class="vz-layers-row" id="vzRowHeatmap" onclick="toggleLayer('heatmap')">
-      <div class="vz-layers-check"></div>
-      <span>Turbidité</span>
-    </div>
     <div class="vz-layers-row" id="vzRowSed" onclick="toggleLayer('sed')">
       <div class="vz-layers-check"></div>
       <span>Nature du fond</span>
@@ -5217,10 +5213,6 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
    <div class="vz-layers-row" id="vzRowLitto3d" onclick="toggleLayer('litto3d')">
       <div class="vz-layers-check"></div>
       <span>Bathymétrie SHOM</span>
-    </div>
-   <div class="vz-layers-row disabled">
-      <div class="vz-layers-check"></div>
-      <span>Vagues (bientôt)</span>
     </div>
   </div>
   <div>
@@ -5960,7 +5952,7 @@ function syncLayersPopover() {
   var current = S.currentBasemap || 'sat';
   document.getElementById('vzRowSat').classList.toggle('active', current === 'sat');
   document.getElementById('vzRowIGN').classList.toggle('active', current === 'ign');
-  document.getElementById('vzRowHeatmap').classList.toggle('active', S.showHeatmap);
+  var _rowHeat = document.getElementById('vzRowHeatmap'); if (_rowHeat) _rowHeat.classList.toggle('active', S.showHeatmap);
   document.getElementById('vzRowSed').classList.toggle('active', S.showSed);
   document.getElementById('vzRowIso').classList.toggle('active', S.showIso);
   var rowLitto = document.getElementById('vzRowLitto3d');
