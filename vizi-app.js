@@ -1093,12 +1093,13 @@ S.map.on('click', function(e) {
   var st = document.createElement('style'); st.id = 'vzPointCtaStyle';
   st.textContent =
     ".vz-point-cta-wrap{background:transparent !important;border:0 !important;display:flex;justify-content:center;align-items:flex-start;}"
+  + "#vzFabImprove{display:none !important;}"
   + ".vz-point-cta{display:inline-flex;align-items:center;gap:6px;background:#0F2438;color:#E6EEF4;border:1.5px solid #4DD4A8;border-radius:10px;padding:8px 13px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 6px 20px rgba(4,16,28,0.45);white-space:nowrap;line-height:1;}"
   + ".vz-point-cta:hover{filter:brightness(1.08);border-color:#6FE0BC;}"
   + "#zoomControls{--vz-bg-glass:rgba(10,21,32,0.78);--vz-bg-glass-strong:rgba(10,21,32,0.88);--vz-accent:#4DD4A8;--vz-accent-glow:rgba(77,212,168,0.15);--vz-text-on-dark:#D8E1EB;--vz-border-glass:rgba(255,255,255,0.1);}"
   + ".vz-tides-body{display:flex;flex-direction:column;gap:10px;}"
   + ".vz-tides-colmeta,.vz-tides-colcurve,.vz-tides-colinfo{display:flex;flex-direction:column;gap:10px;min-width:0;}"
-  + "@media (min-width:769px){.vz-tides-wrap{max-width:1360px;margin-left:auto;margin-right:auto;}.vz-tides-body{display:grid;grid-template-columns:minmax(0,0.88fr) minmax(0,1.72fr) minmax(0,1.05fr);column-gap:18px;align-items:stretch;}.vz-tides-colmeta,.vz-tides-colcurve,.vz-tides-colinfo{background:#FFFFFF;border:0.5px solid rgba(11,26,38,0.13);border-radius:13px;padding:14px;}.vz-tides-colmeta{gap:14px;justify-content:space-between;}.vz-tides-colcurve{gap:8px;}.vz-tides-curvewrap{background:transparent;border:none;padding:0;flex:1;justify-content:center;}.vz-tides-colinfo .vz-tides-table{background:transparent !important;border:none !important;border-radius:0 !important;}.vz-tides-contextfooter{background:transparent;border:none;border-top:0.5px solid rgba(11,26,38,0.10);border-radius:0;margin-top:auto;padding:12px 4px 0;}.vz-tides-datechips{display:grid;grid-template-columns:1fr 1fr;gap:6px;}.vz-tides-datechip{text-align:center;justify-content:center;}}";
+  + "@media (min-width:769px){.vz-tides-wrap{max-width:1240px;margin-left:auto;margin-right:auto;}.vz-tides-body{display:grid;grid-template-columns:minmax(0,0.92fr) minmax(0,1.55fr) minmax(0,1.02fr);column-gap:18px;align-items:stretch;}.vz-tides-colmeta{gap:14px;justify-content:space-between;background:#FFFFFF;border:0.5px solid rgba(11,26,38,0.13);border-radius:13px;padding:14px;}.vz-tides-colcurve{gap:8px;}.vz-tides-curvewrap{flex:1;justify-content:center;}.vz-tides-datechips{display:grid;grid-template-columns:1fr 1fr;gap:6px;}.vz-tides-datechip{text-align:center;justify-content:center;}.vz-tides-contextfooter{margin-top:auto;}}";
   (document.head || document.documentElement).appendChild(st);
 })();
 
