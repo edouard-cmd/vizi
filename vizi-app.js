@@ -970,6 +970,73 @@ function initLitto3dLayer() {
   ];
   S.litto3d = L.layerGroup(subLayers);
 }
+// ============================================================
+// LITTO3D - DECOUPAGE SUR LE TRAIT DE COTE
+// ------------------------------------------------------------
+// Litto3D est un raster topo-bathy continu : il colore aussi les
+// terres emergees (laser rouge topographique). Pour ne garder que
+// le fond marin, on masque chaque sous-couche par un clip-path SVG
+// = grand rectangle MOINS les polygones terre (regle evenodd),
+// recalcule quand le repere change (zoom / reset d'origine).
+// Trait de cote : vz-coastline.json, contour IGN France metropole
+// simplifie (~10 m, iles incluses). Source IGN / Etalab.
+// Effet de bord : purement visuel, confine a S.litto3d.
+// ============================================================
+var VZ_COAST = null;
+var VZ_CLIP_READY = false;
+function vzEnsureSeaClipDefs() {
+  if (document.getElementById('vzSeaClipSvg')) return;
+  var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('id', 'vzSeaClipSvg');
+  svg.style.cssText = 'position:absolute;width:0;height:0;overflow:hidden;pointer-events:none;';
+  svg.innerHTML = '<defs><clipPath id="vzSeaClip" clipPathUnits="userSpaceOnUse">'
+    + '<path id="vzSeaClipPath" clip-rule="evenodd" d=""></path></clipPath></defs>';
+  document.body.appendChild(svg);
+}
+function vzBuildSeaClipPath() {
+  if (!VZ_COAST || !S.map) return;
+  var path = document.getElementById('vzSeaClipPath');
+  if (!path) return;
+  var R = 100000000;
+  var d = 'M' + (-R) + ' ' + (-R) + 'L' + R + ' ' + (-R) + 'L' + R + ' ' + R + 'L' + (-R) + ' ' + R + 'Z';
+  var map = S.map;
+  for (var i = 0; i < VZ_COAST.length; i++) {
+    var ring = VZ_COAST[i];
+    if (ring.length < 3) continue;
+    var p0 = map.latLngToLayerPoint([ring[0][1], ring[0][0]]);
+    d += 'M' + p0.x.toFixed(1) + ' ' + p0.y.toFixed(1);
+    for (var j = 1; j < ring.length; j++) {
+      var p = map.latLngToLayerPoint([ring[j][1], ring[j][0]]);
+      d += 'L' + p.x.toFixed(1) + ' ' + p.y.toFixed(1);
+    }
+    d += 'Z';
+  }
+  path.setAttribute('d', d);
+}
+function vzApplySeaClipToLitto3d() {
+  if (!S.litto3d || !VZ_CLIP_READY) return;
+  S.litto3d.eachLayer(function(l) {
+    var c = (l.getContainer && l.getContainer()) || l._container;
+    if (c) { c.style.clipPath = 'url(#vzSeaClip)'; c.style.webkitClipPath = 'url(#vzSeaClip)'; }
+  });
+}
+function vzInitSeaClip() {
+  vzEnsureSeaClipDefs();
+  S.map.on('viewreset zoomend', function() {
+    vzBuildSeaClipPath();
+    vzApplySeaClipToLitto3d();
+  });
+  fetch('vz-coastline.json')
+    .then(function(r) { return r.ok ? r.json() : null; })
+    .then(function(j) {
+      if (!j || !j.rings) return;
+      VZ_COAST = j.rings;
+      VZ_CLIP_READY = true;
+      vzBuildSeaClipPath();
+      vzApplySeaClipToLitto3d();
+    })
+    .catch(function() {});
+}
 function initMap() {
   S.map = L.map('map', { center:[49.32, -0.55], zoom:11, zoomControl:false });
 
@@ -1004,6 +1071,7 @@ S.basemapSat = L.layerGroup([
 initLitto3dLayer();
   S.litto3d.addTo(S.map);
   S.litto3d.eachLayer(function(l) { if (l.bringToBack) l.bringToBack(); });
+  vzInitSeaClip();
   if (S.basemapSat) S.basemapSat.eachLayer(function(l) { if (l.bringToBack) l.bringToBack(); });
   S.isoDeep.addTo(S.map);
 
@@ -1100,8 +1168,7 @@ S.map.on('click', function(e) {
   + "#zoomControls{--vz-bg-glass:rgba(10,21,32,0.78);--vz-bg-glass-strong:rgba(10,21,32,0.88);--vz-accent:#4DD4A8;--vz-accent-glow:rgba(77,212,168,0.15);--vz-text-on-dark:#D8E1EB;--vz-border-glass:rgba(255,255,255,0.1);}"
   + ".vz-tides-body{display:flex;flex-direction:column;gap:10px;}"
   + ".vz-tides-colmeta,.vz-tides-colcurve,.vz-tides-colinfo{display:flex;flex-direction:column;gap:10px;min-width:0;}"
-  + ".vz-tides-metacard{display:flex;flex-direction:column;gap:14px;background:#FFFFFF;border:0.5px solid rgba(11,26,38,0.13);border-radius:13px;padding:14px;}"
-  + "@media (min-width:769px){.vz-tides-wrap{max-width:1240px;margin-left:auto;margin-right:auto;}.vz-tides-body{display:grid;grid-template-columns:minmax(0,0.92fr) minmax(0,1.55fr) minmax(0,1.02fr);column-gap:18px;align-items:stretch;}.vz-tides-colmeta{gap:8px;}.vz-tides-metacard{flex:1;justify-content:space-between;}.vz-tides-toprow{flex-direction:column;align-items:stretch;}.vz-tides-portselect{flex:0 0 auto !important;}.vz-tides-datefield{width:100% !important;flex:0 0 auto !important;}.vz-tides-colcurve{gap:8px;}.vz-tides-curvewrap{flex:1;justify-content:center;}.vz-tides-datechips{display:grid;grid-template-columns:1fr 1fr;gap:6px;}.vz-tides-datechip{text-align:center;justify-content:center;}.vz-tides-contextfooter{margin-top:auto;}}";
+  + "@media (min-width:769px){.vz-tides-wrap{max-width:1240px;margin-left:auto;margin-right:auto;}.vz-tides-body{display:grid;grid-template-columns:minmax(0,0.92fr) minmax(0,1.55fr) minmax(0,1.02fr);column-gap:18px;align-items:stretch;}.vz-tides-colmeta{gap:14px;justify-content:space-between;background:#FFFFFF;border:0.5px solid rgba(11,26,38,0.13);border-radius:13px;padding:14px;}.vz-tides-colcurve{gap:8px;}.vz-tides-curvewrap{flex:1;justify-content:center;}.vz-tides-datechips{display:grid;grid-template-columns:1fr 1fr;gap:6px;}.vz-tides-datechip{text-align:center;justify-content:center;}.vz-tides-contextfooter{margin-top:auto;}}";
   (document.head || document.documentElement).appendChild(st);
 })();
 
@@ -1195,6 +1262,8 @@ function toggleLayer(type) {
       S.litto3d.addTo(S.map);
       // Ordre Z : basemap < Litto3D < sediment/isobathes/markers
       S.litto3d.eachLayer(function(l) { if (l.bringToBack) l.bringToBack(); });
+      vzBuildSeaClipPath();
+      vzApplySeaClipToLitto3d();
       // Remet la basemap encore plus en arriere
       if (S.currentBasemap === 'sat' && S.map.hasLayer(S.basemapSat)) {
         S.basemapSat.eachLayer(function(l) { if (l.bringToBack) l.bringToBack(); });
@@ -11419,7 +11488,6 @@ var html = '<div class="vz-tides-wrap">';
   // ====== COLONNE GAUCHE ======
   html += '<div class="vz-tides-leftcol">';
   html += '<div class="vz-tides-body"><div class="vz-tides-colmeta">';
-  html += '<div class="vz-tides-sectiontitle">Port et marée</div><div class="vz-tides-metacard">';
   // --- Selecteur de port + selecteur de date ---
   var _md = new Date(); _md.setDate(_md.getDate() + TIDES_SHEET_HORIZON_DAYS);
   var tidesMaxDate = _md.toISOString().split('T')[0];
@@ -11454,7 +11522,7 @@ var html = '<div class="vz-tides-wrap">';
 // --- Date chips ---
   html += renderTidesDateChips(selDate);
 
-  html += '</div></div><div class="vz-tides-colcurve">';
+  html += '</div><div class="vz-tides-colcurve">';
   html += '<div class="vz-tides-sectiontitle">Courbe du jour</div>';
 
   // --- Courbe pleine largeur (placee comme le mockup : entre les jours et la liste) ---
