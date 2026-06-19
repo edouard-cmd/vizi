@@ -1098,7 +1098,7 @@ S.map.on('click', function(e) {
   + "#zoomControls{--vz-bg-glass:rgba(10,21,32,0.78);--vz-bg-glass-strong:rgba(10,21,32,0.88);--vz-accent:#4DD4A8;--vz-accent-glow:rgba(77,212,168,0.15);--vz-text-on-dark:#D8E1EB;--vz-border-glass:rgba(255,255,255,0.1);}"
   + ".vz-tides-body{display:flex;flex-direction:column;gap:10px;}"
   + ".vz-tides-colmeta,.vz-tides-colcurve,.vz-tides-colinfo{display:flex;flex-direction:column;gap:10px;min-width:0;}"
-  + "@media (min-width:769px){.vz-tides-wrap{max-width:1240px;margin-left:auto;margin-right:auto;}.vz-tides-body{display:grid;grid-template-columns:minmax(0,0.9fr) minmax(0,1.55fr) minmax(0,1fr);column-gap:18px;align-items:start;}.vz-tides-colmeta{gap:12px;}}";
+  + "@media (min-width:769px){.vz-tides-wrap{max-width:1240px;margin-left:auto;margin-right:auto;}.vz-tides-body{display:grid;grid-template-columns:minmax(0,0.92fr) minmax(0,1.55fr) minmax(0,1.02fr);column-gap:18px;align-items:stretch;}.vz-tides-colmeta{gap:14px;justify-content:space-between;background:#FFFFFF;border:0.5px solid rgba(11,26,38,0.13);border-radius:13px;padding:14px;}.vz-tides-colcurve{gap:8px;}.vz-tides-curvewrap{flex:1;justify-content:center;}.vz-tides-datechips{display:grid;grid-template-columns:1fr 1fr;gap:6px;}.vz-tides-datechip{text-align:center;justify-content:center;}.vz-tides-contextfooter{margin-top:auto;}}";
   (document.head || document.documentElement).appendChild(st);
 })();
 
@@ -11428,6 +11428,7 @@ var html = '<div class="vz-tides-wrap">';
       '<div class="vz-tides-coefbig" style="color:' + color + ';border-color:' + color + ';">' + coef + '</div>' +
       '<div class="vz-tides-coefinfo">' +
         '<div class="vz-tides-coeftitle">Coefficient</div>' +
+        '<div class="vz-tides-coeflevel" style="font-size:11px;font-weight:600;color:' + color + ';">' + (coef < 45 ? 'Calme' : (coef < 70 ? 'Moyen' : (coef < 95 ? 'Vif' : 'Fort'))) + '</div>' +
       '</div>' +
       '<div class="vz-tides-sun">' +
         '<div class="vz-tides-sun-row"><span class="vz-tides-sun-lbl">Lever</span><span class="vz-tides-sun-time">' + sunTimes.sunrise + '</span></div>' +
@@ -11440,6 +11441,7 @@ var html = '<div class="vz-tides-wrap">';
   html += renderTidesDateChips(selDate);
 
   html += '</div><div class="vz-tides-colcurve">';
+  html += '<div class="vz-tides-sectiontitle">Courbe du jour</div>';
 
   // --- Courbe pleine largeur (placee comme le mockup : entre les jours et la liste) ---
   html += renderTidesSheetCurve(dayPoints, dayExtremes, isToday, now, nextExtremeIdx);
