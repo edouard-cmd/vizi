@@ -1096,7 +1096,9 @@ S.map.on('click', function(e) {
   + ".vz-point-cta{display:inline-flex;align-items:center;gap:6px;background:#0F2438;color:#E6EEF4;border:1.5px solid #4DD4A8;border-radius:10px;padding:8px 13px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 6px 20px rgba(4,16,28,0.45);white-space:nowrap;line-height:1;}"
   + ".vz-point-cta:hover{filter:brightness(1.08);border-color:#6FE0BC;}"
   + "#zoomControls{--vz-bg-glass:rgba(10,21,32,0.78);--vz-bg-glass-strong:rgba(10,21,32,0.88);--vz-accent:#4DD4A8;--vz-accent-glow:rgba(77,212,168,0.15);--vz-text-on-dark:#D8E1EB;--vz-border-glass:rgba(255,255,255,0.1);}"
-  + "@media (min-width:769px){.vz-tides-wrap{max-width:760px;margin-left:auto;margin-right:auto;}}";
+  + ".vz-tides-body{display:flex;flex-direction:column;gap:10px;}"
+  + ".vz-tides-colcurve,.vz-tides-colinfo{display:flex;flex-direction:column;gap:10px;min-width:0;}"
+  + "@media (min-width:769px){.vz-tides-wrap{max-width:1100px;margin-left:auto;margin-right:auto;}.vz-tides-body{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);column-gap:18px;align-items:start;}}";
   (document.head || document.documentElement).appendChild(st);
 })();
 
@@ -11436,10 +11438,13 @@ var html = '<div class="vz-tides-wrap">';
 // --- Date chips ---
   html += renderTidesDateChips(selDate);
 
+  html += '<div class="vz-tides-body"><div class="vz-tides-colcurve">';
+
   // --- Courbe pleine largeur (placee comme le mockup : entre les jours et la liste) ---
   html += renderTidesSheetCurve(dayPoints, dayExtremes, isToday, now, nextExtremeIdx);
 
   // --- Section title ---
+  html += '</div><div class="vz-tides-colinfo">';
   html += '<div class="vz-tides-sectiontitle">Marées du jour</div>';
 
   // --- Tableau PM/BM factuel (heure locale lue sur l'horodatage, jour/nuit) ---
@@ -11470,7 +11475,8 @@ var html = '<div class="vz-tides-wrap">';
   // --- Footer contextuel : phase / courant approx / soleil ---
   html += renderTidesContextFooter(phase, coef, dayPoints, selDate);
 
-html += '</div>'; // fin .vz-tides-leftcol
+html += '</div></div>'; // fin .vz-tides-colinfo + .vz-tides-body
+  html += '</div>'; // fin .vz-tides-leftcol
   html += '</div>'; // fin .vz-tides-wrap
   body.innerHTML = html;
   if (typeof vzTidesAttachScrubber === 'function') vzTidesAttachScrubber();
