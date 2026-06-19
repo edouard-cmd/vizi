@@ -1206,9 +1206,9 @@ S.map.on('click', function(e) {
   + "@media (min-width:769px){#spotDrawer{display:none !important;}}"
   + ".vz-point-cta{display:inline-flex;align-items:center;gap:6px;background:#0F2438;color:#E6EEF4;border:1.5px solid #4DD4A8;border-radius:10px;padding:8px 13px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 6px 20px rgba(4,16,28,0.45);white-space:nowrap;line-height:1;}"
   + ".vz-point-cta:hover{filter:brightness(1.08);border-color:#6FE0BC;}"
-  + ".vz-point-cta-row{display:inline-flex;align-items:center;gap:6px;}"
-  + ".vz-point-cta-close{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;flex:0 0 auto;background:#0F2438;color:#E6EEF4;border:1.5px solid #4DD4A8;border-radius:8px;cursor:pointer;padding:0;box-shadow:0 6px 20px rgba(4,16,28,0.45);-webkit-tap-highlight-color:transparent;}"
-  + ".vz-point-cta-close:hover{filter:brightness(1.08);border-color:#6FE0BC;}"
+  + ".vz-point-cta-pos{position:relative;display:inline-flex;}"
+  + ".vz-point-cta-close{position:absolute;top:-9px;right:-9px;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#0F2438;color:#E6EEF4;border:1.5px solid #4DD4A8;border-radius:50%;cursor:pointer;padding:0;box-shadow:0 4px 12px rgba(4,16,28,0.5);-webkit-tap-highlight-color:transparent;z-index:2;}"
+  + ".vz-point-cta-close:hover{filter:brightness(1.12);border-color:#6FE0BC;}"
   + "#zoomControls{--vz-bg-glass:rgba(10,21,32,0.78);--vz-bg-glass-strong:rgba(10,21,32,0.88);--vz-accent:#4DD4A8;--vz-accent-glow:rgba(77,212,168,0.15);--vz-text-on-dark:#D8E1EB;--vz-border-glass:rgba(255,255,255,0.1);}"
   + ".vz-tides-body{display:flex;flex-direction:column;gap:10px;}"
   + ".vz-tides-colmeta,.vz-tides-colcurve,.vz-tides-colinfo{display:flex;flex-direction:column;gap:10px;min-width:0;}"
@@ -1245,16 +1245,16 @@ function vzDesktopPointSelect(latlng) {
   S._ptGen = (S._ptGen || 0) + 1;
   var _ptGen = S._ptGen;
   var _ptChevron = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
-  var _ptClose = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>';
+  var _ptClose = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>';
   var _ptRing = '<span class="vsm-spinner vsm-sm vsm-on-teal" role="status" aria-label="Calcul"><svg viewBox="0 0 48 48"><circle class="vsm-track" cx="24" cy="24" r="20" stroke-width="8"/><path class="vsm-arc" d="M 24 4 A 20 20 0 0 1 44 24" stroke-width="8"/></svg></span>';
   function _ptMakeIcon(inner) {
     return L.divIcon({
       className: 'vz-point-cta-wrap',
-      html: '<div class="vz-point-cta-row">'
+      html: '<div class="vz-point-cta-pos">'
           + '<button class="vz-point-cta">' + inner + '</button>'
           + '<button class="vz-point-cta-close" aria-label="Fermer">' + _ptClose + '</button>'
           + '</div>',
-      iconSize: [280, 34], iconAnchor: [140, 54]
+      iconSize: [300, 48], iconAnchor: [150, 60]
     });
   }
   if (S.clickLabel) S.map.removeLayer(S.clickLabel);
