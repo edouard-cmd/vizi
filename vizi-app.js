@@ -1080,6 +1080,8 @@ function initMap() {
   S.map.getPane('litto3dPane').style.zIndex = 250;
   S.map.createPane('vzSeaOverlayPane');
   S.map.getPane('vzSeaOverlayPane').style.zIndex = 350;
+  S.map.createPane('vzRainPane');
+  S.map.getPane('vzRainPane').style.zIndex = 360;
 
 S.basemapSat = L.layerGroup([
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
@@ -1294,6 +1296,93 @@ function vzDesktopPointSelect(latlng) {
 }
 
 
+// === Couche radar pluie (RainViewer) ===
+// API publique sans cle : https://www.rainviewer.com/api.html (attribution requise).
+// Frames passees (2h) + nowcast (+30 min). Animation par swap d'opacite (anti-flicker).
+var VZ_RAIN_API = 'https://api.rainviewer.com/public/weather-maps.json';
+var VZ_RAIN_TILECACHE = 'https://tilecache.rainviewer.com';
+var VZ_RAIN_OPACITY = 0.6;
+var VZ_RAIN_COLOR = 2;      // schema couleur "Universal Blue"
+var VZ_RAIN_ANIM_MS = 600;
+var VZ_RAIN_TTL = 10 * 60 * 1000;  // frames valides 10 min, sinon re-fetch
+
+function vzRainEnsureData() {
+  var fresh = S.rainFrames && S.rainFrames.length && (Date.now() - (S.rainFetchedAt || 0) < VZ_RAIN_TTL);
+  if (fresh) return Promise.resolve(S.rainFrames);
+  return fetch(VZ_RAIN_API).then(function(r){ return r.json(); }).then(function(d){
+    // purge des tuiles en cache si on re-fetch (les idx changent)
+    if (S.rainCache) Object.keys(S.rainCache).forEach(function(k){
+      if (S.map.hasLayer(S.rainCache[k])) S.map.removeLayer(S.rainCache[k]);
+    });
+    S.rainCache = {}; S.rainPos = null;
+    var past = (d.radar && d.radar.past) || [];
+    var now = (d.radar && d.radar.nowcast) || [];
+    S.rainHost = d.host || VZ_RAIN_TILECACHE;
+    S.rainNowIdx = Math.max(0, past.length - 1);   // derniere frame mesuree = "maintenant"
+    S.rainFrames = past.concat(now).map(function(f, i){
+      return { time: f.time, path: f.path, future: i > S.rainNowIdx };
+    });
+    S.rainFetchedAt = Date.now();
+    return S.rainFrames;
+  });
+}
+
+function vzRainLayerFor(idx) {
+  if (!S.rainCache) S.rainCache = {};
+  if (S.rainCache[idx]) return S.rainCache[idx];
+  var f = S.rainFrames[idx];
+  var url = S.rainHost + f.path + '/256/{z}/{x}/{y}/' + VZ_RAIN_COLOR + '/1_1.png';
+  var layer = L.tileLayer(url, { opacity: 0, maxZoom: 12, pane: 'vzRainPane', attribution: 'Radar RainViewer.com' });
+  layer.addTo(S.map);
+  S.rainCache[idx] = layer;
+  return layer;
+}
+
+function vzRainShowFrame(idx) {
+  if (!S.rainFrames || !S.rainFrames.length) return;
+  if (idx < 0) idx = S.rainFrames.length - 1;
+  if (idx >= S.rainFrames.length) idx = 0;
+  if (S.rainPos != null && S.rainCache && S.rainCache[S.rainPos]) S.rainCache[S.rainPos].setOpacity(0);
+  vzRainLayerFor(idx).setOpacity(VZ_RAIN_OPACITY);
+  S.rainPos = idx;
+  var f = S.rainFrames[idx];
+  var lbl = document.getElementById('vzRainTime');
+  if (lbl) {
+    var dt = new Date(f.time * 1000);
+    var hh = ('0' + dt.getHours()).slice(-2), mm = ('0' + dt.getMinutes()).slice(-2);
+    lbl.textContent = (f.future ? '+' : '') + hh + ':' + mm + (f.future ? ' prevu' : '');
+    lbl.classList.toggle('vz-rain-future', !!f.future);
+  }
+  var sl = document.getElementById('vzRainSlider');
+  if (sl) { sl.max = S.rainFrames.length - 1; if (+sl.value !== idx) sl.value = idx; }
+}
+
+function vzRainStop() {
+  if (S.rainTimer) { clearInterval(S.rainTimer); S.rainTimer = null; }
+  var b = document.getElementById('vzRainPlay');
+  if (b) b.classList.remove('playing');
+}
+
+function vzRainPlayStop() {
+  if (S.rainTimer) { vzRainStop(); return; }
+  var b = document.getElementById('vzRainPlay');
+  if (b) b.classList.add('playing');
+  S.rainTimer = setInterval(function(){
+    vzRainShowFrame((S.rainPos == null ? S.rainNowIdx : S.rainPos) + 1);
+  }, VZ_RAIN_ANIM_MS);
+}
+
+function vzRainOnSlider(val) { vzRainStop(); vzRainShowFrame(+val); }
+
+function vzRainClear() {
+  vzRainStop();
+  if (S.rainCache) Object.keys(S.rainCache).forEach(function(k){
+    if (S.map.hasLayer(S.rainCache[k])) S.map.removeLayer(S.rainCache[k]);
+  });
+  S.rainCache = {};
+  S.rainPos = null;
+}
+
 function toggleLayer(type) {
   if (type === 'heatmap') {
     S.showHeatmap = !S.showHeatmap;
@@ -1316,6 +1405,21 @@ function toggleLayer(type) {
     document.getElementById('sedLegend').style.display = S.showSed ? 'block' : 'none';
     if (S.showSed) { S.sedLayer.addTo(S.map); }
     else { if (S.map.hasLayer(S.sedLayer)) S.map.removeLayer(S.sedLayer); }
+  } else if (type === 'rain') {
+    S.showRain = !S.showRain;
+    var _rowRain = document.getElementById('vzRowRain');
+    if (_rowRain) _rowRain.classList.toggle('active', S.showRain);
+    var _panRain = document.getElementById('vzRainCtrl');
+    if (S.showRain) {
+      if (_panRain) _panRain.style.display = 'flex';
+      vzRainEnsureData().then(function(){
+        if (!S.showRain) return;   // re-toggle off pendant le fetch
+        vzRainShowFrame(S.rainPos != null ? S.rainPos : S.rainNowIdx);
+      }).catch(function(e){ console.warn('[rain] chargement RainViewer echoue', e); });
+    } else {
+      vzRainClear();
+      if (_panRain) _panRain.style.display = 'none';
+    }
   } else if (type === 'litto3d') {
     S.showLitto3d = !S.showLitto3d;
     var btnL = document.getElementById('btnLitto3d');
