@@ -1332,7 +1332,7 @@ function vzRainLayerFor(idx) {
   if (S.rainCache[idx]) return S.rainCache[idx];
   var f = S.rainFrames[idx];
   var url = S.rainHost + f.path + '/256/{z}/{x}/{y}/' + VZ_RAIN_COLOR + '/1_1.png';
-  var layer = L.tileLayer(url, { opacity: 0, maxZoom: 12, pane: 'vzRainPane', attribution: 'Radar RainViewer.com' });
+  var layer = L.tileLayer(url, { opacity: 0, maxZoom: 12, maxNativeZoom: 7, pane: 'vzRainPane', attribution: 'Radar RainViewer.com' });
   layer.addTo(S.map);
   S.rainCache[idx] = layer;
   return layer;
