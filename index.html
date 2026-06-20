@@ -5275,33 +5275,33 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
 #vzRainCtrl {
   position:absolute; bottom:22px; left:50%; transform:translateX(-50%);
   z-index:900; display:none; align-items:center; gap:10px;
-  background:var(--surface,#0F2438); border:1px solid var(--border,rgba(255,255,255,0.08));
-  border-radius:12px; padding:8px 14px; box-shadow:0 4px 20px rgba(0,0,0,0.35);
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:12px; padding:8px 14px; box-shadow:0 4px 20px rgba(0,0,0,0.08);
 }
 #vzRainPlay {
   flex:0 0 auto; width:28px; height:28px; border-radius:50%; padding:0;
-  border:1px solid #4DD4A8; background:transparent; color:#4DD4A8; cursor:pointer;
+  border:1px solid var(--accent,#2DA888); background:transparent; color:var(--accent,#2DA888); cursor:pointer;
   display:flex; align-items:center; justify-content:center;
 }
-#vzRainPlay:hover { background:rgba(77,212,168,0.12); }
+#vzRainPlay:hover { background:rgba(45,168,136,0.12); }
 #vzRainPlay .vz-rain-ico-pause { display:none; }
 #vzRainPlay.playing .vz-rain-ico-play { display:none; }
 #vzRainPlay.playing .vz-rain-ico-pause { display:block; }
 #vzRainSlider {
   -webkit-appearance:none; appearance:none; width:180px; height:4px;
-  border-radius:2px; background:rgba(255,255,255,0.18); outline:none; cursor:pointer;
+  border-radius:2px; background:var(--border); outline:none; cursor:pointer;
 }
 #vzRainSlider::-webkit-slider-thumb {
   -webkit-appearance:none; appearance:none; width:14px; height:14px;
-  border-radius:50%; background:#4DD4A8; cursor:pointer;
+  border-radius:50%; background:var(--accent,#2DA888); cursor:pointer;
 }
 #vzRainSlider::-moz-range-thumb {
-  width:14px; height:14px; border:none; border-radius:50%; background:#4DD4A8; cursor:pointer;
+  width:14px; height:14px; border:none; border-radius:50%; background:var(--accent,#2DA888); cursor:pointer;
 }
 #vzRainTime {
-  font-family:'IBM Plex Mono',monospace; font-size:12px; color:#cfe; min-width:64px; text-align:center;
+  font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-2); min-width:64px; text-align:center;
 }
-#vzRainTime.vz-rain-future { color:#4DD4A8; }
+#vzRainTime.vz-rain-future { color:var(--accent,#2DA888); }
 </style>
 
 <div id="forecastPanel">
