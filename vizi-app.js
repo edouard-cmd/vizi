@@ -1473,16 +1473,16 @@ function toggleLayer(type) {
     st.textContent =
       "body.vz-edit-mode::after{content:'';position:fixed;inset:0;border:3px solid #4DD4A8;pointer-events:none;z-index:1250;box-shadow:inset 0 0 22px rgba(77,212,168,0.28);}"
     + "body.vz-edit-mode .vz-logo-pill,body.vz-edit-mode .vz-tab-segmented,body.vz-edit-mode .vz-stack-side,body.vz-edit-mode #zoomControls,body.vz-edit-mode .vzm-aimbar,body.vz-edit-mode .vzm-xhair,body.vz-edit-mode #mobileAnalyzeBtn,body.vz-edit-mode #turbBadge,body.vz-edit-mode #sedLegend{display:none !important;}"
-    + "#vzEditTopbar{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:1350;display:none;align-items:center;gap:14px;padding:9px 9px 9px 18px;background:rgba(10,21,32,0.92);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(77,212,168,0.42);border-radius:14px;box-shadow:0 8px 28px rgba(4,16,28,0.45);font-family:'Inter',sans-serif;}"
+    + "#vzEditTopbar{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:1350;display:none;align-items:center;gap:14px;max-width:calc(100vw - 24px);padding:9px 9px 9px 18px;background:rgba(10,21,32,0.92);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(77,212,168,0.42);border-radius:14px;box-shadow:0 8px 28px rgba(4,16,28,0.45);font-family:'Inter',sans-serif;}"
     + "body.vz-edit-mode #vzEditTopbar{display:flex;}"
-    + "#vzEditTopbar .vz-edit-title{color:#E8F0F4;font-size:14px;font-weight:600;white-space:nowrap;}"
+    + "#vzEditTopbar .vz-edit-title{color:#E8F0F4;font-size:13px;font-weight:600;line-height:1.3;}"
     + "#vzEditTopbar .vz-edit-done{border:0;cursor:pointer;background:#4DD4A8;color:#072018;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;padding:8px 16px;border-radius:10px;}";
     (document.head || document.documentElement).appendChild(st);
   }
   if (!document.getElementById('vzEditTopbar')) {
     var bar = document.createElement('div');
     bar.id = 'vzEditTopbar';
-    bar.innerHTML = '<span class="vz-edit-title">Repérage</span>'
+    bar.innerHTML = '<span class="vz-edit-title">Place des repères sur la carte et exporte vers ton GPS.</span>'
       + '<button class="vz-edit-done" onclick="toggleLayer(\'spots\')">Terminer</button>';
     document.body.appendChild(bar);
   }
