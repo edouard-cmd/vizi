@@ -1073,6 +1073,8 @@ function vzInitSeaMask() {
 }
 function initMap() {
   S.map = L.map('map', { center:[49.333, -0.424], zoom:9, zoomControl:false });
+  // Vue d'accueil : cadrage responsive Bretagne -> Manche -> Normandie (s'adapte au mobile)
+  S.map.fitBounds([[47.5, -5.5], [51.2, 2.2]]);
   // Panes dedies. Litto3D dans son propre pane = un seul element a masquer
   // (le clip-path partage cassait l'affichage sous Safari iOS). Isobathes et
   // sediment au-dessus de Litto3D.
@@ -10154,7 +10156,7 @@ function geolocateUser(userInitiated) {
   navigator.geolocation.getCurrentPosition(
     function(position) {
       if (btn) btn.classList.remove('locating');
-      handleUserPosition(position.coords.latitude, position.coords.longitude, 'gps');
+      handleUserPosition(position.coords.latitude, position.coords.longitude, 'gps', userInitiated);
     },
     function(err) {
       if (btn) btn.classList.remove('locating');
@@ -10170,7 +10172,7 @@ function fallbackToIPGeolocation(userInitiated) {
     return r.json();
   }).then(function(data) {
     if (data && data.latitude && data.longitude) {
-      handleUserPosition(data.latitude, data.longitude, 'ip');
+      handleUserPosition(data.latitude, data.longitude, 'ip', userInitiated);
     } else if (userInitiated) {
       showGeolocError();
     }
@@ -10187,7 +10189,7 @@ function showGeolocError() {
   setTimeout(function() { toast.classList.remove('show'); }, 4000);
 }
 
-function handleUserPosition(lat, lon, source) {
+function handleUserPosition(lat, lon, source, recenter) {
   GEO_STATE.userLatLng = { lat: lat, lon: lon };
 
   if (GEO_STATE.userMarker) S.map.removeLayer(GEO_STATE.userMarker);
@@ -10197,6 +10199,9 @@ function handleUserPosition(lat, lon, source) {
     iconSize: [24, 24], iconAnchor: [12, 12]
   });
   GEO_STATE.userMarker = L.marker([lat, lon], { icon: posIcon, interactive: false, zIndexOffset: 500 }).addTo(S.map);
+
+  // Au demarrage (geoloc auto), on garde la vue d'accueil large : pas de recentrage.
+  if (!recenter) return;
 
   var nearest = findNearestPort(lat, lon);
   if (!nearest) {
