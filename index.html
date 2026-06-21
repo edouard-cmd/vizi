@@ -5134,12 +5134,12 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
     </svg>
     Marée
   </button>
-  <button class="vz-tab-btn" id="vzTabWebcams" onclick="toggleWebcams()">
+  <button class="vz-tab-btn" id="vzBtnSpots" onclick="toggleLayer('spots')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <polygon points="23 7 16 12 23 17 23 7"/>
-      <rect x="1" y="5" width="15" height="14" rx="2"/>
+      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+      <line x1="4" y1="22" x2="4" y2="15"></line>
     </svg>
-    Webcams
+    Points
   </button>
 </div>
 <div id="zoomControls">
@@ -5156,10 +5156,10 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
   </button>
 </div>
   <div class="vz-stack-side">
-    <button class="vz-side-btn" id="vzBtnSpots" onclick="toggleLayer('spots')" title="Placer les points">
+    <button class="vz-side-btn" id="vzTabWebcams" onclick="toggleWebcams()" title="Webcams">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
-      <line x1="4" y1="22" x2="4" y2="15"></line>
+      <polygon points="23 7 16 12 23 17 23 7"/>
+      <rect x="1" y="5" width="15" height="14" rx="2"/>
     </svg>
   </button>
   <button class="vz-side-btn" id="vzBtnLayers" onclick="toggleLayersPopover(event)" title="Couches">
