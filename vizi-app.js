@@ -1512,8 +1512,10 @@ function vzRenderHuntBar() {
   if (cnt) cnt.textContent = n + (n > 1 ? ' points' : ' point');
   var hint = document.getElementById('vzHuntHint');
   if (hint) hint.style.display = (n === 0) ? 'block' : 'none';
+  var exp = document.getElementById('vzHuntExport');
+  if (exp) exp.style.display = (n === 0) ? 'none' : 'block';
   var form = document.getElementById('vzHuntForm');
-  if (form) form.style.display = (n === 0) ? 'none' : 'block';
+  if (form && n === 0) form.style.display = 'none';
   var list = document.getElementById('vzHuntList');
   if (list) {
     list.innerHTML = S.huntPoints.map(function(p, i) {
