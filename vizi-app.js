@@ -1482,7 +1482,7 @@ function toggleLayer(type) {
   if (!document.getElementById('vzEditTopbar')) {
     var bar = document.createElement('div');
     bar.id = 'vzEditTopbar';
-    bar.innerHTML = '<span class="vz-edit-title">Placer les points</span>'
+    bar.innerHTML = '<span class="vz-edit-title">Repérage</span>'
       + '<button class="vz-edit-done" onclick="toggleLayer(\'spots\')">Terminer</button>';
     document.body.appendChild(bar);
   }
