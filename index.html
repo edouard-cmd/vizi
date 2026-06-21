@@ -5236,11 +5236,15 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
   </div>
 <div class="vz-hunt-hint" id="vzHuntHint">Tape sur une structure du relief pour ajouter un point.</div>
   <div id="vzHuntList"></div>
+  <div id="vzHuntExport" style="display:none">
+    <button class="vz-hunt-get" onclick="downloadHuntGPX()">Exporter</button>
+    <div class="vz-hunt-format">Compatible GPS Garmin, Lowrance, Raymarine (.gpx)</div>
+    <button class="vz-hunt-clear" onclick="vzOpenHuntCapture()" style="display:block; width:100%; text-align:center; margin-top:8px;">Recevoir aussi par email</button>
+  </div>
   <div id="vzHuntForm" style="display:none">
     <input type="email" id="vzHuntEmail" class="vz-hunt-input" placeholder="ton@email.fr" autocomplete="email">
     <label class="vz-hunt-consent"><input type="checkbox" id="vzHuntConsent"> J'accepte de recevoir mes points et des nouvelles de Visimer.</label>
-    <button class="vz-hunt-send" onclick="vzSubmitHunt()">Télécharger mes points</button>
-    <div class="vz-hunt-format">Compatible GPS Garmin, Lowrance, Raymarine (.gpx)</div>
+    <button class="vz-hunt-send" onclick="vzSubmitHunt()">Recevoir par email</button>
     <div id="vzHuntMsg" class="vz-hunt-msg"></div>
   </div>
 </div>
