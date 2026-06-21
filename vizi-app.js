@@ -12019,7 +12019,7 @@ window.closeSheetCompletely = function() {
   sheet.style.display = 'none';
   // Reset des états de tab
   if (typeof VZ_SHEET !== 'undefined') VZ_SHEET.mode = null;
-  ['vzTabCond', 'vzTabTides', 'vzTabWebcams'].forEach(function(id) {
+  ['vzTabCond', 'vzTabTides'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.classList.remove('active');
   });
