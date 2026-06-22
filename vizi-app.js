@@ -11463,11 +11463,15 @@ function vzFbBarHtml(lat, lon, pred, date, dateLabel, snap) {
   var p = (typeof pred === 'number' && isFinite(pred)) ? pred : '';
   snap = snap || {};
   function _a(v) { return (v === null || v === undefined) ? '' : String(v).replace(/"/g, ''); }
+  // Desktop : la barre s'etire en pleine largeur, donc space-between rejette les
+  // pouces a l'autre bout. On colle question + pouces a gauche (flex-start).
+  // Mobile : barre etroite, space-between rend bien -> on le garde.
+  var _jc = (typeof isMobile === 'function' && isMobile()) ? 'space-between' : 'flex-start';
   return '<div class="vz-fb-bar" data-lat="' + lat + '" data-lon="' + lon + '" data-pred="' + p + '" data-date="' + date
     + '" data-coef="' + _a(snap.coef) + '" data-depth="' + _a(snap.depth) + '" data-sediment="' + _a(snap.sediment)
     + '" data-wind="' + _a(snap.wind) + '" data-winddir="' + _a(snap.winddir) + '" data-wave="' + _a(snap.wave)
     + '" data-waveperiod="' + _a(snap.waveperiod) + '" data-satzsd="' + _a(snap.satzsd) + '" data-satage="' + _a(snap.satage)
-    + '" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;margin-bottom:10px;background:#F6F9FB;border:0.5px solid rgba(11,26,38,0.10);border-radius:10px;">'
+    + '" style="display:flex;align-items:center;justify-content:' + _jc + ';gap:14px;padding:10px 14px;margin-bottom:10px;background:#F6F9FB;border:0.5px solid rgba(11,26,38,0.10);border-radius:10px;">'
     + vzFbBarInner(already, dateLabel)
     + '</div>';
 }
