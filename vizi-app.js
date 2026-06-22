@@ -11372,7 +11372,7 @@ function vzFbBarInner(thanks) {
       + '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'
       + 'Merci pour ton retour</span>';
   }
-  return '<span style="font-size:13px;font-weight:500;color:#22323E;line-height:1.3;">On avait vu juste pour ta sortie ?</span>'
+  return '<span style="font-size:13px;font-weight:500;color:#22323E;line-height:1.3;">Dans l\'eau, on avait vu juste ?</span>'
     + '<span style="display:flex;gap:8px;flex-shrink:0;">'
     + '<button type="button" onclick="vzFbUp(this)" aria-label="Oui, la visibilite annoncee etait juste" style="display:flex;align-items:center;justify-content:center;width:40px;height:34px;border:1px solid #2DA888;background:#E9F4EF;color:#0F6E56;border-radius:8px;cursor:pointer;padding:0;">' + VZ_FB_THUMB_UP + '</button>'
     + '<button type="button" onclick="vzFbDown(this)" aria-label="Non, corriger la visibilite" style="display:flex;align-items:center;justify-content:center;width:40px;height:34px;border:1px solid #E3A9A2;background:#FBEEEC;color:#8F2D22;border-radius:8px;cursor:pointer;padding:0;">' + VZ_FB_THUMB_DOWN + '</button>'
