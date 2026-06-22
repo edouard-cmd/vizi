@@ -11112,7 +11112,18 @@ function visLabel(score) {
     var d = new Date();
     return d.getDate() + ' ' + moisFb[d.getMonth()];
   })();
-  html += vzFbBarHtml(spot.lat, spot.lng, _fbPred, _fbToday, _fbDateLabel);
+  // Conditions au creneau courant (commit collecte enrichie) : vent + houle
+  // captures ICI ou h et nowIdx existent, transmis a la barre par data-attributs,
+  // pour que le 3b compare les conditions du retour a celles de l'instant present.
+  // h.windspeed_10m est en km/h (cf API Open-Meteo), on stocke tel quel.
+  var _fbWind = '', _fbWindDir = '', _fbWave = '';
+  if (nowIdx >= 0 && slots[nowIdx] && h) {
+    var _ci = slots[nowIdx].i;
+    if (h.windspeed_10m && typeof h.windspeed_10m[_ci] === 'number') _fbWind = Math.round(h.windspeed_10m[_ci]);
+    if (h.winddirection_10m && typeof h.winddirection_10m[_ci] === 'number') _fbWindDir = Math.round(h.winddirection_10m[_ci]);
+    if (h.wave_height && typeof h.wave_height[_ci] === 'number') _fbWave = Math.round(h.wave_height[_ci] * 100) / 100;
+  }
+  html += vzFbBarHtml(spot.lat, spot.lng, _fbPred, _fbToday, _fbDateLabel, _fbWind, _fbWindDir, _fbWave);
 
 html += '<div style="overflow-x:auto;">';
   html += '<table class="vz-cond-table">';
@@ -11439,11 +11450,14 @@ function vzFbBarInner(thanks, dateLabel) {
     + '</span>';
 }
 
-function vzFbBarHtml(lat, lon, pred, date, dateLabel) {
+function vzFbBarHtml(lat, lon, pred, date, dateLabel, wind, windDir, wave) {
   var already = false;
   try { already = !!localStorage.getItem(vzFbKey(lat, lon, date)); } catch (e) {}
   var p = (typeof pred === 'number' && isFinite(pred)) ? pred : '';
-  return '<div class="vz-fb-bar" data-lat="' + lat + '" data-lon="' + lon + '" data-pred="' + p + '" data-date="' + date + '" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;margin-bottom:10px;background:#F6F9FB;border:0.5px solid rgba(11,26,38,0.10);border-radius:10px;">'
+  var w = (typeof wind === 'number' && isFinite(wind)) ? wind : '';
+  var wd = (typeof windDir === 'number' && isFinite(windDir)) ? windDir : '';
+  var wv = (typeof wave === 'number' && isFinite(wave)) ? wave : '';
+  return '<div class="vz-fb-bar" data-lat="' + lat + '" data-lon="' + lon + '" data-pred="' + p + '" data-date="' + date + '" data-wind="' + w + '" data-winddir="' + wd + '" data-wave="' + wv + '" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;margin-bottom:10px;background:#F6F9FB;border:0.5px solid rgba(11,26,38,0.10);border-radius:10px;">'
     + vzFbBarInner(already, dateLabel)
     + '</div>';
 }
@@ -11530,6 +11544,17 @@ function vzFbOpenPopup(c) {
 }
 
 function vzFbSubmit(lat, lon, date, pred, real, kind, cornerEl) {
+  // Conditions du creneau courant, lues sur la barre AVANT de reecrire son
+  // contenu (les data-attributs vivent sur la div, innerHTML ne les touche pas).
+  var wind = '', windDir = '', wave = '';
+  if (cornerEl) {
+    var rw = cornerEl.getAttribute('data-wind');
+    var rwd = cornerEl.getAttribute('data-winddir');
+    var rwv = cornerEl.getAttribute('data-wave');
+    if (rw !== null && rw !== '') wind = rw;
+    if (rwd !== null && rwd !== '') windDir = rwd;
+    if (rwv !== null && rwv !== '') wave = rwv;
+  }
   // Marque localement pour eviter les doublons du jour sur le meme spot
   // (anti-spam calibration). On marque AVANT l'envoi : meme si le reseau
   // echoue, on ne re-sollicite pas le chasseur, ca l'agacerait.
@@ -11547,9 +11572,12 @@ function vzFbSubmit(lat, lon, date, pred, real, kind, cornerEl) {
     predicted_m: (typeof pred === 'number' && isFinite(pred)) ? pred : '',
     real_m: (typeof real === 'number' && isFinite(real)) ? real : '',
     kind: kind,
+    wind: wind,
+    winddir: windDir,
+    wave: wave,
     ts: Date.now()
   }).then(function () {
-    // Collecte seule au commit 1 : rien a recalculer cote app.
+    // Collecte seule : rien a recalculer cote app a cet instant.
   });
 }
 
