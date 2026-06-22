@@ -11038,7 +11038,25 @@ html += '<div style="overflow-x:auto;">';
   html += '<table class="vz-cond-table">';
 
   // Header jours
-  html += '<tr><th class="vz-cond-cornerlabel"></th>';
+  // --- Retour communautaire (commit 1 : collecte seule, n'influence pas encore le score) ---
+  // Visi annoncee du jour = ce que l'app affiche : satellite frais <=72h, sinon moteur au creneau courant.
+  var _fbSat = data.satellite;
+  var _fbPred = null;
+  if (_fbSat && typeof _fbSat.visi_plongeur_m === 'number' && isFinite(_fbSat.visi_plongeur_m) && _fbSat.visi_plongeur_m > 0 &&
+      (typeof _fbSat.age_hours !== 'number' || _fbSat.age_hours <= 72)) {
+    _fbPred = Math.round(_fbSat.visi_plongeur_m * 10) / 10;
+  } else if (nowIdx >= 0 && slots[nowIdx]) {
+    var _fbObj = computeVisibilityScore_V4(h, slots[nowIdx].i, depth, spot.lat, spot.lng);
+    if (_fbObj && typeof _fbObj.visi_m === 'number' && isFinite(_fbObj.visi_m) && _fbObj.visi_m > 0) {
+      _fbPred = Math.round(_fbObj.visi_m * 10) / 10;
+    }
+  }
+  var _fbToday = (function () {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  })();
+
+  html += '<tr><th class="vz-cond-cornerlabel">' + vzFbCornerHtml(spot.lat, spot.lng, _fbPred, _fbToday) + '</th>';
   dayGroups.forEach(function(g, gIdx) {
     var cls = 'vz-cond-dayhead' + (gIdx > 0 ? ' vz-cond-dayboundary' : '');
     var cd = g.date;
@@ -11327,6 +11345,128 @@ window.vzSheetCellClick = function(timeStr) {
     }, 200);
   }
 };
+
+// ============================================================
+// RETOUR COMMUNAUTAIRE VISIBILITE — commit 1 : COLLECTE SEULE
+// ------------------------------------------------------------
+// Le retour part vers GAS (action 'submit_feedback') mais n'influence
+// PAS encore le score affiche : le wrapper de biais arrivera au commit 3.
+// Place dans le coin haut-gauche du tableau Conditions (cellule
+// vz-cond-cornerlabel). Porte sur aujourd'hui : le tableau demarre au
+// jour courant (forecast past_days=0), le coin est unique au tableau.
+// Flux strictement distinct de submit_observation (marqueurs sociaux).
+// ============================================================
+var VZ_FB_THUMB_UP = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10v11"/><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z"/></svg>';
+var VZ_FB_THUMB_DOWN = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M17 14V3"/><path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z"/></svg>';
+
+function vzFbKey(lat, lon, date) {
+  return 'vizi_fb_' + date + '_' + Number(lat).toFixed(4) + '_' + Number(lon).toFixed(4);
+}
+
+function vzFbThanksHtml() {
+  return '<div style="font-size:10px;line-height:1.3;color:#2DA888;font-weight:500;text-align:left;padding:2px;">Merci pour<br>ton retour</div>';
+}
+
+function vzFbCornerHtml(lat, lon, pred, date) {
+  var already = false;
+  try { already = !!localStorage.getItem(vzFbKey(lat, lon, date)); } catch (e) {}
+  if (already) return vzFbThanksHtml();
+  var p = (typeof pred === 'number' && isFinite(pred)) ? pred : '';
+  return '<div class="vz-fb-corner" data-lat="' + lat + '" data-lon="' + lon + '" data-pred="' + p + '" data-date="' + date + '" style="text-align:left;padding:1px;">'
+    + '<div style="font-size:10px;line-height:1.25;color:#51677A;font-weight:500;margin-bottom:5px;">On avait vu juste pour ta sortie ?</div>'
+    + '<div style="display:flex;gap:5px;">'
+    + '<button type="button" onclick="vzFbUp(this)" aria-label="Oui, la visibilite annoncee etait juste" style="display:flex;align-items:center;justify-content:center;width:36px;height:32px;border:1px solid #2DA888;background:#E9F4EF;color:#0F6E56;border-radius:8px;cursor:pointer;padding:0;">' + VZ_FB_THUMB_UP + '</button>'
+    + '<button type="button" onclick="vzFbDown(this)" aria-label="Non, corriger la visibilite" style="display:flex;align-items:center;justify-content:center;width:36px;height:32px;border:1px solid #E3A9A2;background:#FBEEEC;color:#8F2D22;border-radius:8px;cursor:pointer;padding:0;">' + VZ_FB_THUMB_DOWN + '</button>'
+    + '</div></div>';
+}
+
+function vzFbResolveCorner(btn) {
+  var el = btn;
+  while (el && !(el.className && String(el.className).indexOf('vz-fb-corner') >= 0)) el = el.parentNode;
+  return el;
+}
+
+window.vzFbUp = function (btn) {
+  var c = vzFbResolveCorner(btn);
+  if (!c) return;
+  var lat = parseFloat(c.getAttribute('data-lat'));
+  var lon = parseFloat(c.getAttribute('data-lon'));
+  var date = c.getAttribute('data-date');
+  var predRaw = c.getAttribute('data-pred');
+  var pred = (predRaw === '' || predRaw === null) ? null : parseFloat(predRaw);
+  // Pouce haut = la prevision a tenu = biais zero. On enregistre real = pred.
+  vzFbSubmit(lat, lon, date, pred, pred, 'confirm', c);
+};
+
+window.vzFbDown = function (btn) {
+  var c = vzFbResolveCorner(btn);
+  if (c) vzFbOpenPopup(c);
+};
+
+function vzFbColorFor(v) {
+  if (v < 1.5) return '#C94A3D';
+  if (v < 2.5) return '#E89B3C';
+  if (v < 5) return '#6BBF99';
+  return '#4DD4A8';
+}
+
+function vzFbOpenPopup(c) {
+  if (document.getElementById('vzFbOverlay')) return;
+  var lat = parseFloat(c.getAttribute('data-lat'));
+  var lon = parseFloat(c.getAttribute('data-lon'));
+  var date = c.getAttribute('data-date');
+  var predRaw = c.getAttribute('data-pred');
+  var pred = (predRaw === '' || predRaw === null) ? null : parseFloat(predRaw);
+  var val = (typeof pred === 'number' && isFinite(pred)) ? pred : 3;
+
+  var ov = document.createElement('div');
+  ov.id = 'vzFbOverlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(11,26,38,0.42);display:flex;align-items:center;justify-content:center;padding:18px;';
+  ov.innerHTML = '<div style="background:#FFFFFF;border-radius:14px;padding:18px;width:100%;max-width:320px;box-shadow:0 14px 34px rgba(11,26,38,0.3);font-family:Inter,-apple-system,system-ui,sans-serif;">'
+    + '<div style="font-size:17px;font-weight:600;color:#22323E;text-align:center;line-height:1.35;margin-bottom:16px;">Quelle visibilite as-tu eue ?</div>'
+    + '<div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:18px;">'
+    + '<button type="button" id="vzFbMinus" aria-label="moins" style="width:48px;height:48px;border-radius:50%;border:1px solid rgba(11,26,38,0.12);background:#F6F9FB;font-size:26px;color:#22323E;cursor:pointer;line-height:1;">-</button>'
+    + '<div id="vzFbVal" style="min-width:108px;text-align:center;font-size:32px;font-weight:600;font-family:IBM Plex Mono,monospace;color:' + vzFbColorFor(val) + ';">' + val.toFixed(1) + ' m</div>'
+    + '<button type="button" id="vzFbPlus" aria-label="plus" style="width:48px;height:48px;border-radius:50%;border:1px solid rgba(11,26,38,0.12);background:#F6F9FB;font-size:26px;color:#22323E;cursor:pointer;line-height:1;">+</button>'
+    + '</div>'
+    + '<button type="button" id="vzFbValidate" style="width:100%;height:50px;border:0;background:#2DA888;color:#04342C;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:8px;">Valider mon retour</button>'
+    + '<button type="button" id="vzFbCancel" style="width:100%;height:40px;border:0;background:transparent;color:#51677A;font-size:14px;cursor:pointer;font-family:inherit;">Annuler</button>'
+    + '</div>';
+  document.body.appendChild(ov);
+
+  var valEl = ov.querySelector('#vzFbVal');
+  function show() { valEl.textContent = val.toFixed(1) + ' m'; valEl.style.color = vzFbColorFor(val); }
+  function close() { if (ov.parentNode) ov.parentNode.removeChild(ov); }
+  ov.querySelector('#vzFbMinus').onclick = function () { val = Math.max(0, Math.round((val - 0.5) * 10) / 10); show(); };
+  ov.querySelector('#vzFbPlus').onclick = function () { val = Math.min(15, Math.round((val + 0.5) * 10) / 10); show(); };
+  ov.querySelector('#vzFbCancel').onclick = close;
+  ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
+  ov.querySelector('#vzFbValidate').onclick = function () {
+    close();
+    vzFbSubmit(lat, lon, date, pred, val, 'correct', c);
+  };
+}
+
+function vzFbSubmit(lat, lon, date, pred, real, kind, cornerEl) {
+  // Marque localement pour eviter les doublons du jour sur le meme spot
+  // (anti-spam calibration). On marque AVANT l'envoi : meme si le reseau
+  // echoue, on ne re-sollicite pas le chasseur, ca l'agacerait.
+  try { localStorage.setItem(vzFbKey(lat, lon, date), '1'); } catch (e) {}
+  if (cornerEl && cornerEl.parentNode) cornerEl.outerHTML = vzFbThanksHtml();
+  // gasGet().then() : handler de bouton classique, hors .on() Leaflet -> pas d'async/await.
+  // gasGet ne rejette jamais (resout a null si reseau ko), donc pas de .catch.
+  gasGet('submit_feedback', {
+    lat: lat,
+    lon: lon,
+    date: date,
+    predicted_m: (typeof pred === 'number' && isFinite(pred)) ? pred : '',
+    real_m: (typeof real === 'number' && isFinite(real)) ? real : '',
+    kind: kind,
+    ts: Date.now()
+  }).then(function () {
+    // Collecte seule au commit 1 : rien a recalculer cote app.
+  });
+}
 
 function formatSheetDayLabel(date) {
   var jours = ['DIM.', 'LUN.', 'MAR.', 'MER.', 'JEU.', 'VEN.', 'SAM.'];
