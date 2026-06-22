@@ -760,6 +760,7 @@ var S_gridUpdatedAt = null;
 var S_spotWeatherCache = null;
 var S_spotSatelliteCache = null;   // Sprint 2 : { lat, lon, data: {...} } ou null
 var S_spotCoriolisCache = null;  // Sprint 3 — mesure terrain Coriolis Côtier IFREMER
+var S_spotFeedbackCache = null;  // Commit 3 — retours communautaires 1km/72h { lat, lon, data } ou null
 var S_spotMarineCache = null;
 var S_spotSunCache = null;
 var S_hexLayer = null;
@@ -2180,6 +2181,7 @@ function openSpotPopup(latlng, name) {
     invalidateChainCache();
   invalidateCmemsCache();
   S_spotSatelliteCache = null;
+  S_spotFeedbackCache = null;
   }
   
   // ----- Setup spot context -----
@@ -2342,6 +2344,29 @@ function openSpotPopup(latlng, name) {
     if (typeof _chainCache !== 'undefined') _chainCache = {};
     // Re-render du drawer avec la donnée Coriolis disponible
     if (typeof renderSpotPopup === 'function') renderSpotPopup();
+  });
+
+  // ============================================================
+  // COMMIT 3a — FETCH RETOURS COMMUNAUTAIRES (parallele, non-bloquant)
+  // ------------------------------------------------------------
+  // Calque sur le fetch Coriolis. Alimente S_spotFeedbackCache si des
+  // retours existent dans 1 km / 72h. Le score ne bouge PAS encore au
+  // 3a (le wrapper viendra au 3b) ; ici on valide juste que le cache
+  // se remplit. Aucun affichage force si pas de retour proche.
+  // ============================================================
+  fetchVisiFeedback(latlng.lat, latlng.lng).then(function(fbData) {
+    if (!_isGenValid()) return;  // clic obsolete, on ignore silencieusement
+    if (!fbData) {
+      S_spotFeedbackCache = null;
+      console.log('[VIZI] feedback: aucun retour dans 1km/72h');
+      return;
+    }
+    S_spotFeedbackCache = {
+      lat: latlng.lat,
+      lon: latlng.lng,
+      data: fbData
+    };
+    console.log('[VIZI] feedback cache rempli:', fbData.count, 'retour(s)', fbData);
   });
   
   // ============================================================
@@ -2627,6 +2652,35 @@ function findNearestCoriolisBuoy(lat, lon) {
 
 // Fetch turbidité Coriolis pour un point (lat, lon)
 // Sélectionne automatiquement la bouée proche dans CORIOLIS_BUOYS
+// ============================================================
+// COMMIT 3a — LECTURE RETOURS COMMUNAUTAIRES (assimilation locale)
+// ------------------------------------------------------------
+// Recupere les retours de visibilite stockes dans 1 km et < 72h
+// autour du point (filtre rayon + age cote GAS). Plomberie de
+// lecture seule : alimente S_spotFeedbackCache ; le wrapper du
+// moteur (3b) appliquera le biais. Pattern calque sur
+// fetchCoriolisTurbidity (Promise, jamais async dans un handler
+// Leaflet -> contrainte carte noire).
+// ============================================================
+function fetchVisiFeedback(lat, lon) {
+  var url = GAS_URL + '?action=get_visi_feedback'
+    + '&lat=' + lat
+    + '&lon=' + lon;
+  return fetch(url)
+    .then(function(r) {
+      if (!r.ok) throw new Error('feedback HTTP ' + r.status);
+      return r.json();
+    })
+    .then(function(data) {
+      if (!data || !data.feedbacks || data.feedbacks.length === 0) return null;
+      return data;
+    })
+    .catch(function(err) {
+      console.warn('[VIZI] feedback fetch error:', err);
+      return null;
+    });
+}
+
 function fetchCoriolisTurbidity(lat, lon) {
   var match = findNearestCoriolisBuoy(lat, lon);
   if (!match) return Promise.resolve(null); // pas de bouée dans le rayon
