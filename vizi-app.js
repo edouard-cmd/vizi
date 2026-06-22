@@ -11112,18 +11112,25 @@ function visLabel(score) {
     var d = new Date();
     return d.getDate() + ' ' + moisFb[d.getMonth()];
   })();
-  // Conditions au creneau courant (commit collecte enrichie) : vent + houle
-  // captures ICI ou h et nowIdx existent, transmis a la barre par data-attributs,
-  // pour que le 3b compare les conditions du retour a celles de l'instant present.
-  // h.windspeed_10m est en km/h (cf API Open-Meteo), on stocke tel quel.
-  var _fbWind = '', _fbWindDir = '', _fbWave = '';
+  // Photo complete de l'instant T (collecte) : tous les parametres que l'app
+  // connait au moment du vote, captures ICI ou ils sont tous accessibles. On
+  // ne calcule PAS le biais maintenant ; on archive la photo dans le sheet, et
+  // la formule de biais sera calee plus tard sur les donnees accumulees.
+  // h.windspeed_10m / h.wave_height sont en km/h et m (API Open-Meteo).
+  var _fbSnap = { coef: '', depth: '', sediment: '', wind: '', winddir: '', wave: '', waveperiod: '', satzsd: '', satage: '' };
+  if (typeof depth === 'number' && isFinite(depth)) _fbSnap.depth = Math.round(depth * 10) / 10;
+  try { var _cf = getCoefForDate(_fbToday); if (typeof _cf === 'number' && isFinite(_cf)) _fbSnap.coef = _cf; } catch (e) {}
+  if (typeof S !== 'undefined' && S._spotSediment && S._spotSediment.name) _fbSnap.sediment = String(S._spotSediment.name);
   if (nowIdx >= 0 && slots[nowIdx] && h) {
     var _ci = slots[nowIdx].i;
-    if (h.windspeed_10m && typeof h.windspeed_10m[_ci] === 'number') _fbWind = Math.round(h.windspeed_10m[_ci]);
-    if (h.winddirection_10m && typeof h.winddirection_10m[_ci] === 'number') _fbWindDir = Math.round(h.winddirection_10m[_ci]);
-    if (h.wave_height && typeof h.wave_height[_ci] === 'number') _fbWave = Math.round(h.wave_height[_ci] * 100) / 100;
+    if (h.windspeed_10m && typeof h.windspeed_10m[_ci] === 'number') _fbSnap.wind = Math.round(h.windspeed_10m[_ci]);
+    if (h.winddirection_10m && typeof h.winddirection_10m[_ci] === 'number') _fbSnap.winddir = Math.round(h.winddirection_10m[_ci]);
+    if (h.wave_height && typeof h.wave_height[_ci] === 'number') _fbSnap.wave = Math.round(h.wave_height[_ci] * 100) / 100;
+    if (h.wave_period && typeof h.wave_period[_ci] === 'number') _fbSnap.waveperiod = Math.round(h.wave_period[_ci] * 10) / 10;
   }
-  html += vzFbBarHtml(spot.lat, spot.lng, _fbPred, _fbToday, _fbDateLabel, _fbWind, _fbWindDir, _fbWave);
+  if (_fbSat && typeof _fbSat.value_zsd_m === 'number' && isFinite(_fbSat.value_zsd_m)) _fbSnap.satzsd = Math.round(_fbSat.value_zsd_m * 100) / 100;
+  if (_fbSat && typeof _fbSat.age_hours === 'number' && isFinite(_fbSat.age_hours)) _fbSnap.satage = Math.round(_fbSat.age_hours * 10) / 10;
+  html += vzFbBarHtml(spot.lat, spot.lng, _fbPred, _fbToday, _fbDateLabel, _fbSnap);
 
 html += '<div style="overflow-x:auto;">';
   html += '<table class="vz-cond-table">';
@@ -11450,14 +11457,17 @@ function vzFbBarInner(thanks, dateLabel) {
     + '</span>';
 }
 
-function vzFbBarHtml(lat, lon, pred, date, dateLabel, wind, windDir, wave) {
+function vzFbBarHtml(lat, lon, pred, date, dateLabel, snap) {
   var already = false;
   try { already = !!localStorage.getItem(vzFbKey(lat, lon, date)); } catch (e) {}
   var p = (typeof pred === 'number' && isFinite(pred)) ? pred : '';
-  var w = (typeof wind === 'number' && isFinite(wind)) ? wind : '';
-  var wd = (typeof windDir === 'number' && isFinite(windDir)) ? windDir : '';
-  var wv = (typeof wave === 'number' && isFinite(wave)) ? wave : '';
-  return '<div class="vz-fb-bar" data-lat="' + lat + '" data-lon="' + lon + '" data-pred="' + p + '" data-date="' + date + '" data-wind="' + w + '" data-winddir="' + wd + '" data-wave="' + wv + '" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;margin-bottom:10px;background:#F6F9FB;border:0.5px solid rgba(11,26,38,0.10);border-radius:10px;">'
+  snap = snap || {};
+  function _a(v) { return (v === null || v === undefined) ? '' : String(v).replace(/"/g, ''); }
+  return '<div class="vz-fb-bar" data-lat="' + lat + '" data-lon="' + lon + '" data-pred="' + p + '" data-date="' + date
+    + '" data-coef="' + _a(snap.coef) + '" data-depth="' + _a(snap.depth) + '" data-sediment="' + _a(snap.sediment)
+    + '" data-wind="' + _a(snap.wind) + '" data-winddir="' + _a(snap.winddir) + '" data-wave="' + _a(snap.wave)
+    + '" data-waveperiod="' + _a(snap.waveperiod) + '" data-satzsd="' + _a(snap.satzsd) + '" data-satage="' + _a(snap.satage)
+    + '" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;margin-bottom:10px;background:#F6F9FB;border:0.5px solid rgba(11,26,38,0.10);border-radius:10px;">'
     + vzFbBarInner(already, dateLabel)
     + '</div>';
 }
@@ -11544,17 +11554,20 @@ function vzFbOpenPopup(c) {
 }
 
 function vzFbSubmit(lat, lon, date, pred, real, kind, cornerEl) {
-  // Conditions du creneau courant, lues sur la barre AVANT de reecrire son
-  // contenu (les data-attributs vivent sur la div, innerHTML ne les touche pas).
-  var wind = '', windDir = '', wave = '';
-  if (cornerEl) {
-    var rw = cornerEl.getAttribute('data-wind');
-    var rwd = cornerEl.getAttribute('data-winddir');
-    var rwv = cornerEl.getAttribute('data-wave');
-    if (rw !== null && rw !== '') wind = rw;
-    if (rwd !== null && rwd !== '') windDir = rwd;
-    if (rwv !== null && rwv !== '') wave = rwv;
-  }
+  // Photo de l'instant T, lue sur la barre AVANT de reecrire son contenu
+  // (les data-attributs vivent sur la div, innerHTML ne les touche pas).
+  function _g(attr) { if (!cornerEl) return ''; var v = cornerEl.getAttribute(attr); return (v === null) ? '' : v; }
+  var snap = {
+    coef: _g('data-coef'),
+    depth: _g('data-depth'),
+    sediment: _g('data-sediment'),
+    wind: _g('data-wind'),
+    winddir: _g('data-winddir'),
+    wave: _g('data-wave'),
+    waveperiod: _g('data-waveperiod'),
+    satzsd: _g('data-satzsd'),
+    satage: _g('data-satage')
+  };
   // Marque localement pour eviter les doublons du jour sur le meme spot
   // (anti-spam calibration). On marque AVANT l'envoi : meme si le reseau
   // echoue, on ne re-sollicite pas le chasseur, ca l'agacerait.
@@ -11572,9 +11585,15 @@ function vzFbSubmit(lat, lon, date, pred, real, kind, cornerEl) {
     predicted_m: (typeof pred === 'number' && isFinite(pred)) ? pred : '',
     real_m: (typeof real === 'number' && isFinite(real)) ? real : '',
     kind: kind,
-    wind: wind,
-    winddir: windDir,
-    wave: wave,
+    coef: snap.coef,
+    depth: snap.depth,
+    sediment: snap.sediment,
+    wind: snap.wind,
+    winddir: snap.winddir,
+    wave: snap.wave,
+    waveperiod: snap.waveperiod,
+    satzsd: snap.satzsd,
+    satage: snap.satage,
     ts: Date.now()
   }).then(function () {
     // Collecte seule : rien a recalculer cote app a cet instant.
