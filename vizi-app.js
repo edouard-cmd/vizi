@@ -1074,8 +1074,14 @@ function vzInitSeaMask() {
 }
 function initMap() {
   S.map = L.map('map', { center:[49.333, -0.424], zoom:9, zoomControl:false });
-  // Vue d'accueil : cadrage responsive Bretagne -> Manche -> Normandie (s'adapte au mobile)
-  S.map.fitBounds([[47.5, -5.5], [51.2, 2.2]]);
+  // Vue d'accueil : Cotentin + baie de Seine (relief Litto3D mis en valeur).
+  // Bornes distinctes desktop / mobile : en portrait l'ecran etroit forcerait
+  // un dezoom sur des bornes larges, donc on resserre pour garder le meme grain.
+  if (typeof isMobile === 'function' && isMobile()) {
+    S.map.fitBounds([[49.05, -1.55], [49.78, 0.30]]);
+  } else {
+    S.map.fitBounds([[48.95, -2.10], [49.85, 0.75]]);
+  }
   // Panes dedies. Litto3D dans son propre pane = un seul element a masquer
   // (le clip-path partage cassait l'affichage sous Safari iOS). Isobathes et
   // sediment au-dessus de Litto3D.
