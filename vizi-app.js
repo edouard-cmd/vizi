@@ -11431,34 +11431,47 @@ function vzFbOpenPopup(c) {
   var date = c.getAttribute('data-date');
   var predRaw = c.getAttribute('data-pred');
   var pred = (predRaw === '' || predRaw === null) ? null : parseFloat(predRaw);
-  var val = (typeof pred === 'number' && isFinite(pred)) ? pred : 3;
+
+  // Paliers en metres pleins (tap = validation directe). < 1 m stocke 0.5, 8 m+ stocke 8.
+  var paliers = [
+    { v: 0.5, label: '< 1 m' }, { v: 1, label: '1 m' }, { v: 2, label: '2 m' }, { v: 3, label: '3 m' },
+    { v: 4, label: '4 m' }, { v: 5, label: '5 m' }, { v: 6, label: '6 m' }, { v: 8, label: '8 m +' }
+  ];
 
   var ov = document.createElement('div');
   ov.id = 'vzFbOverlay';
   ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(11,26,38,0.42);display:flex;align-items:center;justify-content:center;padding:18px;';
-  ov.innerHTML = '<div style="background:#FFFFFF;border-radius:14px;padding:18px;width:100%;max-width:320px;box-shadow:0 14px 34px rgba(11,26,38,0.3);font-family:Inter,-apple-system,system-ui,sans-serif;">'
-    + '<div style="font-size:17px;font-weight:600;color:#22323E;text-align:center;line-height:1.35;margin-bottom:16px;">Quelle visibilite as-tu eue ?</div>'
-    + '<div style="display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:18px;">'
-    + '<button type="button" id="vzFbMinus" aria-label="moins" style="width:48px;height:48px;border-radius:50%;border:1px solid rgba(11,26,38,0.12);background:#F6F9FB;font-size:26px;color:#22323E;cursor:pointer;line-height:1;">-</button>'
-    + '<div id="vzFbVal" style="min-width:108px;text-align:center;font-size:32px;font-weight:600;font-family:IBM Plex Mono,monospace;color:' + vzFbColorFor(val) + ';">' + val.toFixed(1) + ' m</div>'
-    + '<button type="button" id="vzFbPlus" aria-label="plus" style="width:48px;height:48px;border-radius:50%;border:1px solid rgba(11,26,38,0.12);background:#F6F9FB;font-size:26px;color:#22323E;cursor:pointer;line-height:1;">+</button>'
-    + '</div>'
-    + '<button type="button" id="vzFbValidate" style="width:100%;height:50px;border:0;background:#2DA888;color:#04342C;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer;font-family:inherit;margin-bottom:8px;">Valider mon retour</button>'
+
+  var predLine = (typeof pred === 'number' && isFinite(pred))
+    ? '<div style="font-size:12px;color:#51677A;text-align:center;margin-bottom:14px;">On annoncait ~' + (Math.round(pred * 10) / 10) + ' m</div>'
+    : '<div style="height:6px;"></div>';
+
+  var grid = '';
+  paliers.forEach(function (p) {
+    var col = vzFbColorFor(p.v);
+    var ring = (typeof pred === 'number' && Math.round(pred) === p.v) ? 'box-shadow:0 0 0 2px #22323E;' : '';
+    grid += '<button type="button" class="vz-fb-pal" data-v="' + p.v + '" style="flex:1 1 21%;min-width:62px;height:48px;border:0;border-radius:10px;background:' + col + ';color:#FFFFFF;font-size:15px;font-weight:600;font-family:IBM Plex Mono,monospace;cursor:pointer;' + ring + '">' + p.label + '</button>';
+  });
+
+  ov.innerHTML = '<div style="background:#FFFFFF;border-radius:14px;padding:18px;width:100%;max-width:340px;box-shadow:0 14px 34px rgba(11,26,38,0.3);font-family:Inter,-apple-system,system-ui,sans-serif;">'
+    + '<div style="font-size:17px;font-weight:600;color:#22323E;text-align:center;line-height:1.35;margin-bottom:6px;">Quelle visibilite as-tu eue ?</div>'
+    + predLine
+    + '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;">' + grid + '</div>'
     + '<button type="button" id="vzFbCancel" style="width:100%;height:40px;border:0;background:transparent;color:#51677A;font-size:14px;cursor:pointer;font-family:inherit;">Annuler</button>'
     + '</div>';
   document.body.appendChild(ov);
 
-  var valEl = ov.querySelector('#vzFbVal');
-  function show() { valEl.textContent = val.toFixed(1) + ' m'; valEl.style.color = vzFbColorFor(val); }
   function close() { if (ov.parentNode) ov.parentNode.removeChild(ov); }
-  ov.querySelector('#vzFbMinus').onclick = function () { val = Math.max(0, Math.round((val - 0.5) * 10) / 10); show(); };
-  ov.querySelector('#vzFbPlus').onclick = function () { val = Math.min(15, Math.round((val + 0.5) * 10) / 10); show(); };
   ov.querySelector('#vzFbCancel').onclick = close;
   ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
-  ov.querySelector('#vzFbValidate').onclick = function () {
-    close();
-    vzFbSubmit(lat, lon, date, pred, val, 'correct', c);
-  };
+  var pals = ov.querySelectorAll('.vz-fb-pal');
+  for (var i = 0; i < pals.length; i++) {
+    pals[i].onclick = function () {
+      var v = parseFloat(this.getAttribute('data-v'));
+      close();
+      vzFbSubmit(lat, lon, date, pred, v, 'correct', c);
+    };
+  }
 }
 
 function vzFbSubmit(lat, lon, date, pred, real, kind, cornerEl) {
