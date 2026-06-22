@@ -11486,7 +11486,7 @@ function vzFbSubmit(lat, lon, date, pred, real, kind, cornerEl) {
   }
   // gasGet().then() : handler de bouton classique, hors .on() Leaflet -> pas d'async/await.
   // gasGet ne rejette jamais (resout a null si reseau ko), donc pas de .catch.
-  gasGet('submit_feedback', {
+  gasGet('submit_visi_feedback', {
     lat: lat,
     lon: lon,
     date: date,
