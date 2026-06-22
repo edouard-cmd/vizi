@@ -11034,11 +11034,9 @@ function visLabel(score) {
   // ---- Build HTML ----
   var html = '<div class="vz-sheet-cond-wrap">';
 
-html += '<div style="overflow-x:auto;">';
-  html += '<table class="vz-cond-table">';
-
-  // Header jours
   // --- Retour communautaire (commit 1 : collecte seule, n'influence pas encore le score) ---
+  // Ligne pleine largeur posee AU-DESSUS du tableau, hors du div overflow-x : elle
+  // reste fixe pendant que le tableau defile horizontalement. Porte sur aujourd'hui.
   // Visi annoncee du jour = ce que l'app affiche : satellite frais <=72h, sinon moteur au creneau courant.
   var _fbSat = data.satellite;
   var _fbPred = null;
@@ -11055,8 +11053,13 @@ html += '<div style="overflow-x:auto;">';
     var d = new Date();
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   })();
+  html += vzFbBarHtml(spot.lat, spot.lng, _fbPred, _fbToday);
 
-  html += '<tr><th class="vz-cond-cornerlabel">' + vzFbCornerHtml(spot.lat, spot.lng, _fbPred, _fbToday) + '</th>';
+html += '<div style="overflow-x:auto;">';
+  html += '<table class="vz-cond-table">';
+
+  // Header jours
+  html += '<tr><th class="vz-cond-cornerlabel"></th>';
   dayGroups.forEach(function(g, gIdx) {
     var cls = 'vz-cond-dayhead' + (gIdx > 0 ? ' vz-cond-dayboundary' : '');
     var cd = g.date;
@@ -11363,26 +11366,31 @@ function vzFbKey(lat, lon, date) {
   return 'vizi_fb_' + date + '_' + Number(lat).toFixed(4) + '_' + Number(lon).toFixed(4);
 }
 
-function vzFbThanksHtml() {
-  return '<div style="font-size:10px;line-height:1.3;color:#2DA888;font-weight:500;text-align:left;padding:2px;">Merci pour<br>ton retour</div>';
+function vzFbBarInner(thanks) {
+  if (thanks) {
+    return '<span style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:#2DA888;">'
+      + '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'
+      + 'Merci pour ton retour</span>';
+  }
+  return '<span style="font-size:13px;font-weight:500;color:#22323E;line-height:1.3;">On avait vu juste pour ta sortie ?</span>'
+    + '<span style="display:flex;gap:8px;flex-shrink:0;">'
+    + '<button type="button" onclick="vzFbUp(this)" aria-label="Oui, la visibilite annoncee etait juste" style="display:flex;align-items:center;justify-content:center;width:40px;height:34px;border:1px solid #2DA888;background:#E9F4EF;color:#0F6E56;border-radius:8px;cursor:pointer;padding:0;">' + VZ_FB_THUMB_UP + '</button>'
+    + '<button type="button" onclick="vzFbDown(this)" aria-label="Non, corriger la visibilite" style="display:flex;align-items:center;justify-content:center;width:40px;height:34px;border:1px solid #E3A9A2;background:#FBEEEC;color:#8F2D22;border-radius:8px;cursor:pointer;padding:0;">' + VZ_FB_THUMB_DOWN + '</button>'
+    + '</span>';
 }
 
-function vzFbCornerHtml(lat, lon, pred, date) {
+function vzFbBarHtml(lat, lon, pred, date) {
   var already = false;
   try { already = !!localStorage.getItem(vzFbKey(lat, lon, date)); } catch (e) {}
-  if (already) return vzFbThanksHtml();
   var p = (typeof pred === 'number' && isFinite(pred)) ? pred : '';
-  return '<div class="vz-fb-corner" data-lat="' + lat + '" data-lon="' + lon + '" data-pred="' + p + '" data-date="' + date + '" style="text-align:left;padding:1px;">'
-    + '<div style="font-size:10px;line-height:1.25;color:#51677A;font-weight:500;margin-bottom:5px;">On avait vu juste pour ta sortie ?</div>'
-    + '<div style="display:flex;gap:5px;">'
-    + '<button type="button" onclick="vzFbUp(this)" aria-label="Oui, la visibilite annoncee etait juste" style="display:flex;align-items:center;justify-content:center;width:36px;height:32px;border:1px solid #2DA888;background:#E9F4EF;color:#0F6E56;border-radius:8px;cursor:pointer;padding:0;">' + VZ_FB_THUMB_UP + '</button>'
-    + '<button type="button" onclick="vzFbDown(this)" aria-label="Non, corriger la visibilite" style="display:flex;align-items:center;justify-content:center;width:36px;height:32px;border:1px solid #E3A9A2;background:#FBEEEC;color:#8F2D22;border-radius:8px;cursor:pointer;padding:0;">' + VZ_FB_THUMB_DOWN + '</button>'
-    + '</div></div>';
+  return '<div class="vz-fb-bar" data-lat="' + lat + '" data-lon="' + lon + '" data-pred="' + p + '" data-date="' + date + '" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;margin-bottom:10px;background:#F6F9FB;border:0.5px solid rgba(11,26,38,0.10);border-radius:10px;">'
+    + vzFbBarInner(already)
+    + '</div>';
 }
 
 function vzFbResolveCorner(btn) {
   var el = btn;
-  while (el && !(el.className && String(el.className).indexOf('vz-fb-corner') >= 0)) el = el.parentNode;
+  while (el && !(el.className && String(el.className).indexOf('vz-fb-bar') >= 0)) el = el.parentNode;
   return el;
 }
 
@@ -11452,7 +11460,10 @@ function vzFbSubmit(lat, lon, date, pred, real, kind, cornerEl) {
   // (anti-spam calibration). On marque AVANT l'envoi : meme si le reseau
   // echoue, on ne re-sollicite pas le chasseur, ca l'agacerait.
   try { localStorage.setItem(vzFbKey(lat, lon, date), '1'); } catch (e) {}
-  if (cornerEl && cornerEl.parentNode) cornerEl.outerHTML = vzFbThanksHtml();
+  if (cornerEl) {
+    cornerEl.style.justifyContent = 'flex-start';
+    cornerEl.innerHTML = vzFbBarInner(true);
+  }
   // gasGet().then() : handler de bouton classique, hors .on() Leaflet -> pas d'async/await.
   // gasGet ne rejette jamais (resout a null si reseau ko), donc pas de .catch.
   gasGet('submit_feedback', {
