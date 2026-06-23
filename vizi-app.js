@@ -11184,15 +11184,10 @@ html += '<div style="overflow-x:auto;">';
   });
   html += '</tr>';
 
-  // Header heures
-  html += '<tr><th class="vz-cond-cornerhour"></th>';
-  slots.forEach(function(s, idx) {
-    var cls = 'vz-cond-hourhead';
-    if (idx === nowIdx) cls += ' vz-cond-now-header';
-    if (idx > 0 && s.time.toDateString() !== slots[idx-1].time.toDateString()) cls += ' vz-cond-dayboundary';
-    html += '<th class="' + cls + '">' + String(s.time.getHours()).padStart(2,'0') + 'h</th>';
-  });
-  html += '</tr>';
+  // Header heures : deplace SOUS la ligne Visibilite (voir plus bas). La visi est
+  // une donnee du jour, affichee en premier ; les heures servent d'en-tete aux
+  // lignes horaires (maree, vent, vagues) et viennent donc juste avant elles.
+
 
   function renderRow(label, rowCls, cellFn) {
     var row = '<tr' + (rowCls ? ' class="' + rowCls + '"' : '') + '>';
@@ -11288,6 +11283,17 @@ html += '<div style="overflow-x:auto;">';
 // Bande marée : courbe alignée sur les colonnes + PM/BM (heures).
   // Le coef est desormais affiché une fois par jour dans l'en-tête (header jours).
   // Remplace les anciennes lignes "Marée (m)" et "Coef" (chiffres répétés par créneau).
+  // Header heures (deplace sous la Visibilite) : en-tete des colonnes horaires
+  // pour les lignes maree / profondeur / vent / rafales / direction / vagues.
+  html += '<tr><th class="vz-cond-cornerhour"></th>';
+  slots.forEach(function(s, idx) {
+    var cls = 'vz-cond-hourhead';
+    if (idx === nowIdx) cls += ' vz-cond-now-header';
+    if (idx > 0 && s.time.toDateString() !== slots[idx-1].time.toDateString()) cls += ' vz-cond-dayboundary';
+    html += '<th class="' + cls + '">' + String(s.time.getHours()).padStart(2,'0') + 'h</th>';
+  });
+  html += '</tr>';
+
 html += buildTideBandRow(slots, VZ_SHEET.data.tides);
 
   // Profondeur d'eau reelle au creneau = fond (zero hydro EMODnet) + hauteur de maree
