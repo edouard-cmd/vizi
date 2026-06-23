@@ -1194,8 +1194,16 @@ S.map.on('click', function(e) {
       if (isMobile()) return; // sur mobile, le viseur central gere la selection
     isOnSea(e.latlng.lat, e.latlng.lng, function(onSea) {
       if (!onSea) { showLandMessage(e.latlng); return; }
-      vzDesktopPointSelect(e.latlng);
-      if (S_forecastOpen) loadForecast(e.latlng.lat, e.latlng.lng, null);
+      // Rattachement au secteur : le clic en mer trouve le port le plus proche
+      // (regle plus-proche-port) et fait monter le flag "Dans le secteur de X".
+      // L'analyse fine du point reste accessible via le lien du popup.
+      var nearest = (typeof findNearestPort === 'function') ? findNearestPort(e.latlng.lat, e.latlng.lng) : null;
+      if (nearest && nearest.spot) {
+        openSectorPopup(nearest.spot, true);
+      } else {
+        vzDesktopPointSelect(e.latlng);
+        if (S_forecastOpen) loadForecast(e.latlng.lat, e.latlng.lng, null);
+      }
     });
   });
 }
@@ -1294,18 +1302,18 @@ function vzHideSector() {
   S_sectorState = { lat: null, lon: null, name: null, pred: null };
 }
 
-function openSectorPopup(spot) {
+function openSectorPopup(spot, attached) {
   vzShowSectorHalo(spot.lat, spot.lon);
   S.map.panTo([spot.lat, spot.lon], { animate: true });
   S_sectorState = { lat: spot.lat, lon: spot.lon, name: spot.name, pred: null };
-  vzRenderSectorPopup(spot.name, null, true);
+  vzRenderSectorPopup(spot.name, null, true, attached);
   fetchVisiFeedback(spot.lat, spot.lon).then(function(data) {
     if (S_sectorState.lat !== spot.lat || S_sectorState.lon !== spot.lon) return;
-    vzRenderSectorPopup(spot.name, data, false);
+    vzRenderSectorPopup(spot.name, data, false, attached);
   });
 }
 
-function vzRenderSectorPopup(name, data, loading) {
+function vzRenderSectorPopup(name, data, loading, attached) {
   var el = document.getElementById('vzSectorPopup');
   if (!el) {
     el = document.createElement('div');
@@ -1317,7 +1325,7 @@ function vzRenderSectorPopup(name, data, loading) {
   var closeSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>';
   var head = '<div style="display:flex;align-items:center;gap:11px;padding:15px 17px 12px;">'
     + '<div style="width:38px;height:38px;border-radius:50%;background:rgba(77,212,168,0.14);border:1px solid rgba(77,212,168,0.4);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' + perim + '</div>'
-    + '<div style="flex:1;min-width:0;"><div style="font-size:15px;font-weight:500;color:#EAF2EF;line-height:1.2;">Secteur de ' + name + '</div>'
+    + '<div style="flex:1;min-width:0;"><div style="font-size:15px;font-weight:500;color:#EAF2EF;line-height:1.2;">' + (attached ? 'Dans le secteur de ' : 'Secteur de ') + name + '</div>'
     + '<div style="font-size:12px;color:#7C93A3;margin-top:2px;">\u00e9clair\u00e9 autour du port</div></div>'
     + '<button onclick="vzHideSector()" aria-label="Fermer" style="background:none;border:none;color:#7C93A3;cursor:pointer;padding:4px;line-height:0;">' + closeSvg + '</button></div>';
 
