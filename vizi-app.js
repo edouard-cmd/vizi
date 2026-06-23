@@ -1379,8 +1379,7 @@ function vzRenderSectorPopup(name, data, loading, attached) {
   var closeSvg = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>';
   var head = '<div style="display:flex;align-items:center;gap:11px;padding:15px 17px 12px;">'
     + '<div style="width:38px;height:38px;border-radius:50%;background:rgba(45,168,136,0.12);border:1px solid rgba(45,168,136,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' + perim + '</div>'
-    + '<div style="flex:1;min-width:0;"><div style="font-size:15px;font-weight:600;color:#0A1520;line-height:1.2;">' + (attached ? 'Dans le secteur de ' : 'Secteur de ') + name + '</div>'
-    + '<div style="font-size:12px;color:#5F7480;margin-top:2px;">\u00e9clair\u00e9 autour du port</div></div>'
+    + '<div style="flex:1;min-width:0;"><div style="font-size:15px;font-weight:600;color:#0A1520;line-height:1.2;">' + (attached ? 'Dans le secteur de ' : 'Secteur de ') + name + '</div></div>'
     + '<button onclick="vzHideSector()" aria-label="Fermer" style="background:rgba(11,26,38,0.05);border:none;border-radius:9px;color:#41535D;cursor:pointer;width:36px;height:36px;display:flex;align-items:center;justify-content:center;flex-shrink:0;line-height:0;">' + closeSvg + '</button></div>';
 
   var body;
@@ -1393,7 +1392,7 @@ function vzRenderSectorPopup(name, data, loading, attached) {
     var visTxt = (vis != null) ? (Math.round(vis * 10) / 10) : '?';
     body = '<div style="display:flex;align-items:baseline;gap:10px;padding:4px 18px 2px;">'
       + '<span style="font-size:42px;font-weight:600;color:#0E7C62;font-family:IBM Plex Mono,monospace;line-height:1;">' + visTxt + ' m</span>'
-      + '<span style="font-size:13px;color:#5F7480;">vue dans l\u2019eau</span></div>'
+      + '<span style="font-size:13px;color:#5F7480;">de visibilit\u00e9 observ\u00e9e en mer</span></div>'
       + '<div style="padding:2px 18px 14px;font-size:12.5px;color:#7C8C96;">dernier retour ' + vzSectorAgeLabel(last.age_hours) + ', par la communaut\u00e9</div>'
       + '<div style="display:flex;align-items:center;gap:8px;padding:10px 18px;background:rgba(45,168,136,0.10);border-top:0.5px solid rgba(11,26,38,0.08);">'
       + '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1A6B5D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'
@@ -1403,7 +1402,8 @@ function vzRenderSectorPopup(name, data, loading, attached) {
       + '<div style="font-size:12.5px;color:#5F7480;line-height:1.4;">Le secteur est allum\u00e9. Sois le premier \u00e0 dire ce que tu as vu dans l\u2019eau.</div></div>';
   }
 
-  var actions = '<div id="vzSectorActions" style="display:flex;gap:12px;justify-content:center;padding:14px 18px 8px;">'
+  var actions = '<div style="text-align:center;padding:12px 18px 0;font-size:13px;font-weight:500;color:#22323E;">Tu confirmes cette visibilit\u00e9 aujourd\u2019hui dans le secteur ?</div>'
+    + '<div id="vzSectorActions" style="display:flex;gap:12px;justify-content:center;padding:10px 18px 8px;">'
     + '<button type="button" onclick="vzSectorVote(\'confirm\')" aria-label="Oui, on avait vu juste" style="display:flex;align-items:center;justify-content:center;width:64px;height:44px;border:1px solid #2DA888;background:#E9F4EF;color:#0F6E56;border-radius:10px;cursor:pointer;padding:0;">' + VZ_FB_THUMB_UP + '</button>'
     + '<button type="button" onclick="vzSectorVote(\'correct\')" aria-label="Non, corriger la visibilit\u00e9" style="display:flex;align-items:center;justify-content:center;width:64px;height:44px;border:1px solid #E3A9A2;background:#FBEEEC;color:#8F2D22;border-radius:10px;cursor:pointer;padding:0;">' + VZ_FB_THUMB_DOWN + '</button></div>'
     + '<div style="padding:6px 18px 15px;text-align:center;"><button onclick="vzSectorDetails()" style="background:none;border:none;color:#0E7C62;font-size:13px;font-weight:600;cursor:pointer;padding:0;">Voir les conditions d\u00e9taill\u00e9es du jour \u2192</button></div>';
