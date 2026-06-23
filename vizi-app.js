@@ -1294,13 +1294,51 @@ function vzHideSector() {
   S_sectorState = { lat: null, lon: null, name: null, pred: null };
 }
 
+// Comptage des votes par port (regle du port le plus proche). Rempli par
+// fetchPortCounts_ : pour chaque retour recent, on trouve le port le plus
+// proche (findNearestPort) et on agrege. Remplace l'ancienne lecture par
+// rayon 1km, qui ratait les votes du secteur des qu'ils etaient un peu loin.
+var S_portCounts = null;
+
+function fetchPortCounts_() {
+  return gasGet('all_visi_feedback', {}).then(function(res) {
+    var counts = {};
+    if (res && res.feedbacks && res.feedbacks.length) {
+      res.feedbacks.forEach(function(f) {
+        if (typeof findNearestPort !== 'function') return;
+        var np = findNearestPort(f.lat, f.lon);
+        if (!np || !np.spot) return;
+        var id = np.spot.id;
+        if (!counts[id]) counts[id] = { count: 0, age_hours: Infinity, last_visi: null };
+        counts[id].count++;
+        var v = (f.real_m != null) ? f.real_m : f.predicted_m;
+        if (f.age_hours != null && f.age_hours < counts[id].age_hours) {
+          counts[id].age_hours = f.age_hours;
+          counts[id].last_visi = v;
+        }
+      });
+    }
+    S_portCounts = counts;
+    return counts;
+  });
+}
+
+function ensurePortCounts_() {
+  if (S_portCounts) return Promise.resolve(S_portCounts);
+  return fetchPortCounts_();
+}
+
 function openSectorPopup(spot, attached) {
   vzShowSectorHalo(spot.lat, spot.lon);
   S.map.panTo([spot.lat, spot.lon], { animate: true });
   S_sectorState = { lat: spot.lat, lon: spot.lon, name: spot.name, pred: null };
   vzRenderSectorPopup(spot.name, null, true, attached);
-  fetchVisiFeedback(spot.lat, spot.lon).then(function(data) {
+  ensurePortCounts_().then(function(counts) {
     if (S_sectorState.lat !== spot.lat || S_sectorState.lon !== spot.lon) return;
+    var pc = counts ? counts[spot.id] : null;
+    var data = pc
+      ? { count: pc.count, feedbacks: [{ real_m: pc.last_visi, predicted_m: pc.last_visi, age_hours: (pc.age_hours === Infinity ? null : pc.age_hours) }] }
+      : { count: 0, feedbacks: [] };
     vzRenderSectorPopup(spot.name, data, false, attached);
   });
 }
@@ -1360,7 +1398,7 @@ window.vzSectorVote = function(kind) {
     gasGet('submit_visi_feedback', {
       lat: s.lat, lon: s.lon, date: vzSectorTodayISO(),
       predicted_m: pred, real_m: pred, kind: 'confirm', ts: Date.now()
-    }).then(function() {});
+    }).then(function() { S_portCounts = null; });  // force le recomptage au prochain clic
   }
   var act = document.getElementById('vzSectorActions');
   if (act) act.style.display = 'none';
