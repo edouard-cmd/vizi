@@ -1403,9 +1403,9 @@ function vzRenderSectorPopup(name, data, loading, attached) {
       + '<div style="font-size:12.5px;color:#5F7480;line-height:1.4;">Le secteur est allum\u00e9. Sois le premier \u00e0 dire ce que tu as vu dans l\u2019eau.</div></div>';
   }
 
-  var actions = '<div id="vzSectorActions" style="display:flex;gap:10px;padding:13px 18px 8px;">'
-    + '<button onclick="vzSectorVote(\'confirm\')" style="flex:1;padding:12px 0;background:#2DA888;border:none;border-radius:10px;color:#04342C;font-size:13.5px;font-weight:600;cursor:pointer;">C\u2019\u00e9tait juste</button>'
-    + '<button onclick="vzSectorVote(\'correct\')" style="flex:1;padding:12px 0;background:transparent;border:1px solid rgba(11,26,38,0.18);border-radius:10px;color:#2A4049;font-size:13.5px;font-weight:500;cursor:pointer;">Pas tout \u00e0 fait</button></div>'
+  var actions = '<div id="vzSectorActions" style="display:flex;gap:12px;justify-content:center;padding:14px 18px 8px;">'
+    + '<button type="button" onclick="vzSectorVote(\'confirm\')" aria-label="Oui, on avait vu juste" style="display:flex;align-items:center;justify-content:center;width:64px;height:44px;border:1px solid #2DA888;background:#E9F4EF;color:#0F6E56;border-radius:10px;cursor:pointer;padding:0;">' + VZ_FB_THUMB_UP + '</button>'
+    + '<button type="button" onclick="vzSectorVote(\'correct\')" aria-label="Non, corriger la visibilit\u00e9" style="display:flex;align-items:center;justify-content:center;width:64px;height:44px;border:1px solid #E3A9A2;background:#FBEEEC;color:#8F2D22;border-radius:10px;cursor:pointer;padding:0;">' + VZ_FB_THUMB_DOWN + '</button></div>'
     + '<div style="padding:6px 18px 15px;text-align:center;"><button onclick="vzSectorDetails()" style="background:none;border:none;color:#0E7C62;font-size:13px;font-weight:600;cursor:pointer;padding:0;">Voir les conditions d\u00e9taill\u00e9es du jour \u2192</button></div>';
 
   el.innerHTML = head + body + actions;
