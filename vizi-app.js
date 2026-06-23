@@ -13296,6 +13296,7 @@ function vzmInit() {
     window.openSpotPopup = function(latlng, name) {
       if (typeof _origOpen === 'function') _origOpen.call(this, latlng, name);
       if (window.innerWidth > 768) return;
+            if (window.vzmHideAim) window.vzmHideAim();   // spot ouvert = viseur libre masque (evite la confusion visi/reticule)
       var d = document.getElementById('spotDrawerMobile');
       if (d) {
         d.classList.remove('vzm-closed', 'vzm-mid', 'vzm-full');
