@@ -1159,8 +1159,7 @@ initLitto3dLayer();
     });
     m.on('click', function(e) {
       L.DomEvent.stopPropagation(e);
-      openSpotPopup(L.latLng(spot.lat, spot.lon), spot.name);
-      if (S_forecastOpen) loadForecast(spot.lat, spot.lon, spot.name);
+      openSectorPopup(spot);
     });
     S.spotMarkers[spot.id] = m;
   });
@@ -1231,7 +1230,138 @@ window.vzOpenCondFromPoint = function() {
   if (typeof window.openCondDrawer === 'function') window.openCondDrawer();
 };
 
+// ============================================================
+// SECTEUR COMMUNAUTAIRE (facon Waze) — halo + popup au clic d'un port
+// ------------------------------------------------------------
+// Le port "eclaire" un secteur de 1 km (image du phare). Au clic d'un
+// rond port : un halo circulaire pointille s'allume sur la carte (le
+// secteur), et un popup remonte les retours communautaires du coin
+// (derniere visi, anciennete, nombre de chasseurs) ou invite a etre le
+// premier. Lecture via fetchVisiFeedback (rayon 1 km / 72 h) : aucune
+// nouvelle API. Le tableau Conditions detaille reste a la demande (lien).
+// On agrege au secteur, jamais le spot GPS exact (tabou des spots).
+// ============================================================
+var S_sectorState = { lat: null, lon: null, name: null, pred: null };
+
+function vzSectorTodayISO() {
+  var d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+function vzSectorAgeLabel(hh) {
+  if (hh == null || !isFinite(hh)) return '';
+  if (hh < 1) return 'il y a moins d\u2019une heure';
+  if (hh < 24) return 'il y a ' + Math.round(hh) + ' h';
+  var j = Math.round(hh / 24);
+  return 'il y a ' + j + (j > 1 ? ' jours' : ' jour');
+}
+
+function vzShowSectorHalo(lat, lon) {
+  if (S.sectorHalo) { S.map.removeLayer(S.sectorHalo); S.sectorHalo = null; }
+  S.sectorHalo = L.circle([lat, lon], {
+    radius: 1000,
+    color: '#4DD4A8', weight: 1.5, opacity: 0.85, dashArray: '4 5',
+    fillColor: '#4DD4A8', fillOpacity: 0.07, interactive: false
+  }).addTo(S.map);
+}
+
+function vzHideSector() {
+  if (S.sectorHalo) { S.map.removeLayer(S.sectorHalo); S.sectorHalo = null; }
+  var el = document.getElementById('vzSectorPopup');
+  if (el && el.parentNode) el.parentNode.removeChild(el);
+  S_sectorState = { lat: null, lon: null, name: null, pred: null };
+}
+
+function openSectorPopup(spot) {
+  vzShowSectorHalo(spot.lat, spot.lon);
+  S.map.panTo([spot.lat, spot.lon], { animate: true });
+  S_sectorState = { lat: spot.lat, lon: spot.lon, name: spot.name, pred: null };
+  vzRenderSectorPopup(spot.name, null, true);
+  fetchVisiFeedback(spot.lat, spot.lon).then(function(data) {
+    if (S_sectorState.lat !== spot.lat || S_sectorState.lon !== spot.lon) return;
+    vzRenderSectorPopup(spot.name, data, false);
+  });
+}
+
+function vzRenderSectorPopup(name, data, loading) {
+  var el = document.getElementById('vzSectorPopup');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'vzSectorPopup';
+    el.style.cssText = 'position:fixed;top:96px;left:50%;transform:translateX(-50%);z-index:1200;width:min(380px,calc(100vw - 28px));background:#0F2438;border:0.5px solid rgba(77,212,168,0.25);border-radius:16px;overflow:hidden;font-family:Inter,sans-serif;box-shadow:0 8px 28px rgba(8,21,32,0.45);';
+    document.body.appendChild(el);
+  }
+  var perim = '<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#4DD4A8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" stroke-dasharray="3 3"/><circle cx="12" cy="12" r="2"/></svg>';
+  var closeSvg = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>';
+  var head = '<div style="display:flex;align-items:center;gap:11px;padding:15px 17px 12px;">'
+    + '<div style="width:38px;height:38px;border-radius:50%;background:rgba(77,212,168,0.14);border:1px solid rgba(77,212,168,0.4);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' + perim + '</div>'
+    + '<div style="flex:1;min-width:0;"><div style="font-size:15px;font-weight:500;color:#EAF2EF;line-height:1.2;">Secteur de ' + name + '</div>'
+    + '<div style="font-size:12px;color:#7C93A3;margin-top:2px;">\u00e9clair\u00e9 sur 1 km autour du port</div></div>'
+    + '<button onclick="vzHideSector()" aria-label="Fermer" style="background:none;border:none;color:#7C93A3;cursor:pointer;padding:4px;line-height:0;">' + closeSvg + '</button></div>';
+
+  var body;
+  if (loading) {
+    body = '<div style="padding:6px 18px 18px;font-size:13px;color:#7C93A3;">Lecture des retours du secteur\u2026</div>';
+  } else if (data && data.count > 0 && data.feedbacks && data.feedbacks.length) {
+    var last = data.feedbacks.slice().sort(function(a, b) { return (a.age_hours || 0) - (b.age_hours || 0); })[0];
+    var vis = (last.real_m != null) ? last.real_m : last.predicted_m;
+    S_sectorState.pred = vis;
+    var visTxt = (vis != null) ? (Math.round(vis * 10) / 10) : '?';
+    body = '<div style="display:flex;align-items:baseline;gap:10px;padding:4px 18px 2px;">'
+      + '<span style="font-size:42px;font-weight:500;color:#4DD4A8;font-family:IBM Plex Mono,monospace;line-height:1;">' + visTxt + ' m</span>'
+      + '<span style="font-size:13px;color:#9DB1BE;">vue dans l\u2019eau</span></div>'
+      + '<div style="padding:2px 18px 14px;font-size:12.5px;color:#7C93A3;">dernier retour ' + vzSectorAgeLabel(last.age_hours) + ', par la communaut\u00e9</div>'
+      + '<div style="display:flex;align-items:center;gap:8px;padding:10px 18px;background:rgba(77,212,168,0.07);border-top:0.5px solid rgba(255,255,255,0.06);">'
+      + '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4DD4A8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'
+      + '<span style="font-size:12.5px;color:#B9CAD4;font-weight:500;">' + data.count + (data.count > 1 ? ' chasseurs ont confirm\u00e9' : ' chasseur a confirm\u00e9') + ' ce secteur</span></div>';
+  } else {
+    body = '<div style="padding:6px 18px 16px;"><div style="font-size:14px;color:#C7D5DD;font-weight:500;margin-bottom:4px;">Personne n\u2019a encore partag\u00e9 ici</div>'
+      + '<div style="font-size:12.5px;color:#7C93A3;line-height:1.4;">Le secteur est allum\u00e9. Sois le premier \u00e0 dire ce que tu as vu dans l\u2019eau.</div></div>';
+  }
+
+  var actions = '<div id="vzSectorActions" style="display:flex;gap:10px;padding:13px 18px 8px;">'
+    + '<button onclick="vzSectorVote(\'confirm\')" style="flex:1;padding:11px 0;background:#2DA888;border:none;border-radius:10px;color:#04342C;font-size:13.5px;font-weight:500;cursor:pointer;">C\u2019\u00e9tait juste</button>'
+    + '<button onclick="vzSectorVote(\'correct\')" style="flex:1;padding:11px 0;background:transparent;border:1px solid rgba(255,255,255,0.18);border-radius:10px;color:#C7D5DD;font-size:13.5px;font-weight:500;cursor:pointer;">Pas tout \u00e0 fait</button></div>'
+    + '<div style="padding:6px 18px 15px;text-align:center;"><button onclick="vzSectorDetails()" style="background:none;border:none;color:#2DA888;font-size:13px;font-weight:500;cursor:pointer;padding:0;">Voir les conditions d\u00e9taill\u00e9es du jour \u2192</button></div>';
+
+  el.innerHTML = head + body + actions;
+}
+
+window.vzHideSector = vzHideSector;
+
+window.vzSectorVote = function(kind) {
+  var s = S_sectorState;
+  if (s.lat == null) return;
+  if (kind === 'correct') { vzSectorDetails(); return; }  // correction fine = tableau (snapshot complet)
+  var pred = (s.pred != null) ? s.pred : '';
+  if (typeof gasGet === 'function') {
+    gasGet('submit_visi_feedback', {
+      lat: s.lat, lon: s.lon, date: vzSectorTodayISO(),
+      predicted_m: pred, real_m: pred, kind: 'confirm', ts: Date.now()
+    }).then(function() {});
+  }
+  var act = document.getElementById('vzSectorActions');
+  if (act) act.style.display = 'none';
+  var el = document.getElementById('vzSectorPopup');
+  if (el) {
+    var msg = document.createElement('div');
+    msg.style.cssText = 'padding:13px 18px 18px;font-size:13px;color:#4DD4A8;font-weight:500;text-align:center;';
+    msg.textContent = 'Merci, ton retour rend les pr\u00e9visions plus justes dans le secteur.';
+    el.appendChild(msg);
+  }
+};
+
+window.vzSectorDetails = function() {
+  var s = S_sectorState;
+  if (s.lat == null) return;
+  var lat = s.lat, lon = s.lon, name = s.name;
+  vzHideSector();
+  if (typeof openSpotPopup === 'function') openSpotPopup(L.latLng(lat, lon), name);
+  if (typeof S_forecastOpen !== 'undefined' && S_forecastOpen && typeof loadForecast === 'function') loadForecast(lat, lon, name);
+};
+
 function vzDesktopPointSelect(latlng) {
+  if (typeof vzHideSector === 'function') vzHideSector();  // un clic libre ferme le secteur communautaire
   S.clickLatLng = latlng;
   S._spotDepth = null;
 
