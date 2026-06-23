@@ -13313,18 +13313,17 @@ function vzmInit() {
       return;
     }
 
-    // === 1. Ouvrir en PEEK par défaut au lieu de MID ===
+    // === 1. Panneau spot mobile DESACTIVE — on ne l'ouvre plus au clic (rien a la place) ===
     var _origOpen = window.openSpotPopup;
     window.openSpotPopup = function(latlng, name) {
       if (typeof _origOpen === 'function') _origOpen.call(this, latlng, name);
       if (window.innerWidth > 768) return;
+      // Le clic sur un point ne doit plus afficher le drawer de visibilite : on le force ferme.
       var d = document.getElementById('spotDrawerMobile');
       if (d) {
-        d.classList.remove('vzm-closed', 'vzm-mid', 'vzm-full');
-        d.classList.add('vzm-peek');
+        d.classList.remove('vzm-peek', 'vzm-mid', 'vzm-full');
+        d.classList.add('vzm-closed');
         d.style.transform = '';
-        var hint = document.getElementById('vzmTierHintText');
-        if (hint) hint.textContent = 'Tire vers le haut pour les conditions détaillées';
       }
     };
 
