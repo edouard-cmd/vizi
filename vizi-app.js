@@ -11060,6 +11060,33 @@ function vzRenderCondVerdict(){
   var footer = body.querySelector('.vz-cond-footer');
   if (footer) footer.insertAdjacentHTML('beforebegin', html);
   else body.insertAdjacentHTML('beforeend', html);
+
+  // Note jumelle : si un chasseur a rapporte une visi dans le secteur (5 km),
+  // on l'affiche sous la mesure satellite, meme honnetete epistemique. Charge
+  // les retours en arriere-plan puis insere la ligne (pas d'async/await).
+  if (typeof ensurePortCounts_ === 'function' && spot
+      && typeof spot.lat === 'number' && typeof spot.lng === 'number') {
+    ensurePortCounts_().then(function() {
+      if (!body || body.querySelector('.vz-cond-huntnote')) return;
+      var fb = (typeof vzNearestFeedback === 'function') ? vzNearestFeedback(spot.lat, spot.lng, 5) : null;
+      if (!fb) return;
+      var vh = (fb.real_m != null) ? fb.real_m : fb.predicted_m;
+      if (vh == null) return;
+      var clauseH = '';
+      if (typeof fb.age_hours === 'number' && isFinite(fb.age_hours)) {
+        var dh = new Date(Date.now() - fb.age_hours * 3600 * 1000);
+        var moisH = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+        clauseH = ' le ' + dh.getDate() + ' ' + moisH[dh.getMonth()];
+      }
+      var htmlH = '<div class="vz-cond-satnote vz-cond-huntnote">'
+        + '<span style="color:#1A6B5D;font-weight:700;font-size:13px;">~' + (Math.round(vh * 10) / 10) + ' m</span>'
+        + ' observé' + clauseH + ' par un chasseur dans le secteur'
+        + '</div>';
+      var ft = body.querySelector('.vz-cond-footer');
+      if (ft) ft.insertAdjacentHTML('beforebegin', htmlH);
+      else body.insertAdjacentHTML('beforeend', htmlH);
+    });
+  }
 }
 // Scroll horizontal du tableau Conditions : libelles -> icones SVG, et retour.
 function vzCondScrollIcons(){
