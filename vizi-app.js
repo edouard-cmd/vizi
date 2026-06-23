@@ -1194,16 +1194,8 @@ S.map.on('click', function(e) {
       if (isMobile()) return; // sur mobile, le viseur central gere la selection
     isOnSea(e.latlng.lat, e.latlng.lng, function(onSea) {
       if (!onSea) { showLandMessage(e.latlng); return; }
-      // Rattachement au secteur : le clic en mer trouve le port le plus proche
-      // (regle plus-proche-port) et fait monter le flag "Dans le secteur de X".
-      // L'analyse fine du point reste accessible via le lien du popup.
-      var nearest = (typeof findNearestPort === 'function') ? findNearestPort(e.latlng.lat, e.latlng.lng) : null;
-      if (nearest && nearest.spot) {
-        openSectorPopup(nearest.spot, true);
-      } else {
-        vzDesktopPointSelect(e.latlng);
-        if (S_forecastOpen) loadForecast(e.latlng.lat, e.latlng.lng, null);
-      }
+      vzDesktopPointSelect(e.latlng);
+      if (S_forecastOpen) loadForecast(e.latlng.lat, e.latlng.lng, null);
     });
   });
 }
