@@ -1299,26 +1299,27 @@ function vzHideSector() {
 // proche (findNearestPort) et on agrege. Remplace l'ancienne lecture par
 // rayon 1km, qui ratait les votes du secteur des qu'ils etaient un peu loin.
 var S_portCounts = null;
+var S_allFeedback = null;  // retours bruts geolocalises (<72h), pour le clic libre
 
 function fetchPortCounts_() {
   return gasGet('all_visi_feedback', {}).then(function(res) {
     var counts = {};
-    if (res && res.feedbacks && res.feedbacks.length) {
-      res.feedbacks.forEach(function(f) {
-        if (typeof findNearestPort !== 'function') return;
-        var np = findNearestPort(f.lat, f.lon);
-        if (!np || !np.spot) return;
-        var id = np.spot.id;
-        if (!counts[id]) counts[id] = { count: 0, age_hours: Infinity, last_visi: null };
-        counts[id].count++;
-        var v = (f.real_m != null) ? f.real_m : f.predicted_m;
-        if (f.age_hours != null && f.age_hours < counts[id].age_hours) {
-          counts[id].age_hours = f.age_hours;
-          counts[id].last_visi = v;
-        }
-      });
-    }
+    var all = (res && res.feedbacks) ? res.feedbacks : [];
+    all.forEach(function(f) {
+      if (typeof findNearestPort !== 'function') return;
+      var np = findNearestPort(f.lat, f.lon);
+      if (!np || !np.spot) return;
+      var id = np.spot.id;
+      if (!counts[id]) counts[id] = { count: 0, age_hours: Infinity, last_visi: null };
+      counts[id].count++;
+      var v = (f.real_m != null) ? f.real_m : f.predicted_m;
+      if (f.age_hours != null && f.age_hours < counts[id].age_hours) {
+        counts[id].age_hours = f.age_hours;
+        counts[id].last_visi = v;
+      }
+    });
     S_portCounts = counts;
+    S_allFeedback = all;
     return counts;
   });
 }
@@ -1326,6 +1327,23 @@ function fetchPortCounts_() {
 function ensurePortCounts_() {
   if (S_portCounts) return Promise.resolve(S_portCounts);
   return fetchPortCounts_();
+}
+
+// Retour communautaire le plus proche d'un point, dans maxKm. Parmi les
+// candidats dans le rayon, on prend le PLUS RECENT (age le plus faible),
+// car c'est la mesure la plus a jour qui doit primer.
+function vzNearestFeedback(lat, lon, maxKm) {
+  if (!S_allFeedback || !S_allFeedback.length || typeof haversineKm !== 'function') return null;
+  var best = null;
+  S_allFeedback.forEach(function(f) {
+    if (typeof f.lat !== 'number' || typeof f.lon !== 'number') return;
+    var d = haversineKm(lat, lon, f.lat, f.lon);
+    if (d > maxKm) return;
+    if (!best || (f.age_hours != null && best.age_hours != null && f.age_hours < best.age_hours)) {
+      best = f;
+    }
+  });
+  return best;
 }
 
 function openSectorPopup(spot, attached) {
@@ -1481,11 +1499,31 @@ function vzDesktopPointSelect(latlng) {
     S.clickLabel.setIcon(_ptMakeIcon(inner));
   }
   if (typeof fetchCmemsZSD === 'function') {
-    fetchCmemsZSD(latlng.lat, latlng.lng).then(function(sat) {
-      var ok = sat && typeof sat.visi_plongeur_m === 'number' && isFinite(sat.visi_plongeur_m) && sat.visi_plongeur_m > 0
+    ensurePortCounts_().then(function() {
+      return fetchCmemsZSD(latlng.lat, latlng.lng);
+    }).then(function(sat) {
+      var okSat = sat && typeof sat.visi_plongeur_m === 'number' && isFinite(sat.visi_plongeur_m) && sat.visi_plongeur_m > 0
         && (typeof sat.age_hours !== 'number' || sat.age_hours <= 72)
         && (!sat.status || sat.status === 'ok' || sat.status === 'cloudy_J1' || sat.status === 'cloudy_J2');
-      _ptSetLabel(ok ? ('Visibilité estimée : ' + Math.round(sat.visi_plongeur_m) + ' m' + _ptChevron) : ('Conditions' + _ptChevron));
+      var satAge = (okSat && typeof sat.age_hours === 'number') ? sat.age_hours : null;
+
+      // Retour chasseur le plus proche (5 km) et le plus recent. Il prime
+      // sur le satellite s'il est plus frais (regle "la mesure la plus
+      // recente gagne") ou si le satellite est indisponible.
+      var fb = vzNearestFeedback(latlng.lat, latlng.lng, 5);
+      var fbVisi = fb ? ((fb.real_m != null) ? fb.real_m : fb.predicted_m) : null;
+      var fbAge = fb ? fb.age_hours : null;
+      var chasseurGagne = (fbVisi != null) && (satAge == null || (fbAge != null && fbAge < satAge));
+
+      if (chasseurGagne) {
+        _ptSetLabel('Vu ' + Math.round(fbVisi) + ' m (chasseur)' + _ptChevron);
+      } else if (okSat) {
+        _ptSetLabel('Visibilité estimée : ' + Math.round(sat.visi_plongeur_m) + ' m' + _ptChevron);
+      } else if (fbVisi != null) {
+        _ptSetLabel('Vu ' + Math.round(fbVisi) + ' m (chasseur)' + _ptChevron);
+      } else {
+        _ptSetLabel('Conditions' + _ptChevron);
+      }
     }).catch(function() {
       _ptSetLabel('Conditions ' + _ptChevron);
     });
