@@ -1259,7 +1259,7 @@ function vzSectorAgeLabel(hh) {
 // Rayon du secteur "eclaire" par le port (image du phare). Sert au halo
 // visuel ; a aligner avec le rayon de comptage backend (get_visi_feedback)
 // pour que le compteur ramasse exactement ce que le cercle montre.
-var VZ_SECTOR_RADIUS_M = 2500;
+var VZ_SECTOR_RADIUS_M = 5000;
 
 function vzShowSectorHalo(lat, lon) {
   if (S.sectorHalo) { S.map.removeLayer(S.sectorHalo); S.sectorHalo = null; }
