@@ -1263,11 +1263,28 @@ var VZ_SECTOR_RADIUS_M = 5000;
 
 function vzShowSectorHalo(lat, lon) {
   if (S.sectorHalo) { S.map.removeLayer(S.sectorHalo); S.sectorHalo = null; }
-  S.sectorHalo = L.circle([lat, lon], {
-    radius: VZ_SECTOR_RADIUS_M,
-    color: '#4DD4A8', weight: 3, opacity: 1, dashArray: '7 8',
-    fillColor: '#4DD4A8', fillOpacity: 0.12, interactive: false
-  }).addTo(S.map);
+  // Halo "faisceau de phare" : plusieurs disques concentriques sans bord,
+  // empiles, opacite faible. La superposition rend le centre (cote / mer
+  // proche du port) plus dense et les bords plus transparents : un degrade
+  // radial qui se dissout, sans frontiere nette. Resultat : le debordement
+  // sur la terre ne choque plus (pas de trait dur qui delimite a tort).
+  // Rayons en metres -> suit le zoom.
+  var R = VZ_SECTOR_RADIUS_M;
+  var rings = [
+    { r: R,        op: 0.05 },
+    { r: R * 0.70, op: 0.06 },
+    { r: R * 0.44, op: 0.07 },
+    { r: R * 0.22, op: 0.10 }
+  ];
+  var grp = L.layerGroup();
+  rings.forEach(function(ring) {
+    L.circle([lat, lon], {
+      radius: ring.r, stroke: false,
+      fillColor: '#4DD4A8', fillOpacity: ring.op, interactive: false
+    }).addTo(grp);
+  });
+  grp.addTo(S.map);
+  S.sectorHalo = grp;
 }
 
 function vzHideSector() {
