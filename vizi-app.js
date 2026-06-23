@@ -2364,15 +2364,18 @@ function openSpotPopup(latlng, name) {
     if (!_isGenValid()) return;  // clic obsolete, on ignore silencieusement
     if (!fbData) {
       S_spotFeedbackCache = null;
-      console.log('[VIZI] feedback: aucun retour dans 1km/72h');
-      return;
+    } else {
+      S_spotFeedbackCache = {
+        lat: latlng.lat,
+        lon: latlng.lng,
+        data: fbData
+      };
     }
-    S_spotFeedbackCache = {
-      lat: latlng.lat,
-      lon: latlng.lng,
-      data: fbData
-    };
-    console.log('[VIZI] feedback cache rempli:', fbData.count, 'retour(s)', fbData);
+    // Re-render du tableau Conditions s'il est ouvert, pour faire apparaitre
+    // (ou disparaitre) le compteur communautaire une fois le fetch revenu.
+    if (typeof VZ_SHEET !== 'undefined' && VZ_SHEET.mode === 'cond' && typeof renderSheetTable === 'function') {
+      renderSheetTable();
+    }
   });
   
   // ============================================================
@@ -11137,6 +11140,17 @@ function visLabel(score) {
   if (_fbSat && typeof _fbSat.value_zsd_m === 'number' && isFinite(_fbSat.value_zsd_m)) _fbSnap.satzsd = Math.round(_fbSat.value_zsd_m * 100) / 100;
   if (_fbSat && typeof _fbSat.age_hours === 'number' && isFinite(_fbSat.age_hours)) _fbSnap.satage = Math.round(_fbSat.age_hours * 10) / 10;
   html += vzFbBarHtml(spot.lat, spot.lng, _fbPred, _fbToday, _fbDateLabel, _fbSnap);
+  // Compteur de confiance communautaire (facon Waze) : nombre de retours
+  // recents dans le secteur. Masque si zero (eviter le "0 chasseur" deprimant
+  // au demarrage). S_spotFeedbackCache est alimente au clic du spot ; si le
+  // fetch n'est pas encore revenu, le compteur apparaitra au re-render.
+  var _fbCount = 0;
+  if (S_spotFeedbackCache && S_spotFeedbackCache.data
+      && Math.abs(S_spotFeedbackCache.lat - spot.lat) < 0.001
+      && Math.abs(S_spotFeedbackCache.lon - spot.lng) < 0.001) {
+    _fbCount = S_spotFeedbackCache.data.count || 0;
+  }
+  if (_fbCount > 0) html += vzFbCountHtml(_fbCount);
 
 html += '<div style="overflow-x:auto;">';
   html += '<table class="vz-cond-table">';
@@ -11461,6 +11475,14 @@ function vzFbBarInner(thanks, dateLabel) {
     + '<button type="button" onclick="vzFbUp(this)" aria-label="Oui, la visibilit\u00e9 annonc\u00e9e \u00e9tait juste" style="display:flex;align-items:center;justify-content:center;width:40px;height:34px;border:1px solid #2DA888;background:#E9F4EF;color:#0F6E56;border-radius:8px;cursor:pointer;padding:0;">' + VZ_FB_THUMB_UP + '</button>'
     + '<button type="button" onclick="vzFbDown(this)" aria-label="Non, corriger la visibilit\u00e9" style="display:flex;align-items:center;justify-content:center;width:40px;height:34px;border:1px solid #E3A9A2;background:#FBEEEC;color:#8F2D22;border-radius:8px;cursor:pointer;padding:0;">' + VZ_FB_THUMB_DOWN + '</button>'
     + '</span>';
+}
+
+function vzFbCountHtml(n) {
+  var verbe = (n > 1) ? 'chasseurs ont partag\u00e9' : 'chasseur a partag\u00e9';
+  return '<div style="display:flex;align-items:center;gap:8px;padding:2px 14px 10px;font-size:12.5px;color:#2DA888;font-weight:500;line-height:1.3;">'
+    + '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'
+    + '<span>' + n + ' ' + verbe + ' la visibilit\u00e9 dans ce secteur ces derniers jours</span>'
+    + '</div>';
 }
 
 function vzFbBarHtml(lat, lon, pred, date, dateLabel, snap) {
@@ -13296,7 +13318,6 @@ function vzmInit() {
     window.openSpotPopup = function(latlng, name) {
       if (typeof _origOpen === 'function') _origOpen.call(this, latlng, name);
       if (window.innerWidth > 768) return;
-            if (window.vzmHideAim) window.vzmHideAim();   // spot ouvert = viseur libre masque (evite la confusion visi/reticule)
       var d = document.getElementById('spotDrawerMobile');
       if (d) {
         d.classList.remove('vzm-closed', 'vzm-mid', 'vzm-full');
