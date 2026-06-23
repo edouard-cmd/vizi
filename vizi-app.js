@@ -1256,12 +1256,17 @@ function vzSectorAgeLabel(hh) {
   return 'il y a ' + j + (j > 1 ? ' jours' : ' jour');
 }
 
+// Rayon du secteur "eclaire" par le port (image du phare). Sert au halo
+// visuel ; a aligner avec le rayon de comptage backend (get_visi_feedback)
+// pour que le compteur ramasse exactement ce que le cercle montre.
+var VZ_SECTOR_RADIUS_M = 2500;
+
 function vzShowSectorHalo(lat, lon) {
   if (S.sectorHalo) { S.map.removeLayer(S.sectorHalo); S.sectorHalo = null; }
   S.sectorHalo = L.circle([lat, lon], {
-    radius: 1000,
-    color: '#4DD4A8', weight: 1.5, opacity: 0.85, dashArray: '4 5',
-    fillColor: '#4DD4A8', fillOpacity: 0.07, interactive: false
+    radius: VZ_SECTOR_RADIUS_M,
+    color: '#4DD4A8', weight: 3, opacity: 1, dashArray: '7 8',
+    fillColor: '#4DD4A8', fillOpacity: 0.12, interactive: false
   }).addTo(S.map);
 }
 
@@ -1296,7 +1301,7 @@ function vzRenderSectorPopup(name, data, loading) {
   var head = '<div style="display:flex;align-items:center;gap:11px;padding:15px 17px 12px;">'
     + '<div style="width:38px;height:38px;border-radius:50%;background:rgba(77,212,168,0.14);border:1px solid rgba(77,212,168,0.4);display:flex;align-items:center;justify-content:center;flex-shrink:0;">' + perim + '</div>'
     + '<div style="flex:1;min-width:0;"><div style="font-size:15px;font-weight:500;color:#EAF2EF;line-height:1.2;">Secteur de ' + name + '</div>'
-    + '<div style="font-size:12px;color:#7C93A3;margin-top:2px;">\u00e9clair\u00e9 sur 1 km autour du port</div></div>'
+    + '<div style="font-size:12px;color:#7C93A3;margin-top:2px;">\u00e9clair\u00e9 autour du port</div></div>'
     + '<button onclick="vzHideSector()" aria-label="Fermer" style="background:none;border:none;color:#7C93A3;cursor:pointer;padding:4px;line-height:0;">' + closeSvg + '</button></div>';
 
   var body;
