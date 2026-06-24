@@ -1413,10 +1413,10 @@ function vzRenderSectorPopup(name, data, loading, attached) {
       + '<div style="font-size:12.5px;color:#5F7480;line-height:1.4;">Le secteur est allum\u00e9. Sois le premier \u00e0 dire ce que tu as vu dans l\u2019eau.</div></div>';
   }
 
-  var actions = '<div style="text-align:center;padding:12px 18px 0;font-size:13px;font-weight:500;color:#22323E;">Tu confirmes cette visibilit\u00e9 aujourd\u2019hui dans le secteur ?</div>'
+  var actions = '<div id="vzSectorConfirm"><div style="text-align:center;padding:12px 18px 0;font-size:13px;font-weight:500;color:#22323E;">Tu confirmes cette visibilit\u00e9 aujourd\u2019hui dans le secteur ?</div>'
     + '<div id="vzSectorActions" style="display:flex;gap:12px;justify-content:center;padding:10px 18px 8px;">'
     + '<button type="button" onclick="vzSectorVote(\'confirm\')" aria-label="Oui, on avait vu juste" style="display:flex;align-items:center;justify-content:center;width:64px;height:44px;border:1px solid #2DA888;background:#E9F4EF;color:#0F6E56;border-radius:10px;cursor:pointer;padding:0;">' + VZ_FB_THUMB_UP + '</button>'
-    + '<button type="button" onclick="vzSectorVote(\'correct\')" aria-label="Non, corriger la visibilit\u00e9" style="display:flex;align-items:center;justify-content:center;width:64px;height:44px;border:1px solid #E3A9A2;background:#FBEEEC;color:#8F2D22;border-radius:10px;cursor:pointer;padding:0;">' + VZ_FB_THUMB_DOWN + '</button></div>'
+    + '<button type="button" onclick="vzSectorVote(\'correct\')" aria-label="Non, corriger la visibilit\u00e9" style="display:flex;align-items:center;justify-content:center;width:64px;height:44px;border:1px solid #E3A9A2;background:#FBEEEC;color:#8F2D22;border-radius:10px;cursor:pointer;padding:0;">' + VZ_FB_THUMB_DOWN + '</button></div></div>'
     + '<div style="padding:6px 18px 15px;text-align:center;"><button onclick="vzSectorDetails()" style="background:none;border:none;color:#0E7C62;font-size:13px;font-weight:600;cursor:pointer;padding:0;">Voir les conditions d\u00e9taill\u00e9es du jour \u2192</button></div>';
 
   el.innerHTML = head + body + actions;
@@ -1464,15 +1464,8 @@ function vzSectorOpenMeters() {
           predicted_m: (pred != null ? pred : ''), real_m: v, kind: 'correct', ts: Date.now()
         }).then(function() { S_portCounts = null; });
       }
-      var act = document.getElementById('vzSectorActions');
-      if (act) act.style.display = 'none';
-      var el = document.getElementById('vzSectorPopup');
-      if (el) {
-        var msg = document.createElement('div');
-        msg.style.cssText = 'padding:13px 18px 18px;font-size:13px;color:#0E7C62;font-weight:600;text-align:center;';
-        msg.textContent = 'Merci, ' + v + ' m enregistr\u00e9 pour le secteur.';
-        el.appendChild(msg);
-      }
+      var box = document.getElementById('vzSectorConfirm');
+      if (box) box.innerHTML = '<div style="padding:13px 18px 14px;font-size:13px;color:#0F6E56;font-weight:600;text-align:center;line-height:1.4;">Merci, ' + v + ' m enregistr\u00e9 pour le secteur.</div>';
     };
   }
 }
@@ -1488,15 +1481,8 @@ window.vzSectorVote = function(kind) {
       predicted_m: pred, real_m: pred, kind: 'confirm', ts: Date.now()
     }).then(function() { S_portCounts = null; });  // force le recomptage au prochain clic
   }
-  var act = document.getElementById('vzSectorActions');
-  if (act) act.style.display = 'none';
-  var el = document.getElementById('vzSectorPopup');
-  if (el) {
-    var msg = document.createElement('div');
-    msg.style.cssText = 'padding:13px 18px 18px;font-size:13px;color:#4DD4A8;font-weight:500;text-align:center;';
-    msg.textContent = 'Merci, ton retour rend les pr\u00e9visions plus justes dans le secteur.';
-    el.appendChild(msg);
-  }
+  var box = document.getElementById('vzSectorConfirm');
+  if (box) box.innerHTML = '<div style="padding:13px 18px 14px;font-size:13px;color:#0F6E56;font-weight:500;text-align:center;line-height:1.4;">Merci, ton retour rend les pr\u00e9visions plus justes dans le secteur.</div>';
 };
 
 window.vzSectorDetails = function() {
