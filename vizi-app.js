@@ -1389,14 +1389,20 @@ function vzRenderSectorPopup(name, data, loading, attached) {
     var last = data.feedbacks.slice().sort(function(a, b) { return (a.age_hours || 0) - (b.age_hours || 0); })[0];
     var vis = (last.real_m != null) ? last.real_m : last.predicted_m;
     S_sectorState.pred = vis;
-    var visTxt = (vis != null) ? (Math.round(vis * 10) / 10) : '?';
+    var visTxt = (vis != null) ? String(Math.round(vis * 10) / 10).replace('.', ',') : '?';
+    var confDate = '';
+    if (typeof last.age_hours === 'number' && isFinite(last.age_hours)) {
+      var dC = new Date(Date.now() - last.age_hours * 3600 * 1000);
+      var moisC = ['janvier', 'f\u00e9vrier', 'mars', 'avril', 'mai', 'juin', 'juillet', 'ao\u00fbt', 'septembre', 'octobre', 'novembre', 'd\u00e9cembre'];
+      confDate = ' le ' + dC.getDate() + ' ' + moisC[dC.getMonth()];
+    }
     body = '<div style="display:flex;align-items:baseline;gap:10px;padding:4px 18px 2px;">'
       + '<span style="font-size:42px;font-weight:600;color:#0E7C62;font-family:IBM Plex Mono,monospace;line-height:1;">' + visTxt + ' m</span>'
       + '<span style="font-size:13px;color:#5F7480;">de visibilit\u00e9 observ\u00e9e en mer</span></div>'
       + '<div style="padding:2px 18px 14px;font-size:12.5px;color:#7C8C96;">dernier retour ' + vzSectorAgeLabel(last.age_hours) + ', par la communaut\u00e9</div>'
       + '<div style="display:flex;align-items:center;gap:8px;padding:10px 18px;background:rgba(45,168,136,0.10);border-top:0.5px solid rgba(11,26,38,0.08);">'
       + '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1A6B5D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'
-      + '<span style="font-size:12.5px;color:#2A4049;font-weight:500;">' + data.count + (data.count > 1 ? ' chasseurs ont confirm\u00e9' : ' chasseur a confirm\u00e9') + ' ce secteur</span></div>';
+      + '<span style="font-size:12.5px;color:#2A4049;font-weight:500;">' + data.count + (data.count > 1 ? ' chasseurs ont confirm\u00e9' : ' chasseur a confirm\u00e9') + ' ce secteur' + confDate + '</span></div>';
   } else {
     body = '<div style="padding:6px 18px 16px;"><div style="font-size:14px;color:#1A2933;font-weight:600;margin-bottom:4px;">Personne n\u2019a encore partag\u00e9 ici</div>'
       + '<div style="font-size:12.5px;color:#5F7480;line-height:1.4;">Le secteur est allum\u00e9. Sois le premier \u00e0 dire ce que tu as vu dans l\u2019eau.</div></div>';
@@ -1413,10 +1419,63 @@ function vzRenderSectorPopup(name, data, loading, attached) {
 
 window.vzHideSector = vzHideSector;
 
+function vzSectorOpenMeters() {
+  if (document.getElementById('vzFbOverlay')) return;
+  var s = S_sectorState;
+  if (s.lat == null) return;
+  var pred = (s.pred != null) ? s.pred : null;
+  var paliers = [1, 2, 3, 4, 5, 6, 7, 8];
+  var ov = document.createElement('div');
+  ov.id = 'vzFbOverlay';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(11,26,38,0.42);display:flex;align-items:center;justify-content:center;padding:18px;';
+  var predLine = (typeof pred === 'number' && isFinite(pred))
+    ? '<div style="font-size:12px;color:#51677A;text-align:center;margin-bottom:14px;">On annon\u00e7ait ~' + (Math.round(pred * 10) / 10) + ' m</div>'
+    : '<div style="height:6px;"></div>';
+  var grid = '';
+  paliers.forEach(function(v) {
+    var isPred = (typeof pred === 'number' && Math.round(pred) === v);
+    var bg = isPred ? '#EEF2F5' : '#FFFFFF';
+    var bd = isPred ? '#22323E' : 'rgba(11,26,38,0.14)';
+    grid += '<button type="button" class="vz-sec-pal" data-v="' + v + '" style="flex:1 1 21%;min-width:62px;height:48px;border:1px solid ' + bd + ';border-radius:10px;background:' + bg + ';color:#22323E;font-size:15px;font-weight:600;font-family:IBM Plex Mono,monospace;cursor:pointer;">' + v + ' m</button>';
+  });
+  ov.innerHTML = '<div style="background:#FFFFFF;border-radius:14px;padding:18px;width:100%;max-width:340px;box-shadow:0 14px 34px rgba(11,26,38,0.3);font-family:Inter,sans-serif;">'
+    + '<div style="font-size:17px;font-weight:600;color:#22323E;text-align:center;line-height:1.35;margin-bottom:6px;">Quelle visibilit\u00e9 as-tu eue ?</div>'
+    + predLine
+    + '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;">' + grid + '</div>'
+    + '<button type="button" id="vzSecMetCancel" style="width:100%;height:40px;border:0;background:transparent;color:#51677A;font-size:14px;cursor:pointer;font-family:inherit;">Annuler</button>'
+    + '</div>';
+  document.body.appendChild(ov);
+  function close() { if (ov.parentNode) ov.parentNode.removeChild(ov); }
+  ov.querySelector('#vzSecMetCancel').onclick = close;
+  ov.addEventListener('click', function(e) { if (e.target === ov) close(); });
+  var pals = ov.querySelectorAll('.vz-sec-pal');
+  for (var i = 0; i < pals.length; i++) {
+    pals[i].onclick = function() {
+      var v = parseFloat(this.getAttribute('data-v'));
+      close();
+      if (typeof gasGet === 'function') {
+        gasGet('submit_visi_feedback', {
+          lat: s.lat, lon: s.lon, date: vzSectorTodayISO(),
+          predicted_m: (pred != null ? pred : ''), real_m: v, kind: 'correct', ts: Date.now()
+        }).then(function() { S_portCounts = null; });
+      }
+      var act = document.getElementById('vzSectorActions');
+      if (act) act.style.display = 'none';
+      var el = document.getElementById('vzSectorPopup');
+      if (el) {
+        var msg = document.createElement('div');
+        msg.style.cssText = 'padding:13px 18px 18px;font-size:13px;color:#0E7C62;font-weight:600;text-align:center;';
+        msg.textContent = 'Merci, ' + v + ' m enregistr\u00e9 pour le secteur.';
+        el.appendChild(msg);
+      }
+    };
+  }
+}
+
 window.vzSectorVote = function(kind) {
   var s = S_sectorState;
   if (s.lat == null) return;
-  if (kind === 'correct') { vzSectorDetails(); return; }  // correction fine = tableau (snapshot complet)
+  if (kind === 'correct') { vzSectorOpenMeters(); return; }  // correction = selecteur de metres inline
   var pred = (s.pred != null) ? s.pred : '';
   if (typeof gasGet === 'function') {
     gasGet('submit_visi_feedback', {
