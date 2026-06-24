@@ -1402,12 +1402,24 @@ function openSectorPopup(spot, attached) {
   S.map.panTo([spot.lat, spot.lon], { animate: true });
   S_sectorState = { lat: spot.lat, lon: spot.lon, name: spot.name, pred: null };
   vzRenderSectorPopup(spot.name, null, true, attached);
-  ensurePortCounts_().then(function(counts) {
+  Promise.all([
+    ensurePortCounts_().catch(function() { return null; }),
+    (typeof fetchCmemsZSD === 'function') ? fetchCmemsZSD(spot.lat, spot.lon) : Promise.resolve(null)
+  ]).then(function(res) {
     if (S_sectorState.lat !== spot.lat || S_sectorState.lon !== spot.lon) return;
+    var counts = res[0], sat = res[1];
     var pc = counts ? counts[spot.id] : null;
-    var data = pc
-      ? { count: pc.count, feedbacks: [{ real_m: pc.last_visi, predicted_m: pc.last_visi, age_hours: (pc.age_hours === Infinity ? null : pc.age_hours) }] }
-      : { count: 0, feedbacks: [] };
+    var okSat = sat && typeof sat.visi_plongeur_m === 'number' && isFinite(sat.visi_plongeur_m) && sat.visi_plongeur_m > 0
+      && (typeof sat.age_hours !== 'number' || sat.age_hours <= 72)
+      && (!sat.status || sat.status === 'ok' || sat.status === 'cloudy_J1' || sat.status === 'cloudy_J2');
+    var data;
+    if (pc) {
+      data = { count: pc.count, feedbacks: [{ real_m: pc.last_visi, predicted_m: pc.last_visi, age_hours: (pc.age_hours === Infinity ? null : pc.age_hours) }] };
+    } else if (okSat) {
+      data = { count: 0, feedbacks: [], sat: { visi: sat.visi_plongeur_m, age: (typeof sat.age_hours === 'number' ? sat.age_hours : null) } };
+    } else {
+      data = { count: 0, feedbacks: [] };
+    }
     vzRenderSectorPopup(spot.name, data, false, attached);
   });
 }
@@ -1453,16 +1465,38 @@ function vzRenderSectorPopup(name, data, loading, attached) {
       + '<div style="display:flex;align-items:center;gap:8px;padding:10px 18px;background:rgba(45,168,136,0.10);border-top:0.5px solid rgba(11,26,38,0.08);">'
       + '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1A6B5D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'
       + '<span style="font-size:12.5px;color:#2A4049;font-weight:500;">' + data.count + (multi ? ' chasseurs ont confirm\u00e9' : ' chasseur a confirm\u00e9') + ' ce secteur</span></div>';
+  } else if (data && data.sat && typeof data.sat.visi === 'number' && data.sat.visi > 0) {
+    S_sectorState.pred = data.sat.visi;
+    var satTxt = String(Math.round(data.sat.visi));
+    var sigSvg = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7C8C96" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M4 13a8 8 0 0 1 7 7"/><path d="M4 17a4 4 0 0 1 4 4"/><circle cx="5" cy="20" r="0.8" fill="#7C8C96"/></svg>';
+    body = '<div style="display:flex;align-items:baseline;gap:10px;padding:4px 18px 2px;">'
+      + '<span style="font-size:42px;font-weight:600;color:#2DA888;font-family:IBM Plex Mono,monospace;line-height:1;">' + satTxt + ' m</span>'
+      + '<span style="font-size:13px;color:#5F7480;">estim\u00e9e par Visimer</span></div>'
+      + '<div style="display:flex;align-items:center;gap:6px;padding:6px 18px 14px;font-size:12.5px;color:#7C8C96;">' + sigSvg + 'D\u2019apr\u00e8s le satellite, pas encore de retour terrain</div>';
   } else {
     body = '<div style="padding:6px 18px 16px;"><div style="font-size:14px;color:#1A2933;font-weight:600;margin-bottom:4px;">Personne n\u2019a encore partag\u00e9 ici</div>'
       + '<div style="font-size:12.5px;color:#5F7480;line-height:1.4;">Le secteur est allum\u00e9. Sois le premier \u00e0 dire ce que tu as vu dans l\u2019eau.</div></div>';
   }
 
-  var actions = '<div id="vzSectorConfirm"><div style="text-align:center;padding:12px 18px 0;font-size:13px;font-weight:500;color:#22323E;">Tu confirmes cette visibilit\u00e9 aujourd\u2019hui dans le secteur ?</div>'
-    + '<div id="vzSectorActions" style="display:flex;gap:12px;justify-content:center;padding:10px 18px 8px;">'
-    + '<button type="button" onclick="vzSectorVote(\'confirm\')" aria-label="Oui, on avait vu juste" style="display:flex;align-items:center;justify-content:center;width:64px;height:44px;border:1px solid #2DA888;background:#E9F4EF;color:#0F6E56;border-radius:10px;cursor:pointer;padding:0;">' + VZ_FB_THUMB_UP + '</button>'
-    + '<button type="button" onclick="vzSectorVote(\'correct\')" aria-label="Non, corriger la visibilit\u00e9" style="display:flex;align-items:center;justify-content:center;width:64px;height:44px;border:1px solid #E3A9A2;background:#FBEEEC;color:#8F2D22;border-radius:10px;cursor:pointer;padding:0;">' + VZ_FB_THUMB_DOWN + '</button></div></div>'
-    + '<div style="padding:6px 18px 15px;text-align:center;"><button onclick="vzSectorDetails()" style="background:none;border:none;color:#0E7C62;font-size:13px;font-weight:600;cursor:pointer;padding:0;">Voir les conditions d\u00e9taill\u00e9es du jour \u2192</button></div>';
+  var hasValue = !loading && data && ((data.count > 0 && data.feedbacks && data.feedbacks.length) || (data.sat && typeof data.sat.visi === 'number' && data.sat.visi > 0));
+  var hasBanner = !loading && data && data.count > 0 && data.feedbacks && data.feedbacks.length;
+  var sep = hasBanner ? '' : 'border-top:0.5px solid rgba(11,26,38,0.08);';
+  var detailLink = '<div style="padding:6px 18px 15px;text-align:center;"><button onclick="vzSectorDetails()" style="background:none;border:none;color:#0E7C62;font-size:13px;font-weight:600;cursor:pointer;padding:0;">Voir les conditions d\u00e9taill\u00e9es du jour \u2192</button></div>';
+  var actions;
+  if (hasValue) {
+    actions = '<div id="vzSectorConfirm"><div style="text-align:center;' + sep + 'padding:13px 18px 0;font-size:13px;font-weight:500;color:#22323E;">Tu confirmes cette visibilit\u00e9 aujourd\u2019hui dans le secteur ?</div>'
+      + '<div id="vzSectorActions" style="display:flex;gap:12px;justify-content:center;padding:10px 18px 8px;">'
+      + '<button type="button" onclick="vzSectorVote(\'confirm\')" aria-label="Oui, on avait vu juste" style="display:flex;align-items:center;justify-content:center;width:64px;height:44px;border:1px solid #2DA888;background:#E9F4EF;color:#0F6E56;border-radius:10px;cursor:pointer;padding:0;">' + VZ_FB_THUMB_UP + '</button>'
+      + '<button type="button" onclick="vzSectorVote(\'correct\')" aria-label="Non, corriger la visibilit\u00e9" style="display:flex;align-items:center;justify-content:center;width:64px;height:44px;border:1px solid #E3A9A2;background:#FBEEEC;color:#8F2D22;border-radius:10px;cursor:pointer;padding:0;">' + VZ_FB_THUMB_DOWN + '</button></div></div>'
+      + detailLink;
+  } else if (!loading) {
+    actions = '<div id="vzSectorConfirm" style="' + sep + 'padding:14px 18px 4px;display:flex;justify-content:center;">'
+      + '<button type="button" onclick="vzSectorVote(\'correct\')" style="display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 20px;border:1px solid #2DA888;background:#E9F4EF;color:#0F6E56;border-radius:10px;cursor:pointer;font-family:Inter,sans-serif;font-size:13px;font-weight:600;">'
+      + '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>Partager ma visi</button></div>'
+      + detailLink;
+  } else {
+    actions = detailLink;
+  }
 
   el.innerHTML = head + body + actions;
 }
