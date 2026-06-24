@@ -1149,13 +1149,20 @@ initLitto3dLayer();
 
   var regionColors = { 'Manche':'#0BA888', 'Bretagne':'#16A34A', 'Atlantique':'#E8A838', 'Mediterranee':'#DC2626' };
 
+  function vzSpotIconHtml() {
+    return '<div class="vz-spot-dot" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:30px;height:30px;display:flex;align-items:center;justify-content:center;">'
+      + '<div style="position:absolute;width:30px;height:30px;border-radius:50%;background:#4DD4A8;filter:blur(7px);opacity:0.45;"></div>'
+      + '<div style="position:relative;width:26px;height:26px;border-radius:50%;background:rgba(10,21,32,0.92);border:1px solid rgba(77,212,168,0.55);display:flex;align-items:center;justify-content:center;">'
+      + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4DD4A8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" stroke-dasharray="3 3"/><circle cx="12" cy="12" r="2.2" fill="#4DD4A8"/></svg>'
+      + '</div></div>';
+  }
+
   SPOTS.forEach(function(spot) {
     var color = regionColors[spot.region] || '#3A5A78';
-    var m = L.circleMarker([spot.lat, spot.lon], {
-      radius: 7, fillColor: color, color: '#FFFFFF', weight: 1, fillOpacity: 0.88
-    }).addTo(S.map);
+    var icon = L.divIcon({ className: '', html: vzSpotIconHtml(), iconSize: [44, 44], iconAnchor: [22, 22] });
+    var m = L.marker([spot.lat, spot.lon], { icon: icon, keyboard: false }).addTo(S.map);
     m.bindTooltip('<b>' + spot.name + '</b><br><span style="color:' + color + ';font-size:11px">' + spot.region + '</span>', {
-      permanent: false, direction: 'top', className: 'visim-tooltip', offset: [0, -8]
+      permanent: false, direction: 'top', className: 'visim-tooltip', offset: [0, -16]
     });
     m.on('click', function(e) {
       L.DomEvent.stopPropagation(e);
@@ -1164,20 +1171,22 @@ initLitto3dLayer();
     S.spotMarkers[spot.id] = m;
   });
 
-  function vzSpotStyleForZoom(z) {
-    if (z >= 11) return { radius: 7,   fillOpacity: 0.90, weight: 1.2 };
-    if (z >= 9)  return { radius: 5.5, fillOpacity: 0.85, weight: 1.1 };
-    if (z >= 7)  return { radius: 4,   fillOpacity: 0.75, weight: 0.9 };
-    return         { radius: 2.8, fillOpacity: 0.55, weight: 0.6 };
+  function vzSpotScaleForZoom(z) {
+    if (z >= 11) return 1;
+    if (z >= 9)  return 0.82;
+    if (z >= 7)  return 0.64;
+    return 0.46;
   }
   function vzUpdateSpotMarkers() {
     if (!S.spotMarkers) return;
-    var st = vzSpotStyleForZoom(S.map.getZoom());
+    var sc = vzSpotScaleForZoom(S.map.getZoom());
     Object.keys(S.spotMarkers).forEach(function(id) {
       var mm = S.spotMarkers[id];
       if (!mm) return;
-      if (mm.setRadius) mm.setRadius(st.radius);
-      if (mm.setStyle) mm.setStyle({ fillOpacity: st.fillOpacity, weight: st.weight });
+      var el = mm.getElement && mm.getElement();
+      if (!el) return;
+      var dot = el.querySelector('.vz-spot-dot');
+      if (dot) dot.style.transform = 'translate(-50%,-50%) scale(' + sc + ')';
     });
   }
   S.map.on('zoomend', vzUpdateSpotMarkers);
