@@ -1398,24 +1398,22 @@ function vzRenderSectorPopup(name, data, loading, attached) {
     }
     var multi = data.count > 1;
     var calSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7C8C96" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>';
-    var timeLine = multi
-      ? (dateTxt ? ('Dernier retour ' + dateTxt) : 'Plusieurs retours partag\u00e9s')
-      : (dateTxt ? ('Vu ' + dateTxt + ', partag\u00e9 par la communaut\u00e9') : 'Partag\u00e9 par la communaut\u00e9');
+    var dateLine = dateTxt
+      ? '<div style="display:flex;align-items:center;gap:6px;padding:6px 18px 14px;font-size:12.5px;color:#7C8C96;">' + calSvg + (multi ? 'Dernier retour ' : 'Vu ') + dateTxt + '</div>'
+      : '<div style="height:8px;"></div>';
     body = '<div style="display:flex;align-items:baseline;gap:10px;padding:4px 18px 2px;">'
       + '<span style="font-size:42px;font-weight:600;color:#0E7C62;font-family:IBM Plex Mono,monospace;line-height:1;">' + visTxt + ' m</span>'
       + '<span style="font-size:13px;color:#5F7480;">de visibilit\u00e9 observ\u00e9e en mer</span></div>'
-      + '<div style="display:flex;align-items:center;gap:6px;padding:6px 18px ' + (multi ? '14px' : '16px') + ';font-size:12.5px;color:#7C8C96;">' + calSvg + timeLine + '</div>'
-      + (multi
-        ? '<div style="display:flex;align-items:center;gap:8px;padding:10px 18px;background:rgba(45,168,136,0.10);border-top:0.5px solid rgba(11,26,38,0.08);">'
-          + '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1A6B5D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'
-          + '<span style="font-size:12.5px;color:#2A4049;font-weight:500;">' + data.count + ' chasseurs ont confirm\u00e9 ce secteur</span></div>'
-        : '');
+      + dateLine
+      + '<div style="display:flex;align-items:center;gap:8px;padding:10px 18px;background:rgba(45,168,136,0.10);border-top:0.5px solid rgba(11,26,38,0.08);">'
+      + '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1A6B5D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'
+      + '<span style="font-size:12.5px;color:#2A4049;font-weight:500;">' + data.count + (multi ? ' chasseurs ont confirm\u00e9' : ' chasseur a confirm\u00e9') + ' ce secteur</span></div>';
   } else {
     body = '<div style="padding:6px 18px 16px;"><div style="font-size:14px;color:#1A2933;font-weight:600;margin-bottom:4px;">Personne n\u2019a encore partag\u00e9 ici</div>'
       + '<div style="font-size:12.5px;color:#5F7480;line-height:1.4;">Le secteur est allum\u00e9. Sois le premier \u00e0 dire ce que tu as vu dans l\u2019eau.</div></div>';
   }
 
-  var actions = '<div style="text-align:center;border-top:0.5px solid rgba(11,26,38,0.08);padding:13px 18px 0;font-size:13px;font-weight:500;color:#22323E;">Tu confirmes cette visibilit\u00e9 aujourd\u2019hui dans le secteur ?</div>'
+  var actions = '<div style="text-align:center;padding:12px 18px 0;font-size:13px;font-weight:500;color:#22323E;">Tu confirmes cette visibilit\u00e9 aujourd\u2019hui dans le secteur ?</div>'
     + '<div id="vzSectorActions" style="display:flex;gap:12px;justify-content:center;padding:10px 18px 8px;">'
     + '<button type="button" onclick="vzSectorVote(\'confirm\')" aria-label="Oui, on avait vu juste" style="display:flex;align-items:center;justify-content:center;width:64px;height:44px;border:1px solid #2DA888;background:#E9F4EF;color:#0F6E56;border-radius:10px;cursor:pointer;padding:0;">' + VZ_FB_THUMB_UP + '</button>'
     + '<button type="button" onclick="vzSectorVote(\'correct\')" aria-label="Non, corriger la visibilit\u00e9" style="display:flex;align-items:center;justify-content:center;width:64px;height:44px;border:1px solid #E3A9A2;background:#FBEEEC;color:#8F2D22;border-radius:10px;cursor:pointer;padding:0;">' + VZ_FB_THUMB_DOWN + '</button></div>'
