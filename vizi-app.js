@@ -1149,7 +1149,14 @@ initLitto3dLayer();
 
   var regionColors = { 'Manche':'#0BA888', 'Bretagne':'#16A34A', 'Atlantique':'#E8A838', 'Mediterranee':'#DC2626' };
 
-  function vzSpotIconHtml() {
+  function vzSpotIconHtml(active) {
+    if (active) {
+      return '<div class="vz-spot-dot" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:34px;height:34px;display:flex;align-items:center;justify-content:center;">'
+        + '<div style="position:absolute;width:42px;height:42px;border-radius:50%;background:#4DD4A8;filter:blur(10px);opacity:0.65;"></div>'
+        + '<div style="position:relative;width:30px;height:30px;border-radius:50%;background:#4DD4A8;border:1.5px solid #EAFBF4;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 1px rgba(10,21,32,0.25);">'
+        + '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0A1520" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" stroke-dasharray="3 3"/><circle cx="12" cy="12" r="2.4" fill="#0A1520"/></svg>'
+        + '</div></div>';
+    }
     return '<div class="vz-spot-dot" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:30px;height:30px;display:flex;align-items:center;justify-content:center;">'
       + '<div style="position:absolute;width:30px;height:30px;border-radius:50%;background:#4DD4A8;filter:blur(7px);opacity:0.45;"></div>'
       + '<div style="position:relative;width:26px;height:26px;border-radius:50%;background:rgba(10,21,32,0.92);border:1px solid rgba(77,212,168,0.55);display:flex;align-items:center;justify-content:center;">'
@@ -1159,7 +1166,7 @@ initLitto3dLayer();
 
   SPOTS.forEach(function(spot) {
     var color = regionColors[spot.region] || '#3A5A78';
-    var icon = L.divIcon({ className: '', html: vzSpotIconHtml(), iconSize: [44, 44], iconAnchor: [22, 22] });
+    var icon = L.divIcon({ className: '', html: vzSpotIconHtml(false), iconSize: [44, 44], iconAnchor: [22, 22] });
     var m = L.marker([spot.lat, spot.lon], { icon: icon, keyboard: false }).addTo(S.map);
     m.bindTooltip('<b>' + spot.name + '</b><br><span style="color:' + color + ';font-size:11px">' + spot.region + '</span>', {
       permanent: false, direction: 'top', className: 'visim-tooltip', offset: [0, -16]
@@ -1189,6 +1196,33 @@ initLitto3dLayer();
       if (dot) dot.style.transform = 'translate(-50%,-50%) scale(' + sc + ')';
     });
   }
+  function vzApplyZoomScale(mm) {
+    var el = mm && mm.getElement && mm.getElement();
+    if (!el) return;
+    var dot = el.querySelector('.vz-spot-dot');
+    if (dot) dot.style.transform = 'translate(-50%,-50%) scale(' + vzSpotScaleForZoom(S.map.getZoom()) + ')';
+  }
+  function vzSetActiveSpot(id) {
+    if (S._activeSpotId === id) return;
+    vzClearActiveSpot();
+    var mm = S.spotMarkers[id];
+    if (!mm) return;
+    mm.setIcon(L.divIcon({ className: '', html: vzSpotIconHtml(true), iconSize: [44, 44], iconAnchor: [22, 22] }));
+    vzApplyZoomScale(mm);
+    S._activeSpotId = id;
+  }
+  function vzClearActiveSpot() {
+    var id = S._activeSpotId;
+    if (id == null) return;
+    var mm = S.spotMarkers[id];
+    if (mm) {
+      mm.setIcon(L.divIcon({ className: '', html: vzSpotIconHtml(false), iconSize: [44, 44], iconAnchor: [22, 22] }));
+      vzApplyZoomScale(mm);
+    }
+    S._activeSpotId = null;
+  }
+  window.vzSetActiveSpot = vzSetActiveSpot;
+  window.vzClearActiveSpot = vzClearActiveSpot;
   S.map.on('zoomend', vzUpdateSpotMarkers);
   vzUpdateSpotMarkers();
 
@@ -1297,6 +1331,7 @@ function vzShowSectorHalo(lat, lon) {
 }
 
 function vzHideSector() {
+  if (typeof window.vzClearActiveSpot === 'function') window.vzClearActiveSpot();
   if (S.sectorHalo) { S.map.removeLayer(S.sectorHalo); S.sectorHalo = null; }
   var el = document.getElementById('vzSectorPopup');
   if (el && el.parentNode) el.parentNode.removeChild(el);
@@ -1363,6 +1398,7 @@ function openSectorPopup(spot, attached) {
     window.vzmHideAim();  // libere la croix : la barre "Analyser ce point" la recouvrait
   }
   vzShowSectorHalo(spot.lat, spot.lon);
+  if (typeof window.vzSetActiveSpot === 'function' && spot.id != null) window.vzSetActiveSpot(spot.id);
   S.map.panTo([spot.lat, spot.lon], { animate: true });
   S_sectorState = { lat: spot.lat, lon: spot.lon, name: spot.name, pred: null };
   vzRenderSectorPopup(spot.name, null, true, attached);
