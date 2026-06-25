@@ -3808,6 +3808,7 @@ function vzmInitCrosshair(){
   st.textContent = `
 .vzm-xhair{position:fixed;left:50%;top:33.333%;width:64px;height:64px;margin:-32px 0 0 -32px;z-index:1200;pointer-events:none;opacity:0;transform:scale(.55);transition:opacity .22s ease,transform .26s cubic-bezier(.2,.9,.3,1.2);}
 .vzm-xhair.on{opacity:1;transform:scale(1);}
+.vzm-xhair.on.idle{opacity:.42;}
 .vzm-xhair svg{width:100%;height:100%;display:block;overflow:visible;}
 .vzm-xhair .vzm-xhair-ping{transform-origin:32px 32px;animation:vzmXping 2.6s ease-out infinite;}
 @keyframes vzmXping{0%{transform:scale(.7);opacity:.4;}70%{transform:scale(1.55);opacity:0;}100%{opacity:0;}}
@@ -3851,9 +3852,23 @@ function vzmInitCrosshair(){
     var d = document.getElementById('spotDrawerMobile');
     return d && (d.classList.contains('vzm-peek') || d.classList.contains('vzm-mid') || d.classList.contains('vzm-full'));
   }
+  var aimIdle = 0;
+  function armIdle(){
+    clearTimeout(aimIdle);
+    aimIdle = setTimeout(function(){
+      bar.classList.remove('on');                                 // bandeau : fondu sortant
+      if (xh.classList.contains('on')) xh.classList.add('idle');  // croix : atténuée, jamais masquée
+    }, 4000);
+  }
   function showAim(){
     if (!isMobile() || drawerOpen() || (typeof VZ_SHEET !== 'undefined' && VZ_SHEET && VZ_SHEET.mode)) return;
-    xh.classList.add('on'); bar.classList.add('on');
+    xh.classList.add('on'); xh.classList.remove('idle'); bar.classList.add('on');
+    armIdle();
+  }
+  function wakeAim(){
+    if (!isMobile() || drawerOpen() || (typeof VZ_SHEET !== 'undefined' && VZ_SHEET && VZ_SHEET.mode)) return;
+    xh.classList.add('on'); xh.classList.remove('idle'); bar.classList.add('on');
+    clearTimeout(aimIdle);                                        // interaction en cours : timer suspendu
   }
   function settleAim(){
     if (!isMobile() || !bar.classList.contains('on')) return;
@@ -3870,12 +3885,18 @@ function vzmInitCrosshair(){
       }
     }).catch(function(){ if (tok === aimTok && v) v.innerHTML = '&mdash;'; });
   }
-  function hideAll(){ xh.classList.remove('on'); bar.classList.remove('on'); }
+  function hideAll(){ clearTimeout(aimIdle); xh.classList.remove('on', 'idle'); bar.classList.remove('on'); }
   window.vzmHideAim = hideAll;
   window.vzmShowAim = showAim;
 
-  S.map.on('dragstart', showAim);
-  S.map.on('zoomstart', showAim);
+  S.map.on('movestart zoomstart', wakeAim);   // interaction en cours : tout revient, timer suspendu
+  S.map.on('moveend zoomend', armIdle);        // carte immobile : relance le compte a rebours 4s
+  var aimCont = S.map.getContainer();
+  if (aimCont) {
+    aimCont.addEventListener('touchstart', wakeAim, { passive: true });
+    aimCont.addEventListener('mousedown', wakeAim);
+    aimCont.addEventListener('touchend', armIdle, { passive: true });
+  }
 
 document.getElementById('vzmAimBtn').addEventListener('click', function(){
     hideAll();
