@@ -3806,12 +3806,10 @@ function vzmInitCrosshair(){
   var st = document.createElement('style');
   st.id = 'vzmAimStyle';
   st.textContent = `
-.vzm-xhair{position:fixed;left:50%;top:33.333%;width:64px;height:64px;margin:-32px 0 0 -32px;z-index:1200;pointer-events:none;opacity:0;transform:scale(.55);transition:opacity .22s ease,transform .26s cubic-bezier(.2,.9,.3,1.2);}
-.vzm-xhair.on{opacity:1;transform:scale(1);}
+.vzm-xhair{position:fixed;left:50%;top:33.333%;width:40px;height:40px;margin:-20px 0 0 -20px;z-index:1200;pointer-events:none;opacity:0;transform:scale(.7);transition:opacity .22s ease,transform .26s cubic-bezier(.2,.9,.3,1.2);}
+.vzm-xhair.on{opacity:.82;transform:scale(1);}
 .vzm-xhair.on.idle{opacity:.42;}
 .vzm-xhair svg{width:100%;height:100%;display:block;overflow:visible;}
-.vzm-xhair .vzm-xhair-ping{transform-origin:32px 32px;animation:vzmXping 2.6s ease-out infinite;}
-@keyframes vzmXping{0%{transform:scale(.7);opacity:.4;}70%{transform:scale(1.55);opacity:0;}100%{opacity:0;}}
 .vzm-aimbar{position:fixed;left:50%;top:104px;transform:translate(-50%,-160%);width:min(92vw,440px);z-index:1201;opacity:0;pointer-events:none;transition:transform .32s cubic-bezier(.2,.9,.3,1.1),opacity .28s ease;}
 .vzm-aimbar.on{transform:translate(-50%,0);opacity:1;}
 .vzm-aimbar-info{display:flex;flex-direction:column;gap:2px;padding-right:34px;}
@@ -3831,14 +3829,13 @@ function vzmInitCrosshair(){
 
   var xh = document.createElement('div');
   xh.className = 'vzm-xhair'; xh.id = 'vzmXhair';
-  xh.innerHTML = '<svg viewBox="0 0 64 64">'
-    + '<circle class="vzm-xhair-ping" cx="32" cy="32" r="14" fill="none" stroke="#4DD4A8" stroke-width="2"/>'
-    + '<circle cx="32" cy="32" r="15" fill="rgba(7,32,24,0.35)" stroke="#4DD4A8" stroke-width="2.4"/>'
-    + '<line x1="32" y1="4" x2="32" y2="16" stroke="#4DD4A8" stroke-width="2.4" stroke-linecap="round"/>'
-    + '<line x1="32" y1="48" x2="32" y2="60" stroke="#4DD4A8" stroke-width="2.4" stroke-linecap="round"/>'
-    + '<line x1="4" y1="32" x2="16" y2="32" stroke="#4DD4A8" stroke-width="2.4" stroke-linecap="round"/>'
-    + '<line x1="48" y1="32" x2="60" y2="32" stroke="#4DD4A8" stroke-width="2.4" stroke-linecap="round"/>'
-    + '<circle cx="32" cy="32" r="3.2" fill="#fff"/>'
+  xh.innerHTML = '<svg viewBox="0 0 44 44">'
+    + '<circle cx="22" cy="22" r="9" fill="none" stroke="#4DD4A8" stroke-width="1.3"/>'
+    + '<line x1="22" y1="4" x2="22" y2="13" stroke="#4DD4A8" stroke-width="1.5" stroke-linecap="round"/>'
+    + '<line x1="22" y1="31" x2="22" y2="40" stroke="#4DD4A8" stroke-width="1.5" stroke-linecap="round"/>'
+    + '<line x1="4" y1="22" x2="13" y2="22" stroke="#4DD4A8" stroke-width="1.5" stroke-linecap="round"/>'
+    + '<line x1="31" y1="22" x2="40" y2="22" stroke="#4DD4A8" stroke-width="1.5" stroke-linecap="round"/>'
+    + '<circle cx="22" cy="22" r="1.7" fill="#4DD4A8"/>'
     + '</svg>';
   document.body.appendChild(xh);
 
