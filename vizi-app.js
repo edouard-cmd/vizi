@@ -1149,27 +1149,13 @@ initLitto3dLayer();
 
   var regionColors = { 'Manche':'#0BA888', 'Bretagne':'#16A34A', 'Atlantique':'#E8A838', 'Mediterranee':'#DC2626' };
 
-  function vzSpotIconHtml(active) {
-    if (active) {
-      return '<div class="vz-spot-dot" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:34px;height:34px;display:flex;align-items:center;justify-content:center;">'
-        + '<div style="position:absolute;width:42px;height:42px;border-radius:50%;background:#4DD4A8;filter:blur(10px);opacity:0.65;"></div>'
-        + '<div style="position:relative;width:30px;height:30px;border-radius:50%;background:#4DD4A8;border:1.5px solid #EAFBF4;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 1px rgba(10,21,32,0.25);">'
-        + '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0A1520" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" stroke-dasharray="3 3"/><circle cx="12" cy="12" r="2.4" fill="#0A1520"/></svg>'
-        + '</div></div>';
-    }
-    return '<div class="vz-spot-dot" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:30px;height:30px;display:flex;align-items:center;justify-content:center;">'
-      + '<div style="position:absolute;width:30px;height:30px;border-radius:50%;background:#4DD4A8;filter:blur(7px);opacity:0.45;"></div>'
-      + '<div style="position:relative;width:26px;height:26px;border-radius:50%;background:rgba(10,21,32,0.92);border:1px solid rgba(77,212,168,0.55);display:flex;align-items:center;justify-content:center;">'
-      + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4DD4A8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" stroke-dasharray="3 3"/><circle cx="12" cy="12" r="2.2" fill="#4DD4A8"/></svg>'
-      + '</div></div>';
-  }
-
   SPOTS.forEach(function(spot) {
     var color = regionColors[spot.region] || '#3A5A78';
-    var icon = L.divIcon({ className: '', html: vzSpotIconHtml(false), iconSize: [44, 44], iconAnchor: [22, 22] });
-    var m = L.marker([spot.lat, spot.lon], { icon: icon, keyboard: false }).addTo(S.map);
+    var m = L.circleMarker([spot.lat, spot.lon], {
+      radius: 7, fillColor: color, color: '#FFFFFF', weight: 1, fillOpacity: 0.88
+    }).addTo(S.map);
     m.bindTooltip('<b>' + spot.name + '</b><br><span style="color:' + color + ';font-size:11px">' + spot.region + '</span>', {
-      permanent: false, direction: 'top', className: 'visim-tooltip', offset: [0, -16]
+      permanent: false, direction: 'top', className: 'visim-tooltip', offset: [0, -8]
     });
     m.on('click', function(e) {
       L.DomEvent.stopPropagation(e);
@@ -1178,51 +1164,22 @@ initLitto3dLayer();
     S.spotMarkers[spot.id] = m;
   });
 
-  function vzSpotScaleForZoom(z) {
-    if (z >= 11) return 1;
-    if (z >= 9)  return 0.82;
-    if (z >= 7)  return 0.64;
-    return 0.46;
+  function vzSpotStyleForZoom(z) {
+    if (z >= 11) return { radius: 7,   fillOpacity: 0.90, weight: 1.2 };
+    if (z >= 9)  return { radius: 5.5, fillOpacity: 0.85, weight: 1.1 };
+    if (z >= 7)  return { radius: 4,   fillOpacity: 0.75, weight: 0.9 };
+    return         { radius: 2.8, fillOpacity: 0.55, weight: 0.6 };
   }
   function vzUpdateSpotMarkers() {
     if (!S.spotMarkers) return;
-    var sc = vzSpotScaleForZoom(S.map.getZoom());
+    var st = vzSpotStyleForZoom(S.map.getZoom());
     Object.keys(S.spotMarkers).forEach(function(id) {
       var mm = S.spotMarkers[id];
       if (!mm) return;
-      var el = mm.getElement && mm.getElement();
-      if (!el) return;
-      var dot = el.querySelector('.vz-spot-dot');
-      if (dot) dot.style.transform = 'translate(-50%,-50%) scale(' + sc + ')';
+      if (mm.setRadius) mm.setRadius(st.radius);
+      if (mm.setStyle) mm.setStyle({ fillOpacity: st.fillOpacity, weight: st.weight });
     });
   }
-  function vzApplyZoomScale(mm) {
-    var el = mm && mm.getElement && mm.getElement();
-    if (!el) return;
-    var dot = el.querySelector('.vz-spot-dot');
-    if (dot) dot.style.transform = 'translate(-50%,-50%) scale(' + vzSpotScaleForZoom(S.map.getZoom()) + ')';
-  }
-  function vzSetActiveSpot(id) {
-    if (S._activeSpotId === id) return;
-    vzClearActiveSpot();
-    var mm = S.spotMarkers[id];
-    if (!mm) return;
-    mm.setIcon(L.divIcon({ className: '', html: vzSpotIconHtml(true), iconSize: [44, 44], iconAnchor: [22, 22] }));
-    vzApplyZoomScale(mm);
-    S._activeSpotId = id;
-  }
-  function vzClearActiveSpot() {
-    var id = S._activeSpotId;
-    if (id == null) return;
-    var mm = S.spotMarkers[id];
-    if (mm) {
-      mm.setIcon(L.divIcon({ className: '', html: vzSpotIconHtml(false), iconSize: [44, 44], iconAnchor: [22, 22] }));
-      vzApplyZoomScale(mm);
-    }
-    S._activeSpotId = null;
-  }
-  window.vzSetActiveSpot = vzSetActiveSpot;
-  window.vzClearActiveSpot = vzClearActiveSpot;
   S.map.on('zoomend', vzUpdateSpotMarkers);
   vzUpdateSpotMarkers();
 
@@ -1331,7 +1288,6 @@ function vzShowSectorHalo(lat, lon) {
 }
 
 function vzHideSector() {
-  if (typeof window.vzClearActiveSpot === 'function') window.vzClearActiveSpot();
   if (S.sectorHalo) { S.map.removeLayer(S.sectorHalo); S.sectorHalo = null; }
   var el = document.getElementById('vzSectorPopup');
   if (el && el.parentNode) el.parentNode.removeChild(el);
@@ -1398,7 +1354,6 @@ function openSectorPopup(spot, attached) {
     window.vzmHideAim();  // libere la croix : la barre "Analyser ce point" la recouvrait
   }
   vzShowSectorHalo(spot.lat, spot.lon);
-  if (typeof window.vzSetActiveSpot === 'function' && spot.id != null) window.vzSetActiveSpot(spot.id);
   S.map.panTo([spot.lat, spot.lon], { animate: true });
   S_sectorState = { lat: spot.lat, lon: spot.lon, name: spot.name, pred: null };
   vzRenderSectorPopup(spot.name, null, true, attached);
@@ -1434,48 +1389,30 @@ function vzRenderSectorPopup(name, data, loading, attached) {
     var last = data.feedbacks.slice().sort(function(a, b) { return (a.age_hours || 0) - (b.age_hours || 0); })[0];
     var vis = (last.real_m != null) ? last.real_m : last.predicted_m;
     S_sectorState.pred = vis;
-    var visTxt = (vis != null) ? String(Math.round(vis)) : '?';
-    var dateTxt = '';
+    var visTxt = (vis != null) ? String(Math.round(vis * 10) / 10).replace('.', ',') : '?';
+    var confDate = '';
     if (typeof last.age_hours === 'number' && isFinite(last.age_hours)) {
       var dC = new Date(Date.now() - last.age_hours * 3600 * 1000);
       var moisC = ['janvier', 'f\u00e9vrier', 'mars', 'avril', 'mai', 'juin', 'juillet', 'ao\u00fbt', 'septembre', 'octobre', 'novembre', 'd\u00e9cembre'];
-      dateTxt = 'le ' + dC.getDate() + ' ' + moisC[dC.getMonth()];
+      confDate = ' le ' + dC.getDate() + ' ' + moisC[dC.getMonth()];
     }
-    var multi = data.count > 1;
-    var calSvg = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#7C8C96" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>';
-    var dateLine = dateTxt
-      ? '<div style="display:flex;align-items:center;gap:6px;padding:6px 18px 14px;font-size:12.5px;color:#7C8C96;">' + calSvg + (multi ? 'Dernier retour ' : 'Vu ') + dateTxt + '</div>'
-      : '<div style="height:8px;"></div>';
     body = '<div style="display:flex;align-items:baseline;gap:10px;padding:4px 18px 2px;">'
       + '<span style="font-size:42px;font-weight:600;color:#0E7C62;font-family:IBM Plex Mono,monospace;line-height:1;">' + visTxt + ' m</span>'
       + '<span style="font-size:13px;color:#5F7480;">de visibilit\u00e9 observ\u00e9e en mer</span></div>'
-      + dateLine
+      + '<div style="padding:2px 18px 14px;font-size:12.5px;color:#7C8C96;">dernier retour ' + vzSectorAgeLabel(last.age_hours) + ', par la communaut\u00e9</div>'
       + '<div style="display:flex;align-items:center;gap:8px;padding:10px 18px;background:rgba(45,168,136,0.10);border-top:0.5px solid rgba(11,26,38,0.08);">'
       + '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1A6B5D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'
-      + '<span style="font-size:12.5px;color:#2A4049;font-weight:500;">' + data.count + (multi ? ' chasseurs ont confirm\u00e9' : ' chasseur a confirm\u00e9') + ' ce secteur</span></div>';
+      + '<span style="font-size:12.5px;color:#2A4049;font-weight:500;">' + data.count + (data.count > 1 ? ' chasseurs ont confirm\u00e9' : ' chasseur a confirm\u00e9') + ' ce secteur' + confDate + '</span></div>';
   } else {
     body = '<div style="padding:6px 18px 16px;"><div style="font-size:14px;color:#1A2933;font-weight:600;margin-bottom:4px;">Personne n\u2019a encore partag\u00e9 ici</div>'
-      + '<div style="font-size:12.5px;color:#5F7480;line-height:1.4;">Place le curseur en mer, l\u00e0 o\u00f9 tu \u00e9tais, et dis ce que tu as vu.</div></div>';
+      + '<div style="font-size:12.5px;color:#5F7480;line-height:1.4;">Le secteur est allum\u00e9. Sois le premier \u00e0 dire ce que tu as vu dans l\u2019eau.</div></div>';
   }
 
-  var hasValue = !loading && data && data.count > 0 && data.feedbacks && data.feedbacks.length;
-  var sep = hasValue ? '' : 'border-top:0.5px solid rgba(11,26,38,0.08);';
-  var detailLink = '<div style="padding:6px 18px 15px;text-align:center;"><button onclick="vzSectorDetails()" style="background:none;border:none;color:#0E7C62;font-size:13px;font-weight:600;cursor:pointer;padding:0;">Voir les conditions d\u00e9taill\u00e9es du jour \u2192</button></div>';
-  var actions;
-  if (hasValue) {
-    actions = '<div id="vzSectorConfirm"><div style="text-align:center;' + sep + 'padding:13px 18px 0;font-size:13px;font-weight:500;color:#22323E;">Tu confirmes cette visibilit\u00e9 aujourd\u2019hui dans le secteur ?</div>'
-      + '<div id="vzSectorActions" style="display:flex;gap:12px;justify-content:center;padding:10px 18px 8px;">'
-      + '<button type="button" onclick="vzSectorVote(\'confirm\')" aria-label="Oui, on avait vu juste" style="display:flex;align-items:center;justify-content:center;width:64px;height:44px;border:1px solid #2DA888;background:#E9F4EF;color:#0F6E56;border-radius:10px;cursor:pointer;padding:0;">' + VZ_FB_THUMB_UP + '</button>'
-      + '<button type="button" onclick="vzSectorVote(\'correct\')" aria-label="Non, corriger la visibilit\u00e9" style="display:flex;align-items:center;justify-content:center;width:64px;height:44px;border:1px solid #E3A9A2;background:#FBEEEC;color:#8F2D22;border-radius:10px;cursor:pointer;padding:0;">' + VZ_FB_THUMB_DOWN + '</button></div></div>'
-      + detailLink;
-  } else if (!loading) {
-    actions = '<div style="' + sep + 'padding:14px 18px 4px;display:flex;justify-content:center;">'
-      + '<button type="button" onclick="vzHideSector()" style="display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 20px;border:1px solid #2DA888;background:#E9F4EF;color:#0F6E56;border-radius:10px;cursor:pointer;font-family:Inter,sans-serif;font-size:13px;font-weight:600;">'
-      + '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><line x1="12" y1="1.5" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22.5"/><line x1="1.5" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22.5" y2="12"/></svg>Pointer en mer</button></div>'
-      + detailLink;
-  } else {
-    actions = detailLink;
-  }
+  var actions = '<div style="text-align:center;padding:12px 18px 0;font-size:13px;font-weight:500;color:#22323E;">Tu confirmes cette visibilit\u00e9 aujourd\u2019hui dans le secteur ?</div>'
+    + '<div id="vzSectorActions" style="display:flex;gap:12px;justify-content:center;padding:10px 18px 8px;">'
+    + '<button type="button" onclick="vzSectorVote(\'confirm\')" aria-label="Oui, on avait vu juste" style="display:flex;align-items:center;justify-content:center;width:64px;height:44px;border:1px solid #2DA888;background:#E9F4EF;color:#0F6E56;border-radius:10px;cursor:pointer;padding:0;">' + VZ_FB_THUMB_UP + '</button>'
+    + '<button type="button" onclick="vzSectorVote(\'correct\')" aria-label="Non, corriger la visibilit\u00e9" style="display:flex;align-items:center;justify-content:center;width:64px;height:44px;border:1px solid #E3A9A2;background:#FBEEEC;color:#8F2D22;border-radius:10px;cursor:pointer;padding:0;">' + VZ_FB_THUMB_DOWN + '</button></div>'
+    + '<div style="padding:6px 18px 15px;text-align:center;"><button onclick="vzSectorDetails()" style="background:none;border:none;color:#0E7C62;font-size:13px;font-weight:600;cursor:pointer;padding:0;">Voir les conditions d\u00e9taill\u00e9es du jour \u2192</button></div>';
 
   el.innerHTML = head + body + actions;
 }
@@ -1522,8 +1459,15 @@ function vzSectorOpenMeters() {
           predicted_m: (pred != null ? pred : ''), real_m: v, kind: 'correct', ts: Date.now()
         }).then(function() { S_portCounts = null; });
       }
-      var box = document.getElementById('vzSectorConfirm');
-      if (box) box.innerHTML = '<div style="padding:13px 18px 14px;font-size:13px;color:#0F6E56;font-weight:600;text-align:center;line-height:1.4;">Merci, ' + v + ' m enregistr\u00e9 pour le secteur.</div>';
+      var act = document.getElementById('vzSectorActions');
+      if (act) act.style.display = 'none';
+      var el = document.getElementById('vzSectorPopup');
+      if (el) {
+        var msg = document.createElement('div');
+        msg.style.cssText = 'padding:13px 18px 18px;font-size:13px;color:#0E7C62;font-weight:600;text-align:center;';
+        msg.textContent = 'Merci, ' + v + ' m enregistr\u00e9 pour le secteur.';
+        el.appendChild(msg);
+      }
     };
   }
 }
@@ -1539,8 +1483,15 @@ window.vzSectorVote = function(kind) {
       predicted_m: pred, real_m: pred, kind: 'confirm', ts: Date.now()
     }).then(function() { S_portCounts = null; });  // force le recomptage au prochain clic
   }
-  var box = document.getElementById('vzSectorConfirm');
-  if (box) box.innerHTML = '<div style="padding:13px 18px 14px;font-size:13px;color:#0F6E56;font-weight:500;text-align:center;line-height:1.4;">Merci, ton retour rend les pr\u00e9visions plus justes dans le secteur.</div>';
+  var act = document.getElementById('vzSectorActions');
+  if (act) act.style.display = 'none';
+  var el = document.getElementById('vzSectorPopup');
+  if (el) {
+    var msg = document.createElement('div');
+    msg.style.cssText = 'padding:13px 18px 18px;font-size:13px;color:#4DD4A8;font-weight:500;text-align:center;';
+    msg.textContent = 'Merci, ton retour rend les pr\u00e9visions plus justes dans le secteur.';
+    el.appendChild(msg);
+  }
 };
 
 window.vzSectorDetails = function() {
@@ -3806,12 +3757,9 @@ function vzmInitCrosshair(){
   var st = document.createElement('style');
   st.id = 'vzmAimStyle';
   st.textContent = `
-.vzm-xhair{position:fixed;left:50%;top:33.333%;width:64px;height:64px;margin:-32px 0 0 -32px;z-index:1200;pointer-events:none;opacity:0;transform:scale(.55);transition:opacity .22s ease,transform .26s cubic-bezier(.2,.9,.3,1.2);}
-.vzm-xhair.on{opacity:1;transform:scale(1);}
-.vzm-xhair.on.idle{opacity:.42;}
+.vzm-xhair{position:fixed;left:50%;top:33.333%;width:40px;height:40px;margin:-20px 0 0 -20px;z-index:1200;pointer-events:none;opacity:0;transform:scale(.7);transition:opacity .22s ease,transform .26s cubic-bezier(.2,.9,.3,1.2);}
+.vzm-xhair.on{opacity:.82;transform:scale(1);}
 .vzm-xhair svg{width:100%;height:100%;display:block;overflow:visible;}
-.vzm-xhair .vzm-xhair-ping{transform-origin:32px 32px;animation:vzmXping 2.6s ease-out infinite;}
-@keyframes vzmXping{0%{transform:scale(.7);opacity:.4;}70%{transform:scale(1.55);opacity:0;}100%{opacity:0;}}
 .vzm-aimbar{position:fixed;left:50%;top:104px;transform:translate(-50%,-160%);width:min(92vw,440px);z-index:1201;opacity:0;pointer-events:none;transition:transform .32s cubic-bezier(.2,.9,.3,1.1),opacity .28s ease;}
 .vzm-aimbar.on{transform:translate(-50%,0);opacity:1;}
 .vzm-aimbar-info{display:flex;flex-direction:column;gap:2px;padding-right:34px;}
@@ -3831,14 +3779,13 @@ function vzmInitCrosshair(){
 
   var xh = document.createElement('div');
   xh.className = 'vzm-xhair'; xh.id = 'vzmXhair';
-  xh.innerHTML = '<svg viewBox="0 0 64 64">'
-    + '<circle class="vzm-xhair-ping" cx="32" cy="32" r="14" fill="none" stroke="#4DD4A8" stroke-width="2"/>'
-    + '<circle cx="32" cy="32" r="15" fill="rgba(7,32,24,0.35)" stroke="#4DD4A8" stroke-width="2.4"/>'
-    + '<line x1="32" y1="4" x2="32" y2="16" stroke="#4DD4A8" stroke-width="2.4" stroke-linecap="round"/>'
-    + '<line x1="32" y1="48" x2="32" y2="60" stroke="#4DD4A8" stroke-width="2.4" stroke-linecap="round"/>'
-    + '<line x1="4" y1="32" x2="16" y2="32" stroke="#4DD4A8" stroke-width="2.4" stroke-linecap="round"/>'
-    + '<line x1="48" y1="32" x2="60" y2="32" stroke="#4DD4A8" stroke-width="2.4" stroke-linecap="round"/>'
-    + '<circle cx="32" cy="32" r="3.2" fill="#fff"/>'
+  xh.innerHTML = '<svg viewBox="0 0 44 44">'
+    + '<circle cx="22" cy="22" r="9" fill="none" stroke="#4DD4A8" stroke-width="1.3"/>'
+    + '<line x1="22" y1="4" x2="22" y2="13" stroke="#4DD4A8" stroke-width="1.5" stroke-linecap="round"/>'
+    + '<line x1="22" y1="31" x2="22" y2="40" stroke="#4DD4A8" stroke-width="1.5" stroke-linecap="round"/>'
+    + '<line x1="4" y1="22" x2="13" y2="22" stroke="#4DD4A8" stroke-width="1.5" stroke-linecap="round"/>'
+    + '<line x1="31" y1="22" x2="40" y2="22" stroke="#4DD4A8" stroke-width="1.5" stroke-linecap="round"/>'
+    + '<circle cx="22" cy="22" r="1.7" fill="#4DD4A8"/>'
     + '</svg>';
   document.body.appendChild(xh);
 
@@ -3852,23 +3799,9 @@ function vzmInitCrosshair(){
     var d = document.getElementById('spotDrawerMobile');
     return d && (d.classList.contains('vzm-peek') || d.classList.contains('vzm-mid') || d.classList.contains('vzm-full'));
   }
-  var aimIdle = 0;
-  function armIdle(){
-    clearTimeout(aimIdle);
-    aimIdle = setTimeout(function(){
-      bar.classList.remove('on');                                 // bandeau : fondu sortant
-      if (xh.classList.contains('on')) xh.classList.add('idle');  // croix : atténuée, jamais masquée
-    }, 4000);
-  }
   function showAim(){
     if (!isMobile() || drawerOpen() || (typeof VZ_SHEET !== 'undefined' && VZ_SHEET && VZ_SHEET.mode)) return;
-    xh.classList.add('on'); xh.classList.remove('idle'); bar.classList.add('on');
-    armIdle();
-  }
-  function wakeAim(){
-    if (!isMobile() || drawerOpen() || (typeof VZ_SHEET !== 'undefined' && VZ_SHEET && VZ_SHEET.mode)) return;
-    xh.classList.add('on'); xh.classList.remove('idle'); bar.classList.add('on');
-    clearTimeout(aimIdle);                                        // interaction en cours : timer suspendu
+    xh.classList.add('on'); bar.classList.add('on');
   }
   function settleAim(){
     if (!isMobile() || !bar.classList.contains('on')) return;
@@ -3885,18 +3818,12 @@ function vzmInitCrosshair(){
       }
     }).catch(function(){ if (tok === aimTok && v) v.innerHTML = '&mdash;'; });
   }
-  function hideAll(){ clearTimeout(aimIdle); xh.classList.remove('on', 'idle'); bar.classList.remove('on'); }
+  function hideAll(){ xh.classList.remove('on'); bar.classList.remove('on'); }
   window.vzmHideAim = hideAll;
   window.vzmShowAim = showAim;
 
-  S.map.on('movestart zoomstart', wakeAim);   // interaction en cours : tout revient, timer suspendu
-  S.map.on('moveend zoomend', armIdle);        // carte immobile : relance le compte a rebours 4s
-  var aimCont = S.map.getContainer();
-  if (aimCont) {
-    aimCont.addEventListener('touchstart', wakeAim, { passive: true });
-    aimCont.addEventListener('mousedown', wakeAim);
-    aimCont.addEventListener('touchend', armIdle, { passive: true });
-  }
+  S.map.on('dragstart', showAim);
+  S.map.on('zoomstart', showAim);
 
 document.getElementById('vzmAimBtn').addEventListener('click', function(){
     hideAll();
