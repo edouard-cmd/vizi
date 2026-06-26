@@ -1867,7 +1867,7 @@ var VZ_NM_M = 1852; // 1 mille nautique = 1852 m
     + "#vzMeasurePanel.open{display:flex;}"
     + "#vzMeasurePanel .vz-meas-total{display:flex;flex-direction:column;gap:2px;line-height:1.15;}"
     + "#vzMeasurePanel .vz-meas-label{color:#9FB2C0;font-size:11px;font-weight:600;letter-spacing:0.02em;text-transform:uppercase;}"
-    + "#vzMeasurePanel .vz-meas-val{color:#E8F0F4;font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;}"
+    + "#vzMeasurePanel .vz-meas-val{color:#E8F0F4;font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;white-space:nowrap;}"
     + "#vzMeasurePanel .vz-meas-hint{color:#9FB2C0;font-size:12px;max-width:210px;}"
     + "#vzMeasurePanel .vz-meas-btn{border:0;cursor:pointer;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;padding:8px 14px;border-radius:10px;}"
     + "#vzMeasurePanel .vz-meas-clear{background:transparent;color:#9FB2C0;border:1px solid rgba(159,178,192,0.35);}"
@@ -1885,7 +1885,7 @@ var VZ_NM_M = 1852; // 1 mille nautique = 1852 m
       + '<span class="vz-meas-label">Distance</span>'
       + '<span class="vz-meas-val" id="vzMeasureVal">0 m</span>'
       + '</div>'
-      + '<span class="vz-meas-hint" id="vzMeasureHint">Pose des points sur la carte.</span>'
+      + '<span class="vz-meas-hint" id="vzMeasureHint">Pose des points.</span>'
       + '<button class="vz-meas-btn vz-meas-clear" onclick="vzMeasureClear()">Effacer</button>'
       + '<button class="vz-meas-btn vz-meas-done" onclick="toggleLayer(\'measure\')">Terminer</button>';
     document.body.appendChild(p);
