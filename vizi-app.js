@@ -1874,7 +1874,7 @@ var VZ_NM_M = 1852; // 1 mille nautique = 1852 m
     + "#vzMeasurePanel .vz-meas-done{background:#4DD4A8;color:#072018;}"
     + ".vz-meas-tip{background:#0F2438 !important;color:#E6EEF4 !important;border:1px solid #4DD4A8 !important;border-radius:7px !important;padding:2px 7px !important;font-family:'IBM Plex Mono',monospace !important;font-size:11px !important;font-weight:600 !important;box-shadow:0 4px 14px rgba(4,16,28,0.5) !important;}"
     + ".vz-meas-tip.leaflet-tooltip-top:before,.vz-meas-tip.leaflet-tooltip-bottom:before,.vz-meas-tip.leaflet-tooltip-left:before,.vz-meas-tip.leaflet-tooltip-right:before{display:none !important;}"
-    + "@media (max-width:768px){#vzBtnMeasure{display:none !important;}}";
+    + "body.vz-measure-mode .vzm-xhair,body.vz-measure-mode .vzm-aimbar{display:none !important;}";
     (document.head || document.documentElement).appendChild(st);
   }
   if (!document.getElementById('vzMeasurePanel')) {
@@ -1885,7 +1885,7 @@ var VZ_NM_M = 1852; // 1 mille nautique = 1852 m
       + '<span class="vz-meas-label">Distance</span>'
       + '<span class="vz-meas-val" id="vzMeasureVal">0 m</span>'
       + '</div>'
-      + '<span class="vz-meas-hint" id="vzMeasureHint">Clique en mer pour poser des points.</span>'
+      + '<span class="vz-meas-hint" id="vzMeasureHint">Pose des points sur la carte.</span>'
       + '<button class="vz-meas-btn vz-meas-clear" onclick="vzMeasureClear()">Effacer</button>'
       + '<button class="vz-meas-btn vz-meas-done" onclick="toggleLayer(\'measure\')">Terminer</button>';
     document.body.appendChild(p);
@@ -1910,6 +1910,7 @@ function vzMeasureToggle() {
   if (panel) panel.classList.toggle('open', S.measureMode);
   var mc = S.map.getContainer();
   if (mc) mc.style.cursor = S.measureMode ? 'crosshair' : '';
+  document.body.classList.toggle('vz-measure-mode', S.measureMode);
   if (!S.measureMode) vzMeasureClear();
   else vzMeasureRender();
 }
