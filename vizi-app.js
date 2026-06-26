@@ -1227,6 +1227,7 @@ initLitto3dLayer();
   vzUpdateSpotMarkers();
 
 S.map.on('click', function(e) {
+    if (S.measureMode) { vzMeasureAddPoint(e.latlng); return; }
     if (S.spotMode) { vzAddHuntPoint(e.latlng); return; }
     // Si le bandeau bas est déployé, le clic sur la carte le ferme et stop
     var sheet = document.getElementById('vzSheet');
@@ -1789,6 +1790,7 @@ function toggleLayer(type) {
       if (S.map.hasLayer(S.litto3d)) S.map.removeLayer(S.litto3d);
     }
   } else if (type === 'spots') {
+    if (!S.spotMode && S.measureMode) vzMeasureToggle();
     S.spotMode = !S.spotMode;
     document.body.classList.toggle('vz-edit-mode', S.spotMode);
   var rowSp = document.getElementById('vzRowSpots');
@@ -1799,6 +1801,8 @@ function toggleLayer(type) {
     var mc = S.map.getContainer();
     if (mc) mc.style.cursor = S.spotMode ? 'crosshair' : '';
     vzRenderHuntBar();
+  } else if (type === 'measure') {
+    vzMeasureToggle();
   }
 }
 /* ============================================================
@@ -1836,6 +1840,118 @@ function toggleLayer(type) {
     document.body.appendChild(bar);
   }
 })();
+
+/* ============================================================
+   REGLE DE MESURE - distance multi-segments a la regle
+   Outil de carte (pas une couche de donnees). Activation via le
+   bouton lateral #vzBtnMeasure -> toggleLayer('measure'). Chaque
+   clic carte pose un sommet ; on trace une polyligne et on affiche
+   le cumul en metres ET en milles nautiques (1 M = 1852 m).
+   - Reutilise haversineM (pas de nouveau calcul).
+   - Exclusif avec spotMode : les deux interceptent le clic carte,
+     activer l'un coupe l'autre.
+   - N'appelle aucun cache (S_spot*) ni le moteur de visibilite.
+   - Desktop seulement (bouton masque sous 768px : pas de clic libre
+     sur mobile, le viseur central y gere la selection).
+   ============================================================ */
+var VZ_NM_M = 1852; // 1 mille nautique = 1852 m
+
+(function vzMeasureBoot(){
+  if (!document.body) { setTimeout(vzMeasureBoot, 60); return; }
+  if (!document.getElementById('vzMeasureStyle')) {
+    var st = document.createElement('style');
+    st.id = 'vzMeasureStyle';
+    st.textContent =
+      "#vzBtnMeasure.active{background:#4DD4A8;color:#072018;border-color:#4DD4A8;}"
+    + "#vzMeasurePanel{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:1350;display:none;align-items:center;gap:14px;max-width:calc(100vw - 24px);padding:10px 10px 10px 16px;background:rgba(10,21,32,0.92);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(77,212,168,0.42);border-radius:14px;box-shadow:0 8px 28px rgba(4,16,28,0.45);font-family:'Inter',sans-serif;}"
+    + "#vzMeasurePanel.open{display:flex;}"
+    + "#vzMeasurePanel .vz-meas-total{display:flex;flex-direction:column;gap:2px;line-height:1.15;}"
+    + "#vzMeasurePanel .vz-meas-label{color:#9FB2C0;font-size:11px;font-weight:600;letter-spacing:0.02em;text-transform:uppercase;}"
+    + "#vzMeasurePanel .vz-meas-val{color:#E8F0F4;font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;}"
+    + "#vzMeasurePanel .vz-meas-hint{color:#9FB2C0;font-size:12px;max-width:210px;}"
+    + "#vzMeasurePanel .vz-meas-btn{border:0;cursor:pointer;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;padding:8px 14px;border-radius:10px;}"
+    + "#vzMeasurePanel .vz-meas-clear{background:transparent;color:#9FB2C0;border:1px solid rgba(159,178,192,0.35);}"
+    + "#vzMeasurePanel .vz-meas-done{background:#4DD4A8;color:#072018;}"
+    + ".vz-meas-tip{background:#0F2438 !important;color:#E6EEF4 !important;border:1px solid #4DD4A8 !important;border-radius:7px !important;padding:2px 7px !important;font-family:'IBM Plex Mono',monospace !important;font-size:11px !important;font-weight:600 !important;box-shadow:0 4px 14px rgba(4,16,28,0.5) !important;}"
+    + ".vz-meas-tip.leaflet-tooltip-top:before,.vz-meas-tip.leaflet-tooltip-bottom:before,.vz-meas-tip.leaflet-tooltip-left:before,.vz-meas-tip.leaflet-tooltip-right:before{display:none !important;}"
+    + "@media (max-width:768px){#vzBtnMeasure{display:none !important;}}";
+    (document.head || document.documentElement).appendChild(st);
+  }
+  if (!document.getElementById('vzMeasurePanel')) {
+    var p = document.createElement('div');
+    p.id = 'vzMeasurePanel';
+    p.innerHTML =
+      '<div class="vz-meas-total">'
+      + '<span class="vz-meas-label">Distance</span>'
+      + '<span class="vz-meas-val" id="vzMeasureVal">0 m</span>'
+      + '</div>'
+      + '<span class="vz-meas-hint" id="vzMeasureHint">Clique en mer pour poser des points.</span>'
+      + '<button class="vz-meas-btn vz-meas-clear" onclick="vzMeasureClear()">Effacer</button>'
+      + '<button class="vz-meas-btn vz-meas-done" onclick="toggleLayer(\'measure\')">Terminer</button>';
+    document.body.appendChild(p);
+  }
+})();
+
+// metres (sans decimale, espace fine en separateur de milliers) + milles nautiques (2 decimales, virgule FR)
+function vzMeasureFmt(m) {
+  var mTxt = String(Math.round(m)).replace(/\B(?=(\d{3})+(?!\d))/g, '\u202F') + ' m';
+  var nmTxt = (m / VZ_NM_M).toFixed(2).replace('.', ',') + ' M';
+  return mTxt + ' \u00B7 ' + nmTxt;
+}
+
+function vzMeasureToggle() {
+  // Exclusivite (sens 2) : couper le mode Points s'il tourne.
+  if (!S.measureMode && S.spotMode && typeof toggleLayer === 'function') toggleLayer('spots');
+  S.measureMode = !S.measureMode;
+  if (S.measureMode && !S.measureLayer) S.measureLayer = L.layerGroup().addTo(S.map);
+  var btn = document.getElementById('vzBtnMeasure');
+  if (btn) btn.classList.toggle('active', S.measureMode);
+  var panel = document.getElementById('vzMeasurePanel');
+  if (panel) panel.classList.toggle('open', S.measureMode);
+  var mc = S.map.getContainer();
+  if (mc) mc.style.cursor = S.measureMode ? 'crosshair' : '';
+  if (!S.measureMode) vzMeasureClear();
+  else vzMeasureRender();
+}
+
+function vzMeasureAddPoint(latlng) {
+  if (!S.measurePoints) S.measurePoints = [];
+  if (!S.measureLayer) S.measureLayer = L.layerGroup().addTo(S.map);
+  S.measurePoints.push({ lat: latlng.lat, lon: latlng.lng });
+  vzMeasureRender();
+}
+
+function vzMeasureClear() {
+  if (S.measureLayer) S.measureLayer.clearLayers();
+  S.measurePoints = [];
+  vzMeasureRender();
+}
+
+function vzMeasureRender() {
+  if (!S.measureLayer) return;
+  S.measureLayer.clearLayers();
+  var pts = S.measurePoints || [];
+  if (pts.length >= 2) {
+    var latlngs = pts.map(function(p){ return [p.lat, p.lon]; });
+    L.polyline(latlngs, { color: '#4DD4A8', weight: 2.5, opacity: 0.9, dashArray: '6 5' }).addTo(S.measureLayer);
+  }
+  var cum = 0;
+  for (var i = 0; i < pts.length; i++) {
+    if (i > 0) cum += haversineM(pts[i-1].lat, pts[i-1].lon, pts[i].lat, pts[i].lon);
+    var m = L.circleMarker([pts[i].lat, pts[i].lon], {
+      radius: 5, fillColor: '#4DD4A8', color: '#0A1520', weight: 1.5, fillOpacity: 0.95
+    }).addTo(S.measureLayer);
+    if (i > 0) m.bindTooltip(vzMeasureFmt(cum), { permanent: true, direction: 'top', className: 'vz-meas-tip', offset: [0, -6] });
+  }
+  var val = document.getElementById('vzMeasureVal');
+  if (val) val.textContent = pts.length >= 2 ? vzMeasureFmt(cum) : '0 m';
+  var hint = document.getElementById('vzMeasureHint');
+  if (hint) hint.style.display = pts.length >= 2 ? 'none' : '';
+}
+
+// Exposition pour les onclick inline du panneau injecte
+window.vzMeasureClear = vzMeasureClear;
+window.vzMeasureToggle = vzMeasureToggle;
 
 function vzAddHuntPoint(latlng) {
   if (!S.huntLayer) S.huntLayer = L.layerGroup().addTo(S.map);
