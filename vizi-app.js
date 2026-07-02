@@ -748,7 +748,7 @@ var S = {
   isoDeep: null, isoShom: null, sedLayer: null,
   spotMarkers: {}, clickMarker: null, clickLatLng: null,
   canvas: null, ctx: null, _spotDepth: 5,
-showLitto3d: true, litto3d: null,
+showLitto3d: true, litto3d: null, bathyBase: null,
   spotMode: false, huntPoints: [], huntLayer: null
 };
 
@@ -995,6 +995,14 @@ function initLitto3dLayer() {
     makeLayer('L3D_LIDAR_CORSE_2017_2018_PYR_3857_WMSR', [41.30,  8.45], [43.10,  9.65])
   ];
   S.litto3d = L.layerGroup(subLayers);
+  // Fond de repli continu : EMODnet Bathymetry mean_multicolour (WMS).
+  // Marin et transparent sur terre -> pas besoin du masque VZSeaTileLayer.
+  // Piloté par le meme toggle que Litto3D (concept unique "relief du fond").
+  S.bathyBase = L.tileLayer.wms('https://ows.emodnet-bathymetry.eu/wms', {
+    layers: 'emodnet:mean_multicolour', format: 'image/png', transparent: true,
+    version: '1.3.0', attribution: 'Bathymetrie EMODnet', opacity: 0.85,
+    maxZoom: 19, pane: 'vzBathyBasePane'
+  });
 }
 // ============================================================
 // LITTO3D - MASQUAGE DU TRAIT DE COTE (canvas)
@@ -1087,6 +1095,12 @@ function initMap() {
   // sediment au-dessus de Litto3D.
   S.map.createPane('litto3dPane');
   S.map.getPane('litto3dPane').style.zIndex = 250;
+  // Fond bathymetrique de repli EMODnet, sous Litto3D : comble les zones
+  // sans dalle SHOM (Pays de la Loire/Vendee non produit avant 2027) et les
+  // fonds au-dela de la portee du LiDAR bathy (~30 m). z-index < litto3dPane
+  // pour que le relief fin recouvre le fond grossier la ou il existe.
+  S.map.createPane('vzBathyBasePane');
+  S.map.getPane('vzBathyBasePane').style.zIndex = 240;
   S.map.createPane('vzSeaOverlayPane');
   S.map.getPane('vzSeaOverlayPane').style.zIndex = 350;
   S.map.createPane('vzRainPane');
@@ -1121,6 +1135,7 @@ S.basemapSat = L.layerGroup([
   });
 
 initLitto3dLayer();
+  S.bathyBase.addTo(S.map);
   S.litto3d.addTo(S.map);
   S.litto3d.eachLayer(function(l) { if (l.bringToBack) l.bringToBack(); });
   vzInitSeaMask();
@@ -1777,8 +1792,9 @@ function toggleLayer(type) {
     var btnL = document.getElementById('btnLitto3d');
     if (btnL) btnL.classList.toggle('active', S.showLitto3d);
     if (S.showLitto3d) {
+      S.bathyBase.addTo(S.map);
       S.litto3d.addTo(S.map);
-      // Ordre Z : basemap < Litto3D < sediment/isobathes/markers
+      // Ordre Z : basemap < fond EMODnet < Litto3D < sediment/isobathes/markers
       S.litto3d.eachLayer(function(l) { if (l.bringToBack) l.bringToBack(); });
       // Remet la basemap encore plus en arriere
       if (S.currentBasemap === 'sat' && S.map.hasLayer(S.basemapSat)) {
@@ -1788,6 +1804,7 @@ function toggleLayer(type) {
       }
  } else {
       if (S.map.hasLayer(S.litto3d)) S.map.removeLayer(S.litto3d);
+      if (S.map.hasLayer(S.bathyBase)) S.map.removeLayer(S.bathyBase);
     }
   } else if (type === 'spots') {
     if (!S.spotMode && S.measureMode) vzMeasureToggle();
