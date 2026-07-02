@@ -995,11 +995,14 @@ function initLitto3dLayer() {
     makeLayer('L3D_LIDAR_CORSE_2017_2018_PYR_3857_WMSR', [41.30,  8.45], [43.10,  9.65])
   ];
   S.litto3d = L.layerGroup(subLayers);
-  // Fond de repli continu : EMODnet Bathymetry mean_multicolour (WMS).
-  // Marin et transparent sur terre -> pas besoin du masque VZSeaTileLayer.
-  // Piloté par le meme toggle que Litto3D (concept unique "relief du fond").
-  S.bathyBase = L.tileLayer.wms('https://ows.emodnet-bathymetry.eu/wms', {
-    layers: 'emodnet:mean_multicolour', format: 'image/png', transparent: true,
+  // Fond de repli continu : EMODnet Bathymetry mean_atlas_land (WMS).
+  // Rampe "carte marine" (bleus sobres), sans fluo, contrairement a la
+  // rampe mean_multicolour qui peignait les petits fonds en magenta/jaune.
+  // Cette couche colore aussi la terre (topo atlas) : on la sert donc via
+  // VZSeaTileLayer pour gommer la terre avec le meme masque trait de cote
+  // que Litto3D. Piloté par le meme toggle (concept "relief du fond").
+  S.bathyBase = new VZSeaTileLayer('https://ows.emodnet-bathymetry.eu/wms', {
+    layers: 'emodnet:mean_atlas_land', format: 'image/png', transparent: true,
     version: '1.3.0', attribution: 'Bathymetrie EMODnet', opacity: 0.85,
     maxZoom: 19, pane: 'vzBathyBasePane'
   });
@@ -1077,6 +1080,7 @@ function vzInitSeaMask() {
       VZ_LAND_PATHS = {};
       // le trait de cote arrive apres les 1eres tuiles : on les redessine
       if (S.litto3d) S.litto3d.eachLayer(function(l) { if (l.redraw) l.redraw(); });
+      if (S.bathyBase && S.bathyBase.redraw) S.bathyBase.redraw();
     })
     .catch(function() {});
 }
