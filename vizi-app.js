@@ -748,7 +748,7 @@ var S = {
   isoDeep: null, isoShom: null, sedLayer: null,
   spotMarkers: {}, clickMarker: null, clickLatLng: null,
   canvas: null, ctx: null, _spotDepth: 5,
-showLitto3d: true, litto3d: null, bathyBase: null,
+showLitto3d: true, litto3d: null,
   spotMode: false, huntPoints: [], huntLayer: null
 };
 
@@ -995,17 +995,6 @@ function initLitto3dLayer() {
     makeLayer('L3D_LIDAR_CORSE_2017_2018_PYR_3857_WMSR', [41.30,  8.45], [43.10,  9.65])
   ];
   S.litto3d = L.layerGroup(subLayers);
-  // Fond de repli continu : EMODnet Bathymetry mean_atlas_land (WMS).
-  // Rampe "carte marine" (bleus sobres), sans fluo, contrairement a la
-  // rampe mean_multicolour qui peignait les petits fonds en magenta/jaune.
-  // Cette couche colore aussi la terre (topo atlas) : on la sert donc via
-  // VZSeaTileLayer pour gommer la terre avec le meme masque trait de cote
-  // que Litto3D. Piloté par le meme toggle (concept "relief du fond").
-  S.bathyBase = new VZSeaTileLayer('https://ows.emodnet-bathymetry.eu/wms', {
-    layers: 'emodnet:mean_atlas_land', format: 'image/png', transparent: true,
-    version: '1.3.0', attribution: 'Bathymetrie EMODnet', opacity: 0.85,
-    maxZoom: 19, pane: 'vzBathyBasePane'
-  });
 }
 // ============================================================
 // LITTO3D - MASQUAGE DU TRAIT DE COTE (canvas)
@@ -1080,7 +1069,6 @@ function vzInitSeaMask() {
       VZ_LAND_PATHS = {};
       // le trait de cote arrive apres les 1eres tuiles : on les redessine
       if (S.litto3d) S.litto3d.eachLayer(function(l) { if (l.redraw) l.redraw(); });
-      if (S.bathyBase && S.bathyBase.redraw) S.bathyBase.redraw();
     })
     .catch(function() {});
 }
@@ -1099,12 +1087,6 @@ function initMap() {
   // sediment au-dessus de Litto3D.
   S.map.createPane('litto3dPane');
   S.map.getPane('litto3dPane').style.zIndex = 250;
-  // Fond bathymetrique de repli EMODnet, sous Litto3D : comble les zones
-  // sans dalle SHOM (Pays de la Loire/Vendee non produit avant 2027) et les
-  // fonds au-dela de la portee du LiDAR bathy (~30 m). z-index < litto3dPane
-  // pour que le relief fin recouvre le fond grossier la ou il existe.
-  S.map.createPane('vzBathyBasePane');
-  S.map.getPane('vzBathyBasePane').style.zIndex = 240;
   S.map.createPane('vzSeaOverlayPane');
   S.map.getPane('vzSeaOverlayPane').style.zIndex = 350;
   S.map.createPane('vzRainPane');
@@ -1139,7 +1121,6 @@ S.basemapSat = L.layerGroup([
   });
 
 initLitto3dLayer();
-  S.bathyBase.addTo(S.map);
   S.litto3d.addTo(S.map);
   S.litto3d.eachLayer(function(l) { if (l.bringToBack) l.bringToBack(); });
   vzInitSeaMask();
@@ -1796,9 +1777,8 @@ function toggleLayer(type) {
     var btnL = document.getElementById('btnLitto3d');
     if (btnL) btnL.classList.toggle('active', S.showLitto3d);
     if (S.showLitto3d) {
-      S.bathyBase.addTo(S.map);
       S.litto3d.addTo(S.map);
-      // Ordre Z : basemap < fond EMODnet < Litto3D < sediment/isobathes/markers
+      // Ordre Z : basemap < Litto3D < sediment/isobathes/markers
       S.litto3d.eachLayer(function(l) { if (l.bringToBack) l.bringToBack(); });
       // Remet la basemap encore plus en arriere
       if (S.currentBasemap === 'sat' && S.map.hasLayer(S.basemapSat)) {
@@ -1808,7 +1788,6 @@ function toggleLayer(type) {
       }
  } else {
       if (S.map.hasLayer(S.litto3d)) S.map.removeLayer(S.litto3d);
-      if (S.map.hasLayer(S.bathyBase)) S.map.removeLayer(S.bathyBase);
     }
   } else if (type === 'spots') {
     if (!S.spotMode && S.measureMode) vzMeasureToggle();
