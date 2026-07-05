@@ -3915,9 +3915,12 @@ function vzmFreshBars(ageH, fenetreH){
   if (r <= 1.00) return 1;
   return 1;
   }
-// ============ VISEUR MOBILE (Windy-style) - viseur + visi satellite ============
+// ============ VISEUR MOBILE (Windy-style) - croix seule ============
+// La barre "Analyser ce point" a ete retiree : l'onglet Conditions est
+// desormais le seul point d'entree d'analyse sur mobile (openCondDrawer
+// recale S.clickLatLng sur la croix et declenche vzmFlashXhair).
 function vzmInitCrosshair(){
-  if (document.getElementById('vzmAimWrap')) return;        // idempotent
+  if (document.getElementById('vzmXhair')) return;           // idempotent
   if (!(S && S.map)) return;
 
   var st = document.createElement('style');
@@ -3927,20 +3930,12 @@ function vzmInitCrosshair(){
 .vzm-xhair.on{opacity:.82;transform:scale(1);}
 .vzm-xhair.on.idle{opacity:.42;}
 .vzm-xhair svg{width:100%;height:100%;display:block;overflow:visible;}
-.vzm-aimbar{position:fixed;left:50%;top:104px;transform:translate(-50%,-160%);width:min(92vw,440px);z-index:1201;opacity:0;pointer-events:none;transition:transform .32s cubic-bezier(.2,.9,.3,1.1),opacity .28s ease;}
-.vzm-aimbar.on{transform:translate(-50%,0);opacity:1;}
-.vzm-aimbar-info{display:flex;flex-direction:column;gap:2px;padding-right:34px;}
-.vzm-aimbar-label{font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:rgba(234,241,245,0.6);}
-.vzm-aimbar-visi{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:700;line-height:1.1;color:#4DD4A8;min-height:24px;}
-.vzm-aimbar-visi small{font-size:13px;font-weight:500;color:rgba(234,241,245,0.55);}
-.vzm-aim-load{position:relative;display:inline-block;width:80px;height:15px;border-radius:4px;overflow:hidden;background:rgba(77,212,168,0.07);vertical-align:middle;}
-.vzm-aim-load::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent 0 11px,rgba(77,212,168,0.13) 11px 12px);}
-.vzm-aim-load::before{content:'';position:absolute;top:-2px;bottom:-2px;width:22px;left:-22px;background:linear-gradient(90deg,transparent,rgba(77,212,168,0.92),transparent);animation:vzmScan 1.5s linear infinite;z-index:1;}
-@keyframes vzmScan{0%{left:-22px;}100%{left:84px;}}
-.vzm-aimbar-btn{pointer-events:auto;width:100%;box-sizing:border-box;border:1.5px solid #1A6B5D;cursor:pointer;font-family:'Space Grotesk',Inter,sans-serif;font-size:14px;font-weight:600;color:#072018;background:#4DD4A8;padding:13px;border-radius:11px;box-shadow:0 4px 14px rgba(4,16,28,0.30);transition:filter .15s ease,transform .1s ease;}
-.vzm-aimbar-btn:active{transform:scale(.98);filter:brightness(.92);}
-.vzm-aimbar-close{pointer-events:auto;position:absolute;top:10px;right:10px;width:30px;height:30px;border:1px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.06);color:rgba(234,241,245,0.8);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s ease;}
-.vzm-aimbar-close:active{background:rgba(255,255,255,0.16);}@media (min-width:769px){.vzm-aimbar,.vzm-xhair{display:none !important;}}
+.vzm-xhair.vzm-flash{opacity:1 !important;transform:scale(1) !important;}
+.vzm-xhair.vzm-flash svg line,.vzm-xhair.vzm-flash svg circle{stroke:#4DD4A8;}
+.vzm-xhair.vzm-flash svg circle[fill="#FFFFFF"]{fill:#4DD4A8;stroke:none;}
+.vzm-xhair.vzm-flash::after{content:'';position:absolute;inset:0;border:2px solid #4DD4A8;border-radius:50%;animation:vzmXhairPing .6s ease-out forwards;}
+@keyframes vzmXhairPing{0%{opacity:.85;transform:scale(.6);}100%{opacity:0;transform:scale(1.9);}}
+@media (min-width:769px){.vzm-xhair{display:none !important;}}
 `;
   document.head.appendChild(st);
 
@@ -3956,12 +3951,6 @@ function vzmInitCrosshair(){
     + '</svg>';
   document.body.appendChild(xh);
 
-  var bar = document.createElement('div');
-  bar.className = 'vzm-aimbar'; bar.id = 'vzmAimWrap';
-  bar.innerHTML = '<button class="vzm-aimbar-btn" id="vzmAimBtn">Analyser ce point</button>';
-  document.body.appendChild(bar);
-
-  var aimTok = 0;
   function drawerOpen(){
     var d = document.getElementById('spotDrawerMobile');
     return d && (d.classList.contains('vzm-peek') || d.classList.contains('vzm-mid') || d.classList.contains('vzm-full'));
@@ -3970,38 +3959,32 @@ function vzmInitCrosshair(){
   function armIdle(){
     clearTimeout(aimIdle);
     aimIdle = setTimeout(function(){
-      bar.classList.remove('on');                                 // bandeau : fondu sortant
-      if (xh.classList.contains('on')) xh.classList.add('idle');  // croix : atténuée, jamais masquée
+      if (xh.classList.contains('on')) xh.classList.add('idle');  // croix : attenuee, jamais masquee
     }, 4000);
   }
   function showAim(){
     if (!isMobile() || drawerOpen() || (typeof VZ_SHEET !== 'undefined' && VZ_SHEET && VZ_SHEET.mode)) return;
-    xh.classList.add('on'); xh.classList.remove('idle'); bar.classList.add('on');
+    xh.classList.add('on'); xh.classList.remove('idle');
     armIdle();
   }
   function wakeAim(){
     if (!isMobile() || drawerOpen() || (typeof VZ_SHEET !== 'undefined' && VZ_SHEET && VZ_SHEET.mode)) return;
-    xh.classList.add('on'); xh.classList.remove('idle'); bar.classList.add('on');
+    xh.classList.add('on'); xh.classList.remove('idle');
     clearTimeout(aimIdle);                                        // interaction en cours : timer suspendu
   }
-  function settleAim(){
-    if (!isMobile() || !bar.classList.contains('on')) return;
-    var v = document.getElementById('vzmAimVisi');
-    var tok = ++aimTok;
-    if (typeof fetchCmemsZSD !== 'function') { if (v) v.innerHTML = '&mdash;'; return; }
-    var c = S.map.getCenter();
-    fetchCmemsZSD(c.lat, c.lng).then(function(sat){
-      if (tok !== aimTok || !v) return;
-      if (sat && typeof sat.visi_plongeur_m === 'number') {
-        v.innerHTML = '~ ' + (Math.round(sat.visi_plongeur_m * 10) / 10) + ' <small>m</small>';
-      } else {
-        v.innerHTML = '<small style="font-size:13px;font-weight:500;color:rgba(234,241,245,0.5);">hors zone satellite</small>';
-      }
-    }).catch(function(){ if (tok === aimTok && v) v.innerHTML = '&mdash;'; });
-  }
-  function hideAll(){ clearTimeout(aimIdle); xh.classList.remove('on', 'idle'); bar.classList.remove('on'); }
+  function hideAll(){ clearTimeout(aimIdle); xh.classList.remove('on', 'idle'); }
   window.vzmHideAim = hideAll;
   window.vzmShowAim = showAim;
+
+  // Flash teal : feedback "position prise" quand Conditions capture la croix.
+  var flashTok = 0;
+  window.vzmFlashXhair = function(){
+    var tok = ++flashTok;
+    xh.classList.remove('vzm-flash');
+    void xh.offsetWidth;                                          // reflow : relance l'animation ping
+    xh.classList.add('vzm-flash');
+    setTimeout(function(){ if (tok === flashTok) xh.classList.remove('vzm-flash'); }, 650);
+  };
 
   S.map.on('movestart zoomstart', wakeAim);   // interaction en cours : tout revient, timer suspendu
   S.map.on('moveend zoomend', armIdle);        // carte immobile : relance le compte a rebours 4s
@@ -4011,17 +3994,6 @@ function vzmInitCrosshair(){
     aimCont.addEventListener('mousedown', wakeAim);
     aimCont.addEventListener('touchend', armIdle, { passive: true });
   }
-
-document.getElementById('vzmAimBtn').addEventListener('click', function(){
-    hideAll();
-    var sz = S.map.getSize();
-    var c = S.map.containerPointToLatLng([sz.x / 2, sz.y / 3]);
-    S.clickLatLng = c;
-    S._spotDepth = null;
-    if (typeof VZ_SHEET !== 'undefined' && VZ_SHEET && VZ_SHEET.mode === 'cond') VZ_SHEET.mode = null;
-    if (typeof openCondDrawer === 'function') openCondDrawer();
-    else if (typeof openSpotPopup === 'function') openSpotPopup(c, null);
-  });
 }
 (function vzmXhairBoot(){
   if (typeof S !== 'undefined' && S && S.map) { try { vzmInitCrosshair(); } catch(e){ console.warn('[vzm] xhair init', e); } }
@@ -11226,6 +11198,16 @@ window.openConditionsInSheet = function() {
 
 window.openCondDrawer = function() { 
   closeSpotPopup(); 
+  // Mobile : Conditions analyse le point vise par la croix (1/3 de hauteur),
+  // comme l'ancien bouton "Analyser ce point". Pas de recalage quand c'est
+  // un toggle de fermeture (mode deja 'cond').
+  if (typeof isMobile === 'function' && isMobile() && S && S.map
+      && !(typeof VZ_SHEET !== 'undefined' && VZ_SHEET && VZ_SHEET.mode === 'cond')) {
+    var sz = S.map.getSize();
+    S.clickLatLng = S.map.containerPointToLatLng([sz.x / 2, sz.y / 3]);
+    S._spotDepth = null;
+    if (typeof window.vzmFlashXhair === 'function') window.vzmFlashXhair();
+  }
   openConditionsInSheet(); 
 };
 window.closeCondDrawer = function() {
