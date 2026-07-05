@@ -9322,7 +9322,6 @@ function showLandMessage(latlng) {
   _landToastTimer = setTimeout(function() { toast.classList.remove('show'); }, 3200);
 }
 
-var OBS_FOND = true;
 var OBS_SUBMITTING = false;
 
 function openObsSheet() {
@@ -9330,12 +9329,20 @@ function openObsSheet() {
   var latlng = isMobile() ? S.map.getCenter() : (S.clickLatLng || S.map.getCenter());
   document.getElementById('obsSheetDate').value = now.toISOString().split('T')[0];
   document.getElementById('obsSheetTime').value = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
-  document.getElementById('obsSheetCoords').textContent = latlng.lat.toFixed(4) + 'N · ' + Math.abs(latlng.lng).toFixed(4) + (latlng.lng < 0 ? 'O' : 'E');
-  document.getElementById('obsSheetVisSlider').value = 4;
-  updateObsSheetVis(4);
-  setObsFond(true);
-  document.getElementById('obsSheetNote').value = '';
-  document.getElementById('obsNoteCount').textContent = '0';
+  // Nom du secteur (port le plus proche du centre) au lieu des coordonnees GPS
+  var secEl = document.getElementById('obsSheetSector');
+  if (secEl) {
+    var sName = '';
+    if (typeof findNearestPort === 'function') {
+      var p = findNearestPort(latlng.lat, latlng.lng);
+      if (p && p.spot && p.spot.name) sName = p.spot.name;
+    }
+    secEl.textContent = sName ? 'Secteur ' + sName : 'Ton secteur';
+  }
+  var coordsEl = document.getElementById('obsSheetCoords');
+  if (coordsEl) coordsEl.style.display = 'none';
+  setObsVis(3);
+  setObsWater('voilee');
 // Pseudo activé par défaut, anonyme désactivé (encourage la signature)
   var anonBtn = document.getElementById('obsAnonToggle');
   var pseudoInput = document.getElementById('obsSheetPseudo');
@@ -9350,6 +9357,7 @@ function openObsSheet() {
   } catch(e) { pseudoInput.value = ''; }
   document.getElementById('obsSheetSubmit').style.display = 'block';
   document.getElementById('obsSheetSubmit').disabled = false;
+  document.getElementById('obsSheetSubmit').textContent = 'Partager au secteur';
   document.getElementById('obsSheetSuccess').style.display = 'none';
   document.getElementById('obsSheet').classList.add('open');
   document.getElementById('obsSheetOverlay').style.display = 'block';
@@ -9361,27 +9369,44 @@ function closeObsSheet() {
   OBS_SUBMITTING = false;
 }
 
-// Échelle visi 5 paliers (aligné drawer spot)
-var OBS_VIS_LEVELS = [
-  { v: 1,  label: 'Nulle',      color: '#C94A3D' },
-  { v: 2,  label: 'Faible',     color: '#E89B3C' },
-  { v: 4,  label: 'Moyenne',    color: '#D8C84A' },
-  { v: 6,  label: 'Bonne',      color: '#2DA888' },
-  { v: 10, label: 'Excellente', color: '#4DD4A8' }
-];
+// Etat de la feuille de depot : visi en metres reels + charge en particules
+var OBS_VIS_M = 3;
+var OBS_WATER = 'voilee';
 
-function updateObsSheetVis(idx) {
-  idx = parseInt(idx);
-  var v = OBS_VIS_LEVELS[idx];
-  var el = document.getElementById('obsSheetVisVal');
-  el.textContent = v.label;
-  el.style.color = v.color;
+function obsVisLabel(m) {
+  if (m <= 1) return 'Faible';
+  if (m <= 2) return 'Moyenne';
+  if (m <= 4) return 'Bonne';
+  return 'Excellente';
+}
+function obsDarkText(c) { return (c === '#D8C84A') ? '#3D3A10' : (c === '#4DD4A8') ? '#06251C' : '#fff'; }
+
+function setObsVis(m) {
+  OBS_VIS_M = m;
+  var grid = document.getElementById('obsVisGrid');
+  if (!grid) return;
+  grid.querySelectorAll('.obs-vism').forEach(function(b) {
+    var on = parseInt(b.getAttribute('data-m')) === m;
+    b.classList.toggle('on', on);
+    var c = b.getAttribute('data-c');
+    b.style.background = on ? c : '#fff';
+    b.style.borderColor = on ? c : '#CBD8D8';
+    b.style.color = on ? obsDarkText(c) : '#44565F';
+  });
 }
 
-function updateNoteCounter() {
-  var note = document.getElementById('obsSheetNote');
-  var counter = document.getElementById('obsNoteCount');
-  if (note && counter) counter.textContent = note.value.length;
+function setObsWater(w) {
+  OBS_WATER = w;
+  var row = document.getElementById('obsWaterRow');
+  if (!row) return;
+  row.querySelectorAll('.obs-water').forEach(function(b) {
+    var on = b.getAttribute('data-w') === w;
+    b.classList.toggle('on', on);
+    var c = b.getAttribute('data-c');
+    b.style.background = on ? c : '#fff';
+    b.style.borderColor = on ? c : '#CBD8D8';
+    b.style.color = on ? obsDarkText(c) : '#44565F';
+  });
 }
 
 function toggleObsAnon() {
@@ -9400,12 +9425,6 @@ function toggleObsAnon() {
     input.value = '';
   }
 }
-function setObsFond(val) {
-  OBS_FOND = val;
-  document.getElementById('obsSheetFondOui').classList.toggle('on', val);
-  document.getElementById('obsSheetFondNon').classList.toggle('on', !val);
-}
-
 function submitObsSheet() {
   if (OBS_SUBMITTING) return;
   OBS_SUBMITTING = true;
@@ -9413,9 +9432,8 @@ function submitObsSheet() {
   btn.disabled = true;
   btn.textContent = 'Envoi...';
   var latlng = isMobile() ? S.map.getCenter() : (S.clickLatLng || S.map.getCenter());
-  var idx = parseInt(document.getElementById('obsSheetVisSlider').value);
-  var visLevel = OBS_VIS_LEVELS[idx];
-  var note = document.getElementById('obsSheetNote').value.trim();
+  var visM = OBS_VIS_M;
+  var visLabel = obsVisLabel(visM);
   var anonBtn = document.getElementById('obsAnonToggle');
   var pseudo = anonBtn.classList.contains('on') ? '' : document.getElementById('obsSheetPseudo').value.trim();
 // Mémorise le pseudo pour les prochaines obs
@@ -9426,10 +9444,9 @@ if (pseudo) {
     lat: latlng.lat, lon: latlng.lng,
     date: document.getElementById('obsSheetDate').value,
     time: document.getElementById('obsSheetTime').value,
-    visibility_m: visLevel.v,
-    visibility_label: visLevel.label,
-    bottom_visible: OBS_FOND,
-    comment: note,
+    visibility_m: visM,
+    visibility_label: visLabel,
+    turbidity: OBS_WATER,
     pseudo: pseudo || 'Anonyme'
   }).then(function(result) {
     OBS_SUBMITTING = false;
@@ -9441,7 +9458,7 @@ if (pseudo) {
       setTimeout(closeObsSheet, 2200);
     } else {
       btn.disabled = false;
-      btn.textContent = 'Partager à la communauté';
+      btn.textContent = 'Partager au secteur';
       alert('Erreur envoi.');
     }
   });
