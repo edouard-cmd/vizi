@@ -1,4 +1,5 @@
 "use strict";
+// build: 2026-07-05 rebuild Pages (deploiement 12e0be7 en echec, contenu inchange)
 
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxyjkavoaEJ6AdhK1MKzph68IH3ZKL8QadDGuU_GyzruxqUsXRv6nP9dJqenTCf6u7Z/exec';
 
