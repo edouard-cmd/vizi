@@ -790,6 +790,14 @@
     /* ============================================================
    SHEET "MON OBSERVATION" - Refonte Talisker glassmorphism
    ============================================================ */
+.obs-sheet-sector { display:inline-flex; align-items:center; gap:6px; background:rgba(77,212,168,0.12); border:1px solid rgba(77,212,168,0.4); border-radius:20px; padding:3px 10px; font-size:11.5px; font-weight:600; color:#1A6B5D; margin-bottom:6px; }
+.obs-vis-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:7px; }
+.obs-vism { border:1px solid #CBD8D8; background:#fff; color:#44565F; border-radius:10px; padding:10px 0; text-align:center; font-size:13px; font-weight:600; font-family:'IBM Plex Mono',monospace; cursor:pointer; }
+.obs-water-row { display:flex; gap:7px; }
+.obs-water { flex:1; border:1px solid #CBD8D8; background:#fff; border-radius:10px; padding:9px 0 8px; text-align:center; cursor:pointer; color:#44565F; display:flex; flex-direction:column; align-items:center; gap:4px; }
+.obs-water-dots { display:inline-flex; gap:2.5px; align-items:center; justify-content:center; height:10px; }
+.obs-water-dots i { width:3.5px; height:3.5px; border-radius:50%; background:currentColor; opacity:.85; }
+.obs-water-lab { font-size:12px; font-weight:600; }
 #obsSheet {
   position: fixed;
   bottom: 0;
@@ -5392,7 +5400,8 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
   <div class="obs-sheet-handle"></div>
   <div class="obs-sheet-head">
     <div>
-      <div class="obs-sheet-title">Partager ma visibilité</div>
+      <div class="obs-sheet-sector" id="obsSheetSector">Secteur</div>
+      <div class="obs-sheet-title">Partager la visibilité</div>
       <div class="obs-sheet-coords" id="obsSheetCoords">-</div>
     </div>
     <button class="obs-sheet-close" onclick="closeObsSheet()">
@@ -5412,29 +5421,27 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
       </div>
     </div>
 
-    <div class="obs-vis-row">
-      <div class="obs-vis-top">
-        <span class="obs-field-label" style="margin-bottom:0">Visibilité observée</span>
-        <span class="obs-vis-val" id="obsSheetVisVal" style="color:#4DD4A8">Excellente</span>
-      </div>
-      <input type="range" class="obs-vis-slider" id="obsSheetVisSlider" min="0" max="4" step="1" value="4" oninput="updateObsSheetVis(this.value)">
-      <div class="obs-vis-ticks">
-        <span>1m</span><span>2m</span><span>4m</span><span>6m</span><span>8m+</span>
+    <div>
+      <span class="obs-field-label">Visibilité moyenne observée</span>
+      <div class="obs-vis-grid" id="obsVisGrid">
+        <button class="obs-vism" type="button" data-m="1" data-c="#E89B3C" onclick="setObsVis(1)">1 m</button>
+        <button class="obs-vism" type="button" data-m="2" data-c="#D8C84A" onclick="setObsVis(2)">2 m</button>
+        <button class="obs-vism on" type="button" data-m="3" data-c="#2DA888" onclick="setObsVis(3)">3 m</button>
+        <button class="obs-vism" type="button" data-m="4" data-c="#2DA888" onclick="setObsVis(4)">4 m</button>
+        <button class="obs-vism" type="button" data-m="5" data-c="#4DD4A8" onclick="setObsVis(5)">5 m</button>
+        <button class="obs-vism" type="button" data-m="6" data-c="#4DD4A8" onclick="setObsVis(6)">6 m</button>
+        <button class="obs-vism" type="button" data-m="7" data-c="#4DD4A8" onclick="setObsVis(7)">7 m</button>
+        <button class="obs-vism" type="button" data-m="8" data-c="#4DD4A8" onclick="setObsVis(8)">8 m +</button>
       </div>
     </div>
 
     <div>
-      <span class="obs-field-label">Fond visible ?</span>
-      <div class="obs-toggle-row">
-        <button class="obs-tog on" id="obsSheetFondOui" onclick="setObsFond(true)">Oui</button>
-        <button class="obs-tog" id="obsSheetFondNon" onclick="setObsFond(false)">Non</button>
+      <span class="obs-field-label">L'eau était comment ?</span>
+      <div class="obs-water-row" id="obsWaterRow">
+        <button class="obs-water" type="button" data-w="claire" data-c="#2DA888" onclick="setObsWater('claire')"><span class="obs-water-dots"><i></i></span><span class="obs-water-lab">Claire</span></button>
+        <button class="obs-water on" type="button" data-w="voilee" data-c="#D8C84A" onclick="setObsWater('voilee')"><span class="obs-water-dots"><i></i><i></i><i></i><i></i></span><span class="obs-water-lab">Voilée</span></button>
+        <button class="obs-water" type="button" data-w="chargee" data-c="#E89B3C" onclick="setObsWater('chargee')"><span class="obs-water-dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="obs-water-lab">Chargée</span></button>
       </div>
-    </div>
-
-    <div>
-      <span class="obs-field-label">Note (optionnel)</span>
-      <textarea class="obs-note-input" id="obsSheetNote" placeholder="vase remuée près du fond, mieux à -8m, bars vus..." maxlength="200" oninput="updateNoteCounter()"></textarea>
-      <div class="obs-note-counter"><span id="obsNoteCount">0</span>/200</div>
     </div>
 
     <div>
@@ -5451,7 +5458,12 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
       </div>
     </div>
 
-    <button class="obs-submit-btn" id="obsSheetSubmit" onclick="submitObsSheet()">Partager à la communauté</button>
+    <button class="obs-submit-btn" id="obsSheetSubmit" onclick="submitObsSheet()">Partager au secteur</button>
+
+    <div class="obs-note" style="display:flex;align-items:flex-start;gap:6px;margin-top:10px;color:#7A8A93;font-size:11.5px;line-height:1.45;">
+      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px;"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      Affichée au secteur uniquement, jamais ton spot précis. Rien ne sort de la communauté.
+    </div>
 
     <div class="obs-success-msg" id="obsSheetSuccess">
       <div id="obsSheetSuccessMsg">Merci !</div>
@@ -5992,7 +6004,7 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
 
     
-<script src="vizi-app.js?v=6"></script>
+<script src="vizi-app.js?v=7"></script>
   <script>
 function toggleLayersPopover(e) {
   if (e) e.stopPropagation();
