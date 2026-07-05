@@ -14793,11 +14793,15 @@ function vzmInit() {
     }
     setInterval(refreshVisibility, 700); // filet de securite (VZ_SHEET.mode n'est pas un attribut DOM)
     refreshVisibility();
+    console.log('[VZM Sonar] bouton monte'); // temoin de deploiement : visible en console si la bonne version tourne
   }
 
+  // Demarrage robuste : montage des que le DOM est pret. build() ne depend que
+  // de document.body (pas de la carte), le nom du secteur est resolu plus tard,
+  // a l'ouverture du menu, via findNearestPort avec garde si S.map absent.
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () { setTimeout(build, 1400); });
+    document.addEventListener('DOMContentLoaded', build);
   } else {
-    setTimeout(build, 1400);
+    build();
   }
 })();
