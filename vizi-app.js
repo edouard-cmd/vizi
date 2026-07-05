@@ -14545,8 +14545,8 @@ function vzmInit() {
     + '}'
     + '@keyframes vzmSonarNoop{from{opacity:1;}to{opacity:1;}}'
     // panneau blanc (retours secteur + alertes) : reprend la grammaire obsSheet
-    + '.vzm-sonar-panel{position:absolute;left:0;right:0;bottom:0;z-index:1320;background:#F4F6F7;border-radius:20px 20px 0 0;padding:14px 16px 20px;max-height:70vh;overflow-y:auto;box-shadow:0 -8px 30px rgba(0,0,0,0.4);transform:translateY(100%);transition:transform .3s cubic-bezier(.2,.8,.3,1);font-family:Inter,-apple-system,sans-serif;}'
-    + '.vzm-sonar-panel.open{transform:translateY(0);}'
+    + '.vzm-sonar-panel{position:absolute;left:0;right:0;bottom:0;z-index:1320;background:#F4F6F7;border-radius:20px 20px 0 0;padding:14px 16px 20px;max-height:70vh;overflow-y:auto;box-shadow:0 -8px 30px rgba(0,0,0,0.4);transform:translateY(100%);visibility:hidden;opacity:0;transition:transform .3s cubic-bezier(.2,.8,.3,1),opacity .3s ease,visibility .3s;font-family:Inter,-apple-system,sans-serif;}'
+    + '.vzm-sonar-panel.open{transform:translateY(0);visibility:visible;opacity:1;}'
     + '.vzm-sonar-pscrim{position:fixed;inset:0;z-index:1319;background:rgba(6,13,20,0);opacity:0;pointer-events:none;transition:opacity .3s ease;}'
     + '.vzm-sonar-pscrim.open{opacity:1;pointer-events:auto;background:rgba(6,13,20,0.4);}'
     + '.vzm-sonar-grab{width:38px;height:4px;background:#CBD5D5;border-radius:2px;margin:0 auto 12px;}'
