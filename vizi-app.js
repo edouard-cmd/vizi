@@ -1613,26 +1613,10 @@ function vzDesktopPointSelect(latlng) {
     if (S._ptGen !== _ptGen || !S.clickLabel) return;
     S.clickLabel.setIcon(_ptMakeIcon(inner));
   }
-  // Prechauffage : marees et profondeur partent en fond des le clic,
-  // resultats jetes, seuls les caches comptent (_sheetTidesCache et
-  // localStorage profondeur). Quand l'utilisateur ouvre Conditions
-  // quelques secondes plus tard, les donnees lentes sont deja la.
-  if (typeof fetchSheetTides === 'function') {
-    try { fetchSheetTides({ lat: latlng.lat, lng: latlng.lng }); } catch (e) {}
-  }
-  if (typeof fetchRealDepth === 'function') {
-    try { fetchRealDepth(latlng.lat, latlng.lng).catch(function(){}); } catch (e) {}
-  }
   if (typeof fetchCmemsZSD === 'function') {
-    // Retours communautaires et satellite sont deux appels GAS
-    // independants : les chainer doublait la latence de l'etiquette.
-    // vzNearestFeedback (qui lit S_allFeedback rempli par
-    // ensurePortCounts_) n'est appele qu'apres resolution des deux.
-    Promise.all([
-      ensurePortCounts_().catch(function() { return null; }),
-      fetchCmemsZSD(latlng.lat, latlng.lng)
-    ]).then(function(_res) {
-      var sat = _res[1];
+    ensurePortCounts_().then(function() {
+      return fetchCmemsZSD(latlng.lat, latlng.lng);
+    }).then(function(sat) {
       var okSat = sat && typeof sat.visi_plongeur_m === 'number' && isFinite(sat.visi_plongeur_m) && sat.visi_plongeur_m > 0
         && (typeof sat.age_hours !== 'number' || sat.age_hours <= 72)
         && (!sat.status || sat.status === 'ok' || sat.status === 'cloudy_J1' || sat.status === 'cloudy_J2');
@@ -3963,12 +3947,12 @@ function vzmInitCrosshair(){
   var xh = document.createElement('div');
   xh.className = 'vzm-xhair'; xh.id = 'vzmXhair';
   xh.innerHTML = '<svg viewBox="0 0 44 44">'
-    + '<circle cx="22" cy="22" r="9" fill="none" stroke="#4DD4A8" stroke-width="1.3"/>'
-    + '<line x1="22" y1="4" x2="22" y2="13" stroke="#4DD4A8" stroke-width="1.5" stroke-linecap="round"/>'
-    + '<line x1="22" y1="31" x2="22" y2="40" stroke="#4DD4A8" stroke-width="1.5" stroke-linecap="round"/>'
-    + '<line x1="4" y1="22" x2="13" y2="22" stroke="#4DD4A8" stroke-width="1.5" stroke-linecap="round"/>'
-    + '<line x1="31" y1="22" x2="40" y2="22" stroke="#4DD4A8" stroke-width="1.5" stroke-linecap="round"/>'
-    + '<circle cx="22" cy="22" r="1.7" fill="#4DD4A8"/>'
+    + '<circle cx="22" cy="22" r="9" fill="none" stroke="#FFFFFF" stroke-width="2.4" style="filter:drop-shadow(0 1px 2px rgba(0,0,0,0.55));"/>'
+    + '<line x1="22" y1="4" x2="22" y2="13" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" style="filter:drop-shadow(0 1px 2px rgba(0,0,0,0.55));"/>'
+    + '<line x1="22" y1="31" x2="22" y2="40" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" style="filter:drop-shadow(0 1px 2px rgba(0,0,0,0.55));"/>'
+    + '<line x1="4" y1="22" x2="13" y2="22" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" style="filter:drop-shadow(0 1px 2px rgba(0,0,0,0.55));"/>'
+    + '<line x1="31" y1="22" x2="40" y2="22" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" style="filter:drop-shadow(0 1px 2px rgba(0,0,0,0.55));"/>'
+    + '<circle cx="22" cy="22" r="2.1" fill="#FFFFFF"/>'
     + '</svg>';
   document.body.appendChild(xh);
 
@@ -11303,12 +11287,7 @@ function vzRenderCondVerdict(){
   var sat = VZ_SHEET.data.satellite;
   var spot = VZ_SHEET.data.spot;
   var html;
-  if (sat && sat.loading) {
-    // Rendu progressif : la mesure satellite est encore en vol. Afficher
-    // "Pas de mesure" ici serait faux (honnetete epistemique) : on montre
-    // l'etat reel, le re-rendu remplacera cette ligne a l'arrivee.
-    html = '<div class="vz-cond-satnote">Mesure satellite en cours de chargement...</div>';
-  } else if (sat && typeof sat.visi_plongeur_m === 'number') {
+  if (sat && typeof sat.visi_plongeur_m === 'number') {
     var v = Math.round(sat.visi_plongeur_m * 10) / 10;
     var clause = '';
     if (typeof sat.age_hours === 'number' && isFinite(sat.age_hours)) {
@@ -11411,77 +11390,37 @@ function loadSheetConditions(spot) {
     ? fetchCmemsZSD(spot.lat, spot.lng).catch(function(){ return null; })
     : Promise.resolve(null);
 
-  // Jeton de generation : un rendu tardif (marees d'un ancien point) ne
-  // doit jamais ecraser le point clique ensuite. Le garde VZ_SHEET.mode
-  // ne distingue pas deux chargements 'cond' successifs.
-  VZ_SHEET._condGen = (VZ_SHEET._condGen || 0) + 1;
-  var _gen = VZ_SHEET._condGen;
-  function _alive() { return VZ_SHEET.mode === 'cond' && VZ_SHEET._condGen === _gen; }
-
-  // Rendu complet : renderSheetTable reecrit tout le body (idempotent),
-  // puis on reapplique le verdict satellite et les icones qui y vivent.
-  function _paint() {
-    if (!_alive()) return;
-    renderSheetTable();
-    if (typeof vzRenderCondVerdict === 'function') vzRenderCondVerdict();
-    if (typeof vzCondScrollIcons === 'function') vzCondScrollIcons();
-  }
-
-  // Rendu progressif : on peint des que meteo + profondeur (les rapides)
-  // sont la, au lieu d'attendre le maillon le plus lent (marees GAS).
-  // Marees et satellite completent le tableau a leur arrivee par simple
-  // re-rendu. Etats de chargement explicites ({ loading: true }) pour ne
-  // jamais afficher "indisponible" sur une donnee encore en vol
-  // (honnetete epistemique).
-  Promise.all([meteoPromise, depthPromise]).then(function(results) {
-    if (!_alive()) return;
+  Promise.all([meteoPromise, depthPromise, tidesPromise, satPromise]).then(function(results) {
+    if (VZ_SHEET.mode !== 'cond') return;
     var meteo = results[0];
+    var depth = results[1];
+    var tides = results[2];
+    var sat = results[3];
     if (!meteo || !meteo.time) {
       document.getElementById('vzSheetBody').innerHTML = '<div class="vz-sheet-loading">Données météo indisponibles</div>';
       return;
     }
-    VZ_SHEET.data = { meteo: meteo, depth: results[1], tides: { loading: true }, spot: spot, satellite: { loading: true } };
-    _paint();
-    tidesPromise.then(function(tides) {
-      if (!_alive()) return;
-      VZ_SHEET.data.tides = tides || null;
-      _paint();
-    });
-    satPromise.then(function(sat) {
-      if (!_alive()) return;
-      VZ_SHEET.data.satellite = sat || null;
-      _paint();
-    });
+    VZ_SHEET.data = { meteo: meteo, depth: depth, tides: tides, spot: spot, satellite: sat };
+    renderSheetTable();
+    if (typeof vzRenderCondVerdict === 'function') vzRenderCondVerdict();
+    if (typeof vzCondScrollIcons === 'function') vzCondScrollIcons();
   }).catch(function(err) {
     console.error('[Sheet] erreur chargement', err);
-    if (!_alive()) return;
     document.getElementById('vzSheetBody').innerHTML = '<div class="vz-sheet-loading">Erreur de chargement</div>';
   });
 }
 
-// Récupère les hauteurs de marée sur 5 jours via le GAS proxy existant.
-// Cache memoire par (site, jour) TTL 6 h : les predictions de maree sont
-// figees, inutile de repayer le cold start GAS a chaque ouverture du
-// bandeau. On met la Promise en cache (pas la valeur resolue) pour
-// dedupliquer le prechauffage du clic et l'ouverture du drawer quand
-// ils partent en meme temps. En cas d'echec, l'entree est purgee pour
-// permettre un nouvel essai a l'ouverture suivante.
-var _sheetTidesCache = {};
+// Récupère les hauteurs de marée sur 5 jours via le GAS proxy existant
 function fetchSheetTides(spot) {
   var near = (typeof findApiMareeSiteNear === 'function') ? findApiMareeSiteNear(spot.lat, spot.lng) : null;
   if (!near) return Promise.resolve(null);
   var today = new Date();
   var fromStr = today.toISOString().slice(0, 10);
-  var cacheKey = near.siteId + '|' + fromStr;
-  var hit = _sheetTidesCache[cacheKey];
-  if (hit && (Date.now() - hit.ts) < 6 * 3600 * 1000) return hit.promise;
   var url = GAS_URL + '?action=tides_range&site=' + near.siteId + '&from=' + fromStr + '&days=5';
-  var p = fetch(url).then(function(r) { return r.json(); }).then(function(data) {
-    if (!data || !data.data) { delete _sheetTidesCache[cacheKey]; return null; }
+  return fetch(url).then(function(r) { return r.json(); }).then(function(data) {
+    if (!data || !data.data) return null;
     return { points: data.data, extremes: data.extremes || [], port: near };
-  }).catch(function() { delete _sheetTidesCache[cacheKey]; return null; });
-  _sheetTidesCache[cacheKey] = { ts: Date.now(), promise: p };
-  return p;
+  }).catch(function() { return null; });
 }
 
 // Réutilise AROME + ARPEGE comme dans loadForecast (haute res 0-48h + ARPEGE 48h-5j)
@@ -11663,60 +11602,11 @@ function visLabel(score) {
   // ---- Build HTML ----
   var html = '<div class="vz-sheet-cond-wrap">';
 
-  // --- Retour communautaire (commit 1 : collecte seule, n'influence pas encore le score) ---
-  // Ligne pleine largeur posee AU-DESSUS du tableau, hors du div overflow-x : elle
-  // reste fixe pendant que le tableau defile horizontalement. Porte sur aujourd'hui.
-  // Visi annoncee du jour = ce que l'app affiche : satellite frais <=72h, sinon moteur au creneau courant.
-  var _fbSat = data.satellite;
-  var _fbPred = null;
-  if (_fbSat && typeof _fbSat.visi_plongeur_m === 'number' && isFinite(_fbSat.visi_plongeur_m) && _fbSat.visi_plongeur_m > 0 &&
-      (typeof _fbSat.age_hours !== 'number' || _fbSat.age_hours <= 72)) {
-    _fbPred = Math.round(_fbSat.visi_plongeur_m * 10) / 10;
-  } else if (nowIdx >= 0 && slots[nowIdx]) {
-    var _fbObj = computeVisibilityScore_V4(h, slots[nowIdx].i, depth, spot.lat, spot.lng);
-    if (_fbObj && typeof _fbObj.visi_m === 'number' && isFinite(_fbObj.visi_m) && _fbObj.visi_m > 0) {
-      _fbPred = Math.round(_fbObj.visi_m * 10) / 10;
-    }
-  }
-  var _fbToday = (function () {
-    var d = new Date();
-    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-  })();
-  var _fbDateLabel = (function () {
-    var moisFb = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
-    var d = new Date();
-    return d.getDate() + ' ' + moisFb[d.getMonth()];
-  })();
-  // Photo complete de l'instant T (collecte) : tous les parametres que l'app
-  // connait au moment du vote, captures ICI ou ils sont tous accessibles. On
-  // ne calcule PAS le biais maintenant ; on archive la photo dans le sheet, et
-  // la formule de biais sera calee plus tard sur les donnees accumulees.
-  // h.windspeed_10m / h.wave_height sont en km/h et m (API Open-Meteo).
-  var _fbSnap = { coef: '', depth: '', sediment: '', wind: '', winddir: '', wave: '', waveperiod: '', satzsd: '', satage: '' };
-  if (typeof depth === 'number' && isFinite(depth)) _fbSnap.depth = Math.round(depth * 10) / 10;
-  try { var _cf = getCoefForDate(_fbToday); if (typeof _cf === 'number' && isFinite(_cf)) _fbSnap.coef = _cf; } catch (e) {}
-  if (typeof S !== 'undefined' && S._spotSediment && S._spotSediment.name) _fbSnap.sediment = String(S._spotSediment.name);
-  if (nowIdx >= 0 && slots[nowIdx] && h) {
-    var _ci = slots[nowIdx].i;
-    if (h.windspeed_10m && typeof h.windspeed_10m[_ci] === 'number') _fbSnap.wind = Math.round(h.windspeed_10m[_ci]);
-    if (h.winddirection_10m && typeof h.winddirection_10m[_ci] === 'number') _fbSnap.winddir = Math.round(h.winddirection_10m[_ci]);
-    if (h.wave_height && typeof h.wave_height[_ci] === 'number') _fbSnap.wave = Math.round(h.wave_height[_ci] * 100) / 100;
-    if (h.wave_period && typeof h.wave_period[_ci] === 'number') _fbSnap.waveperiod = Math.round(h.wave_period[_ci] * 10) / 10;
-  }
-  if (_fbSat && typeof _fbSat.value_zsd_m === 'number' && isFinite(_fbSat.value_zsd_m)) _fbSnap.satzsd = Math.round(_fbSat.value_zsd_m * 100) / 100;
-  if (_fbSat && typeof _fbSat.age_hours === 'number' && isFinite(_fbSat.age_hours)) _fbSnap.satage = Math.round(_fbSat.age_hours * 10) / 10;
-  html += vzFbBarHtml(spot.lat, spot.lng, _fbPred, _fbToday, _fbDateLabel, _fbSnap);
-  // Compteur de confiance communautaire (facon Waze) : nombre de retours
-  // recents dans le secteur. Masque si zero (eviter le "0 chasseur" deprimant
-  // au demarrage). S_spotFeedbackCache est alimente au clic du spot ; si le
-  // fetch n'est pas encore revenu, le compteur apparaitra au re-render.
-  var _fbCount = 0;
-  if (S_spotFeedbackCache && S_spotFeedbackCache.data
-      && Math.abs(S_spotFeedbackCache.lat - spot.lat) < 0.001
-      && Math.abs(S_spotFeedbackCache.lon - spot.lng) < 0.001) {
-    _fbCount = S_spotFeedbackCache.data.count || 0;
-  }
-  if (_fbCount > 0) html += vzFbCountHtml(_fbCount);
+  // --- Retour communautaire : le bandeau pouces du tableau est retire (jamais
+  // clique : demande une validation de NOTRE prevision au moment de la pre-decision).
+  // Le point d'entree unique du partage de visi est desormais le bouton sonar
+  // flottant (module VZM SONAR en fin de fichier) -> openObsSheet.
+  // vzFbBarHtml / vzFbCountHtml restent definis pour la popup secteur (vzSectorVote).
 
 html += '<div style="overflow-x:auto;">';
   html += '<table class="vz-cond-table">';
@@ -11955,11 +11845,8 @@ function buildTideBandRow(slots, tideData) {
   var N = slots.length;
   var labelCell = '<td class="vz-cond-rowlabel">Marée</td>';
   if (!tideData || !tideData.points || tideData.points.length === 0) {
-    // Distinguer "en vol" (rendu progressif, la donnee arrive) de
-    // "vraiment indisponible" : ne jamais mentir sur l'etat d'une source.
-    var emptyMsg = (tideData && tideData.loading) ? 'Marée en cours de chargement...' : 'Marées indisponibles';
     return '<tr class="vz-cond-row-tide">' + labelCell
-      + '<td class="vz-cond-tideband" colspan="' + N + '"><div class="vz-tideband-empty">' + emptyMsg + '</div></td></tr>';
+      + '<td class="vz-cond-tideband" colspan="' + N + '"><div class="vz-tideband-empty">Marées indisponibles</div></td></tr>';
   }
   var t0 = slots[0].time.getTime();
   var tN = slots[N - 1].time.getTime();
@@ -14289,14 +14176,9 @@ function vzmInit() {
     var actionRow = document.createElement('div');
     actionRow.id = 'vzmActionRow';
     actionRow.className = 'vzm-action-row';
+    // Le bouton "Partager la visibilite" est retire de la rangee : doublon direct
+    // de l'action "Partager la visibilite" du bouton sonar (point d'entree unique).
     actionRow.innerHTML =
-      '<button id="vzmShareObsBtn" class="vzm-action-btn vzm-action-primary">' +
-        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">' +
-          '<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>' +
-          '<circle cx="12" cy="12" r="3"/>' +
-        '</svg>' +
-        '<span>Partager la visibilité</span>' +
-      '</button>' +
       '<button id="vzmSaveSessionBtn" class="vzm-action-btn vzm-action-secondary">' +
         '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">' +
           '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>' +
@@ -14306,11 +14188,6 @@ function vzmInit() {
         '<span>Enregistrer ma session</span>' +
       '</button>';
 
-    actionRow.querySelector('#vzmShareObsBtn').onclick = function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      if (typeof openObsSheet === 'function') openObsSheet();
-    };
     actionRow.querySelector('#vzmSaveSessionBtn').onclick = function(e) {
       e.preventDefault();
       e.stopPropagation();
@@ -14583,5 +14460,342 @@ function vzmInit() {
     });
   } else {
     setTimeout(vzmPatchArrival, 1200);
+  }
+})();
+
+/* ============================================================
+   VZM SONAR - Bouton communautaire flottant + 3 actions
+   ------------------------------------------------------------
+   Point d'entree UNIQUE du partage communautaire (remplace le
+   bandeau pouces du tableau + le bouton "Partager" de la rangee
+   drawer). Trois actions :
+     - sector : panneau retours du secteur (get_observations en cache)
+     - share  : openObsSheet (feuille de depot existante)
+     - alerts : mini-feuille email + consentement -> submit_sector_alert (GAS, chantier 2)
+   Couche z-index 1210 (au-dessus de l'aimbar 1200, sous les modes).
+   Masque : modes edition/mesure, drawer spot en mid/full, sheet
+   Conditions/Marees/Points ouvert (VZ_SHEET.mode), popup secteur.
+   Design repris du pack Claude Design (bouton compas, cascade).
+   ============================================================ */
+(function () {
+  'use strict';
+
+  var ALERT_EMAIL_KEY = 'vizi_alert_email';
+  var ALERT_ACTIVE = false; // action alerts : true = active, false = "bientot actif" (chantier 2 GAS)
+
+  function injectStyle() {
+    if (document.getElementById('vzmSonarStyle')) return;
+    var st = document.createElement('style');
+    st.id = 'vzmSonarStyle';
+    st.textContent =
+      '.vzm-sonar-root{position:absolute;inset:0;z-index:1210;pointer-events:none;font-family:Inter,-apple-system,sans-serif;}'
+    + '.vzm-sonar-root *{pointer-events:auto;}'
+    + '.vzm-sonar-root[data-hidden="true"]{display:none !important;}'
+    + '.vzm-sonar-scrim{position:absolute;inset:0;z-index:1;background:rgba(6,13,20,0);opacity:0;transition:opacity .26s ease;pointer-events:none;}'
+    + '.vzm-sonar-root[data-open="true"] .vzm-sonar-scrim{pointer-events:auto;opacity:1;background:rgba(6,13,20,0.34);}'
+    + '.vzm-sonar-fab{position:absolute;right:18px;bottom:24px;z-index:20;width:64px;height:64px;border-radius:50%;border:2px solid #4DD4A8;padding:0;cursor:pointer;background:#0A1520;box-shadow:0 4px 18px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;transition:transform .2s ease;}'
+    + '.vzm-sonar-fab:active{transform:scale(.95);}'
+    + '.vzm-sonar-ring{position:absolute;top:50%;left:50%;width:64px;height:64px;margin:-32px 0 0 -32px;border:1.5px solid rgba(111,230,192,0.85);border-radius:50%;opacity:0;}'
+    + '.vzm-sonar-core{position:relative;z-index:2;width:26px;height:26px;}'
+    + '.vzm-sonar-core .w,.vzm-sonar-core .x{fill:none;stroke:#4DD4A8;stroke-linecap:round;stroke-linejoin:round;transition:opacity .22s ease;}'
+    + '.vzm-sonar-core .x{opacity:0;stroke-width:2.4;}'
+    + '.vzm-sonar-root[data-open="true"] .vzm-sonar-core .w{opacity:0;}'
+    + '.vzm-sonar-root[data-open="true"] .vzm-sonar-core .x{opacity:1;}'
+    + '.vzm-sonar-menu{position:absolute;right:20px;bottom:100px;z-index:15;width:268px;display:flex;flex-direction:column;gap:10px;}'
+    + '.vzm-sonar-sector{display:flex;align-items:center;gap:8px;align-self:flex-start;background:rgba(77,212,168,0.12);border:1px solid rgba(77,212,168,0.4);border-radius:12px;padding:7px 12px;font-size:12px;font-weight:600;color:#4DD4A8;opacity:0;transform:translateY(16px) scale(.96);pointer-events:none;}'
+    + '.vzm-sonar-sector svg{width:14px;height:14px;stroke:#4DD4A8;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;}'
+    + '.vzm-sonar-root[data-open="true"] .vzm-sonar-sector{opacity:1;transform:none;pointer-events:auto;}'
+    + '.vzm-sonar-act{display:flex;align-items:center;gap:12px;background:#0F2438;border:1px solid #24455C;border-radius:14px;padding:11px 14px;min-height:48px;text-align:left;cursor:pointer;color:#fff;width:100%;box-shadow:0 6px 18px rgba(0,0,0,0.35);opacity:0;transform:translateY(16px) scale(.96);pointer-events:none;}'
+    + '.vzm-sonar-act:active{background:#12293c;}'
+    + '.vzm-sonar-root[data-open="true"] .vzm-sonar-act{opacity:1;transform:none;pointer-events:auto;}'
+    + '.vzm-sonar-ai{width:38px;height:38px;flex-shrink:0;border-radius:10px;background:rgba(77,212,168,0.12);display:flex;align-items:center;justify-content:center;}'
+    + '.vzm-sonar-ai svg{width:20px;height:20px;stroke:#4DD4A8;fill:none;stroke-linecap:round;stroke-linejoin:round;}'
+    + '.vzm-sonar-at{display:flex;flex-direction:column;gap:1px;min-width:0;}'
+    + '.vzm-sonar-t{font-size:14px;font-weight:600;letter-spacing:-0.01em;}'
+    + '.vzm-sonar-s{font-size:11.5px;color:rgba(255,255,255,0.62);}'
+    + '.vzm-sonar-s.mono{font-family:"IBM Plex Mono",monospace;letter-spacing:0.01em;}'
+    + '.vzm-sonar-act[data-soon="true"]{opacity:.62;}'
+    + '.vzm-sonar-badge{margin-left:auto;font-size:9.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#D8C84A;border:1px solid rgba(216,200,74,0.4);border-radius:6px;padding:2px 6px;}'
+    + '@media (prefers-reduced-motion: no-preference){'
+    +   '.vzm-sonar-ring{animation:vzmSonarPing 2.6s ease-out infinite;}'
+    +   '.vzm-sonar-ring.b{animation-delay:1.3s;}'
+    +   '.vzm-sonar-sector,.vzm-sonar-act{transition:opacity .24s ease,transform .34s cubic-bezier(.34,1.25,.5,1);}'
+    +   '.vzm-sonar-root[data-open="true"] .vzm-sonar-sector{transition-delay:.24s;}'
+    +   '.vzm-sonar-root[data-open="true"] .vzm-sonar-act:nth-child(4){transition-delay:.04s;}'
+    +   '.vzm-sonar-root[data-open="true"] .vzm-sonar-act:nth-child(3){transition-delay:.11s;}'
+    +   '.vzm-sonar-root[data-open="true"] .vzm-sonar-act:nth-child(2){transition-delay:.18s;}'
+    + '}'
+    + '@keyframes vzmSonarPing{0%{transform:scale(1);opacity:.55;}100%{transform:scale(2.1);opacity:0;}}'
+    // panneau blanc (retours secteur + alertes) : reprend la grammaire obsSheet
+    + '.vzm-sonar-panel{position:absolute;left:0;right:0;bottom:0;z-index:1320;background:#F4F6F7;border-radius:20px 20px 0 0;padding:14px 16px 20px;max-height:70vh;overflow-y:auto;box-shadow:0 -8px 30px rgba(0,0,0,0.4);transform:translateY(100%);transition:transform .3s cubic-bezier(.2,.8,.3,1);font-family:Inter,-apple-system,sans-serif;}'
+    + '.vzm-sonar-panel.open{transform:translateY(0);}'
+    + '.vzm-sonar-pscrim{position:fixed;inset:0;z-index:1319;background:rgba(6,13,20,0);opacity:0;pointer-events:none;transition:opacity .3s ease;}'
+    + '.vzm-sonar-pscrim.open{opacity:1;pointer-events:auto;background:rgba(6,13,20,0.4);}'
+    + '.vzm-sonar-grab{width:38px;height:4px;background:#CBD5D5;border-radius:2px;margin:0 auto 12px;}'
+    + '.vzm-sonar-x{position:absolute;top:12px;right:14px;width:30px;height:30px;border-radius:50%;background:#E7ECEE;border:none;color:#44565F;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;}'
+    + '.vzm-sonar-chip{display:inline-flex;align-items:center;gap:6px;background:#E1F5EE;color:#1A6B5D;border-radius:20px;padding:4px 11px;font-size:11.5px;font-weight:600;}'
+    + '.vzm-sonar-h{font-size:16.5px;font-weight:600;color:#0F2438;margin-top:10px;}'
+    + '.vzm-sonar-sub{font-size:12.5px;color:#5A6B75;margin-top:2px;}'
+    + '.vzm-sonar-card{background:#fff;border:0.5px solid #E1E7E7;border-radius:13px;padding:6px 14px;margin-top:10px;}'
+    + '.vzm-sonar-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:0.5px solid #EDF1F2;}'
+    + '.vzm-sonar-row:last-child{border-bottom:none;}'
+    + '.vzm-sonar-who{font-size:13px;color:#0F2438;font-weight:500;}'
+    + '.vzm-sonar-when{font-size:11px;color:#8A99A1;}'
+    + '.vzm-sonar-visi{font-family:"IBM Plex Mono",monospace;font-size:14px;font-weight:500;text-align:right;}'
+    + '.vzm-sonar-tag{font-size:10.5px;color:#5A6B75;text-align:right;}'
+    + '.vzm-sonar-empty{text-align:center;color:#8A99A1;font-size:13px;padding:18px 0;}'
+    + '.vzm-sonar-lab{font-size:12px;color:#5A6B75;margin:12px 0 5px;}'
+    + '.vzm-sonar-in{width:100%;box-sizing:border-box;border:1px solid #CBD8D8;border-radius:10px;padding:11px 12px;font-size:16px;color:#0F2438;background:#fff;font-family:inherit;}'
+    + '.vzm-sonar-cta{background:#4DD4A8;color:#06251C;border-radius:12px;padding:13px 0;text-align:center;font-size:15px;font-weight:600;cursor:pointer;border:none;width:100%;margin-top:14px;}'
+    + '.vzm-sonar-cta[disabled]{opacity:.5;cursor:default;}'
+    + '.vzm-sonar-consent{display:flex;align-items:flex-start;gap:8px;margin-top:12px;font-size:12px;color:#44565F;line-height:1.45;cursor:pointer;}'
+    + '.vzm-sonar-consent input{margin-top:2px;width:16px;height:16px;accent-color:#2DA888;flex-shrink:0;}'
+    + '.vzm-sonar-ok{width:52px;height:52px;border-radius:50%;background:#E1F5EE;display:flex;align-items:center;justify-content:center;margin:2px auto 10px;color:#1A6B5D;font-size:26px;}'
+    + '@media (min-width:769px){.vzm-sonar-fab{right:26px;bottom:110px;}.vzm-sonar-menu{right:28px;bottom:186px;}.vzm-sonar-panel{left:auto;right:26px;bottom:26px;width:320px;border-radius:16px;}}';
+    document.head.appendChild(st);
+  }
+
+  var root, fab, scrim, sectorNameEl, panel, pscrim;
+
+  function currentSectorName() {
+    if (!S || !S.map) return '';
+    var c = S.map.getCenter();
+    if (typeof findNearestPort === 'function') {
+      var p = findNearestPort(c.lat, c.lng);
+      if (p && p.spot && p.spot.name) return p.spot.name;
+    }
+    return '';
+  }
+
+  function sheetOpen() {
+    return (typeof VZ_SHEET !== 'undefined' && VZ_SHEET && VZ_SHEET.mode);
+  }
+  function spotDrawerBlocking() {
+    var d = document.getElementById('spotDrawerMobile');
+    return d && (d.classList.contains('vzm-mid') || d.classList.contains('vzm-full'));
+  }
+  function editOrMeasure() {
+    return document.body.classList.contains('vz-edit-mode') || document.body.classList.contains('vz-measure-mode');
+  }
+
+  // Regle d'exclusivite : le FAB n'existe que quand la carte est la surface active.
+  function refreshVisibility() {
+    if (!root) return;
+    var hide = editOrMeasure() || sheetOpen() || spotDrawerBlocking();
+    if (hide && root.getAttribute('data-open') === 'true') setMenu(false);
+    root.setAttribute('data-hidden', hide ? 'true' : 'false');
+  }
+
+  function setMenu(open) {
+    if (!root) return;
+    if (open) {
+      if (sectorNameEl) {
+        var n = currentSectorName();
+        sectorNameEl.textContent = n ? 'Secteur ' + n : 'Ton secteur';
+      }
+    }
+    root.setAttribute('data-open', open ? 'true' : 'false');
+    fab.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  // ---------- Panneau blanc partage (retours / alertes) ----------
+  function openPanel(html) {
+    panel.innerHTML = '<div class="vzm-sonar-grab"></div>'
+      + '<button class="vzm-sonar-x" type="button" aria-label="Fermer" data-close="1">&#10005;</button>' + html;
+    panel.querySelector('[data-close]').addEventListener('click', closePanel);
+    pscrim.classList.add('open');
+    requestAnimationFrame(function () { panel.classList.add('open'); });
+  }
+  function closePanel() {
+    panel.classList.remove('open');
+    pscrim.classList.remove('open');
+  }
+
+  function escapeH(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (m) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m];
+    });
+  }
+  function visColor(m) {
+    if (!(m > 0)) return '#8A99A1';
+    if (m <= 1) return '#E89B3C';
+    if (m <= 2) return '#D8C84A';
+    if (m <= 4) return '#2DA888';
+    return '#4DD4A8';
+  }
+  function turbidityTag(obs) {
+    var t = (obs.turbidity || obs.water || '').toString().toLowerCase();
+    if (/clair/.test(t)) return 'eau claire';
+    if (/voil/.test(t)) return 'voilee';
+    if (/charg/.test(t)) return 'chargee';
+    return obs.bottom_visible === false ? 'fond invisible' : '';
+  }
+  function whenLabel(ts) {
+    var ageH = (Date.now() - new Date(ts).getTime()) / 3600000;
+    if (ageH < 1) return 'il y a ' + Math.max(1, Math.round(ageH * 60)) + ' min';
+    if (ageH < 24) return 'il y a ' + Math.round(ageH) + ' h';
+    return 'il y a ' + Math.round(ageH / 24) + ' j';
+  }
+
+  function actionSector() {
+    setMenu(false);
+    var name = currentSectorName();
+    var chip = '<span class="vzm-sonar-chip"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1A6B5D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.4-7-11a7 7 0 0 1 14 0c0 4.6-7 11-7 11Z"/><circle cx="12" cy="10" r="2.4"/></svg>Secteur ' + escapeH(name || '') + '</span>';
+    openPanel(chip + '<div class="vzm-sonar-h">Retours du secteur</div><div class="vzm-sonar-sub" id="vzmSonarSectorSub">Chargement...</div><div id="vzmSonarSectorList"></div>'
+      + '<button class="vzm-sonar-cta" type="button" id="vzmSonarToAlerts">Recevoir les alertes de ce secteur</button>');
+
+    document.getElementById('vzmSonarToAlerts').addEventListener('click', function () { closePanel(); setTimeout(actionAlerts, 260); });
+
+    var c = S.map.getCenter();
+    gasGet('get_observations', {}).then(function (res) {
+      var subEl = document.getElementById('vzmSonarSectorSub');
+      var listEl = document.getElementById('vzmSonarSectorList');
+      if (!subEl || !listEl) return;
+      var obs = (res && res.observations) ? res.observations.slice() : [];
+      var near = obs.filter(function (o) {
+        return typeof o.lat === 'number' && haversineKm(c.lat, c.lng, o.lat, o.lon) <= 12
+          && (Date.now() - new Date(o.timestamp).getTime()) < 7 * 86400000;
+      }).sort(function (a, b) { return new Date(b.timestamp) - new Date(a.timestamp); });
+
+      if (!near.length) {
+        subEl.textContent = 'Aucun retour ces 7 derniers jours dans ce secteur.';
+        listEl.innerHTML = '<div class="vzm-sonar-empty">Sois le premier a partager ta visi ici.</div>';
+        return;
+      }
+      var sum = 0, n = 0;
+      near.forEach(function (o) { if (o.visibility_m > 0) { sum += o.visibility_m; n++; } });
+      var moy = n ? (Math.round(sum / n * 10) / 10).toString().replace('.', ',') : '-';
+      subEl.textContent = near.length + ' chasseur' + (near.length > 1 ? 's' : '') + ' ces 7 derniers jours, visi moyenne ' + moy + ' m';
+      var rows = near.slice(0, 8).map(function (o) {
+        var tag = turbidityTag(o);
+        return '<div class="vzm-sonar-row"><div><div class="vzm-sonar-who">' + escapeH(o.pseudo || 'Anonyme')
+          + '</div><div class="vzm-sonar-when">' + whenLabel(o.timestamp) + '</div></div>'
+          + '<div><div class="vzm-sonar-visi" style="color:' + visColor(o.visibility_m) + '">'
+          + (o.visibility_m > 0 ? (o.visibility_m.toString().replace('.', ',') + ' m') : '-') + '</div>'
+          + (tag ? '<div class="vzm-sonar-tag">' + tag + '</div>' : '') + '</div></div>';
+      }).join('');
+      listEl.innerHTML = '<div class="vzm-sonar-card">' + rows + '</div>';
+    });
+  }
+
+  function actionShare() {
+    setMenu(false);
+    if (typeof openObsSheet === 'function') openObsSheet();
+  }
+
+  function actionAlerts() {
+    setMenu(false);
+    var name = currentSectorName();
+    var chip = '<span class="vzm-sonar-chip"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1A6B5D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.4-7-11a7 7 0 0 1 14 0c0 4.6-7 11-7 11Z"/><circle cx="12" cy="10" r="2.4"/></svg>Secteur ' + escapeH(name || '') + '</span>';
+    var saved = '';
+    try { saved = localStorage.getItem(ALERT_EMAIL_KEY) || ''; } catch (e) {}
+    var soonNote = ALERT_ACTIVE ? '' : '<div class="vzm-sonar-sub" style="color:#B8860B;margin-top:8px;">Les envois demarrent tres bientot. Ton inscription est deja prise en compte.</div>';
+    openPanel(chip + '<div class="vzm-sonar-h">Alertes visibilite</div>'
+      + '<div class="vzm-sonar-sub">Un chasseur poste une visi dans ce secteur, tu le sais dans l\u2019heure.</div>'
+      + '<div class="vzm-sonar-lab">Ton email</div>'
+      + '<input class="vzm-sonar-in" id="vzmSonarEmail" type="email" inputmode="email" autocomplete="email" placeholder="ton@email.fr" value="' + escapeH(saved) + '">'
+      + '<label class="vzm-sonar-consent"><input type="checkbox" id="vzmSonarConsent" checked>J\u2019accepte de recevoir les alertes visibilite de ce secteur. Un email max par jour, jamais transmis, desinscription en un clic.</label>'
+      + soonNote
+      + '<button class="vzm-sonar-cta" type="button" id="vzmSonarAlertSubmit">Activer les alertes</button>');
+
+    document.getElementById('vzmSonarAlertSubmit').addEventListener('click', function () {
+      var email = (document.getElementById('vzmSonarEmail').value || '').trim();
+      var consent = document.getElementById('vzmSonarConsent').checked;
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { alert('Adresse email invalide.'); return; }
+      if (!consent) { alert('Merci de cocher le consentement pour recevoir les alertes.'); return; }
+      try { localStorage.setItem(ALERT_EMAIL_KEY, email); } catch (e) {}
+      var c = S.map.getCenter();
+      var params = { email: email, lat: c.lat.toFixed(5), lon: c.lng.toFixed(5), sector: currentSectorName(), consent: '1' };
+      if (typeof gasGet === 'function') gasGet('submit_sector_alert', params); // endpoint chantier 2 (no-op tant que GAS pas deploye)
+      panel.innerHTML = '<div class="vzm-sonar-grab"></div><button class="vzm-sonar-x" type="button" aria-label="Fermer" data-close="1">&#10005;</button>'
+        + '<div class="vzm-sonar-ok"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1A6B5D" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>'
+        + '<div class="vzm-sonar-h" style="text-align:center;">C\u2019est note</div>'
+        + '<div class="vzm-sonar-sub" style="text-align:center;">Des qu\u2019un chasseur poste une visi vers ' + escapeH(currentSectorName() || 'ton secteur') + ', tu recois un email. Jamais plus d\u2019un par jour.</div>';
+      panel.querySelector('[data-close]').addEventListener('click', closePanel);
+      if (typeof gtag === 'function') { try { gtag('event', 'sector_alert_optin'); } catch (e) {} }
+    });
+  }
+
+  function build() {
+    if (document.getElementById('vzmSonarRoot')) return;
+    injectStyle();
+
+    root = document.createElement('div');
+    root.className = 'vzm-sonar-root';
+    root.id = 'vzmSonarRoot';
+    root.setAttribute('data-open', 'false');
+    root.setAttribute('data-hidden', 'false');
+    root.innerHTML =
+      '<div class="vzm-sonar-scrim" id="vzmSonarScrim"></div>'
+    + '<div class="vzm-sonar-menu">'
+    +   '<div class="vzm-sonar-sector"><svg viewBox="0 0 24 24" stroke-width="2"><path d="M12 21 C12 21 5 14.6 5 10 A7 7 0 0 1 19 10 C19 14.6 12 21 12 21 Z"/><circle cx="12" cy="10" r="2.4"/></svg><span id="vzmSonarSectorName">Ton secteur</span></div>'
+    +   '<button class="vzm-sonar-act" type="button" data-action="sector">'
+    +     '<span class="vzm-sonar-ai"><svg viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 12 L12 4"/><path d="M12 12 L18 15"/></svg></span>'
+    +     '<span class="vzm-sonar-at"><span class="vzm-sonar-t">Retours du secteur</span><span class="vzm-sonar-s mono">retours des 7 derniers jours</span></span>'
+    +   '</button>'
+    +   '<button class="vzm-sonar-act" type="button" data-action="share">'
+    +     '<span class="vzm-sonar-ai"><svg viewBox="0 0 24 24" stroke-width="2"><path d="M2 12 Q7 5 12 5 Q17 5 22 12 Q17 19 12 19 Q7 19 2 12 Z"/><circle cx="12" cy="12" r="2.6"/></svg></span>'
+    +     '<span class="vzm-sonar-at"><span class="vzm-sonar-t">Partager la visibilite</span><span class="vzm-sonar-s">donne la visi vue dans le secteur</span></span>'
+    +   '</button>'
+    +   '<button class="vzm-sonar-act" type="button" data-action="alerts"' + (ALERT_ACTIVE ? '' : ' data-soon="true"') + '>'
+    +     '<span class="vzm-sonar-ai"><svg viewBox="0 0 24 24" stroke-width="2"><path d="M6 9 A6 6 0 0 1 18 9 C18 13 19.5 15 20.5 16 L3.5 16 C4.5 15 6 13 6 9 Z"/><path d="M10 19 A2 2 0 0 0 14 19"/></svg></span>'
+    +     '<span class="vzm-sonar-at"><span class="vzm-sonar-t">Recevoir des alertes visibilite</span><span class="vzm-sonar-s">des qu\u2019un chasseur poste ici</span></span>'
+    +     (ALERT_ACTIVE ? '' : '<span class="vzm-sonar-badge">bientot</span>')
+    +   '</button>'
+    + '</div>'
+    + '<button class="vzm-sonar-fab" id="vzmSonarFab" type="button" aria-label="Actions communaute Visimer" aria-expanded="false">'
+    +   '<span class="vzm-sonar-ring"></span><span class="vzm-sonar-ring b"></span>'
+    +   '<svg class="vzm-sonar-core" viewBox="0 0 24 24">'
+    +     '<g><path class="w" d="M3 9 Q8 5 13 9 T23 9" stroke-width="3"/><path class="w" d="M3 16 Q8 12 13 16 T23 16" stroke-width="2"/></g>'
+    +     '<g><path class="x" d="M6 6 L18 18"/><path class="x" d="M18 6 L6 18"/></g>'
+    +   '</svg>'
+    + '</button>';
+
+    var host = document.getElementById('map') || document.body;
+    if (host === document.body) { root.style.position = 'fixed'; }
+    host.appendChild(root);
+
+    pscrim = document.createElement('div');
+    pscrim.className = 'vzm-sonar-pscrim';
+    pscrim.addEventListener('click', closePanel);
+    document.body.appendChild(pscrim);
+
+    panel = document.createElement('div');
+    panel.className = 'vzm-sonar-panel';
+    document.body.appendChild(panel);
+
+    fab = document.getElementById('vzmSonarFab');
+    scrim = document.getElementById('vzmSonarScrim');
+    sectorNameEl = document.getElementById('vzmSonarSectorName');
+
+    fab.addEventListener('click', function (e) { e.stopPropagation(); setMenu(root.getAttribute('data-open') !== 'true'); });
+    scrim.addEventListener('click', function () { setMenu(false); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { if (root.getAttribute('data-open') === 'true') setMenu(false); else if (panel.classList.contains('open')) closePanel(); } });
+
+    root.querySelectorAll('.vzm-sonar-act').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var a = btn.getAttribute('data-action');
+        if (a === 'sector') actionSector();
+        else if (a === 'share') actionShare();
+        else if (a === 'alerts') actionAlerts();
+      });
+    });
+
+    // Exclusivite : reagit aux changements d'etat des autres surfaces.
+    if (window.MutationObserver) {
+      var mo = new MutationObserver(refreshVisibility);
+      mo.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+      var sd = document.getElementById('spotDrawerMobile');
+      if (sd) mo.observe(sd, { attributes: true, attributeFilter: ['class'] });
+    }
+    setInterval(refreshVisibility, 700); // filet de securite (VZ_SHEET.mode n'est pas un attribut DOM)
+    refreshVisibility();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { setTimeout(build, 1400); });
+  } else {
+    setTimeout(build, 1400);
   }
 })();
