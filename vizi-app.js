@@ -14751,9 +14751,11 @@ function vzmInit() {
     +   '</svg>'
     + '</button>';
 
-    var host = document.getElementById('map') || document.body;
-    if (host === document.body) { root.style.position = 'fixed'; }
-    host.appendChild(root);
+    // Monte sur le body en position fixed, comme l'aimbar et le reticule
+    // (memes surfaces flottantes) : dans le contexte d'empilement de Leaflet,
+    // un enfant de #map ne remonte pas de facon fiable au-dessus des tuiles.
+    root.style.position = 'fixed';
+    document.body.appendChild(root);
 
     pscrim = document.createElement('div');
     pscrim.className = 'vzm-sonar-pscrim';
