@@ -1613,10 +1613,26 @@ function vzDesktopPointSelect(latlng) {
     if (S._ptGen !== _ptGen || !S.clickLabel) return;
     S.clickLabel.setIcon(_ptMakeIcon(inner));
   }
+  // Prechauffage : marees et profondeur partent en fond des le clic,
+  // resultats jetes, seuls les caches comptent (_sheetTidesCache et
+  // localStorage profondeur). Quand l'utilisateur ouvre Conditions
+  // quelques secondes plus tard, les donnees lentes sont deja la.
+  if (typeof fetchSheetTides === 'function') {
+    try { fetchSheetTides({ lat: latlng.lat, lng: latlng.lng }); } catch (e) {}
+  }
+  if (typeof fetchRealDepth === 'function') {
+    try { fetchRealDepth(latlng.lat, latlng.lng).catch(function(){}); } catch (e) {}
+  }
   if (typeof fetchCmemsZSD === 'function') {
-    ensurePortCounts_().then(function() {
-      return fetchCmemsZSD(latlng.lat, latlng.lng);
-    }).then(function(sat) {
+    // Retours communautaires et satellite sont deux appels GAS
+    // independants : les chainer doublait la latence de l'etiquette.
+    // vzNearestFeedback (qui lit S_allFeedback rempli par
+    // ensurePortCounts_) n'est appele qu'apres resolution des deux.
+    Promise.all([
+      ensurePortCounts_().catch(function() { return null; }),
+      fetchCmemsZSD(latlng.lat, latlng.lng)
+    ]).then(function(_res) {
+      var sat = _res[1];
       var okSat = sat && typeof sat.visi_plongeur_m === 'number' && isFinite(sat.visi_plongeur_m) && sat.visi_plongeur_m > 0
         && (typeof sat.age_hours !== 'number' || sat.age_hours <= 72)
         && (!sat.status || sat.status === 'ok' || sat.status === 'cloudy_J1' || sat.status === 'cloudy_J2');
@@ -11287,7 +11303,12 @@ function vzRenderCondVerdict(){
   var sat = VZ_SHEET.data.satellite;
   var spot = VZ_SHEET.data.spot;
   var html;
-  if (sat && typeof sat.visi_plongeur_m === 'number') {
+  if (sat && sat.loading) {
+    // Rendu progressif : la mesure satellite est encore en vol. Afficher
+    // "Pas de mesure" ici serait faux (honnetete epistemique) : on montre
+    // l'etat reel, le re-rendu remplacera cette ligne a l'arrivee.
+    html = '<div class="vz-cond-satnote">Mesure satellite en cours de chargement...</div>';
+  } else if (sat && typeof sat.visi_plongeur_m === 'number') {
     var v = Math.round(sat.visi_plongeur_m * 10) / 10;
     var clause = '';
     if (typeof sat.age_hours === 'number' && isFinite(sat.age_hours)) {
@@ -11390,37 +11411,77 @@ function loadSheetConditions(spot) {
     ? fetchCmemsZSD(spot.lat, spot.lng).catch(function(){ return null; })
     : Promise.resolve(null);
 
-  Promise.all([meteoPromise, depthPromise, tidesPromise, satPromise]).then(function(results) {
-    if (VZ_SHEET.mode !== 'cond') return;
+  // Jeton de generation : un rendu tardif (marees d'un ancien point) ne
+  // doit jamais ecraser le point clique ensuite. Le garde VZ_SHEET.mode
+  // ne distingue pas deux chargements 'cond' successifs.
+  VZ_SHEET._condGen = (VZ_SHEET._condGen || 0) + 1;
+  var _gen = VZ_SHEET._condGen;
+  function _alive() { return VZ_SHEET.mode === 'cond' && VZ_SHEET._condGen === _gen; }
+
+  // Rendu complet : renderSheetTable reecrit tout le body (idempotent),
+  // puis on reapplique le verdict satellite et les icones qui y vivent.
+  function _paint() {
+    if (!_alive()) return;
+    renderSheetTable();
+    if (typeof vzRenderCondVerdict === 'function') vzRenderCondVerdict();
+    if (typeof vzCondScrollIcons === 'function') vzCondScrollIcons();
+  }
+
+  // Rendu progressif : on peint des que meteo + profondeur (les rapides)
+  // sont la, au lieu d'attendre le maillon le plus lent (marees GAS).
+  // Marees et satellite completent le tableau a leur arrivee par simple
+  // re-rendu. Etats de chargement explicites ({ loading: true }) pour ne
+  // jamais afficher "indisponible" sur une donnee encore en vol
+  // (honnetete epistemique).
+  Promise.all([meteoPromise, depthPromise]).then(function(results) {
+    if (!_alive()) return;
     var meteo = results[0];
-    var depth = results[1];
-    var tides = results[2];
-    var sat = results[3];
     if (!meteo || !meteo.time) {
       document.getElementById('vzSheetBody').innerHTML = '<div class="vz-sheet-loading">Données météo indisponibles</div>';
       return;
     }
-    VZ_SHEET.data = { meteo: meteo, depth: depth, tides: tides, spot: spot, satellite: sat };
-    renderSheetTable();
-    if (typeof vzRenderCondVerdict === 'function') vzRenderCondVerdict();
-    if (typeof vzCondScrollIcons === 'function') vzCondScrollIcons();
+    VZ_SHEET.data = { meteo: meteo, depth: results[1], tides: { loading: true }, spot: spot, satellite: { loading: true } };
+    _paint();
+    tidesPromise.then(function(tides) {
+      if (!_alive()) return;
+      VZ_SHEET.data.tides = tides || null;
+      _paint();
+    });
+    satPromise.then(function(sat) {
+      if (!_alive()) return;
+      VZ_SHEET.data.satellite = sat || null;
+      _paint();
+    });
   }).catch(function(err) {
     console.error('[Sheet] erreur chargement', err);
+    if (!_alive()) return;
     document.getElementById('vzSheetBody').innerHTML = '<div class="vz-sheet-loading">Erreur de chargement</div>';
   });
 }
 
-// Récupère les hauteurs de marée sur 5 jours via le GAS proxy existant
+// Récupère les hauteurs de marée sur 5 jours via le GAS proxy existant.
+// Cache memoire par (site, jour) TTL 6 h : les predictions de maree sont
+// figees, inutile de repayer le cold start GAS a chaque ouverture du
+// bandeau. On met la Promise en cache (pas la valeur resolue) pour
+// dedupliquer le prechauffage du clic et l'ouverture du drawer quand
+// ils partent en meme temps. En cas d'echec, l'entree est purgee pour
+// permettre un nouvel essai a l'ouverture suivante.
+var _sheetTidesCache = {};
 function fetchSheetTides(spot) {
   var near = (typeof findApiMareeSiteNear === 'function') ? findApiMareeSiteNear(spot.lat, spot.lng) : null;
   if (!near) return Promise.resolve(null);
   var today = new Date();
   var fromStr = today.toISOString().slice(0, 10);
+  var cacheKey = near.siteId + '|' + fromStr;
+  var hit = _sheetTidesCache[cacheKey];
+  if (hit && (Date.now() - hit.ts) < 6 * 3600 * 1000) return hit.promise;
   var url = GAS_URL + '?action=tides_range&site=' + near.siteId + '&from=' + fromStr + '&days=5';
-  return fetch(url).then(function(r) { return r.json(); }).then(function(data) {
-    if (!data || !data.data) return null;
+  var p = fetch(url).then(function(r) { return r.json(); }).then(function(data) {
+    if (!data || !data.data) { delete _sheetTidesCache[cacheKey]; return null; }
     return { points: data.data, extremes: data.extremes || [], port: near };
-  }).catch(function() { return null; });
+  }).catch(function() { delete _sheetTidesCache[cacheKey]; return null; });
+  _sheetTidesCache[cacheKey] = { ts: Date.now(), promise: p };
+  return p;
 }
 
 // Réutilise AROME + ARPEGE comme dans loadForecast (haute res 0-48h + ARPEGE 48h-5j)
@@ -11894,8 +11955,11 @@ function buildTideBandRow(slots, tideData) {
   var N = slots.length;
   var labelCell = '<td class="vz-cond-rowlabel">Marée</td>';
   if (!tideData || !tideData.points || tideData.points.length === 0) {
+    // Distinguer "en vol" (rendu progressif, la donnee arrive) de
+    // "vraiment indisponible" : ne jamais mentir sur l'etat d'une source.
+    var emptyMsg = (tideData && tideData.loading) ? 'Marée en cours de chargement...' : 'Marées indisponibles';
     return '<tr class="vz-cond-row-tide">' + labelCell
-      + '<td class="vz-cond-tideband" colspan="' + N + '"><div class="vz-tideband-empty">Marées indisponibles</div></td></tr>';
+      + '<td class="vz-cond-tideband" colspan="' + N + '"><div class="vz-tideband-empty">' + emptyMsg + '</div></td></tr>';
   }
   var t0 = slots[0].time.getTime();
   var tN = slots[N - 1].time.getTime();
