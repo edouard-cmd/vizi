@@ -14481,7 +14481,7 @@ function vzmInit() {
   'use strict';
 
   var ALERT_EMAIL_KEY = 'vizi_alert_email';
-  var ALERT_ACTIVE = false; // action alerts : true = active, false = "bientot actif" (chantier 2 GAS)
+  var ALERT_ACTIVE = true; // action alerts active (email capte en local ; envoi reel = chantier 2 GAS)
 
   function injectStyle() {
     if (document.getElementById('vzmSonarStyle')) return;
@@ -14627,8 +14627,8 @@ function vzmInit() {
   function turbidityTag(obs) {
     var t = (obs.turbidity || obs.water || '').toString().toLowerCase();
     if (/clair/.test(t)) return 'eau claire';
-    if (/voil/.test(t)) return 'voilee';
-    if (/charg/.test(t)) return 'chargee';
+    if (/voil/.test(t)) return 'voilée';
+    if (/charg/.test(t)) return 'chargée';
     return obs.bottom_visible === false ? 'fond invisible' : '';
   }
   function whenLabel(ts) {
@@ -14643,8 +14643,10 @@ function vzmInit() {
     var name = currentSectorName();
     var chip = '<span class="vzm-sonar-chip"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1A6B5D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.4-7-11a7 7 0 0 1 14 0c0 4.6-7 11-7 11Z"/><circle cx="12" cy="10" r="2.4"/></svg>Secteur ' + escapeH(name || '') + '</span>';
     openPanel(chip + '<div class="vzm-sonar-h">Retours du secteur</div><div class="vzm-sonar-sub" id="vzmSonarSectorSub">Chargement...</div><div id="vzmSonarSectorList"></div>'
-      + '<button class="vzm-sonar-cta" type="button" id="vzmSonarToShare">J\u2019y etais, je donne ma visi</button>');
+      + '<button class="vzm-sonar-cta" type="button" id="vzmSonarToAlerts">Recevoir les alertes de ce secteur</button>'
+      + '<div style="text-align:center;color:#1A6B5D;font-size:13.5px;font-weight:500;margin-top:12px;cursor:pointer;" id="vzmSonarToShare">J\u2019y étais, je donne ma visi</div>');
 
+    document.getElementById('vzmSonarToAlerts').addEventListener('click', function () { closePanel(); setTimeout(actionAlerts, 260); });
     document.getElementById('vzmSonarToShare').addEventListener('click', function () { closePanel(); setTimeout(actionShare, 260); });
 
     var c = S.map.getCenter();
@@ -14660,7 +14662,7 @@ function vzmInit() {
 
       if (!near.length) {
         subEl.textContent = 'Aucun retour ces 7 derniers jours dans ce secteur.';
-        listEl.innerHTML = '<div class="vzm-sonar-empty">Sois le premier a partager ta visi ici.</div>';
+        listEl.innerHTML = '<div class="vzm-sonar-empty">Sois le premier à partager ta visi ici.</div>';
         return;
       }
       var sum = 0, n = 0;
@@ -14690,13 +14692,11 @@ function vzmInit() {
     var chip = '<span class="vzm-sonar-chip"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1A6B5D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.4-7-11a7 7 0 0 1 14 0c0 4.6-7 11-7 11Z"/><circle cx="12" cy="10" r="2.4"/></svg>Secteur ' + escapeH(name || '') + '</span>';
     var saved = '';
     try { saved = localStorage.getItem(ALERT_EMAIL_KEY) || ''; } catch (e) {}
-    var soonNote = ALERT_ACTIVE ? '' : '<div class="vzm-sonar-sub" style="color:#B8860B;margin-top:8px;">Les envois demarrent tres bientot. Ton inscription est deja prise en compte.</div>';
-    openPanel(chip + '<div class="vzm-sonar-h">Alertes visibilite</div>'
+    openPanel(chip + '<div class="vzm-sonar-h">Alertes visibilité</div>'
       + '<div class="vzm-sonar-sub">Un chasseur poste une visi dans ce secteur, tu le sais dans l\u2019heure.</div>'
       + '<div class="vzm-sonar-lab">Ton email</div>'
       + '<input class="vzm-sonar-in" id="vzmSonarEmail" type="email" inputmode="email" autocomplete="email" placeholder="ton@email.fr" value="' + escapeH(saved) + '">'
-      + '<label class="vzm-sonar-consent"><input type="checkbox" id="vzmSonarConsent" checked>J\u2019accepte de recevoir les alertes visibilite de ce secteur. Un email max par jour, jamais transmis, desinscription en un clic.</label>'
-      + soonNote
+      + '<label class="vzm-sonar-consent"><input type="checkbox" id="vzmSonarConsent" checked>J\u2019accepte de recevoir les alertes visibilité de ce secteur. Un email max par jour, jamais transmis, désinscription en un clic.</label>'
       + '<button class="vzm-sonar-cta" type="button" id="vzmSonarAlertSubmit">Activer les alertes</button>');
 
     document.getElementById('vzmSonarAlertSubmit').addEventListener('click', function () {
@@ -14711,7 +14711,7 @@ function vzmInit() {
       panel.innerHTML = '<div class="vzm-sonar-grab"></div><button class="vzm-sonar-x" type="button" aria-label="Fermer" data-close="1">&#10005;</button>'
         + '<div class="vzm-sonar-ok"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1A6B5D" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>'
         + '<div class="vzm-sonar-h" style="text-align:center;">C\u2019est note</div>'
-        + '<div class="vzm-sonar-sub" style="text-align:center;">Des qu\u2019un chasseur poste une visi vers ' + escapeH(currentSectorName() || 'ton secteur') + ', tu recois un email. Jamais plus d\u2019un par jour.</div>';
+        + '<div class="vzm-sonar-sub" style="text-align:center;">Dès qu\u2019un chasseur poste une visi vers ' + escapeH(currentSectorName() || 'ton secteur') + ', tu reçois un email. Jamais plus d\u2019un par jour.</div>';
       panel.querySelector('[data-close]').addEventListener('click', closePanel);
       if (typeof gtag === 'function') { try { gtag('event', 'sector_alert_optin'); } catch (e) {} }
     });
@@ -14736,7 +14736,11 @@ function vzmInit() {
     +   '</button>'
     +   '<button class="vzm-sonar-act" type="button" data-action="share">'
     +     '<span class="vzm-sonar-ai"><svg viewBox="0 0 24 24" stroke-width="2"><path d="M2 12 Q7 5 12 5 Q17 5 22 12 Q17 19 12 19 Q7 19 2 12 Z"/><circle cx="12" cy="12" r="2.6"/></svg></span>'
-    +     '<span class="vzm-sonar-at"><span class="vzm-sonar-t">Partager la visibilite</span><span class="vzm-sonar-s">donne la visi vue dans le secteur</span></span>'
+    +     '<span class="vzm-sonar-at"><span class="vzm-sonar-t">Partager la visibilité</span><span class="vzm-sonar-s">donne la visi vue dans le secteur</span></span>'
+    +   '</button>'
+    +   '<button class="vzm-sonar-act" type="button" data-action="alerts">'
+    +     '<span class="vzm-sonar-ai"><svg viewBox="0 0 24 24" stroke-width="2"><path d="M6 9 A6 6 0 0 1 18 9 C18 13 19.5 15 20.5 16 L3.5 16 C4.5 15 6 13 6 9 Z"/><path d="M10 19 A2 2 0 0 0 14 19"/></svg></span>'
+    +     '<span class="vzm-sonar-at"><span class="vzm-sonar-t">Recevoir des alertes visibilité</span><span class="vzm-sonar-s">dès qu\u2019un chasseur poste ici</span></span>'
     +   '</button>'
     + '</div>'
     + '<button class="vzm-sonar-fab" id="vzmSonarFab" type="button" aria-label="Actions communaute Visimer" aria-expanded="false">'
