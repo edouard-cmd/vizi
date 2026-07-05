@@ -10804,9 +10804,9 @@ function boot() {
     windBtn.style.color = S_windUnit === 'kt' ? '#A8E63D' : 'rgba(255,255,255,0.7)';
     windBtn.style.borderColor = S_windUnit === 'kt' ? '#A8E63D' : 'rgba(255,255,255,0.15)';
   }
-  // Charge les observations communautaires + auto-refresh 5min
-  loadCommunityObservations();
-  OBS_REFRESH_INTERVAL = setInterval(loadCommunityObservations, 5 * 60 * 1000);
+  // Doctrine secteur : plus aucun marqueur d'observation spot-precis sur la
+  // carte. Les retours communautaires sont consultables uniquement agreges
+  // par secteur, via le bouton sonar (get_observations y reste consomme).
   initGeolocationFlow();
 }
 
@@ -12887,108 +12887,6 @@ window.closeSheetCompletely = function() {
     }
   }, { passive: true });
 })();
-// ============================================================
-// OBSERVATIONS COMMUNAUTAIRES - Affichage carte
-// ============================================================
-
-var OBS_MARKERS_LAYER = null;
-var OBS_REFRESH_INTERVAL = null;
-
-function loadCommunityObservations() {
-  return gasGet('get_observations', {}).then(function(result) {
-    if (!result || !result.observations) return;
-    renderObservationMarkers(result.observations);
-  }).catch(function(err) {
-    console.error('Erreur chargement observations:', err);
-  });
-}
-
-function renderObservationMarkers(observations) {
-  if (!S.map) return;
-  if (OBS_MARKERS_LAYER) S.map.removeLayer(OBS_MARKERS_LAYER);
-  OBS_MARKERS_LAYER = L.layerGroup();
-
-  observations.forEach(function(obs) {
-  var ageMs = Date.now() - new Date(obs.timestamp).getTime();
-  var ageH = ageMs / (1000 * 60 * 60);
-  var freshness = ageH < 6 ? 'fresh' : (ageH < 24 ? 'recent' : 'dated');
-
-  // Couleur selon la visibilité
-  var visColor = '#4DD4A8'; // défaut excellent
-  var label = obs.visibility_label || '';
-  if (/null|nulle/i.test(label)) visColor = '#C94A3D';
-  else if (/faible/i.test(label)) visColor = '#E89B3C';
-  else if (/moyen/i.test(label)) visColor = '#D8C84A';
-  else if (/bonne/i.test(label)) visColor = '#2DA888';
-  else if (/excellente/i.test(label)) visColor = '#4DD4A8';
-  // Fallback sur visibility_m si label pas reconnu (anciennes obs "1m", "2m", etc.)
-  else if (obs.visibility_m <= 1) visColor = '#C94A3D';
-  else if (obs.visibility_m <= 2) visColor = '#E89B3C';
-  else if (obs.visibility_m <= 4) visColor = '#D8C84A';
-  else if (obs.visibility_m <= 6) visColor = '#2DA888';
-  else visColor = '#4DD4A8';
-
-  var maskSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>';
-
-  var icon = L.divIcon({
-    className: 'vz-obs-marker ' + freshness,
-    html: '<div class="vz-obs-marker-inner" style="background:' + visColor + '; box-shadow: 0 3px 10px ' + hexToRgba(visColor, 0.5) + ', 0 0 0 4px ' + hexToRgba(visColor, 0.15) + ';">' + maskSvg + '</div>',
-    iconSize: [32, 32],
-    iconAnchor: [16, 16]
-  });
-
-  var marker = L.marker([obs.lat, obs.lon], { icon: icon });
-  marker.bindPopup(buildObsPopupHTML(obs), {
-    className: 'vz-obs-popup',
-    maxWidth: 280,
-    minWidth: 260,
-    closeButton: true,
-    autoPan: true
-  });
-  marker.addTo(OBS_MARKERS_LAYER);
-});
-
-  OBS_MARKERS_LAYER.addTo(S.map);
-}
-
-function buildObsPopupHTML(obs) {
-  var ageMs = Date.now() - new Date(obs.timestamp).getTime();
-  var ageH = ageMs / (1000 * 60 * 60);
-  var when;
-  if (ageH < 1) when = 'Il y a ' + Math.max(1, Math.round(ageH * 60)) + ' min';
-  else if (ageH < 24) when = 'Il y a ' + Math.round(ageH) + ' h';
-  else when = 'Il y a ' + Math.round(ageH / 24) + ' j';
-
-  var visColor = '#4DD4A8';
-  var label = obs.visibility_label || '';
-  if (/null|nulle/i.test(label)) visColor = '#C94A3D';
-  else if (/faible/i.test(label)) visColor = '#E89B3C';
-  else if (/moyen/i.test(label)) visColor = '#D8C84A';
-  else if (/bonne/i.test(label)) visColor = '#2DA888';
-  else if (/excellente/i.test(label)) visColor = '#4DD4A8';
-
-  var visM = obs.visibility_m ? obs.visibility_m + ' m' : '-';
-  var fondClass = obs.bottom_visible ? '' : 'no';
-  var fondText = obs.bottom_visible ? '✓ Fond visible' : '✕ Fond invisible';
-  var comment = (obs.comment && obs.comment.trim()) ? '<div class="vz-obs-pop-comment">« ' + escapeHtml(obs.comment) + ' »</div>' : '';
-
-  return '<div class="vz-obs-pop-head">' +
-           '<div class="vz-obs-pop-pseudo">' + escapeHtml(obs.pseudo || 'Anonyme') + '</div>' +
-           '<div class="vz-obs-pop-when">' + when + '</div>' +
-         '</div>' +
-         '<div class="vz-obs-pop-body">' +
-           '<div class="vz-obs-pop-vis" style="color:' + visColor + '">' + (label || '-') + '</div>' +
-           '<div class="vz-obs-pop-vis-sub">Visibilite ' + visM + '</div>' +
-           '<div class="vz-obs-pop-fond ' + fondClass + '">' + fondText + '</div>' +
-           comment +
-         '</div>';
-}
-function hexToRgba(hex, alpha) {
-  var r = parseInt(hex.slice(1, 3), 16);
-  var g = parseInt(hex.slice(3, 5), 16);
-  var b = parseInt(hex.slice(5, 7), 16);
-  return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
-}
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, function(c) {
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
