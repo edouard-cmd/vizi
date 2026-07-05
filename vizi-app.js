@@ -14489,11 +14489,11 @@ function vzmInit() {
     st.id = 'vzmSonarStyle';
     st.textContent =
       '.vzm-sonar-root{position:absolute;inset:0;z-index:1210;pointer-events:none;font-family:Inter,-apple-system,sans-serif;}'
-    + '.vzm-sonar-root *{pointer-events:auto;}'
+    + '.vzm-sonar-menu{pointer-events:none;}'
     + '.vzm-sonar-root[data-hidden="true"]{display:none !important;}'
     + '.vzm-sonar-scrim{position:absolute;inset:0;z-index:1;background:rgba(6,13,20,0);opacity:0;transition:opacity .26s ease;pointer-events:none;}'
     + '.vzm-sonar-root[data-open="true"] .vzm-sonar-scrim{pointer-events:auto;opacity:1;background:rgba(6,13,20,0.34);}'
-    + '.vzm-sonar-fab{position:absolute;right:18px;bottom:24px;z-index:20;width:72px;height:72px;border-radius:50%;border:2px solid #4DD4A8;padding:0;cursor:pointer;background:#0A1520;box-shadow:0 4px 18px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;transition:transform .2s ease;}'
+    + '.vzm-sonar-fab{position:absolute;right:18px;bottom:24px;z-index:20;width:72px;height:72px;border-radius:50%;border:2px solid #4DD4A8;padding:0;cursor:pointer;background:#0A1520;box-shadow:0 4px 18px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;transition:transform .2s ease;pointer-events:auto;}'
     + '.vzm-sonar-fab:active{transform:scale(.95);}'
     + '.vzm-sonar-dial{position:absolute;inset:0;fill:none;}'
     + '.vzm-sonar-tr{stroke:rgba(77,212,168,0.2);stroke-width:4;}'
@@ -14643,9 +14643,9 @@ function vzmInit() {
     var name = currentSectorName();
     var chip = '<span class="vzm-sonar-chip"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1A6B5D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.4-7-11a7 7 0 0 1 14 0c0 4.6-7 11-7 11Z"/><circle cx="12" cy="10" r="2.4"/></svg>Secteur ' + escapeH(name || '') + '</span>';
     openPanel(chip + '<div class="vzm-sonar-h">Retours du secteur</div><div class="vzm-sonar-sub" id="vzmSonarSectorSub">Chargement...</div><div id="vzmSonarSectorList"></div>'
-      + '<button class="vzm-sonar-cta" type="button" id="vzmSonarToAlerts">Recevoir les alertes de ce secteur</button>');
+      + '<button class="vzm-sonar-cta" type="button" id="vzmSonarToShare">J\u2019y etais, je donne ma visi</button>');
 
-    document.getElementById('vzmSonarToAlerts').addEventListener('click', function () { closePanel(); setTimeout(actionAlerts, 260); });
+    document.getElementById('vzmSonarToShare').addEventListener('click', function () { closePanel(); setTimeout(actionShare, 260); });
 
     var c = S.map.getCenter();
     gasGet('get_observations', {}).then(function (res) {
@@ -14737,11 +14737,6 @@ function vzmInit() {
     +   '<button class="vzm-sonar-act" type="button" data-action="share">'
     +     '<span class="vzm-sonar-ai"><svg viewBox="0 0 24 24" stroke-width="2"><path d="M2 12 Q7 5 12 5 Q17 5 22 12 Q17 19 12 19 Q7 19 2 12 Z"/><circle cx="12" cy="12" r="2.6"/></svg></span>'
     +     '<span class="vzm-sonar-at"><span class="vzm-sonar-t">Partager la visibilite</span><span class="vzm-sonar-s">donne la visi vue dans le secteur</span></span>'
-    +   '</button>'
-    +   '<button class="vzm-sonar-act" type="button" data-action="alerts"' + (ALERT_ACTIVE ? '' : ' data-soon="true"') + '>'
-    +     '<span class="vzm-sonar-ai"><svg viewBox="0 0 24 24" stroke-width="2"><path d="M6 9 A6 6 0 0 1 18 9 C18 13 19.5 15 20.5 16 L3.5 16 C4.5 15 6 13 6 9 Z"/><path d="M10 19 A2 2 0 0 0 14 19"/></svg></span>'
-    +     '<span class="vzm-sonar-at"><span class="vzm-sonar-t">Recevoir des alertes visibilite</span><span class="vzm-sonar-s">des qu\u2019un chasseur poste ici</span></span>'
-    +     (ALERT_ACTIVE ? '' : '<span class="vzm-sonar-badge">bientot</span>')
     +   '</button>'
     + '</div>'
     + '<button class="vzm-sonar-fab" id="vzmSonarFab" type="button" aria-label="Actions communaute Visimer" aria-expanded="false">'
