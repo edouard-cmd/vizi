@@ -2142,6 +2142,28 @@ function vzRenderHuntBar() {
     }).join('');
   }
 }
+// Temperature de l'eau en surface (Open-Meteo Marine, sea_surface_temperature).
+// Stable a l'echelle de la semaine en Manche : une valeur suffit pour tout le
+// tableau. Cache par point arrondi (~1 km), TTL 6 h, jamais bloquant (null si echec).
+var S_seaTempCache = {};
+function vzFetchSeaTemp(lat, lon) {
+  var key = lat.toFixed(2) + ',' + lon.toFixed(2);
+  var c = S_seaTempCache[key];
+  if (c && (Date.now() - c.at) < 6 * 3600 * 1000) return Promise.resolve(c.temp);
+  var url = 'https://marine-api.open-meteo.com/v1/marine?latitude=' + lat.toFixed(4)
+    + '&longitude=' + lon.toFixed(4)
+    + '&hourly=sea_surface_temperature&forecast_days=1&timezone=Europe%2FParis';
+  return fetch(url).then(function(r) { return r.ok ? r.json() : null; }).then(function(j) {
+    var t = null;
+    if (j && j.hourly && j.hourly.sea_surface_temperature) {
+      var v = j.hourly.sea_surface_temperature[new Date().getHours()];
+      if (typeof v === 'number' && isFinite(v)) t = v;
+    }
+    S_seaTempCache[key] = { temp: t, at: Date.now() };
+    return t;
+  }).catch(function() { return null; });
+}
+
 function vzFormatDDM(lat, lon) {
   function fmt(v, pos, neg) {
     var hemi = v >= 0 ? pos : neg;
@@ -11125,6 +11147,29 @@ var css = `
     }
     .vz-cond-row-vis td:hover { filter: brightness(1.15); }
     .vz-cond-row-vis td.vz-cond-rowlabel { color: var(--vz-text-on-dark-muted) !important; cursor: default; }
+    .vz-cond-ident {
+      display: flex;
+      align-items: center;
+      gap: 22px;
+      flex-wrap: wrap;
+      padding: 2px 4px 14px;
+    }
+    .vz-cond-ident-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--vz-text-on-dark);
+    }
+    .vz-cond-ident-item svg { flex: none; color: #4DD4A8; }
+    .vz-cond-ident-mono {
+      font-family: 'IBM Plex Mono', monospace;
+      font-weight: 500;
+      font-size: 12.5px;
+      color: var(--vz-text-on-dark-muted);
+      letter-spacing: 0.02em;
+    }
     .vz-cond-satnote {
       margin-top: 14px;
       padding-top: 13px;
@@ -11747,6 +11792,32 @@ function visLabel(score) {
   // ---- Build HTML ----
   var html = '<div class="vz-sheet-cond-wrap">';
 
+  // En-tete d'identite : secteur rattache (regle des 20 km, comme
+  // l'email et la pastille), coordonnees GPS du point analyse au
+  // format degres-minutes (celui des GPS de chasse), temperature de
+  // l'eau (remplie en asynchrone par vzFetchSeaTemp apres injection).
+  // Repond au "d'ou vient la mesure" jusque dans le tableau.
+  (function() {
+    if (!spot || typeof spot.lat !== 'number') return;
+    var idLon = (typeof spot.lng === 'number') ? spot.lng : spot.lon;
+    if (typeof idLon !== 'number') return;
+    var np = (typeof findNearestPort === 'function') ? findNearestPort(spot.lat, idLon) : null;
+    var secteurTxt = (np && np.spot && np.distanceKm <= 20)
+      ? 'Secteur ' + np.spot.name
+      : (spot.name || 'Point personnalis\u00e9');
+    var ic = function(paths) {
+      return '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+        + ' stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">' + paths + '</svg>';
+    };
+    var icPin = ic('<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>');
+    var icTarget = ic('<circle cx="12" cy="12" r="7"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/>');
+    html += '<div class="vz-cond-ident">'
+      + '<span class="vz-cond-ident-item">' + icPin + '<span>' + secteurTxt + '</span></span>'
+      + '<span class="vz-cond-ident-item vz-cond-ident-mono">' + icTarget + '<span>' + vzFormatDDM(spot.lat, idLon) + '</span></span>'
+      + '<span class="vz-cond-ident-item vz-cond-ident-mono" id="vzCondSeaTemp" style="display:none;"></span>'
+      + '</div>';
+  })();
+
   // --- Retour communautaire : le bandeau pouces du tableau est retire (jamais
   // clique : demande une validation de NOTRE prevision au moment de la pre-decision).
   // Le point d'entree unique du partage de visi est desormais le bouton sonar
@@ -11972,6 +12043,22 @@ html += buildTideBandRow(slots, VZ_SHEET.data.tides);
 
   html += '</div>';
   body.innerHTML = html;
+
+  // Temperature de l'eau : remplie apres coup, sans bloquer le rendu.
+  (function() {
+    if (!spot || typeof spot.lat !== 'number') return;
+    var idLon = (typeof spot.lng === 'number') ? spot.lng : spot.lon;
+    if (typeof idLon !== 'number' || typeof vzFetchSeaTemp !== 'function') return;
+    vzFetchSeaTemp(spot.lat, idLon).then(function(t) {
+      var el = document.getElementById('vzCondSeaTemp');
+      if (!el || t == null) return;
+      var icTemp = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+        + ' stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">'
+        + '<path d="M14 4a2 2 0 0 0-4 0v9.5a4.5 4.5 0 1 0 4 0Z"/><circle cx="12" cy="17" r="1.6"/></svg>';
+      el.innerHTML = icTemp + '<span>Eau ' + (Math.round(t * 10) / 10).toString().replace('.', ',') + '\u00b0C</span>';
+      el.style.display = '';
+    });
+  })();
 }
 // Extraction locale des PM/BM si le GAS ne renvoie pas data.extremes (fallback).
 function localExtremes(pts) {
