@@ -1261,6 +1261,8 @@ S.map.on('click', function(e) {
   + "@media (min-width:769px){#spotDrawer{display:none !important;}}"
   + ".vz-point-cta{display:inline-flex;align-items:center;gap:6px;background:#0F2438;color:#E6EEF4;border:1.5px solid #4DD4A8;border-radius:10px;padding:8px 13px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 6px 20px rgba(4,16,28,0.45);white-space:nowrap;line-height:1;}"
   + ".vz-point-cta:hover{filter:brightness(1.08);border-color:#6FE0BC;}"
+  + ".vz-point-cta .vz-point-l{display:flex;flex-direction:column;align-items:flex-start;gap:3px;}"
+  + ".vz-point-cta .vz-point-sub{font-size:10.5px;font-weight:500;color:#9DBDCB;line-height:1;}"
   + ".vz-point-cta-pos{position:relative;display:inline-flex;}"
   + ".vz-point-cta-close{position:absolute;top:-9px;right:-9px;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#0F2438;color:#E6EEF4;border:1.5px solid #4DD4A8;border-radius:50%;cursor:pointer;padding:0;box-shadow:0 4px 12px rgba(4,16,28,0.5);-webkit-tap-highlight-color:transparent;z-index:2;}"
   + ".vz-point-cta-close:hover{filter:brightness(1.12);border-color:#6FE0BC;}"
@@ -1596,11 +1598,11 @@ function vzDesktopPointSelect(latlng) {
           + '<button class="vz-point-cta">' + inner + '</button>'
           + '<button class="vz-point-cta-close" aria-label="Fermer">' + _ptClose + '</button>'
           + '</div>',
-      iconSize: [300, 48], iconAnchor: [150, 60]
+      iconSize: [300, 62], iconAnchor: [150, 74]
     });
   }
   if (S.clickLabel) S.map.removeLayer(S.clickLabel);
-  S.clickLabel = L.marker([latlng.lat, latlng.lng], { icon: _ptMakeIcon(_ptRing + _ptChevron), interactive: true }).addTo(S.map);
+  S.clickLabel = L.marker([latlng.lat, latlng.lng], { icon: _ptMakeIcon(_ptRing + '<span>Analyse du point...</span>' + _ptChevron), interactive: true }).addTo(S.map);
   function _ptDismiss() {
     S._ptGen = (S._ptGen || 0) + 1;            // invalide tout fetch satellite encore en vol
     if (S.clickLabel) { S.map.removeLayer(S.clickLabel); S.clickLabel = null; }
@@ -1621,10 +1623,45 @@ function vzDesktopPointSelect(latlng) {
     if (S._ptGen !== _ptGen || !S.clickLabel) return;
     S.clickLabel.setIcon(_ptMakeIcon(inner));
   }
+  // ----- Libelles sources + timeout de patience -----
+  // La cascade satellite cote GAS peut enchainer jusqu'a 11 requetes
+  // CMEMS (point nuageux, service lent) : la pastille ne l'attend
+  // jamais plus de 12 s. Au timeout, elle bascule sur le retour
+  // chasseur local ou "Conditions" ; si le satellite aboutit ensuite
+  // et que la pastille est toujours sur ce point (garde _ptGen dans
+  // _ptSetLabel), le libelle se met a jour avec la mesure.
+  // Provenance affichee selon la doctrine : la mesure dit sa source
+  // et sa date, le secteur dit son port ("pres de X" si <= 20 km,
+  // meme regle que l'email d'alerte).
+  var _ptNp = (typeof findNearestPort === 'function') ? findNearestPort(latlng.lat, latlng.lng) : null;
+  var _ptPortSub = (_ptNp && _ptNp.spot && _ptNp.distanceKm <= 20) ? 'près de ' + _ptNp.spot.name : '';
+  function _ptTwoLines(main) {
+    if (!_ptPortSub) return main + _ptChevron;
+    return '<span class="vz-point-l"><span>' + main + '</span>'
+      + '<span class="vz-point-sub">' + _ptPortSub + '</span></span>' + _ptChevron;
+  }
+  function _ptAgeTxt(ageH) {
+    if (typeof ageH !== 'number' || !isFinite(ageH)) return '';
+    if (ageH < 1) return ', il y a moins d\u20191 h';
+    if (ageH < 24) return ', il y a ' + Math.round(ageH) + ' h';
+    return ', il y a ' + Math.round(ageH / 24) + ' j';
+  }
+  function _ptFbLabel(fbVisi, fbAge) {
+    return _ptTwoLines('Vu ' + Math.round(fbVisi) + ' m (chasseur' + _ptAgeTxt(fbAge) + ')');
+  }
+  function _ptFallbackLabel() {
+    var fb = vzNearestFeedback(latlng.lat, latlng.lng, 5);
+    var fbVisi = fb ? ((fb.real_m != null) ? fb.real_m : fb.predicted_m) : null;
+    if (fbVisi != null) _ptSetLabel(_ptFbLabel(fbVisi, fb.age_hours));
+    else _ptSetLabel(_ptTwoLines('Conditions'));
+  }
   if (typeof fetchCmemsZSD === 'function') {
+    var _ptSatDone = false;
+    setTimeout(function() { if (!_ptSatDone) _ptFallbackLabel(); }, 12000);
     ensurePortCounts_().then(function() {
       return fetchCmemsZSD(latlng.lat, latlng.lng);
     }).then(function(sat) {
+      _ptSatDone = true;
       var okSat = sat && typeof sat.visi_plongeur_m === 'number' && isFinite(sat.visi_plongeur_m) && sat.visi_plongeur_m > 0
         && (typeof sat.age_hours !== 'number' || sat.age_hours <= 72)
         && (!sat.status || sat.status === 'ok' || sat.status === 'cloudy_J1' || sat.status === 'cloudy_J2');
@@ -1639,19 +1676,27 @@ function vzDesktopPointSelect(latlng) {
       var chasseurGagne = (fbVisi != null) && (satAge == null || (fbAge != null && fbAge < satAge));
 
       if (chasseurGagne) {
-        _ptSetLabel('Vu ' + Math.round(fbVisi) + ' m (chasseur)' + _ptChevron);
+        _ptSetLabel(_ptFbLabel(fbVisi, fbAge));
       } else if (okSat) {
-        _ptSetLabel('Visibilité estimée : ' + Math.round(sat.visi_plongeur_m) + ' m' + _ptChevron);
+        var satDateTxt = '';
+        if (sat.date_observed) {
+          var dSat = new Date(sat.date_observed);
+          if (!isNaN(dSat.getTime())) {
+            satDateTxt = ' ' + ('0' + dSat.getUTCDate()).slice(-2) + '/' + ('0' + (dSat.getUTCMonth() + 1)).slice(-2);
+          }
+        }
+        _ptSetLabel(_ptTwoLines('Satellite' + satDateTxt + ' : ' + Math.round(sat.visi_plongeur_m) + ' m'));
       } else if (fbVisi != null) {
-        _ptSetLabel('Vu ' + Math.round(fbVisi) + ' m (chasseur)' + _ptChevron);
+        _ptSetLabel(_ptFbLabel(fbVisi, fbAge));
       } else {
-        _ptSetLabel('Conditions' + _ptChevron);
+        _ptSetLabel(_ptTwoLines('Conditions'));
       }
     }).catch(function() {
-      _ptSetLabel('Conditions ' + _ptChevron);
+      _ptSatDone = true;
+      _ptFallbackLabel();
     });
   } else {
-    _ptSetLabel('Conditions ' + _ptChevron);
+    _ptFallbackLabel();
   }
 }
 
