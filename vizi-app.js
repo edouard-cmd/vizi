@@ -1263,6 +1263,7 @@ S.map.on('click', function(e) {
   + ".vz-point-cta:hover{filter:brightness(1.08);border-color:#6FE0BC;}"
   + ".vz-point-cta .vz-point-l{display:flex;flex-direction:column;align-items:flex-start;gap:3px;}"
   + ".vz-point-cta .vz-point-sub{font-size:10.5px;font-weight:500;color:#9DBDCB;line-height:1;}"
+  + ".vz-point-cta .vz-point-obs{color:#4DD4A8;font-weight:600;cursor:pointer;}"
   + ".vz-point-cta-pos{position:relative;display:inline-flex;}"
   + ".vz-point-cta-close{position:absolute;top:-9px;right:-9px;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;background:#0F2438;color:#E6EEF4;border:1.5px solid #4DD4A8;border-radius:50%;cursor:pointer;padding:0;box-shadow:0 4px 12px rgba(4,16,28,0.5);-webkit-tap-highlight-color:transparent;z-index:2;}"
   + ".vz-point-cta-close:hover{filter:brightness(1.12);border-color:#6FE0BC;}"
@@ -1616,7 +1617,7 @@ function vzDesktopPointSelect(latlng) {
           + '<button class="vz-point-cta">' + inner + '</button>'
           + '<button class="vz-point-cta-close" aria-label="Fermer">' + _ptClose + '</button>'
           + '</div>',
-      iconSize: [300, 62], iconAnchor: [150, 74]
+      iconSize: [360, 62], iconAnchor: [180, 74]
     });
   }
   if (S.clickLabel) S.map.removeLayer(S.clickLabel);
@@ -1632,6 +1633,16 @@ function vzDesktopPointSelect(latlng) {
     if (oe && oe.target && oe.target.closest && oe.target.closest('.vz-point-cta-close')) {
       L.DomEvent.stop(oe);
       _ptDismiss();
+      return;
+    }
+    // Segment "N retours de chasseurs" : ouvre le panneau Retours du
+    // secteur sur le point clique (meme entree que le clic port).
+    if (oe && oe.target && oe.target.closest && oe.target.closest('.vz-point-obs')) {
+      L.DomEvent.stop(oe);
+      if (typeof window.vzmSonarOpenSector === 'function') {
+        window.vzmSonarOpenSector(latlng.lat, latlng.lng,
+          (_ptNp && _ptNp.spot) ? _ptNp.spot.name : null);
+      }
       return;
     }
     if (typeof window.vzOpenCondFromPoint === 'function') window.vzOpenCondFromPoint();
@@ -1655,6 +1666,7 @@ function vzDesktopPointSelect(latlng) {
   var _ptPortSub = (_ptNp && _ptNp.spot && _ptNp.distanceKm <= 20) ? 'près de ' + _ptNp.spot.name : '';
   var _ptObsSub = '';
   var _ptLastMain = null;
+  var _ptMainKind = null;  // 'sat' | 'fb' | 'cond' : nature de la ligne posee
   function _ptTwoLines(main) {
     _ptLastMain = main;
     var parts = [];
@@ -1678,8 +1690,14 @@ function vzDesktopPointSelect(latlng) {
           && (Date.now() - new Date(o.timestamp).getTime()) < 7 * 86400000;
       });
       if (!near.length) return;
-      _ptObsSub = near.length + ' retour' + (near.length > 1 ? 's' : '') + ' 7 j';
-      if (_ptLastMain) _ptSetLabel(_ptTwoLines(_ptLastMain));
+      _ptObsSub = '<span class="vz-point-obs">' + near.length + ' retour'
+        + (near.length > 1 ? 's' : '') + ' de chasseurs</span>';
+      // Les observations (porteuses du pseudo) viennent d'arriver : si
+      // la ligne principale est terrain ou "Conditions", on la recalcule
+      // pour afficher le pseudo du meilleur retour. Un libelle satellite
+      // deja pose n'est jamais retrograde.
+      if (_ptMainKind === 'fb' || _ptMainKind === 'cond') _ptFallbackLabel();
+      else if (_ptLastMain) _ptSetLabel(_ptTwoLines(_ptLastMain));
     });
   }
   function _ptAgeTxt(ageH) {
@@ -1688,14 +1706,40 @@ function vzDesktopPointSelect(latlng) {
     if (ageH < 24) return ', il y a ' + Math.round(ageH) + ' h';
     return ', il y a ' + Math.round(ageH / 24) + ' j';
   }
-  function _ptFbLabel(fbVisi, fbAge) {
-    return _ptTwoLines('Vu ' + Math.round(fbVisi) + ' m (chasseur' + _ptAgeTxt(fbAge) + ')');
+  function _ptFbLabel(t) {
+    var who = (t && t.pseudo) ? t.pseudo : 'un chasseur';
+    return _ptTwoLines('Visibilité vue par ' + who + _ptAgeTxt(t.age_hours) + ' : ' + Math.round(t.visi) + ' m');
+  }
+  // Meilleure donnee terrain autour du point (5 km, <72 h) : fusionne
+  // les retours anonymes (visi_feedback) et les observations deposees
+  // via le sonar, qui portent le pseudo. La plus recente gagne, quel
+  // que soit le canal ; pseudo "Anonyme" affiche comme "un chasseur".
+  function _ptBestTerrain() {
+    var best = null;
+    var fb = vzNearestFeedback(latlng.lat, latlng.lng, 5);
+    if (fb) {
+      var v = (fb.real_m != null) ? fb.real_m : fb.predicted_m;
+      if (v != null) best = { visi: v, age_hours: fb.age_hours, pseudo: null };
+    }
+    (S_obsCache || []).forEach(function(o) {
+      if (typeof o.lat !== 'number' || !(o.visibility_m > 0)) return;
+      if (typeof haversineKm !== 'function' || haversineKm(latlng.lat, latlng.lng, o.lat, o.lon) > 5) return;
+      var ageH = (Date.now() - new Date(o.timestamp).getTime()) / 3600000;
+      if (!isFinite(ageH) || ageH < 0 || ageH > 72) return;
+      if (!best || best.age_hours == null || ageH < best.age_hours) {
+        best = {
+          visi: o.visibility_m,
+          age_hours: ageH,
+          pseudo: (o.pseudo && o.pseudo !== 'Anonyme') ? o.pseudo : null
+        };
+      }
+    });
+    return best;
   }
   function _ptFallbackLabel() {
-    var fb = vzNearestFeedback(latlng.lat, latlng.lng, 5);
-    var fbVisi = fb ? ((fb.real_m != null) ? fb.real_m : fb.predicted_m) : null;
-    if (fbVisi != null) _ptSetLabel(_ptFbLabel(fbVisi, fb.age_hours));
-    else _ptSetLabel(_ptTwoLines('Conditions'));
+    var t = _ptBestTerrain();
+    if (t) { _ptMainKind = 'fb'; _ptSetLabel(_ptFbLabel(t)); }
+    else { _ptMainKind = 'cond'; _ptSetLabel(_ptTwoLines('Conditions')); }
   }
   if (typeof fetchCmemsZSD === 'function') {
     var _ptSatDone = false;
@@ -1709,17 +1753,18 @@ function vzDesktopPointSelect(latlng) {
         && (!sat.status || sat.status === 'ok' || sat.status === 'cloudy_J1' || sat.status === 'cloudy_J2');
       var satAge = (okSat && typeof sat.age_hours === 'number') ? sat.age_hours : null;
 
-      // Retour chasseur le plus proche (5 km) et le plus recent. Il prime
-      // sur le satellite s'il est plus frais (regle "la mesure la plus
-      // recente gagne") ou si le satellite est indisponible.
-      var fb = vzNearestFeedback(latlng.lat, latlng.lng, 5);
-      var fbVisi = fb ? ((fb.real_m != null) ? fb.real_m : fb.predicted_m) : null;
-      var fbAge = fb ? fb.age_hours : null;
-      var chasseurGagne = (fbVisi != null) && (satAge == null || (fbAge != null && fbAge < satAge));
+      // Meilleure donnee terrain (5 km, feedbacks anonymes + observations
+      // avec pseudo). Elle prime sur le satellite si elle est plus
+      // fraiche (regle "la mesure la plus recente gagne") ou si le
+      // satellite est indisponible.
+      var terrain = _ptBestTerrain();
+      var chasseurGagne = terrain && (satAge == null || (terrain.age_hours != null && terrain.age_hours < satAge));
 
       if (chasseurGagne) {
-        _ptSetLabel(_ptFbLabel(fbVisi, fbAge));
+        _ptMainKind = 'fb';
+        _ptSetLabel(_ptFbLabel(terrain));
       } else if (okSat) {
+        _ptMainKind = 'sat';
         var satDateTxt = '';
         if (sat.date_observed) {
           var dSat = new Date(sat.date_observed);
@@ -1727,10 +1772,15 @@ function vzDesktopPointSelect(latlng) {
             satDateTxt = ' ' + ('0' + dSat.getUTCDate()).slice(-2) + '/' + ('0' + (dSat.getUTCMonth() + 1)).slice(-2);
           }
         }
-        _ptSetLabel(_ptTwoLines('Satellite' + satDateTxt + ' : ' + Math.round(sat.visi_plongeur_m) + ' m'));
-      } else if (fbVisi != null) {
-        _ptSetLabel(_ptFbLabel(fbVisi, fbAge));
+        var satMain = satDateTxt
+          ? 'Visibilité mesurée par satellite le' + satDateTxt + ' : ' + Math.round(sat.visi_plongeur_m) + ' m'
+          : 'Visibilité mesurée par satellite : ' + Math.round(sat.visi_plongeur_m) + ' m';
+        _ptSetLabel(_ptTwoLines(satMain));
+      } else if (terrain) {
+        _ptMainKind = 'fb';
+        _ptSetLabel(_ptFbLabel(terrain));
       } else {
+        _ptMainKind = 'cond';
         _ptSetLabel(_ptTwoLines('Conditions'));
       }
     }).catch(function() {
