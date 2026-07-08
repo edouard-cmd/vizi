@@ -1380,6 +1380,24 @@ function ensurePortCounts_() {
   return fetchPortCounts_();
 }
 
+// Cache partage des observations communautaires (get_observations, <72h
+// cote GAS). Consomme par la pastille clic-point et le panneau Retours
+// du secteur : un seul appel GAS sert les deux surfaces. TTL 5 min,
+// invalide (S_obsCache = null) au depot d'une nouvelle observation
+// pour que le panneau reflete immediatement le depot de l'utilisateur.
+var S_obsCache = null;
+var S_obsCacheAt = 0;
+function vzEnsureObservations() {
+  if (S_obsCache && (Date.now() - S_obsCacheAt) < 5 * 60 * 1000) {
+    return Promise.resolve(S_obsCache);
+  }
+  return gasGet('get_observations', {}).then(function(res) {
+    S_obsCache = (res && res.observations) ? res.observations : [];
+    S_obsCacheAt = Date.now();
+    return S_obsCache;
+  });
+}
+
 // Retour communautaire le plus proche d'un point, dans maxKm. Parmi les
 // candidats dans le rayon, on prend le PLUS RECENT (age le plus faible),
 // car c'est la mesure la plus a jour qui doit primer.
@@ -1635,10 +1653,34 @@ function vzDesktopPointSelect(latlng) {
   // meme regle que l'email d'alerte).
   var _ptNp = (typeof findNearestPort === 'function') ? findNearestPort(latlng.lat, latlng.lng) : null;
   var _ptPortSub = (_ptNp && _ptNp.spot && _ptNp.distanceKm <= 20) ? 'près de ' + _ptNp.spot.name : '';
+  var _ptObsSub = '';
+  var _ptLastMain = null;
   function _ptTwoLines(main) {
-    if (!_ptPortSub) return main + _ptChevron;
+    _ptLastMain = main;
+    var parts = [];
+    if (_ptPortSub) parts.push(_ptPortSub);
+    if (_ptObsSub) parts.push(_ptObsSub);
+    if (!parts.length) return main + _ptChevron;
     return '<span class="vz-point-l"><span>' + main + '</span>'
-      + '<span class="vz-point-sub">' + _ptPortSub + '</span></span>' + _ptChevron;
+      + '<span class="vz-point-sub">' + parts.join(' · ') + '</span></span>' + _ptChevron;
+  }
+  // Pont communautaire : si des retours existent dans le secteur du
+  // point (12 km / 7 j, memes regles que le panneau Retours du
+  // secteur), la sous-ligne l'affiche. Lecture depuis le cache
+  // partage : zero appel GAS supplementaire dans la plupart des cas.
+  // Arrivee asynchrone : si le libelle final est deja pose, on le
+  // re-rend avec la sous-ligne enrichie (garde _ptGen dans _ptSetLabel).
+  if (typeof vzEnsureObservations === 'function') {
+    vzEnsureObservations().then(function(obs) {
+      var near = (obs || []).filter(function(o) {
+        return typeof o.lat === 'number' && typeof haversineKm === 'function'
+          && haversineKm(latlng.lat, latlng.lng, o.lat, o.lon) <= 12
+          && (Date.now() - new Date(o.timestamp).getTime()) < 7 * 86400000;
+      });
+      if (!near.length) return;
+      _ptObsSub = near.length + ' retour' + (near.length > 1 ? 's' : '') + ' 7 j';
+      if (_ptLastMain) _ptSetLabel(_ptTwoLines(_ptLastMain));
+    });
   }
   function _ptAgeTxt(ageH) {
     if (typeof ageH !== 'number' || !isFinite(ageH)) return '';
@@ -9476,6 +9518,7 @@ if (pseudo) {
   }).then(function(result) {
     OBS_SUBMITTING = false;
     if (result && result.success) {
+      S_obsCache = null;  // le prochain panneau / pastille reflete ce depot
       btn.style.display = 'none';
       document.getElementById('obsSheetSuccessMsg').textContent = 'Merci !';
       document.getElementById('obsSheetSuccessSub').textContent = 'Ton observation aide la communauté.';
@@ -14600,11 +14643,14 @@ function vzmInit() {
     var c = (isFinite(optLat) && isFinite(optLon))
       ? { lat: optLat, lng: optLon }
       : S.map.getCenter();
-    gasGet('get_observations', {}).then(function (res) {
+    var _obsP = (typeof vzEnsureObservations === 'function')
+      ? vzEnsureObservations()
+      : gasGet('get_observations', {}).then(function (res) { return (res && res.observations) || []; });
+    _obsP.then(function (allObs) {
       var subEl = document.getElementById('vzmSonarSectorSub');
       var listEl = document.getElementById('vzmSonarSectorList');
       if (!subEl || !listEl) return;
-      var obs = (res && res.observations) ? res.observations.slice() : [];
+      var obs = (allObs || []).slice();
       var near = obs.filter(function (o) {
         return typeof o.lat === 'number' && haversineKm(c.lat, c.lng, o.lat, o.lon) <= 12
           && (Date.now() - new Date(o.timestamp).getTime()) < 7 * 86400000;
