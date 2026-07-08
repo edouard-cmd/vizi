@@ -2142,26 +2142,69 @@ function vzRenderHuntBar() {
     }).join('');
   }
 }
-// Temperature de l'eau en surface (Open-Meteo Marine, sea_surface_temperature).
-// Stable a l'echelle de la semaine en Manche : une valeur suffit pour tout le
-// tableau. Cache par point arrondi (~1 km), TTL 6 h, jamais bloquant (null si echec).
+// ============================================================
+// Temperature de l'eau : hierarchie des sources (doctrine Visimer)
+//   1. Bouee COAST-HF a moins de 15 km avec mesure fraiche (<24 h)
+//      = mesure reelle, prioritaire.
+//   2. Modele Open-Meteo Marine, MOYENNE des 24 valeurs horaires du
+//      jour = valide partout en France. La valeur a l'heure courante
+//      etait fausse : le modele a un cycle diurne de peau qui pique
+//      l'apres-midi (+2 a 3 C observes vs relevees reelles), alors
+//      que le chasseur descend dans la masse d'eau, pas dans la
+//      pellicule de surface de 16 h.
+// Garde-fou de vraisemblance 0-32 C : toute valeur bouee hors plage
+// ou perimee bascule silencieusement sur le modele.
+// ============================================================
+// Bouees mesurant la temperature. Ajouter une ligne par bouee au fil
+// de l'extension des secteurs. NOTE : le code parametre temperature
+// (35) est pose par analogie avec la turbidite (135) et doit etre
+// confirme empiriquement (voir URL de test dans la livraison) ; le
+// garde-fou protege en attendant.
+var VZ_SEATEMP_BUOYS = [
+  { code: '6200310', name: 'SMILE Luc-sur-Mer', lat: 49.3219, lon: -0.3556, param: '35' }
+];
 var S_seaTempCache = {};
-function vzFetchSeaTemp(lat, lon) {
-  var key = lat.toFixed(2) + ',' + lon.toFixed(2);
-  var c = S_seaTempCache[key];
-  if (c && (Date.now() - c.at) < 6 * 3600 * 1000) return Promise.resolve(c.temp);
+function vzSeaTempFromModel_(lat, lon) {
   var url = 'https://marine-api.open-meteo.com/v1/marine?latitude=' + lat.toFixed(4)
     + '&longitude=' + lon.toFixed(4)
     + '&hourly=sea_surface_temperature&forecast_days=1&timezone=Europe%2FParis';
   return fetch(url).then(function(r) { return r.ok ? r.json() : null; }).then(function(j) {
-    var t = null;
-    if (j && j.hourly && j.hourly.sea_surface_temperature) {
-      var v = j.hourly.sea_surface_temperature[new Date().getHours()];
-      if (typeof v === 'number' && isFinite(v)) t = v;
-    }
-    S_seaTempCache[key] = { temp: t, at: Date.now() };
-    return t;
+    var arr = (j && j.hourly && j.hourly.sea_surface_temperature) || [];
+    var sum = 0, n = 0;
+    arr.forEach(function(v) {
+      if (typeof v === 'number' && isFinite(v)) { sum += v; n++; }
+    });
+    if (!n) return null;
+    return { temp: sum / n, source: 'model' };
   }).catch(function() { return null; });
+}
+function vzFetchSeaTemp(lat, lon) {
+  var key = lat.toFixed(2) + ',' + lon.toFixed(2);
+  var c = S_seaTempCache[key];
+  if (c && (Date.now() - c.at) < 6 * 3600 * 1000) return Promise.resolve(c.val);
+  var store = function(val) {
+    S_seaTempCache[key] = { val: val, at: Date.now() };
+    return val;
+  };
+  // Bouee la plus proche a moins de 15 km ?
+  var buoy = null, bestD = Infinity;
+  if (typeof haversineKm === 'function') {
+    VZ_SEATEMP_BUOYS.forEach(function(b) {
+      var d = haversineKm(lat, lon, b.lat, b.lon);
+      if (d <= 15 && d < bestD) { bestD = d; buoy = b; }
+    });
+  }
+  if (!buoy) return vzSeaTempFromModel_(lat, lon).then(store);
+  return gasGet('coriolis_turbidity', { platform: buoy.code, parameter: buoy.param, hours: 24 })
+    .then(function(res) {
+      var v = res && res.status === 'ok' ? res.value_ntu : null;
+      var fresh = res && typeof res.age_hours === 'number' && res.age_hours <= 24;
+      if (typeof v === 'number' && isFinite(v) && v >= 0 && v <= 32 && fresh) {
+        return store({ temp: v, source: 'buoy', buoy_name: buoy.name });
+      }
+      return vzSeaTempFromModel_(lat, lon).then(store);
+    })
+    .catch(function() { return vzSeaTempFromModel_(lat, lon).then(store); });
 }
 
 function vzFormatDDM(lat, lon) {
@@ -12049,13 +12092,16 @@ html += buildTideBandRow(slots, VZ_SHEET.data.tides);
     if (!spot || typeof spot.lat !== 'number') return;
     var idLon = (typeof spot.lng === 'number') ? spot.lng : spot.lon;
     if (typeof idLon !== 'number' || typeof vzFetchSeaTemp !== 'function') return;
-    vzFetchSeaTemp(spot.lat, idLon).then(function(t) {
+    vzFetchSeaTemp(spot.lat, idLon).then(function(st) {
       var el = document.getElementById('vzCondSeaTemp');
-      if (!el || t == null) return;
+      if (!el || !st || typeof st.temp !== 'number') return;
       var icTemp = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"'
         + ' stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">'
         + '<path d="M14 4a2 2 0 0 0-4 0v9.5a4.5 4.5 0 1 0 4 0Z"/><circle cx="12" cy="17" r="1.6"/></svg>';
-      el.innerHTML = icTemp + '<span>Eau ' + (Math.round(t * 10) / 10).toString().replace('.', ',') + '\u00b0C</span>';
+      el.innerHTML = icTemp + '<span>Eau ' + (Math.round(st.temp * 10) / 10).toString().replace('.', ',') + '\u00b0C</span>';
+      el.title = (st.source === 'buoy')
+        ? 'Mesure bou\u00e9e ' + (st.buoy_name || '')
+        : 'Mod\u00e8le Open-Meteo, moyenne du jour';
       el.style.display = '';
     });
   })();
