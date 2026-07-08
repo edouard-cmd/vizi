@@ -1402,6 +1402,13 @@ function openSectorPopup(spot, attached) {
   vzShowSectorHalo(spot.lat, spot.lon);
   if (typeof window.vzSetActiveSpot === 'function' && spot.id != null) window.vzSetActiveSpot(spot.id);
   S.map.panTo([spot.lat, spot.lon], { animate: true });
+  // Clic port : ouverture directe du panneau Retours du secteur (surface
+  // communautaire unique). L'ancien popup vzRenderSectorPopup n'est garde
+  // qu'en filet de securite si le module sonar n'est pas monte.
+  if (typeof window.vzmSonarOpenSector === 'function') {
+    window.vzmSonarOpenSector(spot.lat, spot.lon, spot.name);
+    return;
+  }
   S_sectorState = { lat: spot.lat, lon: spot.lon, name: spot.name, pred: null };
   vzRenderSectorPopup(spot.name, null, true, attached);
   ensurePortCounts_().then(function(counts) {
@@ -14448,7 +14455,7 @@ function vzmInit() {
     + '.vzm-sonar-consent{display:flex;align-items:flex-start;gap:8px;margin-top:12px;font-size:12px;color:#44565F;line-height:1.45;cursor:pointer;}'
     + '.vzm-sonar-consent input{margin-top:2px;width:16px;height:16px;accent-color:#2DA888;flex-shrink:0;}'
     + '.vzm-sonar-ok{width:52px;height:52px;border-radius:50%;background:#E1F5EE;display:flex;align-items:center;justify-content:center;margin:2px auto 10px;color:#1A6B5D;font-size:26px;}'
-    + '@media (min-width:769px){.vzm-sonar-fab{right:26px;bottom:110px;}.vzm-sonar-menu{right:28px;bottom:186px;}.vzm-sonar-panel{left:auto;right:26px;bottom:26px;width:320px;border-radius:16px;}}';
+    + '@media (min-width:769px){.vzm-sonar-fab{right:26px;bottom:110px;}.vzm-sonar-menu{right:28px;bottom:186px;}.vzm-sonar-panel{left:auto;right:26px;bottom:26px;width:420px;max-height:min(72vh,640px);overflow-y:auto;border-radius:16px;}}';
     document.head.appendChild(st);
   }
 
@@ -14534,9 +14541,9 @@ function vzmInit() {
     return 'il y a ' + Math.round(ageH / 24) + ' j';
   }
 
-  function actionSector() {
+  function actionSector(optLat, optLon, optName) {
     setMenu(false);
-    var name = currentSectorName();
+    var name = optName || currentSectorName();
     var chip = '<span class="vzm-sonar-chip"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1A6B5D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.4-7-11a7 7 0 0 1 14 0c0 4.6-7 11-7 11Z"/><circle cx="12" cy="10" r="2.4"/></svg>Secteur ' + escapeH(name || '') + '</span>';
     openPanel(chip + '<div class="vzm-sonar-h">Retours du secteur</div><div class="vzm-sonar-sub" id="vzmSonarSectorSub">Chargement...</div><div id="vzmSonarSectorList"></div>'
       + '<button class="vzm-sonar-cta" type="button" id="vzmSonarToAlerts">Recevoir les alertes de ce secteur</button>'
@@ -14545,7 +14552,9 @@ function vzmInit() {
     document.getElementById('vzmSonarToAlerts').addEventListener('click', function () { closePanel(); setTimeout(actionAlerts, 260); });
     document.getElementById('vzmSonarToShare').addEventListener('click', function () { closePanel(); setTimeout(actionShare, 260); });
 
-    var c = S.map.getCenter();
+    var c = (isFinite(optLat) && isFinite(optLon))
+      ? { lat: optLat, lng: optLon }
+      : S.map.getCenter();
     gasGet('get_observations', {}).then(function (res) {
       var subEl = document.getElementById('vzmSonarSectorSub');
       var listEl = document.getElementById('vzmSonarSectorList');
@@ -14694,6 +14703,14 @@ function vzmInit() {
     refreshVisibility();
     console.log('[VZM Sonar] bouton monte'); // temoin de deploiement : visible en console si la bonne version tourne
   }
+
+  // Point d'entree public : ouvre le panneau Retours du secteur sur un port
+  // donne (clic marqueur carte). Sans arguments : centre de la carte.
+  // build() est idempotent : garantit que le panneau existe avant ouverture.
+  window.vzmSonarOpenSector = function (lat, lon, name) {
+    build();
+    actionSector(lat, lon, name);
+  };
 
   // Demarrage robuste : montage des que le DOM est pret. build() ne depend que
   // de document.body (pas de la carte), le nom du secteur est resolu plus tard,
