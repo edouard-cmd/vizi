@@ -2191,21 +2191,42 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
     }
 
     .user-position-marker { position: relative; width: 24px; height: 24px; }
+
+    /* Cone de cap magnetique. Cache tant qu'aucun cap valide n'est recu
+       (desktop, permission refusee, terminal sans magnetometre). */
+    .user-position-cone {
+      position: absolute; top: 50%; left: 50%;
+      width: 96px; height: 96px; margin: -48px 0 0 -48px;
+      transform: rotate(0deg); transform-origin: 50% 50%;
+      opacity: 0; transition: opacity .35s ease;
+      pointer-events: none; will-change: transform;
+    }
+    .user-position-cone.is-active { opacity: 1; }
+
     .user-position-dot {
       position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
       width: 14px; height: 14px; border-radius: 50%;
       background: #4285F4; border: 3px solid #fff;
       box-shadow: 0 2px 8px rgba(0,0,0,0.35);
     }
+    /* Halo : taille fixe, on anime scale + opacity (compositees GPU).
+       L'ancienne version animait width/height -> reflow par frame + saut
+       d'opacite au bouclage, d'ou le flash sur mobile. */
     .user-position-pulse {
-      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      width: 14px; height: 14px; border-radius: 50%;
-      background: #4285F4; opacity: 0.4;
-      animation: userPosPulse 2s ease-out infinite;
+      position: absolute; top: 50%; left: 50%;
+      width: 48px; height: 48px; margin: -24px 0 0 -24px;
+      border-radius: 50%; background: #4285F4;
+      opacity: 0; transform: scale(0.29);
+      animation: userPosPulse 2.4s cubic-bezier(0.25, 0.6, 0.35, 1) infinite;
+      will-change: transform, opacity;
     }
     @keyframes userPosPulse {
-      0%   { width: 14px; height: 14px; opacity: 0.5; }
-      100% { width: 50px; height: 50px; opacity: 0; }
+      0%   { transform: scale(0.29); opacity: 0; }
+      12%  { opacity: 0.45; }
+      100% { transform: scale(1); opacity: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .user-position-pulse { animation: none; opacity: 0.28; transform: scale(0.6); }
     }
 
     @media (max-width: 768px) {
