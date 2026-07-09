@@ -10860,6 +10860,137 @@ var GEO_STATE = {
   hasAsked: false
 };
 
+// ------------------------------------------------------------
+// Cap magnetique (boussole) affiche en secteur sur le point bleu
+// ------------------------------------------------------------
+// Source du cap : magnetometre du terminal (orientation du telephone),
+// pas le cap GPS de deplacement (indefini a l'arret, donc inutilisable
+// pour viser un spot depuis la plage).
+// iOS 13+ : DeviceOrientationEvent.requestPermission() exige un geste
+// utilisateur, l'amorce se fait donc depuis geolocateUser(true).
+// Refs : W3C DeviceOrientation Event Spec ; Apple webkitCompassHeading.
+var HEADING_STATE = {
+  bound: false,
+  raw: null,          // dernier cap brut recu (deg, 0 = nord geographique)
+  smooth: null,       // cap lisse effectivement affiche
+  accuracy: null,     // incertitude en deg (iOS uniquement), sinon null
+  coneEl: null,       // noeud DOM du cone, recree a chaque marqueur
+  pathEl: null,
+  rafId: 0,
+  drawnSpread: 0
+};
+
+// Ouverture du secteur = incertitude reelle du magnetometre, bornee [30, 90].
+// Doctrine d'honnetete epistemique : un cap incertain s'affiche large.
+function headingSpread_() {
+  var a = HEADING_STATE.accuracy;
+  if (a === null || !isFinite(a) || a < 0) return 60;
+  return Math.max(30, Math.min(90, a * 2));
+}
+
+// Secteur circulaire centre en (48,48), rayon 46, bissectrice vers le haut.
+function headingConePath_(spreadDeg) {
+  var R = 46, cx = 48, cy = 48;
+  var half = spreadDeg / 2;
+  var a1 = (-90 - half) * Math.PI / 180;
+  var a2 = (-90 + half) * Math.PI / 180;
+  var x1 = cx + R * Math.cos(a1), y1 = cy + R * Math.sin(a1);
+  var x2 = cx + R * Math.cos(a2), y2 = cy + R * Math.sin(a2);
+  var largeArc = spreadDeg > 180 ? 1 : 0;
+  return 'M' + cx + ' ' + cy +
+         ' L' + x1.toFixed(2) + ' ' + y1.toFixed(2) +
+         ' A' + R + ' ' + R + ' 0 ' + largeArc + ' 1 ' + x2.toFixed(2) + ' ' + y2.toFixed(2) + ' Z';
+}
+
+function headingConeSvg_() {
+  return '<svg class="user-position-cone" viewBox="0 0 96 96" aria-hidden="true">' +
+           '<defs><radialGradient id="vzHeadingGrad" cx="50%" cy="50%" r="50%">' +
+             '<stop offset="0%" stop-color="#4285F4" stop-opacity="0.55"/>' +
+             '<stop offset="65%" stop-color="#4285F4" stop-opacity="0.18"/>' +
+             '<stop offset="100%" stop-color="#4285F4" stop-opacity="0"/>' +
+           '</radialGradient></defs>' +
+           '<path class="user-position-cone-path" d="' + headingConePath_(headingSpread_()) + '" fill="url(#vzHeadingGrad)"/>' +
+         '</svg>';
+}
+
+// Lissage exponentiel par le plus court chemin angulaire (gere 359 -> 0).
+function headingSmooth_(target) {
+  var prev = HEADING_STATE.smooth;
+  if (prev === null || !isFinite(prev)) return target;
+  var delta = ((target - prev + 540) % 360) - 180;
+  return (prev + delta * 0.18 + 360) % 360;
+}
+
+function headingRender_() {
+  HEADING_STATE.rafId = 0;
+  var cone = HEADING_STATE.coneEl;
+  if (!cone || HEADING_STATE.raw === null) return;
+
+  HEADING_STATE.smooth = headingSmooth_(HEADING_STATE.raw);
+  cone.style.transform = 'rotate(' + HEADING_STATE.smooth.toFixed(1) + 'deg)';
+
+  var spread = headingSpread_();
+  if (HEADING_STATE.pathEl && Math.abs(spread - HEADING_STATE.drawnSpread) > 2) {
+    HEADING_STATE.pathEl.setAttribute('d', headingConePath_(spread));
+    HEADING_STATE.drawnSpread = spread;
+  }
+  if (!cone.classList.contains('is-active')) cone.classList.add('is-active');
+
+  // On relance tant que le lissage n'a pas converge sur le cap brut.
+  var residual = Math.abs(((HEADING_STATE.raw - HEADING_STATE.smooth + 540) % 360) - 180);
+  if (residual > 0.3) headingSchedule_();
+}
+
+function headingSchedule_() {
+  if (HEADING_STATE.rafId) return;
+  HEADING_STATE.rafId = requestAnimationFrame(headingRender_);
+}
+
+function handleOrientationEvent_(ev) {
+  var deg = null, acc = null;
+  if (typeof ev.webkitCompassHeading === 'number' && isFinite(ev.webkitCompassHeading)) {
+    // iOS : deja un cap vrai, 0 = nord, sens horaire.
+    deg = ev.webkitCompassHeading;
+    if (typeof ev.webkitCompassAccuracy === 'number' && ev.webkitCompassAccuracy >= 0) {
+      acc = ev.webkitCompassAccuracy;
+    }
+  } else if (ev.absolute === true && typeof ev.alpha === 'number' && isFinite(ev.alpha)) {
+    // Android : alpha est antihoraire depuis le nord.
+    deg = (360 - ev.alpha) % 360;
+  }
+  if (deg === null) return;   // orientation relative : inexploitable comme cap
+  HEADING_STATE.raw = (deg + 360) % 360;
+  HEADING_STATE.accuracy = acc;
+  headingSchedule_();
+}
+
+function bindHeadingListeners_() {
+  if (HEADING_STATE.bound) return;
+  HEADING_STATE.bound = true;
+  if ('ondeviceorientationabsolute' in window) {
+    window.addEventListener('deviceorientationabsolute', handleOrientationEvent_, true);
+  }
+  window.addEventListener('deviceorientation', handleOrientationEvent_, true);
+}
+
+// Point d'entree unique. Appele depuis geolocateUser() et nulle part ailleurs.
+function startHeadingTracking(userInitiated) {
+  if (HEADING_STATE.bound) return;
+  if (typeof window.DeviceOrientationEvent === 'undefined') return;
+
+  var needsPermission = (typeof DeviceOrientationEvent.requestPermission === 'function');
+  if (!needsPermission) { bindHeadingListeners_(); return; }
+
+  // iOS 13+ : sans geste utilisateur la promesse est rejetee. On n'insiste pas,
+  // le cone restera simplement cache jusqu'au premier clic sur "me localiser".
+  if (!userInitiated) return;
+  try {
+    DeviceOrientationEvent.requestPermission().then(function(state) {
+      if (state === 'granted') bindHeadingListeners_();
+    }).catch(function() {});
+  } catch (e) {}
+}
+
 function initGeolocationFlow() {
   var choice = null;
   try { choice = localStorage.getItem('vizi_geo_choice'); } catch(e) {}
@@ -10889,6 +11020,10 @@ function geolocateUser(userInitiated) {
   S.clickLatLng = null;
   var btn = document.getElementById('locateBtn');
   if (btn) btn.classList.add('locating');
+
+  // Amorce boussole. Doit rester dans la pile d'appel du geste utilisateur
+  // (contrainte iOS 13+), donc avant tout await / callback asynchrone.
+  startHeadingTracking(!!userInitiated);
 
   if (!navigator.geolocation) {
     if (btn) btn.classList.remove('locating');
@@ -10938,10 +11073,25 @@ function handleUserPosition(lat, lon, source, recenter) {
   if (GEO_STATE.userMarker) S.map.removeLayer(GEO_STATE.userMarker);
   var posIcon = L.divIcon({
     className: '',
-    html: '<div class="user-position-marker"><div class="user-position-pulse"></div><div class="user-position-dot"></div></div>',
+    html: '<div class="user-position-marker">' +
+            headingConeSvg_() +
+            '<div class="user-position-pulse"></div>' +
+            '<div class="user-position-dot"></div>' +
+          '</div>',
     iconSize: [24, 24], iconAnchor: [12, 12]
   });
   GEO_STATE.userMarker = L.marker([lat, lon], { icon: posIcon, interactive: false, zIndexOffset: 500 }).addTo(S.map);
+
+  // Le marqueur est detruit / recree a chaque appel : sans cette re-liaison,
+  // HEADING_STATE.coneEl pointerait sur un noeud orphelin et le cone se figerait.
+  var mkEl = GEO_STATE.userMarker.getElement ? GEO_STATE.userMarker.getElement() : null;
+  HEADING_STATE.coneEl = mkEl ? mkEl.querySelector('.user-position-cone') : null;
+  HEADING_STATE.pathEl = mkEl ? mkEl.querySelector('.user-position-cone-path') : null;
+  HEADING_STATE.drawnSpread = headingSpread_();
+  if (HEADING_STATE.coneEl && HEADING_STATE.raw !== null) {
+    HEADING_STATE.smooth = HEADING_STATE.raw;   // pas de rattrapage anime au respawn
+    headingSchedule_();
+  }
 
   // Au demarrage (geoloc auto), on garde la vue d'accueil large : pas de recentrage.
   if (!recenter) return;
