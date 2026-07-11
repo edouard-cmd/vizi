@@ -1890,6 +1890,41 @@ function vzRainClear() {
   S.rainPos = null;
 }
 
+/* ============================================================
+   COUCHE VENT ANIMEE (particules facon Windy) - POC
+   Rendu : leaflet-velocity (moteur "earth" de cambecc, via CDN).
+   Donnee : instantane mondial FIGE (demo leaflet-velocity), NON live.
+   Sert a valider le rendu et l'ergonomie. Le flux AROME live
+   (grille u/v cote GAS) viendra ensuite. Flux totalement isole :
+   aucun lien avec le moteur de visi ni avec loadForecast.
+   ============================================================ */
+var VZ_WIND_DATA_URL = 'https://cdn.jsdelivr.net/gh/onaci/leaflet-velocity@master/demo/wind-global.json';
+// Palette calee sur la charte Talisker (teal calme -> jaune -> orange -> rouge fort).
+var VZ_WIND_COLORS = ['#1A6B5D','#2DA888','#4DD4A8','#D8C84A','#E89B3C','#C94A3D'];
+
+function vzWindFlowEnsure() {
+  if (S.windFlowLayer) return Promise.resolve(S.windFlowLayer);
+  if (typeof L.velocityLayer !== 'function') {
+    return Promise.reject(new Error('leaflet-velocity non charge'));
+  }
+  return fetch(VZ_WIND_DATA_URL)
+    .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function(data){
+      S.windFlowLayer = L.velocityLayer({
+        displayValues: false,        // pas de control de valeurs (evite le CSS separe)
+        data: data,
+        speedUnit: 'kt',             // les chasseurs parlent noeuds
+        velocityScale: 0.007,        // longueur/vivacite des particules
+        particleMultiplier: 0.0022,  // densite reduite pour tenir sur mobile
+        opacity: 0.9,
+        colorScale: VZ_WIND_COLORS,
+        minVelocity: 0,
+        maxVelocity: 20              // ~40 kt : borne haute de la palette
+      });
+      return S.windFlowLayer;
+    });
+}
+
 function toggleLayer(type) {
   if (type === 'heatmap') {
     S.showHeatmap = !S.showHeatmap;
@@ -1926,6 +1961,22 @@ function toggleLayer(type) {
     } else {
       vzRainClear();
       if (_panRain) _panRain.style.display = 'none';
+    }
+  } else if (type === 'windflow') {
+    S.showWindFlow = !S.showWindFlow;
+    var _rowWind = document.getElementById('vzRowWindFlow');
+    if (_rowWind) _rowWind.classList.toggle('active', S.showWindFlow);
+    if (S.showWindFlow) {
+      vzWindFlowEnsure().then(function(layer){
+        if (!S.showWindFlow) return;   // re-toggle off pendant le fetch
+        if (!S.map.hasLayer(layer)) layer.addTo(S.map);
+      }).catch(function(e){
+        console.warn('[wind] couche vent indisponible', e);
+        S.showWindFlow = false;
+        if (_rowWind) _rowWind.classList.remove('active');
+      });
+    } else {
+      if (S.windFlowLayer && S.map.hasLayer(S.windFlowLayer)) S.map.removeLayer(S.windFlowLayer);
     }
   } else if (type === 'litto3d') {
     S.showLitto3d = !S.showLitto3d;
