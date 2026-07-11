@@ -1891,28 +1891,76 @@ function vzRainClear() {
 }
 
 /* ============================================================
-   COUCHE VENT ANIMEE (particules facon Windy) - POC
+   COUCHE VENT ANIMEE (particules facon Windy) - A1 : donnee reelle
    Rendu : leaflet-velocity (moteur "earth" de cambecc, via CDN).
-   Donnee : instantane mondial FIGE (demo leaflet-velocity), NON live.
-   Sert a valider le rendu et l'ergonomie. Le flux AROME live
-   (grille u/v cote GAS) viendra ensuite. Flux totalement isole :
-   aucun lien avec le moteur de visi ni avec loadForecast.
+   Donnee : grille AROME/best_match France servie par le GAS
+   (action wind_grid), pas horaire 0-48h puis 3h 48-120h. Le GAS
+   renvoie un header commun + une liste de frames {time,u,v} en m/s ;
+   le front reconstruit le format leaflet-velocity par frame et
+   affiche l'instant present (le curseur A2 fera defiler les frames).
+   Flux isole : aucun lien avec le moteur de visi ni loadForecast.
    ============================================================ */
-var VZ_WIND_DATA_URL = 'https://cdn.jsdelivr.net/gh/onaci/leaflet-velocity@master/demo/wind-global.json';
+var VZ_WIND_GRID_URL = GAS_URL + '?action=wind_grid';
 // Palette calee sur la charte Talisker (teal calme -> jaune -> orange -> rouge fort).
 var VZ_WIND_COLORS = ['#1A6B5D','#2DA888','#4DD4A8','#D8C84A','#E89B3C','#C94A3D'];
+
+// Monte une frame {u,v} + le header commun au format attendu par
+// leaflet-velocity (2 blocs : u=parameterNumber 2, v=parameterNumber 3).
+function vzWindBuildVelocity_(header, frame) {
+  function hdr(pn) {
+    return {
+      nx: header.nx, ny: header.ny,
+      lo1: header.lo1, la1: header.la1,
+      dx: header.dx, dy: header.dy,
+      parameterCategory: 2, parameterNumber: pn,
+      refTime: frame.time
+    };
+  }
+  return [
+    { header: hdr(2), data: frame.u },   // U : composante est-ouest
+    { header: hdr(3), data: frame.v }    // V : composante nord-sud
+  ];
+}
+
+// Index de la frame la plus proche de maintenant (times GAS en UTC).
+function vzWindNowIndex_() {
+  if (!S.windFrames || !S.windFrames.length) return 0;
+  var now = Date.now();
+  var best = 0, bestDiff = Infinity;
+  for (var i = 0; i < S.windFrames.length; i++) {
+    var iso = S.windFrames[i].time;
+    if (iso.length === 16) iso += ':00';   // "..T14:00" -> "..T14:00:00"
+    var d = Math.abs(new Date(iso + 'Z').getTime() - now);
+    if (d < bestDiff) { bestDiff = d; best = i; }
+  }
+  return best;
+}
+
+// Applique la frame d'index i a la couche (partage par A1 present + A2 curseur).
+function vzWindShowFrame_(i) {
+  if (!S.windFrames || !S.windFrames.length || !S.windFlowLayer) return;
+  i = Math.max(0, Math.min(i, S.windFrames.length - 1));
+  S.windPos = i;
+  S.windFlowLayer.setData(vzWindBuildVelocity_(S.windHeader, S.windFrames[i]));
+}
 
 function vzWindFlowEnsure() {
   if (S.windFlowLayer) return Promise.resolve(S.windFlowLayer);
   if (typeof L.velocityLayer !== 'function') {
     return Promise.reject(new Error('leaflet-velocity non charge'));
   }
-  return fetch(VZ_WIND_DATA_URL)
+  return fetch(VZ_WIND_GRID_URL)
     .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-    .then(function(data){
+    .then(function(res){
+      if (!res || res.status !== 'ok' || !res.frames || !res.frames.length) {
+        throw new Error(res && res.error ? res.error : 'grille vent vide');
+      }
+      S.windHeader = res.header;
+      S.windFrames = res.frames;
+      S.windPos = vzWindNowIndex_();
       S.windFlowLayer = L.velocityLayer({
         displayValues: false,        // pas de control de valeurs (evite le CSS separe)
-        data: data,
+        data: vzWindBuildVelocity_(res.header, res.frames[S.windPos]),
         speedUnit: 'kt',             // les chasseurs parlent noeuds
         velocityScale: 0.007,        // longueur/vivacite des particules
         particleMultiplier: 0.0022,  // densite reduite pour tenir sur mobile
