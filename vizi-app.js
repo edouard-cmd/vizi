@@ -979,17 +979,23 @@ function initLitto3dLayer() {
   // Bounds [latMin, lonMin] / [latMax, lonMax] issus du GetCapabilities SHOM
   var subLayers = [
     // Bretagne (Cotes-d'Armor + Ille-et-Vilaine + Morbihan, littoral et iles)
-    // Emprise ouest elargie a -4.90 pour recouvrir la jointure avec la dalle
-    // Finistere maritime (chevauchement volontaire : les tuiles hors donnee
-    // reelle reviennent transparentes, mais plus aucun couloir mort sud-Finistere).
-   makeLayer('LITTO3D_BZH_2018_2021_PYR_3857_WMSR', [47.24, -4.90], [49.00, -1.37]),
-    // Finistere - partie maritime. Emprise est etendue a -3.55 pour chevaucher
-    // la dalle BZH (supprime la bande morte -3.90 / -3.87 a la jointure).
-    makeLayer('L3D_MAR_FINISTR_2014_PYR_3857_WMSR', [47.70, -5.20], [48.90, -3.55]),
+    // Bounds cales sur EX_GeographicBoundingBox officiel (GetCapabilities WMS INSPIRE).
+    makeLayer('LITTO3D_BZH_2018_2021_PYR_3857_WMSR', [47.236, -3.869], [49.007, -1.373]),
+    // Finistere - couche topo-bathy continue (terre + mer). La partie terre est
+    // gommee par le masquage canvas VZSeaTileLayer. Emprise est reelle -3.067 :
+    // c'est elle qui porte le sud-Finistere (Concarneau, Glenan), pas une dalle
+    // maritime L3D_MAR_FINISTR qui n'existe pas dans le service.
+    makeLayer('LITTO3D_FINISTR_2014_PYR_3857_WMSR', [47.581, -5.312], [48.779, -3.067]),
     // Mer d'Iroise (Parc Naturel Marin) - Ouessant, Sein, goulet de Brest
-    makeLayer('L3D_MAR_PNMI_2012_PYR_3857_WMSR', [48.00, -5.25], [48.55, -4.30]),
+    makeLayer('L3D_MAR_PNMI_2012_PYR_3857_WMSR', [48.136, -5.053], [48.569, -4.258]),
+    // Golfe du Morbihan (dalle dediee, absente de BZH 2018-2021)
+    makeLayer('L3D_MAR_MORBIHAN_2015_PYR_3857_WMSR', [47.515, -2.995], [47.655, -2.685]),
+    // Estuaire de la Rance (suffixe _WMSR_3857, convention differente)
+    makeLayer('L3D_LIDAR_RANCE_2019_WMSR_3857', [48.454, -2.064], [48.631, -1.900]),
+    // Plateaux Roches Douvres / Barnouic au large des Cotes-d'Armor (_WMSR_3857)
+    makeLayer('L3D_LIDAR_ROCHES_DOUVRES_BARNOUIC_2022_WMSR_3857', [49.004, -2.874], [49.131, -2.768]),
     // Normandie + Hauts-de-France
-    makeLayer('L3D_MAR_NHDF_2016_2018_PYR_3857_WMSR', [48.57, -1.98], [51.17,  2.96]),
+    makeLayer('L3D_MAR_NHDF_2016_2018_PYR_3857_WMSR', [48.570, -1.978], [51.174,  2.962]),
     // Nouvelle-Aquitaine
     makeLayer('LITTO3D_NAQ_2020_2022_PYR_3857_WMSR', [43.30, -1.85], [46.30, -0.95]),
     // Languedoc-Roussillon
