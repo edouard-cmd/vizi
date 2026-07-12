@@ -6293,6 +6293,28 @@ function invalidateChainCache() {
   _satelliteV4Cache = {};
 }
 
+// ============================================================
+// SOURCE DE VAGUE UNIFIÉE (point d'entrée unique)
+// ------------------------------------------------------------
+// Le tableau Conditions affiche h.wave_height (AROME 1.3km / ARPEGE),
+// qui résout la mer de vent near-shore des baies à fetch court
+// (baie de Seine, etc.). Le modèle global Marine (S_spotMarineCache,
+// maille ~8km) sous-résout ces cellules côtières et renvoie une houle
+// quasi nulle : le moteur de resuspension ne brassait donc rien malgré
+// une vraie mer affichée à l'écran, et décantait sur le satellite.
+// On prend la hauteur AROME en priorité (le MÊME champ que l'UI) et on
+// ne retombe sur le Marine que si AROME est absent ou nul. Période et
+// courant restent lus depuis le Marine (AROME ne fournit pas la période
+// de houle). Consommé par _computeEquilibriumConcentrationAt (voie
+// satellite) ET par la voie chaîne : une seule source de vérité vague.
+// ============================================================
+function _bestWaveHeight(h, kIdx, marineHs) {
+  var aromeHs = (h && h.wave_height && typeof h.wave_height[kIdx] === 'number')
+    ? h.wave_height[kIdx] : null;
+  if (aromeHs !== null && isFinite(aromeHs) && aromeHs > 0) return aromeHs;
+  return marineHs || 0;
+}
+
 function computeVisibilityScore_V4(h, idx, depth, lat, lon) {
   // ----- Garde-fous d'entrée -----
   // Mêmes pré-conditions que visScoreV2 pour compatibilité signature
@@ -6665,7 +6687,8 @@ var sediment = S._spotSediment;
     }
   }
 
-  var Hs = S_spotMarineCache.wave_height[marineIdx] || 0;
+  // Hs via source unifiée : AROME 1.3km (h) prioritaire, Marine en repli
+  var Hs = _bestWaveHeight(h, idx, S_spotMarineCache.wave_height[marineIdx]);
   var Tp = S_spotMarineCache.wave_period ? (S_spotMarineCache.wave_period[marineIdx] || 0) : 0;
   var U = S_spotMarineCache.ocean_current_velocity ? (S_spotMarineCache.ocean_current_velocity[marineIdx] || 0) : 0;
   var waveDir = S_spotMarineCache.wave_direction ? S_spotMarineCache.wave_direction[marineIdx] : null;
@@ -7448,7 +7471,8 @@ function _computeEquilibriumConcentrationAt(h, k, depth_lat, lat, lon, sediment)
   }
   if (bestDelta > 1800000) return null;  // décalage > 30 min
 
-  var Hs = S_spotMarineCache.wave_height[marineIdx] || 0;
+  // Hs via source unifiée : AROME 1.3km (h) prioritaire, Marine en repli
+  var Hs = _bestWaveHeight(h, k, S_spotMarineCache.wave_height[marineIdx]);
   var Tp = S_spotMarineCache.wave_period ? (S_spotMarineCache.wave_period[marineIdx] || 0) : 0;
   var U = S_spotMarineCache.ocean_current_velocity ? (S_spotMarineCache.ocean_current_velocity[marineIdx] || 0) : 0;
   var waveDir = S_spotMarineCache.wave_direction ? S_spotMarineCache.wave_direction[marineIdx] : null;
