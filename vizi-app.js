@@ -12623,6 +12623,23 @@ html += '<div style="overflow-x:auto;">';
   (function() {
     var visRow = '<tr class="vz-cond-row-vis"><td class="vz-cond-rowlabel">Visibilité</td>';
     var cursor = 0;
+    // ----- Marée du tableau injectée dans le calcul de profondeur -----
+    // Le moteur reconstitue la profondeur à chaque heure via depthAtTime,
+    // qui lit le cache marée GLOBAL (celui du drawer, vide ici). Sans
+    // marée, il retombe sur le LAT brut (~0.15m sur estran) qui passe
+    // sous le garde 0.5m et annule toute resuspension. On prête donc
+    // temporairement au global les points marée du tableau (même shape
+    // {time, height}) le temps du calcul, puis on restaure. Swap
+    // synchrone borné par try/finally : aucun état corrompu ne survit.
+    var _tidesSave = (typeof TIDES !== 'undefined') ? TIDES.data : undefined;
+    var _tidesSwapped = false;
+    if (typeof TIDES !== 'undefined' && VZ_SHEET.data.tides &&
+        VZ_SHEET.data.tides.points && VZ_SHEET.data.tides.points.length) {
+      TIDES.data = VZ_SHEET.data.tides.points;
+      _depthAtTimeCache = {};
+      _tidesSwapped = true;
+    }
+    try {
     dayGroups.forEach(function(g, gIdx) {
       var first = cursor;
       var last = cursor + g.count - 1;
@@ -12650,6 +12667,9 @@ html += '<div style="overflow-x:auto;">';
     });
     visRow += '</tr>';
     html += visRow;
+    } finally {
+      if (_tidesSwapped) { TIDES.data = _tidesSave; _depthAtTimeCache = {}; }
+    }
   })();
 // Bande marée : courbe alignée sur les colonnes + PM/BM (heures).
   // Le coef est desormais affiché une fois par jour dans l'en-tête (header jours).
