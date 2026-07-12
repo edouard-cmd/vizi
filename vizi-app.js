@@ -7690,23 +7690,19 @@ function propagate0D(C_sat_kg_m3, dateSatISO, h, idxTarget, depth, lat, lon, sed
     return null;
   }
 
-// ----- Garde-fou domaine validité : fenêtre max 36h -----
-  // Au-delà, le modèle 0D Krone diverge en régime advectif fort
-  // (vive-eau + vent persistant). Source : Soulsby 1997 ch.9 §3.
-  // On retourne C_sat inchangé (mesure terrain fiable) avec un
-  // warning, plutôt que de propager dans un domaine où le modèle
-  // explose.
-  var n_steps_max = idxTarget - idxStart;
-  if (n_steps_max > 36) {
-    warnings.push('Mesure satellite trop ancienne (' + n_steps_max + 
-      'h) pour une propagation 0D fiable. Affichage de la mesure terrain ' +
-      'sans dérive. Modèle Krone limité à 36h par construction.');
-    return _buildPropagationResult(
-      C_sat_kg_m3, C_sat_kg_m3, 0,
-      lat, lon, sediment,
-      'Propagation skippée (fenêtre > 36h)', warnings, []
-    );
-  }
+  // ----- Borne physique de concentration (anti-divergence) -----
+  // On ne gèle plus la propagation au-delà de 36h. Le schéma de Krone
+  // C = E(1-decay) + C.decay est une combinaison convexe : C reste
+  // borné entre C_sat et E tant que E est borné. La divergence
+  // historique venait de E (Rouse hors domaine, cf. Soulsby 1997 ch.9,
+  // Le Hir 2011), pas du schéma. On borne donc E et C à une
+  // concentration côtière maximale plausible, ce qui laisse la
+  // propagation intégrer tout l'historique vent/vagues depuis la photo
+  // satellite (passé pour "maintenant", futur pour les échéances du
+  // tableau). L'honnêteté épistémique est portée par computeConfidence
+  // (F1 âge photo + F3 variabilité du forçage), qui s'effondre quand la
+  // fenêtre s'allonge, pas par un gel qui affichait une visi périmée.
+  var C_MAX_KG_M3 = 5.0;  // plafond turbidité côtière (eau très chargée)
 
   // ----- Boucle d'intégration horaire -----
   var C_current = C_sat_kg_m3;
@@ -7728,10 +7724,12 @@ function propagate0D(C_sat_kg_m3, dateSatISO, h, idxTarget, depth, lat, lon, sed
     // Calcul E(k) via chaîne 1-6 (réutilise fonction existante de Brique 9)
     var E_k = _computeEquilibriumConcentrationAt(h, k, depth, lat, lon, sediment);
     if (E_k === null) E_k = 0;  // pré-conditions non satisfaites → pas d'érosion ce pas
+    if (E_k > C_MAX_KG_M3) E_k = C_MAX_KG_M3;  // borne anti-divergence (Rouse hors domaine)
 
     // Solution analytique Krone sur 1h
     var decay = Math.exp(-w_s * 3600 / depth_k);
     C_current = E_k * (1 - decay) + C_current * decay;
+    if (C_current > C_MAX_KG_M3) C_current = C_MAX_KG_M3;  // borne défensive
 
     C_evolution.push({ idx: k + 1, time: h.time[k + 1], C: C_current, E: E_k });
   }
