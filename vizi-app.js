@@ -2067,6 +2067,122 @@ function vzWindFlowEnsure() {
     });
 }
 
+// --- A2 : curseur temporel (jour/heure, lecture auto) ---
+// Panneau calque sur vzRainCtrl. Les frames sont deja chargees (S.windFrames) :
+// le defilement est purement local (vzWindShowFrame_), aucun reseau.
+var VZ_WIND_JOURS = ['Dim.', 'Lun.', 'Mar.', 'Mer.', 'Jeu.', 'Ven.', 'Sam.'];
+var VZ_WIND_ANIM_MS = 550;
+
+// Parse un time de frame (UTC, "YYYY-MM-DDTHH:MM") en Date.
+function vzWindDate_(iso) {
+  if (iso && iso.length === 16) iso += ':00';
+  return new Date(iso + 'Z');
+}
+
+// Libelle d'une frame : "Auj. 14h" / "Dem. 03h" / "Ven. 12h" (heure locale).
+function vzWindFrameLabel_(iso) {
+  var d = vzWindDate_(iso);
+  var now = new Date();
+  var dayDiff = Math.round(
+    (new Date(d.getFullYear(), d.getMonth(), d.getDate())
+     - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
+  var jour;
+  if (dayDiff === 0) jour = 'Auj.';
+  else if (dayDiff === 1) jour = 'Dem.';
+  else jour = VZ_WIND_JOURS[d.getDay()];
+  var h = d.getHours();
+  return jour + ' ' + (h < 10 ? '0' + h : h) + 'h';
+}
+
+// Cree (une fois) le panneau curseur et le renvoie.
+function vzWindEnsureCtrl_() {
+  var pan = document.getElementById('vzWindCtrl');
+  if (pan) return pan;
+  if (!document.getElementById('vzWindCtrlStyle')) {
+    var st = document.createElement('style');
+    st.id = 'vzWindCtrlStyle';
+    st.textContent =
+      "#vzWindCtrl{position:fixed;bottom:96px;left:50%;transform:translateX(-50%);z-index:1200;display:none;align-items:center;gap:12px;padding:9px 14px;max-width:calc(100vw - 28px);background:rgba(10,21,32,0.88);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(77,212,168,0.4);border-radius:14px;box-shadow:0 8px 28px rgba(4,16,28,0.45);font-family:'Inter',sans-serif;}"
+    + "#vzWindCtrl.on{display:flex;}"
+    + "#vzWindPlay{flex:0 0 auto;width:34px;height:34px;border:0;border-radius:9px;background:#4DD4A8;cursor:pointer;display:flex;align-items:center;justify-content:center;}"
+    + "#vzWindPlay.playing{background:#E89B3C;}"
+    + "#vzWindPlay svg{width:16px;height:16px;fill:#072018;}"
+    + "#vzWindSliderWrap{position:relative;flex:1 1 220px;min-width:150px;display:flex;align-items:center;}"
+    + "#vzWindSlider{width:100%;accent-color:#4DD4A8;margin:0;}"
+    + "#vzWindTickNow,#vzWindTick48{position:absolute;top:-2px;width:2px;height:calc(100% + 4px);pointer-events:none;}"
+    + "#vzWindTickNow{background:#E8F0F4;}"
+    + "#vzWindTick48{background:rgba(232,155,60,0.85);}"
+    + "#vzWindLabel{flex:0 0 auto;min-width:78px;text-align:center;color:#E8F0F4;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;}"
+    + "#vzWindNow{flex:0 0 auto;border:1px solid rgba(77,212,168,0.4);background:transparent;color:#4DD4A8;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;padding:6px 10px;border-radius:8px;cursor:pointer;}";
+    (document.head || document.documentElement).appendChild(st);
+  }
+  pan = document.createElement('div');
+  pan.id = 'vzWindCtrl';
+  pan.innerHTML =
+    '<button id="vzWindPlay" title="Lecture"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg></button>'
+  + '<span id="vzWindSliderWrap"><input type="range" id="vzWindSlider" min="0" max="0" value="0" step="1">'
+  + '<span id="vzWindTick48"></span><span id="vzWindTickNow"></span></span>'
+  + '<span id="vzWindLabel">--</span>'
+  + '<button id="vzWindNow" title="Revenir a maintenant">Maintenant</button>';
+  document.body.appendChild(pan);
+  document.getElementById('vzWindSlider').addEventListener('input', function(){ vzWindOnSlider_(+this.value); });
+  document.getElementById('vzWindPlay').addEventListener('click', vzWindPlayStop_);
+  document.getElementById('vzWindNow').addEventListener('click', vzWindGoNow_);
+  return pan;
+}
+
+// Place les reperes "maintenant" (blanc) et "bascule 1h->3h" (orange).
+function vzWindPlaceTicks_() {
+  if (!S.windFrames || S.windFrames.length < 2) return;
+  var n = S.windFrames.length - 1;
+  var nowEl = document.getElementById('vzWindTickNow');
+  if (nowEl) nowEl.style.left = (vzWindNowIndex_() / n * 100) + '%';
+  var sw = -1;
+  for (var i = 1; i < S.windFrames.length; i++) {
+    var gap = vzWindDate_(S.windFrames[i].time).getTime() - vzWindDate_(S.windFrames[i-1].time).getTime();
+    if (gap > 3700000) { sw = i; break; }   // premier saut > ~1h = passage au pas 3h
+  }
+  var swEl = document.getElementById('vzWindTick48');
+  if (swEl) {
+    if (sw > 0) { swEl.style.display = 'block'; swEl.style.left = (sw / n * 100) + '%'; }
+    else swEl.style.display = 'none';
+  }
+}
+
+// Maj du libelle + position du slider selon S.windPos.
+function vzWindSyncCtrl_() {
+  if (!S.windFrames) return;
+  var sl = document.getElementById('vzWindSlider');
+  var lb = document.getElementById('vzWindLabel');
+  if (sl) { sl.max = S.windFrames.length - 1; sl.value = S.windPos; }
+  if (lb) {
+    var txt = vzWindFrameLabel_(S.windFrames[S.windPos].time);
+    if (S.windPos === vzWindNowIndex_()) txt += ' \u00b7 maintenant';
+    lb.textContent = txt;
+  }
+}
+
+function vzWindOnSlider_(v) { vzWindStop_(); vzWindShowFrame_(v); vzWindSyncCtrl_(); }
+
+function vzWindGoNow_() { vzWindStop_(); vzWindShowFrame_(vzWindNowIndex_()); vzWindSyncCtrl_(); }
+
+function vzWindStop_() {
+  if (S.windTimer) { clearInterval(S.windTimer); S.windTimer = null; }
+  var b = document.getElementById('vzWindPlay');
+  if (b) b.classList.remove('playing');
+}
+
+function vzWindPlayStop_() {
+  if (S.windTimer) { vzWindStop_(); return; }
+  if (!S.windFrames || !S.windFrames.length) return;
+  var b = document.getElementById('vzWindPlay');
+  if (b) b.classList.add('playing');
+  S.windTimer = setInterval(function(){
+    vzWindShowFrame_((S.windPos + 1) % S.windFrames.length);
+    vzWindSyncCtrl_();
+  }, VZ_WIND_ANIM_MS);
+}
+
 function toggleLayer(type) {
   if (type === 'heatmap') {
     S.showHeatmap = !S.showHeatmap;
@@ -2116,12 +2232,18 @@ function toggleLayer(type) {
         if (!S.showWindFlow) return;   // re-toggle off pendant le fetch
         if (S.windColorLayer && !S.map.hasLayer(S.windColorLayer)) S.windColorLayer.addTo(S.map);
         if (!S.map.hasLayer(layer)) layer.addTo(S.map);
+        vzWindEnsureCtrl_().classList.add('on');   // A2 : curseur temporel
+        vzWindPlaceTicks_();
+        vzWindSyncCtrl_();
       }).catch(function(e){
         console.warn('[wind] couche vent indisponible', e);
         S.showWindFlow = false;
         if (_rowWind) _rowWind.classList.remove('active');
       });
     } else {
+      vzWindStop_();
+      var _wc = document.getElementById('vzWindCtrl');
+      if (_wc) _wc.classList.remove('on');
       if (S.windFlowLayer && S.map.hasLayer(S.windFlowLayer)) S.map.removeLayer(S.windFlowLayer);
       if (S.windColorLayer && S.map.hasLayer(S.windColorLayer)) S.map.removeLayer(S.windColorLayer);
     }
