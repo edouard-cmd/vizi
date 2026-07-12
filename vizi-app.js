@@ -2344,8 +2344,8 @@ function vzZsdEnsureLegend_() {
   leg.innerHTML =
     '<span class="vzzl-cap">VISI SATELLITE</span>'
   + '<span class="vzzl-scale"><span class="vzzl-bar"></span>'
-  + '<span class="vzzl-ticks"><span style="left:0">Clair</span>'
-  + '<span style="right:0">Chargé</span></span></span>'
+  + '<span class="vzzl-ticks"><span style="left:0">Chargé</span>'
+  + '<span style="right:0">Clair</span></span></span>'
   + '<span class="vzzl-note">mesure J-2 · indicatif</span>';
   document.body.appendChild(leg);
   return leg;
