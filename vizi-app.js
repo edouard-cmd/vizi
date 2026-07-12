@@ -1947,7 +1947,9 @@ function vzWindEnsureColorLayer_(i) {
   if (!S.windFrames || !S.windHeader) return;
   var h = S.windHeader, f = S.windFrames[i];
   var nx = h.nx, ny = h.ny;
-  var CELL = 26;                          // px par cellule de grille
+  var CELL = (window.innerWidth <= 768) ? 16 : 26;   // px/cellule ; plus fin sur mobile
+                                                     // = repaint bien plus leger (canvas
+                                                     // etire+lisse, aucune perte visible)
   var W = (nx - 1) * CELL, H = (ny - 1) * CELL;
 
   var cv = document.createElement('canvas');
@@ -2079,19 +2081,12 @@ function vzWindDate_(iso) {
   return new Date(iso + 'Z');
 }
 
-// Libelle d'une frame : "Auj. 14h" / "Dem. 03h" / "Ven. 12h" (heure locale).
+// Libelle d'une frame : "Lundi 8 juin, 14h" (jour en toutes lettres, heure locale).
 function vzWindFrameLabel_(iso) {
   var d = vzWindDate_(iso);
-  var now = new Date();
-  var dayDiff = Math.round(
-    (new Date(d.getFullYear(), d.getMonth(), d.getDate())
-     - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 86400000);
-  var jour;
-  if (dayDiff === 0) jour = 'Auj.';
-  else if (dayDiff === 1) jour = 'Dem.';
-  else jour = VZ_WIND_JOURS[d.getDay()];
-  var h = d.getHours();
-  return jour + ' ' + (h < 10 ? '0' + h : h) + 'h';
+  var jourDate = d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  jourDate = jourDate.charAt(0).toUpperCase() + jourDate.slice(1);   // "Lundi 8 juin"
+  return jourDate + ', ' + d.getHours() + 'h';
 }
 
 // Cree (une fois) le panneau curseur et le renvoie.
@@ -2107,13 +2102,16 @@ function vzWindEnsureCtrl_() {
     + "#vzWindPlay{flex:0 0 auto;width:34px;height:34px;border:0;border-radius:9px;background:#4DD4A8;cursor:pointer;display:flex;align-items:center;justify-content:center;}"
     + "#vzWindPlay.playing{background:#E89B3C;}"
     + "#vzWindPlay svg{width:16px;height:16px;fill:#072018;}"
-    + "#vzWindSliderWrap{position:relative;flex:1 1 220px;min-width:150px;display:flex;align-items:center;}"
+    + "#vzWindSliderWrap{position:relative;flex:1 1 130px;min-width:80px;display:flex;align-items:center;}"
     + "#vzWindSlider{width:100%;accent-color:#4DD4A8;margin:0;}"
     + "#vzWindTickNow,#vzWindTick48{position:absolute;top:-2px;width:2px;height:calc(100% + 4px);pointer-events:none;}"
     + "#vzWindTickNow{background:#E8F0F4;}"
     + "#vzWindTick48{background:rgba(232,155,60,0.85);}"
-    + "#vzWindLabel{flex:0 0 auto;min-width:78px;text-align:center;color:#E8F0F4;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;}"
-    + "#vzWindNow{flex:0 0 auto;border:1px solid rgba(77,212,168,0.4);background:transparent;color:#4DD4A8;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;padding:6px 10px;border-radius:8px;cursor:pointer;}";
+    + "#vzWindLabel{flex:0 0 auto;white-space:nowrap;text-align:center;color:#E8F0F4;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;}"
+    + "#vzWindNow{flex:0 0 auto;border:1px solid rgba(77,212,168,0.4);background:transparent;color:#4DD4A8;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;padding:6px 10px;border-radius:8px;cursor:pointer;}"
+    // Mobile : pleine largeur, remonte AU-DESSUS du FAB sonar (bas droite,
+    // sommet ~96px) pour ne pas le percuter. Centrage desktop annule.
+    + "@media (max-width:768px){#vzWindCtrl{left:10px;right:10px;bottom:112px;transform:none;gap:9px;padding:8px 11px;}#vzWindNow{padding:6px 9px;font-size:11px;}#vzWindLabel{font-size:12px;}}";
     (document.head || document.documentElement).appendChild(st);
   }
   pan = document.createElement('div');
@@ -2155,28 +2153,50 @@ function vzWindSyncCtrl_() {
   var sl = document.getElementById('vzWindSlider');
   var lb = document.getElementById('vzWindLabel');
   if (sl) { sl.max = S.windFrames.length - 1; sl.value = S.windPos; }
-  if (lb) {
-    var txt = vzWindFrameLabel_(S.windFrames[S.windPos].time);
-    if (S.windPos === vzWindNowIndex_()) txt += ' \u00b7 maintenant';
-    lb.textContent = txt;
-  }
+  if (lb) lb.textContent = vzWindFrameLabel_(S.windFrames[S.windPos].time);
 }
 
 function vzWindOnSlider_(v) { vzWindStop_(); vzWindShowFrame_(v); vzWindSyncCtrl_(); }
 
 function vzWindGoNow_() { vzWindStop_(); vzWindShowFrame_(vzWindNowIndex_()); vzWindSyncCtrl_(); }
 
+// Bascule l'icone du bouton entre lecture (triangle) et pause (deux barres).
+function vzWindSetPlayIcon_(playing) {
+  var b = document.getElementById('vzWindPlay');
+  if (!b) return;
+  b.classList.toggle('playing', playing);
+  b.innerHTML = playing
+    ? '<svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zM14 5h4v14h-4z"></path></svg>'
+    : '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>';
+  b.title = playing ? 'Pause' : 'Lecture';
+}
+
+// Garde les traits animes PENDANT le pan (comportement Windy). Le plugin
+// leaflet-velocity stoppe l'animation au 'dragstart' (self._windy.stop) et la
+// relance au 'dragend'. On retire ce seul ecouteur : le canvas suit deja la
+// carte via le mapPane, donc les particules continuent de filer pendant qu'on
+// deplace. On CONSERVE le stop au zoom (l'echelle change, redessin obligatoire).
+// Garde-fou : si l'interne du plugin change, on echoue en silence -> retour au
+// comportement fige d'origine, rien ne casse. _windy est cree en asynchrone
+// (setTimeout interne), d'ou le petit polling.
+function vzWindKeepAnimatedOnPan_(tries) {
+  var vl = S.windFlowLayer;
+  if (vl && vl._windy && typeof vl._windy.stop === 'function') {
+    try { S.map.off('dragstart', vl._windy.stop); } catch (e) {}
+    return;
+  }
+  if (tries > 0) setTimeout(function(){ vzWindKeepAnimatedOnPan_(tries - 1); }, 200);
+}
+
 function vzWindStop_() {
   if (S.windTimer) { clearInterval(S.windTimer); S.windTimer = null; }
-  var b = document.getElementById('vzWindPlay');
-  if (b) b.classList.remove('playing');
+  vzWindSetPlayIcon_(false);
 }
 
 function vzWindPlayStop_() {
   if (S.windTimer) { vzWindStop_(); return; }
   if (!S.windFrames || !S.windFrames.length) return;
-  var b = document.getElementById('vzWindPlay');
-  if (b) b.classList.add('playing');
+  vzWindSetPlayIcon_(true);
   S.windTimer = setInterval(function(){
     vzWindShowFrame_((S.windPos + 1) % S.windFrames.length);
     vzWindSyncCtrl_();
@@ -2232,6 +2252,7 @@ function toggleLayer(type) {
         if (!S.showWindFlow) return;   // re-toggle off pendant le fetch
         if (S.windColorLayer && !S.map.hasLayer(S.windColorLayer)) S.windColorLayer.addTo(S.map);
         if (!S.map.hasLayer(layer)) layer.addTo(S.map);
+        vzWindKeepAnimatedOnPan_(12);              // traits animes pendant le pan
         vzWindEnsureCtrl_().classList.add('on');   // A2 : curseur temporel
         vzWindPlaceTicks_();
         vzWindSyncCtrl_();
