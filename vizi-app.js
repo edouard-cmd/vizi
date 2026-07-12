@@ -6350,15 +6350,33 @@ function _bestWavePeriod(marineCache, marineIdx, Hs) {
   return 0;
 }
 
-function computeVisibilityScore_V4(h, idx, depth, lat, lon) {
+function computeVisibilityScore_V4(h, idx, depth, lat, lon, opts) {
   // ----- Garde-fous d'entrée -----
   // Mêmes pré-conditions que visScoreV2 pour compatibilité signature
   if (!h || !h.windspeed_10m || idx < 0 || idx >= h.time.length) {
     return _buildEmpiricalResult(h, idx, depth, lat, lon, 'inputs invalides');
   }
 
+  // ----- Injection de contexte (opts) -----
+  // Le drawer appelle sans opts : le moteur lit les globals du clic
+  // (S_spotSatelliteCache, S._spotSediment). Le tableau Conditions, qui
+  // a son propre système de données (VZ_SHEET.data) et ne peuple pas ces
+  // globals, injecte satellite + sédiment ici. Un seul moteur, deux
+  // consommateurs, une seule physique.
+  opts = opts || {};
+  var _sediment = opts.sediment || (typeof S !== 'undefined' ? S._spotSediment : null);
+  var _satCache;
+  if (opts.satellite) {
+    _satCache = { lat: lat, lon: lon, data: opts.satellite };
+  } else {
+    _satCache = (typeof S_spotSatelliteCache !== 'undefined') ? S_spotSatelliteCache : null;
+  }
+
   // ----- Cache mémo -----
-  var cacheKey = lat.toFixed(4) + '|' + lon.toFixed(4) + '|' + idx + '|' + (depth || 0).toFixed(2);
+  // Discriminant de source : les entrées tableau (satellite/sédiment
+  // injectés) ne doivent pas télescoper les entrées drawer (globals).
+  var _src = opts.satellite ? 'sheet' : 'drawer';
+  var cacheKey = lat.toFixed(4) + '|' + lon.toFixed(4) + '|' + idx + '|' + (depth || 0).toFixed(2) + '|' + _src;
   if (_chainCache[cacheKey]) return _chainCache[cacheKey];
 // ============================================================
   // SPRINT 2 — VOIE SATELLITE PROPAGÉE (priorité 1)
@@ -6378,23 +6396,23 @@ function computeVisibilityScore_V4(h, idx, depth, lat, lon) {
   //   - propagate0D : Krone 1962, Mehta 1989, Soulsby 1997 ch.9
   //   - computeConfidence : raisonnement multifactoriel V1
   // ============================================================
-  if (typeof S_spotSatelliteCache !== 'undefined' && S_spotSatelliteCache &&
-      typeof S_spotSatelliteCache.lat === 'number' && typeof S_spotSatelliteCache.lon === 'number' &&
-      Math.abs(S_spotSatelliteCache.lat - lat) < 0.01 &&
-      Math.abs(S_spotSatelliteCache.lon - lon) < 0.01 &&
-      S_spotSatelliteCache.data && S_spotSatelliteCache.data.status &&
-(S_spotSatelliteCache.data.status === 'ok' ||
-       S_spotSatelliteCache.data.status === 'cloudy_J1' ||
-       S_spotSatelliteCache.data.status === 'cloudy_J2') &&
+  if (_satCache &&
+      typeof _satCache.lat === 'number' && typeof _satCache.lon === 'number' &&
+      Math.abs(_satCache.lat - lat) < 0.01 &&
+      Math.abs(_satCache.lon - lon) < 0.01 &&
+      _satCache.data && _satCache.data.status &&
+(_satCache.data.status === 'ok' ||
+       _satCache.data.status === 'cloudy_J1' ||
+       _satCache.data.status === 'cloudy_J2') &&
       // Sprint 3 : check fraîcheur 72h. Au-delà, fall-through vers Coriolis.
-      (typeof S_spotSatelliteCache.data.age_hours !== 'number' ||
-       S_spotSatelliteCache.data.age_hours <= 72)) {
+      (typeof _satCache.data.age_hours !== 'number' ||
+       _satCache.data.age_hours <= 72)) {
 
     // ----- Cache satellite : early return si hit -----
     if (_satelliteV4Cache[cacheKey]) return _satelliteV4Cache[cacheKey];
 
-    var satResult = S_spotSatelliteCache.data;
-    var sediment = S._spotSediment;
+    var satResult = _satCache.data;
+    var sediment = _sediment;
 
     // ----- Étape A : Inversion Beer-Lambert (ZSD → C_kg_m3) -----
     var inversionResult = inverseBeerLambert_ZSDtoConcentration(satResult.value_zsd_m, lat, lon);
@@ -6585,13 +6603,13 @@ function computeVisibilityScore_V4(h, idx, depth, lat, lon) {
   // S._spotSediment est rempli par fetchSedimentType au clic.
   // En race condition (clic avant retour SHOM), S._spotSediment
   // est null → fallback empirical.
-  if (!S._spotSediment) {
+  if (!_sediment) {
     var r1 = _buildEmpiricalResult(h, idx, depth, lat, lon, 'sédiment non chargé');
     _chainCache[cacheKey] = r1;
     return r1;
   }
 
-var sediment = S._spotSediment;
+var sediment = _sediment;
   if (sediment.regime === 'rock') {
     // ============================================================
     // PATCH 8-H : Tentative Mode B amont avant fallback empirical
@@ -12267,18 +12285,24 @@ function loadSheetConditions(spot) {
   var satPromise = (typeof fetchCmemsZSD === 'function')
     ? fetchCmemsZSD(spot.lat, spot.lng).catch(function(){ return null; })
     : Promise.resolve(null);
+  // Sédiment : requis pour que la chaîne de resuspension tourne dans le
+  // tableau (le tableau ne peuple pas S._spotSediment via le clic drawer).
+  var sedimentPromise = (typeof fetchSedimentType === 'function')
+    ? fetchSedimentType(spot.lat, spot.lng).catch(function(){ return null; })
+    : Promise.resolve(null);
 
-  Promise.all([meteoPromise, depthPromise, tidesPromise, satPromise]).then(function(results) {
+  Promise.all([meteoPromise, depthPromise, tidesPromise, satPromise, sedimentPromise]).then(function(results) {
     if (VZ_SHEET.mode !== 'cond') return;
     var meteo = results[0];
     var depth = results[1];
     var tides = results[2];
     var sat = results[3];
+    var sediment = results[4];
     if (!meteo || !meteo.time) {
       document.getElementById('vzSheetBody').innerHTML = '<div class="vz-sheet-loading">Données météo indisponibles</div>';
       return;
     }
-    VZ_SHEET.data = { meteo: meteo, depth: depth, tides: tides, spot: spot, satellite: sat };
+    VZ_SHEET.data = { meteo: meteo, depth: depth, tides: tides, spot: spot, satellite: sat, sediment: sediment };
     renderSheetTable();
     if (typeof vzRenderCondVerdict === 'function') vzRenderCondVerdict();
     if (typeof vzCondScrollIcons === 'function') vzCondScrollIcons();
@@ -12605,36 +12629,23 @@ html += '<div style="overflow-x:auto;">';
       cursor += g.count;
       var cls = (gIdx > 0 ? 'vz-cond-dayboundary ' : '');
       var inner, attrs = '';
-      var isFuture = (first > nowIdx);  // toute la journee est apres maintenant
-      if (isFuture) {
-        var midSlot = slots[Math.floor((first + last) / 2)];
-        var tr = vzVisiTrend(midSlot.i);
-        inner = tr.svg;
-        attrs = ' title="' + tr.label + '"';
-      } else {
-        var refIdx = (nowIdx >= first && nowIdx <= last) ? nowIdx : Math.floor((first + last) / 2);
-        var refSlot = slots[refIdx];
-        var _sat = VZ_SHEET.data.satellite;
-        var title;
-        if (_sat && typeof _sat.visi_plongeur_m === 'number' && isFinite(_sat.visi_plongeur_m) && _sat.visi_plongeur_m > 0 &&
-            (typeof _sat.age_hours !== 'number' || _sat.age_hours <= 72) &&
-            (!_sat.status || _sat.status === 'ok' || _sat.status === 'cloudy_J1' || _sat.status === 'cloudy_J2')) {
-          inner = Math.round(_sat.visi_plongeur_m) + 'm';
-          cls += (_sat.visi_plongeur_m < 1.5 ? 'vz-cond-vis-0'
-            : _sat.visi_plongeur_m < 2.5 ? 'vz-cond-vis-1'
-            : _sat.visi_plongeur_m < 5 ? 'vz-cond-vis-2'
-            : _sat.visi_plongeur_m < 7 ? 'vz-cond-vis-3'
-            : 'vz-cond-vis-4');
-          title = 'Mesure satellite';
-        } else {
-          var sObj = computeVisibilityScore_V4(h, refSlot.i, depth, spot.lat, spot.lng);
-          var vm = (typeof sObj.visi_m === 'number' && isFinite(sObj.visi_m) && sObj.visi_m > 0) ? Math.round(sObj.visi_m) : null;
-          inner = (vm !== null) ? vm + 'm' : visLabel(sObj.score);
-          cls += visClass(sObj.score);
-          title = 'Estimation';
-        }
-        attrs = ' onclick="vzSheetCellClick(\'' + refSlot.t + '\')" title="' + title + '"';
-      }
+      // Chiffre de visibilité pour la journée : on interroge le moteur
+      // unique au créneau de référence. Satellite présent -> propagation
+      // vent+vagues depuis la photo ; sinon -> chaîne 9 briques à l'estime.
+      // On injecte le satellite et le sédiment du tableau (le moteur ne
+      // lit plus les globals du drawer ici). Chiffres sur toutes les
+      // colonnes, aujourd'hui comme les jours futurs.
+      var refIdx = (nowIdx >= first && nowIdx <= last) ? nowIdx : Math.floor((first + last) / 2);
+      var refSlot = slots[refIdx];
+      var sObj = computeVisibilityScore_V4(h, refSlot.i, depth, spot.lat, spot.lng,
+        { satellite: VZ_SHEET.data.satellite, sediment: VZ_SHEET.data.sediment });
+      var vm = (typeof sObj.visi_m === 'number' && isFinite(sObj.visi_m) && sObj.visi_m > 0)
+        ? Math.round(sObj.visi_m) : null;
+      inner = (vm !== null) ? vm + 'm' : visLabel(sObj.score);
+      cls += visClass(sObj.score);
+      var title = (sObj.engine === 'satellite_propagated')
+        ? 'Satellite + propagation vent/vagues' : 'Estimation 9 briques';
+      attrs = ' onclick="vzSheetCellClick(\'' + refSlot.t + '\')" title="' + title + '"';
       visRow += '<td class="' + cls.trim() + '" colspan="' + g.count + '"' + attrs + '>' + inner + '</td>';
     });
     visRow += '</tr>';
