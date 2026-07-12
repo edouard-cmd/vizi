@@ -2332,7 +2332,7 @@ function vzZsdEnsureLegend_() {
     + "#vzZsdLegend.on{display:flex;}"
     + ".vzzl-cap{color:#4DD4A8;font-size:10px;font-weight:700;letter-spacing:1.5px;white-space:nowrap;}"
     + ".vzzl-scale{display:flex;flex-direction:column;gap:3px;width:160px;}"
-    + ".vzzl-bar{height:7px;border-radius:4px;background:linear-gradient(to right,#C94A3D 0%,#E89B3C 25%,#D8C84A 50%,#4DD4A8 78%,#1A6B5D 100%);}"
+    + ".vzzl-bar{height:7px;border-radius:4px;background:linear-gradient(to right,#440154 0%,#3b528b 30%,#21918c 55%,#5ec962 80%,#fde725 100%);}"
     + ".vzzl-ticks{position:relative;height:10px;color:#8FA6B8;font-family:'IBM Plex Mono',monospace;font-size:9px;line-height:1;}"
     + ".vzzl-ticks span{position:absolute;top:0;}"
     + ".vzzl-note{color:#5C7285;font-size:9px;font-family:'IBM Plex Mono',monospace;white-space:nowrap;}"
@@ -2341,18 +2341,12 @@ function vzZsdEnsureLegend_() {
   }
   leg = document.createElement('div');
   leg.id = 'vzZsdLegend';
-  var ticks = '';
-  [0, 2, 4, 6, 8].forEach(function(m) {
-    var pct = (m / 8) * 100;
-    var style = (m === 8) ? 'right:0' : 'left:' + pct + '%';
-    var label = (m === 8) ? '8+' : String(m);
-    ticks += '<span style="' + style + '">' + label + '</span>';
-  });
   leg.innerHTML =
-    '<span class="vzzl-cap">VISI SATELLITE (m)</span>'
+    '<span class="vzzl-cap">VISI SATELLITE</span>'
   + '<span class="vzzl-scale"><span class="vzzl-bar"></span>'
-  + '<span class="vzzl-ticks">' + ticks + '</span></span>'
-  + '<span class="vzzl-note">mesure J-2</span>';
+  + '<span class="vzzl-ticks"><span style="left:0">Clair</span>'
+  + '<span style="right:0">Chargé</span></span></span>'
+  + '<span class="vzzl-note">mesure J-2 · indicatif</span>';
   document.body.appendChild(leg);
   return leg;
 }
