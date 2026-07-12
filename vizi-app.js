@@ -6315,6 +6315,41 @@ function _bestWaveHeight(h, kIdx, marineHs) {
   return marineHs || 0;
 }
 
+// ============================================================
+// PÉRIODE DE HOULE UNIFIÉE (point d'entrée unique)
+// ------------------------------------------------------------
+// L'orbitale au fond a besoin d'une période non nulle : sans elle,
+// u_b = 0 et le brassage est nul même sous une vraie mer de vent.
+// Le modèle Marine global renvoie souvent une wave_period nulle dans
+// les baies (mer de vent courte non résolue). On cascade donc :
+// période totale, sinon période de pic de mer de vent, sinon période
+// de mer de vent, sinon période de pic de houle, sinon une estimation
+// depuis la hauteur (relation de cambrure mer-de-vent Tp ≈ 3.5·√Hs,
+// bornée 2-8 s). Ainsi une vague AROME non nulle produit toujours une
+// orbitale non nulle. marineIdx peut valoir -1 (Marine absent/ignoré) :
+// dans ce cas on passe directement à l'estimation depuis Hs.
+// L'estimation est un paramètre calibrable par visi_feedback.
+// ============================================================
+function _bestWavePeriod(marineCache, marineIdx, Hs) {
+  function pick(arr) {
+    if (marineCache && arr && marineIdx >= 0) {
+      var v = arr[marineIdx];
+      if (typeof v === 'number' && isFinite(v) && v > 0) return v;
+    }
+    return null;
+  }
+  var tp = pick(marineCache && marineCache.wave_period)
+        || pick(marineCache && marineCache.wind_wave_peak_period)
+        || pick(marineCache && marineCache.wind_wave_period)
+        || pick(marineCache && marineCache.swell_wave_peak_period);
+  if (tp) return tp;
+  if (Hs && Hs > 0) {
+    var est = 3.5 * Math.sqrt(Hs);       // cambrure mer-de-vent ~1/20
+    return Math.max(2, Math.min(8, est));
+  }
+  return 0;
+}
+
 function computeVisibilityScore_V4(h, idx, depth, lat, lon) {
   // ----- Garde-fous d'entrée -----
   // Mêmes pré-conditions que visScoreV2 pour compatibilité signature
@@ -6689,7 +6724,7 @@ var sediment = S._spotSediment;
 
   // Hs via source unifiée : AROME 1.3km (h) prioritaire, Marine en repli
   var Hs = _bestWaveHeight(h, idx, S_spotMarineCache.wave_height[marineIdx]);
-  var Tp = S_spotMarineCache.wave_period ? (S_spotMarineCache.wave_period[marineIdx] || 0) : 0;
+  var Tp = _bestWavePeriod(S_spotMarineCache, marineIdx, Hs);
   var U = S_spotMarineCache.ocean_current_velocity ? (S_spotMarineCache.ocean_current_velocity[marineIdx] || 0) : 0;
   var waveDir = S_spotMarineCache.wave_direction ? S_spotMarineCache.wave_direction[marineIdx] : null;
   var currentDir = S_spotMarineCache.ocean_current_direction ? S_spotMarineCache.ocean_current_direction[marineIdx] : null;
@@ -7459,24 +7494,39 @@ function computeKineticConcentration(h, idxNow, depth_lat, lat, lon, sediment, C
 // créneau k (donnée marine manquante, profondeur insuffisante, etc).
 // Dans ce cas, Brique 9 saute ce créneau sans planter.
 function _computeEquilibriumConcentrationAt(h, k, depth_lat, lat, lon, sediment) {
-  // Pré-condition marine : timestamp aligné dans le cache marine étendu
-  if (!S_spotMarineCache || !S_spotMarineCache.wave_height) return null;
-
-  var targetMs = new Date(h.time[k]).getTime();
+  // ----- Alignement Marine (optionnel) -----
+  // On ne baille plus si le Marine est absent : la mer de vent AROME
+  // (h.wave_height) suffit à faire tourner la resuspension. Le Marine,
+  // quand il est présent et aligné, fournit courant, directions et une
+  // meilleure période ; sinon marineIdx reste à -1 et on s'appuie sur
+  // AROME + période estimée.
+  var marineOk = false;
   var marineIdx = -1;
-  var bestDelta = Infinity;
-  for (var mi = 0; mi < S_spotMarineCache.time.length; mi++) {
-    var d = Math.abs(new Date(S_spotMarineCache.time[mi]).getTime() - targetMs);
-    if (d < bestDelta) { bestDelta = d; marineIdx = mi; }
+  var marineHs = 0;
+  if (S_spotMarineCache && S_spotMarineCache.wave_height && S_spotMarineCache.time) {
+    var targetMs = new Date(h.time[k]).getTime();
+    var bestDelta = Infinity;
+    for (var mi = 0; mi < S_spotMarineCache.time.length; mi++) {
+      var dd = Math.abs(new Date(S_spotMarineCache.time[mi]).getTime() - targetMs);
+      if (dd < bestDelta) { bestDelta = dd; marineIdx = mi; }
+    }
+    if (bestDelta <= 1800000) {          // aligné à moins de 30 min
+      marineOk = true;
+      marineHs = S_spotMarineCache.wave_height[marineIdx];
+    } else {
+      marineIdx = -1;                    // désaligné : on ignore le Marine
+    }
   }
-  if (bestDelta > 1800000) return null;  // décalage > 30 min
 
   // Hs via source unifiée : AROME 1.3km (h) prioritaire, Marine en repli
-  var Hs = _bestWaveHeight(h, k, S_spotMarineCache.wave_height[marineIdx]);
-  var Tp = S_spotMarineCache.wave_period ? (S_spotMarineCache.wave_period[marineIdx] || 0) : 0;
-  var U = S_spotMarineCache.ocean_current_velocity ? (S_spotMarineCache.ocean_current_velocity[marineIdx] || 0) : 0;
-  var waveDir = S_spotMarineCache.wave_direction ? S_spotMarineCache.wave_direction[marineIdx] : null;
-  var currentDir = S_spotMarineCache.ocean_current_direction ? S_spotMarineCache.ocean_current_direction[marineIdx] : null;
+  var Hs = _bestWaveHeight(h, k, marineHs);
+  // Si aucune vague exploitable (ni AROME ni Marine), rien à brasser
+  if (!Hs || Hs <= 0) return null;
+  // Période via source unifiée : Marine si dispo, sinon estimée depuis Hs
+  var Tp = _bestWavePeriod(marineOk ? S_spotMarineCache : null, marineIdx, Hs);
+  var U = (marineOk && S_spotMarineCache.ocean_current_velocity) ? (S_spotMarineCache.ocean_current_velocity[marineIdx] || 0) : 0;
+  var waveDir = (marineOk && S_spotMarineCache.wave_direction) ? S_spotMarineCache.wave_direction[marineIdx] : null;
+  var currentDir = (marineOk && S_spotMarineCache.ocean_current_direction) ? S_spotMarineCache.ocean_current_direction[marineIdx] : null;
 
   var depth_k = depthAtTimeCached(depth_lat, h.time[k]);
   if (depth_k < 0.5) return null;
