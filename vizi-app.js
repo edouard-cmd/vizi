@@ -2111,7 +2111,13 @@ function vzWindEnsureCtrl_() {
     + "#vzWindNow{flex:0 0 auto;border:1px solid rgba(77,212,168,0.4);background:transparent;color:#4DD4A8;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;padding:6px 10px;border-radius:8px;cursor:pointer;}"
     // Mobile : pleine largeur, remonte AU-DESSUS du FAB sonar (bas droite,
     // sommet ~96px) pour ne pas le percuter. Centrage desktop annule.
-    + "@media (max-width:768px){#vzWindCtrl{left:10px;right:10px;bottom:112px;transform:none;gap:9px;padding:8px 11px;}#vzWindNow{padding:6px 9px;font-size:11px;}#vzWindLabel{font-size:12px;}}";
+    + "@media (max-width:768px){"
+    +   "#vzWindCtrl{left:10px;right:10px;bottom:112px;transform:none;flex-wrap:wrap;row-gap:9px;column-gap:9px;padding:9px 12px;}"
+    +   "#vzWindPlay{order:0;}"
+    +   "#vzWindLabel{order:1;flex:1 1 auto;font-size:12px;}"
+    +   "#vzWindNow{order:2;padding:6px 9px;font-size:11px;}"
+    +   "#vzWindSliderWrap{order:3;flex:1 1 100%;min-width:0;}"   /* slider seul sur la 2e ligne */
+    + "}";
     (document.head || document.documentElement).appendChild(st);
   }
   pan = document.createElement('div');
@@ -2127,6 +2133,35 @@ function vzWindEnsureCtrl_() {
   document.getElementById('vzWindPlay').addEventListener('click', vzWindPlayStop_);
   document.getElementById('vzWindNow').addEventListener('click', vzWindGoNow_);
   return pan;
+}
+
+// Legende passive (non cliquable) : barre de degrade calee sur la palette du
+// fond + reperes en noeuds, pour donner un ordre d'idee des forces. Apparait/
+// disparait avec la couche vent, comme la legende sediment. Haut-centre, sobre.
+function vzWindEnsureLegend_() {
+  var leg = document.getElementById('vzWindLegend');
+  if (leg) return leg;
+  if (!document.getElementById('vzWindLegendStyle')) {
+    var st = document.createElement('style');
+    st.id = 'vzWindLegendStyle';
+    st.textContent =
+      "#vzWindLegend{position:fixed;top:66px;left:50%;transform:translateX(-50%);z-index:1150;display:none;align-items:center;gap:10px;padding:6px 12px;background:rgba(10,21,32,0.88);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(77,212,168,0.4);border-radius:11px;box-shadow:0 6px 20px rgba(4,16,28,0.4);font-family:'Inter',sans-serif;pointer-events:none;}"
+    + "#vzWindLegend.on{display:flex;}"
+    + ".vzwl-cap{color:#4DD4A8;font-size:10px;font-weight:700;letter-spacing:1.5px;}"
+    + ".vzwl-scale{display:flex;flex-direction:column;gap:2px;width:148px;}"
+    + ".vzwl-bar{height:7px;border-radius:4px;background:linear-gradient(to right,#0A3D33 0%,#1A6B5D 14%,#4DD4A8 27%,#D8C84A 39%,#E89B3C 56%,#C94A3D 75%,#8C2620 100%);}"
+    + ".vzwl-ticks{display:flex;justify-content:space-between;color:#8FA6B8;font-family:'IBM Plex Mono',monospace;font-size:9px;line-height:1;}"
+    + "@media (max-width:768px){#vzWindLegend{top:60px;}}";
+    (document.head || document.documentElement).appendChild(st);
+  }
+  leg = document.createElement('div');
+  leg.id = 'vzWindLegend';
+  leg.innerHTML =
+    '<span class="vzwl-cap">VENT</span>'
+  + '<span class="vzwl-scale"><span class="vzwl-bar"></span>'
+  + '<span class="vzwl-ticks"><span>0</span><span>10</span><span>20</span><span>30</span><span>40 kt</span></span></span>';
+  document.body.appendChild(leg);
+  return leg;
 }
 
 // Place les reperes "maintenant" (blanc) et "bascule 1h->3h" (orange).
@@ -2254,6 +2289,7 @@ function toggleLayer(type) {
         if (!S.map.hasLayer(layer)) layer.addTo(S.map);
         vzWindKeepAnimatedOnPan_(12);              // traits animes pendant le pan
         vzWindEnsureCtrl_().classList.add('on');   // A2 : curseur temporel
+        vzWindEnsureLegend_().classList.add('on'); // legende de couleur
         vzWindPlaceTicks_();
         vzWindSyncCtrl_();
       }).catch(function(e){
@@ -2265,6 +2301,8 @@ function toggleLayer(type) {
       vzWindStop_();
       var _wc = document.getElementById('vzWindCtrl');
       if (_wc) _wc.classList.remove('on');
+      var _wl = document.getElementById('vzWindLegend');
+      if (_wl) _wl.classList.remove('on');
       if (S.windFlowLayer && S.map.hasLayer(S.windFlowLayer)) S.map.removeLayer(S.windFlowLayer);
       if (S.windColorLayer && S.map.hasLayer(S.windColorLayer)) S.map.removeLayer(S.windColorLayer);
     }
