@@ -1102,6 +1102,10 @@ function initMap() {
   S.map.getPane('vzSeaOverlayPane').style.zIndex = 350;
   S.map.createPane('vzRainPane');
   S.map.getPane('vzRainPane').style.zIndex = 360;
+  // Fond colore du vent (A3) : sous les particules (overlayPane 400) et sous
+  // les marqueurs, au-dessus du basemap. Exclusif avec la bathy Litto3D.
+  S.map.createPane('vzWindColorPane');
+  S.map.getPane('vzWindColorPane').style.zIndex = 300;
 
 S.basemapSat = L.layerGroup([
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
@@ -1904,6 +1908,94 @@ var VZ_WIND_GRID_URL = GAS_URL + '?action=wind_grid';
 // Palette calee sur la charte Talisker (teal calme -> jaune -> orange -> rouge fort).
 var VZ_WIND_COLORS = ['#1A6B5D','#2DA888','#4DD4A8','#D8C84A','#E89B3C','#C94A3D'];
 
+// --- A3 : fond colore facon Windy (aplat de vitesse sous les particules) ---
+// Stops de couleur par vitesse (m/s), charte Talisker : eau calme teal profond
+// -> teal -> jaune -> orange -> rouge -> rouge profond. Cale sur les vitesses
+// de la facade (0 a ~16 m/s = 0 a ~31 kt, et au-dela pour les coups de vent).
+var VZ_WIND_COLOR_STOPS = [
+  { v: 0.0,  c: [10, 61, 51] },     // calme, teal profond sombre
+  { v: 3.0,  c: [26, 107, 93] },    // 1A6B5D
+  { v: 5.5,  c: [77, 212, 168] },   // 4DD4A8 teal clair (~11 kt)
+  { v: 8.0,  c: [216, 200, 74] },   // D8C84A jaune (~15 kt)
+  { v: 11.5, c: [232, 155, 60] },   // E89B3C orange (~22 kt)
+  { v: 15.5, c: [201, 74, 61] },    // C94A3D rouge (~30 kt)
+  { v: 22.0, c: [140, 38, 32] }     // rouge profond (coup de vent)
+];
+
+// Vitesse (m/s) -> [r,g,b] par interpolation lineaire entre les stops.
+function vzWindColorForSpeed_(spd) {
+  var s = VZ_WIND_COLOR_STOPS;
+  if (spd <= s[0].v) return s[0].c;
+  for (var i = 1; i < s.length; i++) {
+    if (spd <= s[i].v) {
+      var t = (spd - s[i-1].v) / (s[i].v - s[i-1].v);
+      return [
+        Math.round(s[i-1].c[0] + t * (s[i].c[0] - s[i-1].c[0])),
+        Math.round(s[i-1].c[1] + t * (s[i].c[1] - s[i-1].c[1])),
+        Math.round(s[i-1].c[2] + t * (s[i].c[2] - s[i-1].c[2]))
+      ];
+    }
+  }
+  return s[s.length - 1].c;
+}
+
+// Peint le fond colore de la frame i (interpolation bilineaire de la vitesse
+// sur la grille nx*ny, data nord->sud / ouest->est) et cree/maj l'imageOverlay.
+// Reutilise la donnee deja chargee (S.windFrames), aucun appel reseau. Le canvas
+// basse-def est etire par Leaflet avec lissage natif du navigateur -> fondu doux.
+function vzWindEnsureColorLayer_(i) {
+  if (!S.windFrames || !S.windHeader) return;
+  var h = S.windHeader, f = S.windFrames[i];
+  var nx = h.nx, ny = h.ny;
+  var CELL = 26;                          // px par cellule de grille
+  var W = (nx - 1) * CELL, H = (ny - 1) * CELL;
+
+  var cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  var ctx = cv.getContext('2d');
+  var img = ctx.createImageData(W, H);
+  var d = img.data;
+
+  function spd(gx, gy) {                   // vitesse au noeud (col gx, ligne gy)
+    var p = gy * nx + gx;
+    var u = f.u[p], v = f.v[p];
+    return Math.sqrt(u * u + v * v);
+  }
+
+  for (var py = 0; py < H; py++) {
+    var fy = py / CELL;                    // 0..ny-1 (0 = nord)
+    var y0 = Math.floor(fy); if (y0 > ny - 2) y0 = ny - 2;
+    var ty = fy - y0;
+    for (var px = 0; px < W; px++) {
+      var fx = px / CELL;                  // 0..nx-1 (0 = ouest)
+      var x0 = Math.floor(fx); if (x0 > nx - 2) x0 = nx - 2;
+      var tx = fx - x0;
+      var s00 = spd(x0, y0),     s10 = spd(x0 + 1, y0);
+      var s01 = spd(x0, y0 + 1), s11 = spd(x0 + 1, y0 + 1);
+      var sTop = s00 + tx * (s10 - s00);
+      var sBot = s01 + tx * (s11 - s01);
+      var sv = sTop + ty * (sBot - sTop);
+      var c = vzWindColorForSpeed_(sv);
+      var o = (py * W + px) * 4;
+      d[o] = c[0]; d[o+1] = c[1]; d[o+2] = c[2]; d[o+3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  var url = cv.toDataURL();
+  var bounds = [[h.la2, h.lo1], [h.la1, h.lo2]];   // [[sud,ouest],[nord,est]]
+
+  if (S.windColorLayer) {
+    S.windColorLayer.setBounds(bounds);
+    S.windColorLayer.setUrl(url);
+  } else {
+    S.windColorLayer = L.imageOverlay(url, bounds, {
+      pane: 'vzWindColorPane',
+      opacity: 0.55,
+      interactive: false
+    });
+  }
+}
+
 // Monte une frame {u,v} + le header commun au format attendu par
 // leaflet-velocity (2 blocs : u=parameterNumber 2, v=parameterNumber 3).
 function vzWindBuildVelocity_(header, frame) {
@@ -1936,12 +2028,13 @@ function vzWindNowIndex_() {
   return best;
 }
 
-// Applique la frame d'index i a la couche (partage par A1 present + A2 curseur).
+// Applique la frame d'index i aux deux couches (partage A1 present + A2 curseur).
 function vzWindShowFrame_(i) {
-  if (!S.windFrames || !S.windFrames.length || !S.windFlowLayer) return;
+  if (!S.windFrames || !S.windFrames.length) return;
   i = Math.max(0, Math.min(i, S.windFrames.length - 1));
   S.windPos = i;
-  S.windFlowLayer.setData(vzWindBuildVelocity_(S.windHeader, S.windFrames[i]));
+  if (S.windFlowLayer) S.windFlowLayer.setData(vzWindBuildVelocity_(S.windHeader, S.windFrames[i]));
+  if (S.windColorLayer && S.showWindFlow) vzWindEnsureColorLayer_(i);
 }
 
 function vzWindFlowEnsure() {
@@ -1969,6 +2062,7 @@ function vzWindFlowEnsure() {
         minVelocity: 0,
         maxVelocity: 20              // ~40 kt : borne haute de la palette
       });
+      vzWindEnsureColorLayer_(S.windPos);   // A3 : prepare le fond colore de l'instant present
       return S.windFlowLayer;
     });
 }
@@ -2015,8 +2109,12 @@ function toggleLayer(type) {
     var _rowWind = document.getElementById('vzRowWindFlow');
     if (_rowWind) _rowWind.classList.toggle('active', S.showWindFlow);
     if (S.showWindFlow) {
+      // Exclusion mutuelle : fond vent et bathy Litto3D sont deux couches de
+      // fond, une seule a la fois (sinon les teals se confondent, illisible).
+      if (S.showLitto3d) toggleLayer('litto3d');
       vzWindFlowEnsure().then(function(layer){
         if (!S.showWindFlow) return;   // re-toggle off pendant le fetch
+        if (S.windColorLayer && !S.map.hasLayer(S.windColorLayer)) S.windColorLayer.addTo(S.map);
         if (!S.map.hasLayer(layer)) layer.addTo(S.map);
       }).catch(function(e){
         console.warn('[wind] couche vent indisponible', e);
@@ -2025,12 +2123,15 @@ function toggleLayer(type) {
       });
     } else {
       if (S.windFlowLayer && S.map.hasLayer(S.windFlowLayer)) S.map.removeLayer(S.windFlowLayer);
+      if (S.windColorLayer && S.map.hasLayer(S.windColorLayer)) S.map.removeLayer(S.windColorLayer);
     }
   } else if (type === 'litto3d') {
     S.showLitto3d = !S.showLitto3d;
     var btnL = document.getElementById('btnLitto3d');
     if (btnL) btnL.classList.toggle('active', S.showLitto3d);
     if (S.showLitto3d) {
+      // Exclusion mutuelle avec le fond vent (deux couches de fond).
+      if (S.showWindFlow) toggleLayer('windflow');
       S.litto3d.addTo(S.map);
       // Ordre Z : basemap < Litto3D < sediment/isobathes/markers
       S.litto3d.eachLayer(function(l) { if (l.bringToBack) l.bringToBack(); });
