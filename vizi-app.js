@@ -937,6 +937,7 @@ function toggleWindUnit() {
   }
   if (S_lastForecastData) renderForecastTable(S_lastForecastData.h, S_lastForecastData.now);
   if (S_spotWeatherCache) renderSpotPopup();
+  if (typeof vzWindRenderLegendTicks_ === 'function') vzWindRenderLegendTicks_();
 }
 
 function initCanvas() {
@@ -2148,9 +2149,11 @@ function vzWindEnsureLegend_() {
       "#vzWindLegend{position:fixed;top:66px;left:50%;transform:translateX(-50%);z-index:1150;display:none;align-items:center;gap:10px;padding:6px 12px;background:rgba(10,21,32,0.88);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(77,212,168,0.4);border-radius:11px;box-shadow:0 6px 20px rgba(4,16,28,0.4);font-family:'Inter',sans-serif;pointer-events:none;}"
     + "#vzWindLegend.on{display:flex;}"
     + ".vzwl-cap{color:#4DD4A8;font-size:10px;font-weight:700;letter-spacing:1.5px;}"
-    + ".vzwl-scale{display:flex;flex-direction:column;gap:2px;width:148px;}"
+    + ".vzwl-scale{display:flex;flex-direction:column;gap:3px;width:148px;}"
     + ".vzwl-bar{height:7px;border-radius:4px;background:linear-gradient(to right,#0A3D33 0%,#1A6B5D 14%,#4DD4A8 27%,#D8C84A 39%,#E89B3C 56%,#C94A3D 75%,#8C2620 100%);}"
-    + ".vzwl-ticks{display:flex;justify-content:space-between;color:#8FA6B8;font-family:'IBM Plex Mono',monospace;font-size:9px;line-height:1;}"
+    + ".vzwl-ticks{position:relative;height:10px;color:#8FA6B8;font-family:'IBM Plex Mono',monospace;font-size:9px;line-height:1;}"
+    + ".vzwl-ticks span{position:absolute;top:0;}"
+    + ".vzwl-unit{pointer-events:auto;cursor:pointer;border:1px solid rgba(77,212,168,0.4);background:transparent;color:#4DD4A8;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;padding:3px 7px;border-radius:6px;line-height:1;}"
     + "@media (max-width:768px){#vzWindLegend{top:60px;}}";
     (document.head || document.documentElement).appendChild(st);
   }
@@ -2159,9 +2162,38 @@ function vzWindEnsureLegend_() {
   leg.innerHTML =
     '<span class="vzwl-cap">VENT</span>'
   + '<span class="vzwl-scale"><span class="vzwl-bar"></span>'
-  + '<span class="vzwl-ticks"><span>0</span><span>10</span><span>20</span><span>30</span><span>40 kt</span></span></span>';
+  + '<span class="vzwl-ticks" id="vzWindTicks"></span></span>'
+  + '<button id="vzWindUnitBtn" class="vzwl-unit" title="Changer d\'unite"></button>';
   document.body.appendChild(leg);
+  // Le toggle pilote la MEME preference globale que le drawer (S_windUnit via
+  // toggleWindUnit) : un seul systeme, synchro partout.
+  document.getElementById('vzWindUnitBtn').addEventListener('click', function(){
+    if (typeof toggleWindUnit === 'function') toggleWindUnit();
+  });
+  vzWindRenderLegendTicks_();
   return leg;
+}
+
+// Remplit les reperes de la legende selon l'unite active (S_windUnit). La barre
+// couvre une plage physique fixe (0 a ~74 km/h = 0 a 40 kt) ; on positionne des
+// valeurs rondes de l'unite courante a leur vraie place sur cette plage.
+var VZ_WIND_LEGEND_MAX_KMH = 74;
+function vzWindRenderLegendTicks_() {
+  var wrap = document.getElementById('vzWindTicks');
+  if (!wrap) return;
+  var kt = (typeof S_windUnit !== 'undefined' && S_windUnit === 'kt');
+  var vals = kt ? [0, 10, 20, 30, 40] : [0, 20, 40, 60];
+  var html = '';
+  for (var i = 0; i < vals.length; i++) {
+    var v = vals[i];
+    var kmh = kt ? (v / 0.539957) : v;          // valeur en km/h pour positionner
+    var pct = Math.min(100, kmh / VZ_WIND_LEGEND_MAX_KMH * 100);
+    var tx = (i === 0) ? '0' : (i === vals.length - 1 ? '-100%' : '-50%');
+    html += '<span style="left:' + pct.toFixed(1) + '%;transform:translateX(' + tx + ');">' + v + '</span>';
+  }
+  wrap.innerHTML = html;
+  var ub = document.getElementById('vzWindUnitBtn');
+  if (ub) ub.textContent = kt ? 'kt' : 'km/h';
 }
 
 // Place les reperes "maintenant" (blanc) et "bascule 1h->3h" (orange).
