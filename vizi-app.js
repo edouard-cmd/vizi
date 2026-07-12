@@ -1136,6 +1136,43 @@ S.basemapSat = L.layerGroup([
     version: '1.3.0', attribution: 'Nature du fond SHOM', opacity: 0.75, maxZoom: 19, pane: 'vzSeaOverlayPane'
   });
 
+  // ----- Couche Visibilité satellite (CMEMS ZSD, WMTS EPSG:3857) -----
+  // Champ satellite de profondeur de Secchi (ZSD) en tuiles Leaflet natives,
+  // exactement comme le fond IGN ci-dessus : aucun appel point-par-point,
+  // aucun GAS, pas d'auth (dataset public multi-1km). Montre l'anomalie
+  // spatiale — bord chargé, tombant clair — telle que le satellite l'a
+  // mesurée à J-2. Figée à la mesure (pas de modulation météo), donc
+  // indépendante de la calibration b_local : c'est de la donnée, pas du modèle.
+  // SEUL réglage incertain : le STYLE/colormap CMEMS. Si les tuiles
+  // n'apparaissent pas, ouvrir l'onglet Réseau, regarder une requête de tuile
+  // en échec — le corps CMEMS liste les STYLE valides — et ajuster VZ_ZSD_STYLE
+  // ci-dessous (alternatives en commentaire).
+  S.map.createPane('vzZsdPane');
+  S.map.getPane('vzZsdPane').style.zIndex = 340;   // au-dessus du fond, sous sediment/repères (350)
+  S.showZsd = false;
+  (function() {
+    var d = new Date();
+    d.setUTCDate(d.getUTCDate() - 2);              // J-2 : latence NRT CMEMS confirmée
+    var timeStr = d.getUTCFullYear() + '-'
+      + String(d.getUTCMonth() + 1).padStart(2, '0') + '-'
+      + String(d.getUTCDate()).padStart(2, '0') + 'T00:00:00.000Z';
+    var VZ_ZSD_LAYER = 'OCEANCOLOUR_ATL_BGC_L3_NRT_009_111/'
+      + 'cmems_obs-oc_atl_bgc-transp_nrt_l3-multi-1km_P1D_202311/ZSD';
+    var VZ_ZSD_STYLE = 'cmap:blues_r';             // 1er essai ; si vide -> tenter 'cmap:viridis', 'boxfill/rainbow', 'default'
+    var url = 'https://wmts.marine.copernicus.eu/teroWmts'
+      + '?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0'
+      + '&LAYER=' + VZ_ZSD_LAYER
+      + '&STYLE=' + VZ_ZSD_STYLE
+      + '&TILEMATRIXSET=EPSG:3857'
+      + '&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}'
+      + '&FORMAT=image/png'
+      + '&time=' + timeStr;
+    S.zsdLayer = L.tileLayer(url, {
+      attribution: 'CMEMS Ocean Colour ZSD',
+      opacity: 0.7, maxZoom: 19, pane: 'vzZsdPane'
+    });
+  })();
+
 initLitto3dLayer();
   S.litto3d.addTo(S.map);
   S.litto3d.eachLayer(function(l) { if (l.bringToBack) l.bringToBack(); });
@@ -2356,6 +2393,15 @@ function toggleLayer(type) {
       }
  } else {
       if (S.map.hasLayer(S.litto3d)) S.map.removeLayer(S.litto3d);
+    }
+  } else if (type === 'zsd') {
+    S.showZsd = !S.showZsd;
+    var _rowZsd = document.getElementById('vzRowZsd');
+    if (_rowZsd) _rowZsd.classList.toggle('active', S.showZsd);
+    if (S.showZsd) {
+      if (S.zsdLayer && !S.map.hasLayer(S.zsdLayer)) S.zsdLayer.addTo(S.map);
+    } else {
+      if (S.zsdLayer && S.map.hasLayer(S.zsdLayer)) S.map.removeLayer(S.zsdLayer);
     }
   } else if (type === 'spots') {
     if (!S.spotMode && S.measureMode) vzMeasureToggle();
