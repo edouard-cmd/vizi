@@ -1158,11 +1158,20 @@ S.basemapSat = L.layerGroup([
       + String(d.getUTCDate()).padStart(2, '0') + 'T00:00:00.000Z';
     var VZ_ZSD_LAYER = 'OCEANCOLOUR_ATL_BGC_L3_NRT_009_111/'
       + 'cmems_obs-oc_atl_bgc-transp_nrt_l3-multi-1km_P1D_202311/ZSD';
-    var VZ_ZSD_STYLE = 'cmap:blues_r';             // 1er essai ; si vide -> tenter 'cmap:viridis', 'boxfill/rainbow', 'default'
+    // Palette orientée charte : Secchi FAIBLE (eau chargée) = rouge,
+    // Secchi ÉLEVÉ (eau claire) = vert/teal. Si la carte apparaît inversée
+    // (large clair affiché en rouge), passer à 'cmap:RdYlGn_r'.
+    var VZ_ZSD_STYLE = 'cmap:RdYlGn';
+    // Plage de valeurs Secchi encodée par la palette. Visi plongeur = 0.7*ZSD,
+    // donc 0-8 m de visi utile = 0-11.43 m de Secchi. C'est CE bornage qui rend
+    // la légende vraie : une couleur = une valeur connue. La légende
+    // (vzZsdEnsureLegend_) est calée sur exactement cette plage.
+    var VZ_ZSD_SECCHI_MAX = 11.43;                 // = 8 m visi / 0.7
     var url = 'https://wmts.marine.copernicus.eu/teroWmts'
       + '?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0'
       + '&LAYER=' + VZ_ZSD_LAYER
       + '&STYLE=' + VZ_ZSD_STYLE
+      + '&COLORSCALERANGE=0,' + VZ_ZSD_SECCHI_MAX
       + '&TILEMATRIXSET=EPSG:3857'
       + '&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}'
       + '&FORMAT=image/png'
@@ -2307,6 +2316,47 @@ function vzWindPlayStop_() {
   }, VZ_WIND_ANIM_MS);
 }
 
+// Légende de la couche Visibilité satellite (calquée sur la légende vent).
+// Barre 0->8 m de visi plongeur : rouge (eau chargée) -> jaune -> teal (claire),
+// orientée comme la palette CMEMS. La plage est verrouillée cote couche par
+// VZ_ZSD_SECCHI_MAX, donc les repères en mètres sont vrais par construction.
+// Placée en bas (le vent occupe le haut) pour coexister avec la légende vent.
+function vzZsdEnsureLegend_() {
+  var leg = document.getElementById('vzZsdLegend');
+  if (leg) return leg;
+  if (!document.getElementById('vzZsdLegendStyle')) {
+    var st = document.createElement('style');
+    st.id = 'vzZsdLegendStyle';
+    st.textContent =
+      "#vzZsdLegend{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:1150;display:none;align-items:center;gap:10px;padding:6px 12px;background:rgba(10,21,32,0.88);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(77,212,168,0.4);border-radius:11px;box-shadow:0 6px 20px rgba(4,16,28,0.4);font-family:'Inter',sans-serif;pointer-events:none;}"
+    + "#vzZsdLegend.on{display:flex;}"
+    + ".vzzl-cap{color:#4DD4A8;font-size:10px;font-weight:700;letter-spacing:1.5px;white-space:nowrap;}"
+    + ".vzzl-scale{display:flex;flex-direction:column;gap:3px;width:160px;}"
+    + ".vzzl-bar{height:7px;border-radius:4px;background:linear-gradient(to right,#C94A3D 0%,#E89B3C 25%,#D8C84A 50%,#4DD4A8 78%,#1A6B5D 100%);}"
+    + ".vzzl-ticks{position:relative;height:10px;color:#8FA6B8;font-family:'IBM Plex Mono',monospace;font-size:9px;line-height:1;}"
+    + ".vzzl-ticks span{position:absolute;top:0;}"
+    + ".vzzl-note{color:#5C7285;font-size:9px;font-family:'IBM Plex Mono',monospace;white-space:nowrap;}"
+    + "@media (max-width:768px){#vzZsdLegend{bottom:80px;}}";
+    (document.head || document.documentElement).appendChild(st);
+  }
+  leg = document.createElement('div');
+  leg.id = 'vzZsdLegend';
+  var ticks = '';
+  [0, 2, 4, 6, 8].forEach(function(m) {
+    var pct = (m / 8) * 100;
+    var style = (m === 8) ? 'right:0' : 'left:' + pct + '%';
+    var label = (m === 8) ? '8+' : String(m);
+    ticks += '<span style="' + style + '">' + label + '</span>';
+  });
+  leg.innerHTML =
+    '<span class="vzzl-cap">VISI SATELLITE (m)</span>'
+  + '<span class="vzzl-scale"><span class="vzzl-bar"></span>'
+  + '<span class="vzzl-ticks">' + ticks + '</span></span>'
+  + '<span class="vzzl-note">mesure J-2</span>';
+  document.body.appendChild(leg);
+  return leg;
+}
+
 function toggleLayer(type) {
   if (type === 'heatmap') {
     S.showHeatmap = !S.showHeatmap;
@@ -2400,8 +2450,11 @@ function toggleLayer(type) {
     if (_rowZsd) _rowZsd.classList.toggle('active', S.showZsd);
     if (S.showZsd) {
       if (S.zsdLayer && !S.map.hasLayer(S.zsdLayer)) S.zsdLayer.addTo(S.map);
+      vzZsdEnsureLegend_().classList.add('on');
     } else {
       if (S.zsdLayer && S.map.hasLayer(S.zsdLayer)) S.map.removeLayer(S.zsdLayer);
+      var _zl = document.getElementById('vzZsdLegend');
+      if (_zl) _zl.classList.remove('on');
     }
   } else if (type === 'spots') {
     if (!S.spotMode && S.measureMode) vzMeasureToggle();
