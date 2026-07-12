@@ -7830,6 +7830,37 @@ function propagate0D(C_sat_kg_m3, dateSatISO, h, idxTarget, depth, lat, lon, sed
     warnings.push(n_skipped + ' pas horaires sautés (eau insuffisante à ces instants)');
   }
 
+  // ----- Verrou d'éclaircissement (borne physique, indépendante du sédiment) -----
+  // Une mesure (satellite/chasseur) ne peut JAMAIS être surpassée vers le clair
+  // tant que la mer travaille encore la colonne d'eau : l'eau ne s'auto-nettoie
+  // pas parce que le temps passe. La visi ne remonte au-dessus de la mesure de
+  // départ que dans un vrai calme (houle retombée depuis quelques heures).
+  // "La mer travaille" se mesure par la vitesse orbitale au fond u_b sur la
+  // fenêtre récente — grandeur physique dépendante de Hs, période et profondeur,
+  // mais INDÉPENDANTE du sédiment (contrairement à E, nul sur roche). Donc
+  // valable partout : roche, sable, vase, tout spot de France.
+  //   - Mer formée -> on plafonne C au niveau de la mesure : la visi peut
+  //     descendre sous la mesure (brassage) mais jamais monter au-dessus.
+  //   - Mer calmée -> plafond levé : la décantation fait remonter la visi.
+  // Seuil u_b calibrable par visi_feedback.
+  var UB_CALM = 0.08;        // m/s : sous ce seuil, mer au repos près du fond
+  var RECENT_WINDOW_H = 6;   // fenêtre récente (h) avant l'instant cible
+  var seaWorking = false;
+  var kFrom = Math.max(idxStart, idxTarget - RECENT_WINDOW_H);
+  for (var kw = kFrom; kw <= idxTarget && kw < h.time.length; kw++) {
+    var HsW = _bestWaveHeight(h, kw, 0);
+    if (!HsW || HsW <= 0) continue;
+    var depthW = depthAtTimeCached(depth, h.time[kw]);
+    if (depthW < 0.5) continue;
+    var TpW = _bestWavePeriod(null, -1, HsW);   // période estimée, sans sédiment
+    var ubW = computeOrbitalVelocityAtBed(HsW, TpW, depthW);
+    if (ubW !== null && ubW >= UB_CALM) { seaWorking = true; break; }
+  }
+  if (seaWorking && C_current < C_sat_kg_m3) {
+    C_current = C_sat_kg_m3;   // interdit l'éclaircissement au-dessus de la mesure
+    warnings.push('Éclaircissement plafonné à la mesure : mer encore formée (pas de nettoyage sous houle).');
+  }
+
   return _buildPropagationResult(
     C_sat_kg_m3, C_current, idxTarget - idxStart,
     lat, lon, sediment, null, warnings, C_evolution
