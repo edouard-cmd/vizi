@@ -2392,6 +2392,8 @@ function toggleLayer(type) {
     S.showWindFlow = !S.showWindFlow;
     var _rowWind = document.getElementById('vzRowWindFlow');
     if (_rowWind) _rowWind.classList.toggle('active', S.showWindFlow);
+    var _btnWind = document.getElementById('vzBtnWind');
+    if (_btnWind) _btnWind.classList.toggle('active', S.showWindFlow);
     if (S.showWindFlow) {
       // Exclusion mutuelle : fond vent et bathy Litto3D sont deux couches de
       // fond, une seule a la fois (sinon les teals se confondent, illisible).
@@ -2409,6 +2411,7 @@ function toggleLayer(type) {
         console.warn('[wind] couche vent indisponible', e);
         S.showWindFlow = false;
         if (_rowWind) _rowWind.classList.remove('active');
+        if (_btnWind) _btnWind.classList.remove('active');
       });
     } else {
       vzWindStop_();
