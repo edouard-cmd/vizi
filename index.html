@@ -5182,12 +5182,12 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
     </svg>
     Marée
   </button>
-  <button class="vz-tab-btn" id="vzBtnSpots" onclick="toggleLayer('spots')">
+  <button class="vz-tab-btn" id="vzBtnWind" onclick="toggleLayer('windflow')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
-      <line x1="4" y1="22" x2="4" y2="15"></line>
+      <line x1="5" y1="3" x2="5" y2="21"></line>
+      <path d="M5 5h11l-2.5 3.5L16 12H5"></path>
     </svg>
-    Points
+    Vent
   </button>
 </div>
 <div id="zoomControls">
@@ -5234,6 +5234,12 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
       <line x1="12" y1="19" x2="12" y2="22"></line>
       <line x1="2" y1="12" x2="5" y2="12"></line>
       <line x1="19" y1="12" x2="22" y2="12"></line>
+    </svg>
+  </button>
+  <button class="vz-side-btn" id="vzBtnSpots" onclick="toggleLayer('spots')" title="Marquer des spots">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
+      <line x1="4" y1="22" x2="4" y2="15"></line>
     </svg>
   </button>
   <!-- Carnet de chasse - conserve pour reactivation future
