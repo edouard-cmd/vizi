@@ -6256,6 +6256,37 @@ function getRegionalOpticalBaseline(lat, lon) {
 //                                   contient c_moyen_kg
 // Retour   : objet {visi_m, d_secchi, c_total, c_water, c_sediment}
 //          ou null si entree invalide
+// ============================================================
+// CONVERSION OPTIQUE UNIQUE — attenuation -> visibilite plongeur
+// ------------------------------------------------------------
+// Il existait TROIS conversions contradictoires dans le meme produit :
+//   - front / chaine        : visi = 2.38 / c_total = 1.4 x ZSD  (Davies-Colley 1988)
+//   - GAS fetchCmemsZSD_    : visi = 0.7 x ZSD                   (Wright & Colling 1995)
+//   - inverseNTUtoVisibility: visi = 5.6 x NTU^-0.5              (calibrage maison)
+// Les deux premieres se contredisent d'un facteur 2 EXACT : le popup et le
+// moteur ne pouvaient STRUCTURELLEMENT jamais tomber d'accord (satellite
+// affiche 2.95 m / moteur 6.80 m sur le meme point, Vierville 16/07).
+// Le 2.38 etait de surcroit duplique a 4 endroits du front : le calibrer
+// imposait 4 modifications coherentes, donc 4 occasions de diverger.
+// Tout passe desormais par _visiFromAttenuation : VZ_VISI_K est LE seul
+// point de reglage, une ligne.
+//
+// ATTENTION — k et c_baseline sont COUPLES : le plafond d'eau claire d'une
+// zone vaut k / c_baseline (6.80 m a Vierville, 2.97 m a Courseulles). Les
+// bouger separement casse l'autre. Les premiers retours terrain donnent un
+// ratio reel/ZSD de ~0.5 (Calvados) a ~1.3 (Cotentin), soit k entre 0.9 et
+// 2.2 : bien trop disperse sur 6 points a biais de selection pour trancher.
+// On conserve donc la valeur historique et on ne bougera qu'avec du volume,
+// k ET c_baseline ensemble. Le satellite est un calibrateur direct de
+// c_baseline : chaque fois qu'il mesure c_total < c_baseline (Courseulles,
+// 0.664 < 0.80), il PROUVE que la baseline de la zone est trop turbide.
+var VZ_VISI_K = 2.38;
+
+function _visiFromAttenuation(c_total) {
+  if (typeof c_total !== 'number' || !isFinite(c_total) || c_total <= 0) return null;
+  return VZ_VISI_K / c_total;
+}
+
 function computeVisibility(concentrationResult, lat, lon, sediment) {
   // PATCH 8-B : sediment optionnel pour choisir b_local par classe Folk5
   // Validation : entree null en amont -> remontee du null
@@ -6294,7 +6325,7 @@ var c_baseline = optical.c_baseline;  // turbidite ambiante de la zone (m^-1)
 
   // Visibilite horizontale chasseur sous-marin
   // visi_m = 1.4 * d_secchi (Davies-Colley 1988)
-  var visi_m = 2.38 / c_total;
+  var visi_m = _visiFromAttenuation(c_total);
 
   // Sanity check
   if (!isFinite(visi_m) || visi_m < 0) return null;
@@ -7650,7 +7681,7 @@ function _buildEmpiricalResult(h, idx, depth, lat, lon, reason) {
   var optical = getRegionalOpticalBaseline(lat, lon);
   var visi_baseline = (optical && typeof optical.c_baseline === 'number' &&
                        isFinite(optical.c_baseline) && optical.c_baseline > 0)
-    ? 2.38 / optical.c_baseline
+    ? _visiFromAttenuation(optical.c_baseline)
     : null;
   var baselineScore = (visi_baseline !== null) ? mapVisiToScore(visi_baseline) : 0;
   return {
@@ -8235,7 +8266,7 @@ function _buildPropagationResult(C_initial, C_final, n_steps, lat, lon, sediment
 
   var c_total = optical.c_baseline + optical.b_local * C_final;
   if (!isFinite(c_total) || c_total <= 0) return null;
-  var visi_m = 2.38 / c_total;
+  var visi_m = _visiFromAttenuation(c_total);
 
   // Analyse de la phase dominante sur la trajectoire d'évolution
   var dominant_phase = 'équilibre';
@@ -9601,7 +9632,7 @@ function combineMultiClassOptics(classes_with_C, optical) {
   // Profondeur Secchi (Preisendorfer 1986)
   var d_secchi = 1.7 / c_total;
   // Visibilité horizontale chasseur sous-marin (Davies-Colley 1988)
-  var visi_m = 2.38 / c_total;
+  var visi_m = _visiFromAttenuation(c_total);
   
   // Sanity check
   if (!isFinite(visi_m) || visi_m < 0) return null;
@@ -13065,8 +13096,11 @@ html += '<div style="overflow-x:auto;">';
       var refSlot = slots[refIdx];
       var sObj = computeVisibilityScore_V4(h, refSlot.i, depth, spot.lat, spot.lng,
         { satellite: VZ_SHEET.data.satellite, sediment: VZ_SHEET.data.sediment });
+      // Une decimale : "2,3 m" plutot que "2 m". Un entier laisse croire a une
+      // classe ("2 m" = la case bleue), la decimale dit que c'est une estimation
+      // calculee, et rend visible la variation jour a jour que l'arrondi ecrasait.
       var vm = (typeof sObj.visi_m === 'number' && isFinite(sObj.visi_m) && sObj.visi_m > 0)
-        ? Math.round(sObj.visi_m) : null;
+        ? Math.round(sObj.visi_m * 10) / 10 : null;
       var title;
       if (sObj.insufficient) {
         // Rien de calculable ici : on l'assume plutot que d'afficher la
@@ -13076,7 +13110,7 @@ html += '<div style="overflow-x:auto;">';
         title = 'Donnee insuffisante : ' +
           ((sObj.trace && sObj.trace.fallback_reason) ? sObj.trace.fallback_reason : 'physique locale inapplicable');
       } else {
-        inner = (vm !== null) ? vm + 'm' : visLabel(sObj.score);
+        inner = (vm !== null) ? vm.toFixed(1).replace('.', ',') + 'm' : visLabel(sObj.score);
         cls += visClass(sObj.score);
         if (sObj.observation) {
           title = 'Retour chasseur ' + sObj.observation.real_m + ' m il y a '
