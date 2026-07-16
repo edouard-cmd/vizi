@@ -6446,6 +6446,161 @@ function _bestWavePeriod(marineCache, marineIdx, Hs) {
   return 0;
 }
 
+// ============================================================
+// EXPLICATEUR DE CALCUL (console) — vzExplainVisi()
+// ------------------------------------------------------------
+// Instrument permanent de diagnostic : répond à "pourquoi ce
+// chiffre ?" sans devinette. Affiche la source retenue, les sources
+// écartées AVEC leur motif, les entrées réelles heure par heure
+// (vent, orientation de côte, houle, période ET SON ORIGINE,
+// profondeur marée-corrigée, vitesse orbitale au fond, érosion,
+// concentration) et la visi résultante, plus la moyenne horaire du
+// jour sur les heures écoulées.
+//
+// Usage depuis la console, après avoir ouvert le tableau Conditions
+// sur un spot (clic sur la carte) :
+//     vzExplainVisi()      -> 6 dernières heures + maintenant
+//     vzExplainVisi(24)    -> 24 dernières heures
+//
+// Aucun effet de bord : la marée du tableau est prêtée au calcul de
+// profondeur puis restaurée (try/finally) ; les caches moteur sont
+// vidés avant ET après, donc aucune valeur mémoïsée n'est servie ni
+// laissée derrière. Lecture seule sur l'état de l'app.
+// ============================================================
+function vzExplainVisi(hoursBack) {
+  hoursBack = hoursBack || 6;
+  if (typeof VZ_SHEET === 'undefined' || !VZ_SHEET.data || !VZ_SHEET.data.meteo) {
+    console.log('vzExplainVisi : ouvre d\'abord le tableau Conditions sur un spot (clic sur la carte).');
+    return;
+  }
+  var d = VZ_SHEET.data;
+  var h = d.meteo;
+  var spot = d.spot || {};
+  var lat = spot.lat;
+  var lon = (spot.lng != null) ? spot.lng : spot.lon;
+  var depthLAT = d.depth || 5;
+  var sed = d.sediment;
+  var sat = d.satellite;
+
+  // Index du créneau le plus proche de maintenant
+  var nowMs = Date.now(), idxNow = 0, bestD = Infinity;
+  for (var i = 0; i < h.time.length; i++) {
+    var dt = Math.abs(new Date(h.time[i]).getTime() - nowMs);
+    if (dt < bestD) { bestD = dt; idxNow = i; }
+  }
+
+  // Origine réelle de la période (reproduit _bestWavePeriod sans le deviner)
+  function tpInfo(k, Hs) {
+    var mOk = false, mIdx = -1;
+    if (typeof S_spotMarineCache !== 'undefined' && S_spotMarineCache
+        && S_spotMarineCache.wave_height && S_spotMarineCache.time) {
+      var tMs = new Date(h.time[k]).getTime(), bd = Infinity;
+      for (var mi = 0; mi < S_spotMarineCache.time.length; mi++) {
+        var dd = Math.abs(new Date(S_spotMarineCache.time[mi]).getTime() - tMs);
+        if (dd < bd) { bd = dd; mIdx = mi; }
+      }
+      if (bd <= 1800000) mOk = true; else mIdx = -1;
+    }
+    var tp = _bestWavePeriod(mOk ? S_spotMarineCache : null, mIdx, Hs);
+    var src = 'ESTIMEE';
+    if (mOk && S_spotMarineCache.wave_period && S_spotMarineCache.wave_period[mIdx] > 0) src = 'reelle';
+    else if (mOk && S_spotMarineCache.wind_wave_peak_period && S_spotMarineCache.wind_wave_peak_period[mIdx] > 0) src = 'pic-mer-vent';
+    return { tp: tp, src: src };
+  }
+  function f(v, n) {
+    if (v === null || v === undefined || (typeof v === 'number' && !isFinite(v))) return '-';
+    return (typeof v === 'number') ? v.toFixed(n === undefined ? 2 : n) : String(v);
+  }
+
+  // Prêt de la marée du tableau au calcul de profondeur (restauré en finally)
+  var tidesSave = (typeof TIDES !== 'undefined') ? TIDES.data : undefined;
+  var swapped = false;
+  try {
+    if (typeof TIDES !== 'undefined' && d.tides && d.tides.points && d.tides.points.length) {
+      TIDES.data = d.tides.points;
+      swapped = true;
+    }
+    _depthAtTimeCache = {}; _chainCache = {}; _satelliteV4Cache = {};
+
+    console.log('===== VISIMER — EXPLICATION DU CALCUL =====');
+    console.log('Spot        : ' + (spot.name || '?') + '  (' + f(lat, 4) + ', ' + f(lon, 4) + ')');
+    console.log('Profondeur  : ' + f(depthLAT, 2) + ' m au zero des cartes (LAT)');
+    console.log('Sediment    : ' + (sed ? (sed.nameFr + ' / regime ' + sed.regime + ' / D50 ' + sed.D50_mm + ' mm') : 'ABSENT'));
+
+    console.log('\n--- SOURCES DISPONIBLES ---');
+    if (sat && sat.status) {
+      console.log('Satellite   : ' + f(sat.visi_plongeur_m, 2) + ' m visi (ZSD ' + f(sat.value_zsd_m, 2)
+        + ' m), age ' + f(sat.age_hours, 0) + ' h, statut ' + sat.status);
+    } else {
+      console.log('Satellite   : AUCUNE mesure');
+    }
+    var fb = (typeof vzNearestFeedback === 'function') ? vzNearestFeedback(lat, lon, 5) : null;
+    if (fb) {
+      console.log('Chasseur    : ' + f(fb.real_m, 1) + ' m vu, age ' + f(fb.age_hours, 1) + ' h'
+        + (fb.predicted_m != null ? ' (l\'app annoncait ' + f(fb.predicted_m, 1) + ' m)' : ''));
+      var satAgeCmp = (sat && typeof sat.age_hours === 'number') ? sat.age_hours : null;
+      if (fb.age_hours != null && (satAgeCmp === null || fb.age_hours < satAgeCmp)) {
+        console.log('              -> PLUS FRAIS que le satellite : devrait etre l\'ancre (doctrine 1)');
+      }
+    } else {
+      console.log('Chasseur    : aucun retour <5km/72h');
+    }
+
+    var o = computeVisibilityScore_V4(h, idxNow, depthLAT, lat, lon, { satellite: sat, sediment: sed });
+    console.log('\n--- SOURCE RETENUE PAR LE MOTEUR ---');
+    console.log('Moteur      : ' + o.engine);
+    if (o.trace && o.trace.fallback_reason) console.log('Motif repli : ' + o.trace.fallback_reason);
+    if (o.warnings && o.warnings.length) console.log('Warnings    : ' + o.warnings.join(' | '));
+    if (o.trace && o.trace.propagation) {
+      var p = o.trace.propagation;
+      console.log('Propagation : zone ' + p.zone_optique + ' | c_baseline ' + p.c_baseline
+        + ' | b_local ' + p.b_local + ' | sediment ' + p.sediment_used);
+    }
+
+    console.log('\n--- ENTREES HEURE PAR HEURE (' + hoursBack + ' h avant maintenant) ---');
+    console.log('heure  | vent | dir | dirF | Hs   | Tp   (src)     | prof | u_b   | E     | visi');
+    var kFrom = Math.max(0, idxNow - hoursBack);
+    for (var k = kFrom; k <= idxNow && k < h.time.length; k++) {
+      var wind = h.windspeed_10m ? h.windspeed_10m[k] : null;
+      var wdir = (h.winddirection_10m && h.winddirection_10m[k] != null) ? h.winddirection_10m[k] : null;
+      var dirF = (typeof getDirFactorForPoint === 'function') ? getDirFactorForPoint(wdir, lat, lon) : null;
+      var Hs = _bestWaveHeight(h, k, 0);
+      var ti = tpInfo(k, Hs);
+      var dep = depthAtTimeCached(depthLAT, h.time[k]);
+      var ub = (Hs > 0 && dep >= 0.5) ? computeOrbitalVelocityAtBed(Hs, ti.tp, dep) : null;
+      var E = _computeEquilibriumConcentrationAt(h, k, depthLAT, lat, lon, sed);
+      var vk = computeVisibilityScore_V4(h, k, depthLAT, lat, lon, { satellite: sat, sediment: sed });
+      console.log(h.time[k].substr(11, 5)
+        + '  | ' + f(wind, 0)
+        + '   | ' + f(wdir, 0)
+        + ' | ' + f(dirF, 2)
+        + ' | ' + f(Hs, 2)
+        + ' | ' + f(ti.tp, 1) + ' (' + ti.src + ')'
+        + ' | ' + f(dep, 1)
+        + ' | ' + f(ub, 3)
+        + ' | ' + f(E, 3)
+        + ' | ' + f(vk.visi_m, 2));
+    }
+
+    // Moyenne des visis horaires sur les heures ECOULEES du jour (doctrine 3)
+    var dayStr = h.time[idxNow].substr(0, 10);
+    var sum = 0, n = 0;
+    for (var j = 0; j <= idxNow; j++) {
+      if (h.time[j].substr(0, 10) !== dayStr) continue;
+      var vj = computeVisibilityScore_V4(h, j, depthLAT, lat, lon, { satellite: sat, sediment: sed });
+      if (vj && typeof vj.visi_m === 'number' && isFinite(vj.visi_m)) { sum += vj.visi_m; n++; }
+    }
+    console.log('\n--- RESULTAT ---');
+    console.log('Visi instant     : ' + f(o.visi_m, 2) + ' m  (score ' + f(o.score, 0) + ')');
+    console.log('Moyenne du jour  : ' + (n ? f(sum / n, 2) + ' m  (sur ' + n + ' h ecoulees)' : '-'));
+    console.log('==========================================');
+    return o;
+  } finally {
+    if (swapped) TIDES.data = tidesSave;
+    _depthAtTimeCache = {}; _chainCache = {}; _satelliteV4Cache = {};
+  }
+}
+
 function computeVisibilityScore_V4(h, idx, depth, lat, lon, opts) {
   // ----- Garde-fous d'entrée -----
   // Mêmes pré-conditions que visScoreV2 pour compatibilité signature
