@@ -6613,7 +6613,91 @@ function vzExplainVisi(hoursBack) {
   }
 }
 
+// ============================================================
+// DOCTRINE 2 — LE SATELLITE NE PILOTE PLUS LE CHIFFRE
+// ------------------------------------------------------------
+// Le CMEMS NRT a une latence STRUCTURELLE de 48 h, souvent 120 h en
+// cas de couverture nuageuse. Une photo de 2 a 5 jours ne dit rien de
+// l'eau d'aujourd'hui. Pire, son passage par inverseBeerLambert la
+// detruisait : ZSD 2.56 m -> c_total 0.664 < c_baseline 0.80 ->
+// c_sediment negatif -> C clampe a 0 -> le moteur s'ancrait sur "eau
+// parfaitement claire" = 2.38/c_baseline (2.97 m), soit AU-DESSUS de
+// la mesure satellite elle-meme (1.79 m). Le verrou d'eclaircissement
+// ne pouvait pas mordre non plus, puisqu'il testait C < C_sat avec
+// C_sat = 0 (condition infalsifiable).
+// Le satellite sort donc du CALCUL et reste affiche a cote
+// (vzRenderCondVerdict). La chaine 9 briques prend la main, pilotee par
+// le vent, la mer, la maree et l'orientation de cote — avec sa memoire
+// native (Brique 9, cinetique de decantation Krone 1962).
+// Flag conserve plutot que code supprime : si la latence CMEMS passait
+// un jour sous ~6 h, la voie satellite redeviendrait pertinente.
+var VZ_SATELLITE_ANCHORS = false;
+
+// ============================================================
+// DOCTRINE 1 — LA MESURE TERRAIN LA PLUS FRAICHE PREND LE DESSUS
+// ------------------------------------------------------------
+// Un chasseur qui a vu l'eau est la seule verite non modelisee. Son
+// retour repositionne le chiffre, avec un poids qui decroit avec l'age
+// et la distance : a l'instant et sur place il fait loi, a 72 h ou a
+// 5 km il ne pese plus rien et le modele reprend la main. Aucun
+// coefficient regional code en dur : la calibration devient emergente
+// et vaut partout en France, la ou quelqu'un plonge.
+// Les deux constantes ci-dessous sont les seuls reglages, et elles sont
+// calibrables sur visi_feedback quand le volume le permettra.
+var VZ_OBS_TAU_AGE_H = 24;    // l'influence d'un retour est divisee par e toutes les 24 h
+var VZ_OBS_TAU_DIST_KM = 2;   // ... et par e tous les 2 km
+var VZ_OBS_MAX_KM = 5;        // rayon de recherche (identique a l'affichage UI)
+
+// Enveloppe publique : calcule la physique (coeur) puis applique la
+// doctrine 1. Le coeur est mis en cache ; on ne mute JAMAIS son objet,
+// on en construit une copie, sinon le cache serait corrompu.
 function computeVisibilityScore_V4(h, idx, depth, lat, lon, opts) {
+  var base = _computeVisibilityCore(h, idx, depth, lat, lon, opts);
+  if (!base) return base;
+
+  var fb = (typeof vzNearestFeedback === 'function')
+    ? vzNearestFeedback(lat, lon, VZ_OBS_MAX_KM) : null;
+  if (!fb || typeof fb.real_m !== 'number' || !isFinite(fb.real_m) || fb.real_m <= 0) return base;
+  if (fb.age_hours === null || fb.age_hours === undefined
+      || !isFinite(fb.age_hours) || fb.age_hours < 0) return base;
+
+  var distKm = 0;
+  if (typeof haversineKm === 'function' && typeof fb.lat === 'number' && typeof fb.lon === 'number') {
+    distKm = haversineKm(lat, lon, fb.lat, fb.lon);
+  }
+  var w = Math.exp(-fb.age_hours / VZ_OBS_TAU_AGE_H) * Math.exp(-distKm / VZ_OBS_TAU_DIST_KM);
+  if (!isFinite(w) || w <= 0.02) return base;   // influence negligeable : on laisse le modele
+  if (w > 1) w = 1;
+
+  var vModel = (typeof base.visi_m === 'number' && isFinite(base.visi_m) && base.visi_m > 0)
+    ? base.visi_m : null;
+  var vObs = fb.real_m;
+  var vFinal;
+  if (vModel === null) {
+    // Le modele ne sait pas calculer ici (roche, vase, profondeur absente).
+    // Un retour terrain recent vaut mieux qu'un aveu d'ignorance ; un retour
+    // vieux ou lointain ne suffit pas a lever l'ignorance.
+    if (w < 0.2) return base;
+    vFinal = vObs;
+  } else {
+    vFinal = w * vObs + (1 - w) * vModel;
+  }
+
+  var out = {};
+  for (var k in base) { if (Object.prototype.hasOwnProperty.call(base, k)) out[k] = base[k]; }
+  out.visi_m = vFinal;
+  out.score = mapVisiToScore(vFinal);
+  out.label = _scoreToLabel(out.score);
+  out.engine = base.engine + '+obs';
+  out.insufficient = false;   // une vraie mesure terrain a repris la main
+  out.observation = {
+    real_m: vObs, age_hours: fb.age_hours, dist_km: distKm,
+    weight: Math.round(w * 1000) / 1000, model_m: vModel
+  };
+  return out;
+}
+
+function _computeVisibilityCore(h, idx, depth, lat, lon, opts) {
   // ----- Garde-fous d'entrée -----
   // Mêmes pré-conditions que visScoreV2 pour compatibilité signature
   if (!h || !h.windspeed_10m || idx < 0 || idx >= h.time.length) {
@@ -6659,7 +6743,7 @@ function computeVisibilityScore_V4(h, idx, depth, lat, lon, opts) {
   //   - propagate0D : Krone 1962, Mehta 1989, Soulsby 1997 ch.9
   //   - computeConfidence : raisonnement multifactoriel V1
   // ============================================================
-  if (_satCache &&
+  if (VZ_SATELLITE_ANCHORS && _satCache &&
       typeof _satCache.lat === 'number' && typeof _satCache.lon === 'number' &&
       Math.abs(_satCache.lat - lat) < 0.01 &&
       Math.abs(_satCache.lon - lon) < 0.01 &&
@@ -7574,6 +7658,13 @@ function _buildEmpiricalResult(h, idx, depth, lat, lon, reason) {
     visi_m: visi_baseline,
     label: _scoreToLabel(baselineScore),
     engine: 'empirical',
+    // Honnetete epistemique : 2.38/c_baseline n'est PAS un calcul, c'est la
+    // constante optique de la zone (6.80 m a Vierville, 2.97 m a Courseulles,
+    // plates sur 23 h quel que soit le vent). L'afficher en chiffre confiant
+    // avec un score "Excellente" a cote d'un spot a 0 m detruit la credibilite.
+    // Ce drapeau dit aux consommateurs UI : on ne sait pas. Un trou vaut mieux
+    // qu'une fausse precision.
+    insufficient: true,
     trace: {
       fallback_reason: reason,
       zone: optical ? optical.zone : null,
@@ -12188,6 +12279,13 @@ var css = `
     .vz-cond-vis-2 { background: rgba(216,200,74,0.75) !important; color: #1A2535 !important; }
     .vz-cond-vis-3 { background: rgba(77,212,168,0.65) !important; color: #1A2535 !important; }
     .vz-cond-vis-4 { background: rgba(45,168,136,0.92) !important; }
+    /* Donnee insuffisante : gris neutre, volontairement hors de l'echelle
+       rouge->teal. Le chasseur doit voir au premier coup d'oeil que ce n'est
+       pas une visi mais un trou : ni rassurant, ni alarmant. */
+    .vz-cond-vis-na {
+      background: rgba(92,114,133,0.35) !important;
+      color: #5C7285 !important;
+    }
     /* Vent : Inter 600 */
 .vz-cond-row-wind td, .vz-cond-row-gusts td, .vz-cond-row-wave td {
       font-family: 'Inter', sans-serif;
@@ -12969,10 +13067,28 @@ html += '<div style="overflow-x:auto;">';
         { satellite: VZ_SHEET.data.satellite, sediment: VZ_SHEET.data.sediment });
       var vm = (typeof sObj.visi_m === 'number' && isFinite(sObj.visi_m) && sObj.visi_m > 0)
         ? Math.round(sObj.visi_m) : null;
-      inner = (vm !== null) ? vm + 'm' : visLabel(sObj.score);
-      cls += visClass(sObj.score);
-      var title = (sObj.engine === 'satellite_propagated')
-        ? 'Satellite + propagation vent/vagues' : 'Estimation 9 briques';
+      var title;
+      if (sObj.insufficient) {
+        // Rien de calculable ici : on l'assume plutot que d'afficher la
+        // constante optique de zone en chiffre confiant (doctrine 5).
+        inner = '?';
+        cls += 'vz-cond-vis-na';
+        title = 'Donnee insuffisante : ' +
+          ((sObj.trace && sObj.trace.fallback_reason) ? sObj.trace.fallback_reason : 'physique locale inapplicable');
+      } else {
+        inner = (vm !== null) ? vm + 'm' : visLabel(sObj.score);
+        cls += visClass(sObj.score);
+        if (sObj.observation) {
+          title = 'Retour chasseur ' + sObj.observation.real_m + ' m il y a '
+            + Math.round(sObj.observation.age_hours) + ' h a '
+            + (Math.round(sObj.observation.dist_km * 10) / 10) + ' km (poids '
+            + Math.round(sObj.observation.weight * 100) + ' %) + chaine 9 briques';
+        } else if (sObj.engine === 'coriolis_propagated') {
+          title = 'Bouee Coriolis + propagation';
+        } else {
+          title = 'Chaine 9 briques : vent, mer, maree, orientation de cote';
+        }
+      }
       attrs = ' onclick="vzSheetCellClick(\'' + refSlot.t + '\')" title="' + title + '"';
       visRow += '<td class="' + cls.trim() + '" colspan="' + g.count + '"' + attrs + '>' + inner + '</td>';
     });
