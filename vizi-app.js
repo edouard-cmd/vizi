@@ -6426,7 +6426,14 @@ function _bestWaveHeight(h, kIdx, marineHs) {
 // dans ce cas on passe directement à l'estimation depuis Hs.
 // L'estimation est un paramètre calibrable par visi_feedback.
 // ============================================================
-function _bestWavePeriod(marineCache, marineIdx, Hs) {
+function _bestWavePeriod(h, kIdx, marineCache, marineIdx, Hs) {
+  // 1. Période du champ météo du consommateur (h.wave_period) : c'est la MÊME
+  //    source que la hauteur affichée, donc cohérente avec ce que voit l'user.
+  if (h && h.wave_period && typeof h.wave_period[kIdx] === 'number'
+      && isFinite(h.wave_period[kIdx]) && h.wave_period[kIdx] > 0) {
+    return h.wave_period[kIdx];
+  }
+  // 2. Cache Marine du drawer, si présent et aligné.
   function pick(arr) {
     if (marineCache && arr && marineIdx >= 0) {
       var v = arr[marineIdx];
@@ -6439,6 +6446,10 @@ function _bestWavePeriod(marineCache, marineIdx, Hs) {
         || pick(marineCache && marineCache.wind_wave_period)
         || pick(marineCache && marineCache.swell_wave_peak_period);
   if (tp) return tp;
+  // 3. Dernier recours : estimation depuis la hauteur (cambrure mer-de-vent).
+  //    Volontairement courte : elle ne doit jamais faire croire à une houle
+  //    longue qui travaillerait le fond. Si elle sort, c'est que les deux
+  //    vraies sources ont échoué (l'explicateur l'affiche en ESTIMEE).
   if (Hs && Hs > 0) {
     var est = 3.5 * Math.sqrt(Hs);       // cambrure mer-de-vent ~1/20
     return Math.max(2, Math.min(8, est));
@@ -6501,9 +6512,10 @@ function vzExplainVisi(hoursBack) {
       }
       if (bd <= 1800000) mOk = true; else mIdx = -1;
     }
-    var tp = _bestWavePeriod(mOk ? S_spotMarineCache : null, mIdx, Hs);
+    var tp = _bestWavePeriod(h, k, mOk ? S_spotMarineCache : null, mIdx, Hs);
     var src = 'ESTIMEE';
-    if (mOk && S_spotMarineCache.wave_period && S_spotMarineCache.wave_period[mIdx] > 0) src = 'reelle';
+    if (h.wave_period && h.wave_period[k] > 0) src = 'reelle';
+    else if (mOk && S_spotMarineCache.wave_period && S_spotMarineCache.wave_period[mIdx] > 0) src = 'marine';
     else if (mOk && S_spotMarineCache.wind_wave_peak_period && S_spotMarineCache.wind_wave_peak_period[mIdx] > 0) src = 'pic-mer-vent';
     return { tp: tp, src: src };
   }
@@ -6949,15 +6961,18 @@ var sediment = _sediment;
     return r3;
   }
 
-  // ----- Pré-condition 2 : données marines disponibles -----
-  if (!S_spotMarineCache || !S_spotMarineCache.wave_height) {
-    var r4 = _buildEmpiricalResult(h, idx, depth, lat, lon,
-      'données marines non chargées');
-    _chainCache[cacheKey] = r4;
-    return r4;
-  }
-
-// ----- Pré-condition 3 : profondeur LAT valide (non-null) -----
+  // ----- Pré-condition 2 : profondeur LAT valide (non-null) -----
+  // NOTE : l'ancienne pré-condition "données marines chargées" a été retirée.
+  // Elle exigeait S_spotMarineCache (cache du DRAWER, rempli au clic) ; or le
+  // tableau Conditions a son propre système de données et ne le remplit jamais.
+  // Résultat : la chaîne 9 briques ne tournait JAMAIS dans le tableau et
+  // retombait sur _buildEmpiricalResult, qui affiche 2.38/c_baseline — une
+  // constante optique de zone, aveugle au vent (6.80 m plat sur 23 h à
+  // Vierville). La doctrine "si pas de satellite, la chaîne prend la main"
+  // était donc impossible. La chaîne s'appuie maintenant sur le champ météo du
+  // consommateur (h.wave_height + h.wave_period), le Marine ne servant que de
+  // complément optionnel (courant, directions) quand il est là.
+  //
   // On accepte les spots à très faible profondeur LAT (estran)
   // car ils peuvent être chassables à pleine mer.
   // La garde stricte (< 0.5m) sera appliquée APRÈS calcul de
@@ -6971,32 +6986,32 @@ var sediment = _sediment;
   }
 
   // ----- Récupération des variables marines au créneau idx -----
-  // Les caches météo (h) et marine (S_spotMarineCache) ne sont
-  // pas alignés sur les mêmes timestamps. On aligne par index
-  // approximatif si même résolution horaire, sinon par recherche.
-  var marineIdx = idx;
-  if (S_spotMarineCache.time && h.time && S_spotMarineCache.time.length !== h.time.length) {
-    // Resync par recherche : trouve le créneau marine le plus proche
+  // Marine OPTIONNEL : s'il est absent ou désaligné, marineIdx reste à -1 et
+  // on s'appuie sur h (hauteur + période réelles). Plus de repli empirique ici.
+  var marineOk = false;
+  var marineIdx = -1;
+  var marineHs = 0;
+  if (S_spotMarineCache && S_spotMarineCache.wave_height && S_spotMarineCache.time) {
     var targetMs = new Date(h.time[idx]).getTime();
     var bestDelta = Infinity;
     for (var mi = 0; mi < S_spotMarineCache.time.length; mi++) {
-      var d = Math.abs(new Date(S_spotMarineCache.time[mi]).getTime() - targetMs);
-      if (d < bestDelta) { bestDelta = d; marineIdx = mi; }
+      var dmi = Math.abs(new Date(S_spotMarineCache.time[mi]).getTime() - targetMs);
+      if (dmi < bestDelta) { bestDelta = dmi; marineIdx = mi; }
     }
-    if (bestDelta > 1800000) {  // > 30 min de décalage
-      var r6 = _buildEmpiricalResult(h, idx, depth, lat, lon,
-        'décalage temporel marine > 30 min');
-      _chainCache[cacheKey] = r6;
-      return r6;
+    if (bestDelta <= 1800000) {          // aligné à moins de 30 min
+      marineOk = true;
+      marineHs = S_spotMarineCache.wave_height[marineIdx];
+    } else {
+      marineIdx = -1;                    // désaligné : on ignore le Marine
     }
   }
 
-  // Hs via source unifiée : AROME 1.3km (h) prioritaire, Marine en repli
-  var Hs = _bestWaveHeight(h, idx, S_spotMarineCache.wave_height[marineIdx]);
-  var Tp = _bestWavePeriod(S_spotMarineCache, marineIdx, Hs);
-  var U = S_spotMarineCache.ocean_current_velocity ? (S_spotMarineCache.ocean_current_velocity[marineIdx] || 0) : 0;
-  var waveDir = S_spotMarineCache.wave_direction ? S_spotMarineCache.wave_direction[marineIdx] : null;
-  var currentDir = S_spotMarineCache.ocean_current_direction ? S_spotMarineCache.ocean_current_direction[marineIdx] : null;
+  // Hs et Tp via sources unifiées : champ h prioritaire, Marine en repli
+  var Hs = _bestWaveHeight(h, idx, marineHs);
+  var Tp = _bestWavePeriod(h, idx, marineOk ? S_spotMarineCache : null, marineIdx, Hs);
+  var U = (marineOk && S_spotMarineCache.ocean_current_velocity) ? (S_spotMarineCache.ocean_current_velocity[marineIdx] || 0) : 0;
+  var waveDir = (marineOk && S_spotMarineCache.wave_direction) ? S_spotMarineCache.wave_direction[marineIdx] : null;
+  var currentDir = (marineOk && S_spotMarineCache.ocean_current_direction) ? S_spotMarineCache.ocean_current_direction[marineIdx] : null;
 
 // Profondeur instantanée (LAT + marée) pour le créneau idx.
   // C'est sur cette valeur que la chaîne physique opère, car les
@@ -7792,7 +7807,7 @@ function _computeEquilibriumConcentrationAt(h, k, depth_lat, lat, lon, sediment)
   // Si aucune vague exploitable (ni AROME ni Marine), rien à brasser
   if (!Hs || Hs <= 0) return null;
   // Période via source unifiée : Marine si dispo, sinon estimée depuis Hs
-  var Tp = _bestWavePeriod(marineOk ? S_spotMarineCache : null, marineIdx, Hs);
+  var Tp = _bestWavePeriod(h, k, marineOk ? S_spotMarineCache : null, marineIdx, Hs);
   var U = (marineOk && S_spotMarineCache.ocean_current_velocity) ? (S_spotMarineCache.ocean_current_velocity[marineIdx] || 0) : 0;
   var waveDir = (marineOk && S_spotMarineCache.wave_direction) ? S_spotMarineCache.wave_direction[marineIdx] : null;
   var currentDir = (marineOk && S_spotMarineCache.ocean_current_direction) ? S_spotMarineCache.ocean_current_direction[marineIdx] : null;
@@ -8103,7 +8118,7 @@ function propagate0D(C_sat_kg_m3, dateSatISO, h, idxTarget, depth, lat, lon, sed
     if (!HsW || HsW <= 0) continue;
     var depthW = depthAtTimeCached(depth, h.time[kw]);
     if (depthW < 0.5) continue;
-    var TpW = _bestWavePeriod(null, -1, HsW);   // période estimée, sans sédiment
+    var TpW = _bestWavePeriod(h, kw, null, -1, HsW);   // période réelle si dispo, sinon estimée
     var ubW = computeOrbitalVelocityAtBed(HsW, TpW, depthW);
     if (ubW !== null && ubW >= UB_CALM) { seaWorking = true; break; }
   }
@@ -12619,7 +12634,7 @@ var arpegeUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&lon
     + '&wind_speed_unit=kmh&timezone=Europe/Paris&forecast_days=5'
     + '&models=meteofrance_arpege_europe';
 var marineUrl = 'https://marine-api.open-meteo.com/v1/marine?latitude=' + lat + '&longitude=' + lon
-    + '&hourly=wave_height&timezone=Europe/Paris&forecast_days=5';
+    + '&hourly=wave_height,wave_period,wind_wave_peak_period&timezone=Europe/Paris&forecast_days=5';
   return Promise.all([
     fetch(aromeUrl).then(function(r){ return r.json(); }),
     fetch(arpegeUrl).then(function(r){ return r.json(); }),
@@ -12632,11 +12647,25 @@ var marineUrl = 'https://marine-api.open-meteo.com/v1/marine?latitude=' + lat + 
     // Vagues : l'endpoint meteo ne sert pas wave_height. On prend l'API Marine
     // (modele de houle) et on l'aligne sur la grille horaire fusionnee
     // (meme timezone Europe/Paris, donc les chaines de temps coincident).
+    // On rapatrie AUSSI la periode : sans elle, le moteur estimait Tp a
+    // 3.5*sqrt(Hs) (~2.6-3.5 s), une vague trop courte pour sentir le fond
+    // au-dela de ~5 m. Resultat : orbitale au fond quasi nulle, aucune
+    // resuspension, et la visi retombait sur la constante optique de zone.
+    // La periode reelle en Manche tourne a 5-8 s : c'est elle qui decide si
+    // la houle travaille le fond. wind_wave_peak_period sert de repli quand
+    // wave_period est nul (mer de vent pure, houle longue absente).
     var marine = (results[2] && results[2].hourly) ? results[2].hourly : null;
     if (fused && fused.h && marine && marine.time && marine.wave_height) {
-      var wmap = {};
-      for (var k = 0; k < marine.time.length; k++) wmap[marine.time[k]] = marine.wave_height[k];
+      var wmap = {}, pmap = {};
+      for (var k = 0; k < marine.time.length; k++) {
+        wmap[marine.time[k]] = marine.wave_height[k];
+        var per = null;
+        if (marine.wave_period && marine.wave_period[k] > 0) per = marine.wave_period[k];
+        else if (marine.wind_wave_peak_period && marine.wind_wave_peak_period[k] > 0) per = marine.wind_wave_peak_period[k];
+        pmap[marine.time[k]] = per;
+      }
       fused.h.wave_height = fused.h.time.map(function(t){ return (t in wmap) ? wmap[t] : null; });
+      fused.h.wave_period = fused.h.time.map(function(t){ return (t in pmap) ? pmap[t] : null; });
     }
     return fused.h;
   });
