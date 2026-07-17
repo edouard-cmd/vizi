@@ -6299,7 +6299,57 @@ var B_LOCAL_BY_FOLK = {
     5: 100
   }
 };
+// ============================================================
+// RECALIBRATION DE LA BASELINE OPTIQUE PAR LE SATELLITE
+// ------------------------------------------------------------
+// c_baseline = la clarte de reference d'une zone (l'eau la plus claire
+// physiquement possible). C'est une constante de TABLE, par grande zone, et
+// elle plafonne TOUT : le plafond de visi vaut VZ_VISI_K / c_baseline
+// (2.97 m a Courseulles avec 0.80, 6.80 m a Vierville avec 0.35, 7.93 m au
+// Cotentin avec 0.30). Des que la physique ne brasse rien, c'est CE chiffre
+// qui s'affiche — d'ou les valeurs plates a 6.80 m sur 23 h.
+//
+// Or le satellite MESURE c_total = c_baseline_vrai + b_local * C, avec C >= 0.
+// Toute mesure satellite est donc une BORNE SUPERIEURE de la vraie baseline.
+// A Courseulles il a mesure c_total = 0.664 quand la table declare 0.80 :
+// preuve directe, par la mesure, que la table est trop turbide. L'ancien code
+// en tirait la conclusion inverse — il clampait la concentration a 0 et
+// s'ancrait sur le plafond (2.97 m), AU-DESSUS de la mesure elle-meme (1.79 m).
+//
+// On conserve donc, par spot (~1 km, la taille du pixel CMEMS), la plus petite
+// c_total jamais mesuree, et on l'adopte comme baseline si elle est inferieure
+// a la table. Chaque photo resserre l'estimation par le haut. Aucune table
+// regionale a maintenir : c'est de la mesure, et ca vaut partout en France.
+var _satBaselineCache = {};
+
+function vzNoteSatelliteBaseline_(lat, lon, ZSD_m) {
+  if (typeof ZSD_m !== 'number' || !isFinite(ZSD_m) || ZSD_m <= 0) return;
+  if (typeof lat !== 'number' || typeof lon !== 'number') return;
+  var c_total = 1.7 / ZSD_m;                            // Preisendorfer 1986
+  if (!isFinite(c_total) || c_total <= 0) return;
+  var key = lat.toFixed(2) + '|' + lon.toFixed(2);      // ~1.1 km = pixel CMEMS
+  if (_satBaselineCache[key] === undefined || c_total < _satBaselineCache[key]) {
+    _satBaselineCache[key] = c_total;
+  }
+}
+
+// Enveloppe : table regionale, puis resserrement par la mesure satellite.
+// Toutes les voies (chaine, propagation, empirique) passent par ici, donc
+// toutes beneficient de la recalibration sans changement de signature.
 function getRegionalOpticalBaseline(lat, lon) {
+  var o = _getRegionalOpticalBaselineTable(lat, lon);
+  if (!o) return null;
+  var key = lat.toFixed(2) + '|' + lon.toFixed(2);
+  var measured = _satBaselineCache[key];
+  if (measured !== undefined && measured < o.c_baseline) {
+    o.c_baseline_table = o.c_baseline;
+    o.c_baseline = measured;
+    o.recalibrated_by_satellite = true;
+  }
+  return o;
+}
+
+function _getRegionalOpticalBaselineTable(lat, lon) {
   if (typeof lat !== 'number' || typeof lon !== 'number') return null;
   if (!isFinite(lat) || !isFinite(lon)) return null;
 
@@ -6797,6 +6847,14 @@ function vzExplainVisi(hoursBack) {
       console.log('Propagation : zone ' + p.zone_optique + ' | c_baseline ' + p.c_baseline
         + ' | b_local ' + p.b_local + ' | sediment ' + p.sediment_used);
     }
+    var _opt = (typeof getRegionalOpticalBaseline === 'function') ? getRegionalOpticalBaseline(lat, lon) : null;
+    if (_opt) {
+      console.log('Baseline    : c_baseline ' + f(_opt.c_baseline, 3)
+        + (_opt.recalibrated_by_satellite
+            ? '  <- RECALIBREE par le satellite (table disait ' + f(_opt.c_baseline_table, 3) + ')'
+            : '  (table, zone ' + _opt.zone + ')')
+        + '  -> plafond eau claire ' + f(VZ_VISI_K / _opt.c_baseline, 2) + ' m');
+    }
 
     console.log('\n--- ENTREES HEURE PAR HEURE (' + hoursBack + ' h avant maintenant) ---');
     console.log('heure  | vent | dir | dirF | Hs   | Tp   (src)     | prof | u_b   | E     | visi');
@@ -6860,7 +6918,7 @@ function vzExplainVisi(hoursBack) {
 // native (Brique 9, cinetique de decantation Krone 1962).
 // Flag conserve plutot que code supprime : si la latence CMEMS passait
 // un jour sous ~6 h, la voie satellite redeviendrait pertinente.
-var VZ_SATELLITE_ANCHORS = false;
+var VZ_SATELLITE_ANCHORS = true;
 
 // ============================================================
 // DOCTRINE 1 — LA MESURE TERRAIN LA PLUS FRAICHE PREND LE DESSUS
@@ -6941,6 +6999,16 @@ function _computeVisibilityCore(h, idx, depth, lat, lon, opts) {
   // consommateurs, une seule physique.
   opts = opts || {};
   var _sediment = opts.sediment || (typeof S !== 'undefined' ? S._spotSediment : null);
+  // Toute mesure satellite disponible resserre la baseline optique du spot,
+  // INDEPENDAMMENT du flag d'ancrage : meme si le satellite ne sert pas
+  // d'ancre, sa mesure reste une preuve sur la clarte de reference du point.
+  if (opts.satellite && typeof opts.satellite.value_zsd_m === 'number') {
+    vzNoteSatelliteBaseline_(lat, lon, opts.satellite.value_zsd_m);
+  } else if (typeof S_spotSatelliteCache !== 'undefined' && S_spotSatelliteCache
+             && S_spotSatelliteCache.data
+             && typeof S_spotSatelliteCache.data.value_zsd_m === 'number') {
+    vzNoteSatelliteBaseline_(lat, lon, S_spotSatelliteCache.data.value_zsd_m);
+  }
   var _satCache;
   if (opts.satellite) {
     _satCache = { lat: lat, lon: lon, data: opts.satellite };
@@ -12956,15 +13024,23 @@ function fetchSheetTides(spot) {
 function fetchSheetMeteo(lat, lon) {
   var aromeUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon
     + '&hourly=windspeed_10m,winddirection_10m,windgusts_10m,wave_height,temperature_2m,precipitation,cloud_cover'
-    + '&wind_speed_unit=kmh&timezone=Europe/Paris&forecast_days=2'
+    + '&wind_speed_unit=kmh&timezone=Europe/Paris&past_days=7&forecast_days=2'
     + '&models=meteofrance_arome_france';
 var arpegeUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon
     + '&hourly=windspeed_10m,winddirection_10m,windgusts_10m,wave_height,temperature_2m,precipitation,cloud_cover'
     + '&daily=sunrise,sunset'
-    + '&wind_speed_unit=kmh&timezone=Europe/Paris&forecast_days=5'
+    + '&wind_speed_unit=kmh&timezone=Europe/Paris&past_days=7&forecast_days=5'
     + '&models=meteofrance_arpege_europe';
 var marineUrl = 'https://marine-api.open-meteo.com/v1/marine?latitude=' + lat + '&longitude=' + lon
-    + '&hourly=wave_height,wave_period,wind_wave_peak_period&timezone=Europe/Paris&forecast_days=5';
+    + '&hourly=wave_height,wave_period,wind_wave_peak_period&timezone=Europe/Paris&past_days=7&forecast_days=5';
+  // past_days=7 : le moteur DOIT disposer de l'histoire entre la photo satellite
+  // (J-2 a J-6 selon la couverture nuageuse) et maintenant. Sans elle, h demarrait
+  // aujourd'hui a 00h et la photo tombait 142 h HORS FENETRE : la propagation
+  // etait impossible, le satellite inexploitable, et les 5 jours d'ENE a 44 km/h
+  // du 11 au 16/07 n'existaient tout simplement pas pour le modele.
+  // fetchSpotWeather (drawer) le fait deja depuis toujours ; le tableau partait
+  // de zero. L'AFFICHAGE, lui, reste cale sur aujourd'hui : le moteur voit 7 jours
+  // en arriere, le chasseur voit ce qui le concerne (cf. filtre dans renderSheetTable).
   return Promise.all([
     fetch(aromeUrl).then(function(r){ return r.json(); }),
     fetch(arpegeUrl).then(function(r){ return r.json(); }),
@@ -13013,8 +13089,18 @@ function renderSheetTable() {
   var depth = data.depth || 5;
 
   // Filtre créneaux 3h sur 5 jours
+  // ----- L'AFFICHAGE reste cale sur aujourd'hui -----
+  // h remonte desormais 7 jours en arriere (past_days=7) pour que le MOTEUR
+  // puisse propager depuis la photo satellite. Le chasseur, lui, n'a que faire
+  // de la semaine passee : on ne construit les creneaux qu'a partir
+  // d'aujourd'hui 00h. Sans ce decalage, le tableau afficherait le passe.
+  var _todayKey = new Date().toDateString();
+  var _startIdx = 0;
+  for (var i0 = 0; i0 < h.time.length; i0++) {
+    if (new Date(h.time[i0]).toDateString() === _todayKey) { _startIdx = i0; break; }
+  }
   var slots = [];
-  for (var i = 0; i < h.time.length; i++) {
+  for (var i = _startIdx; i < h.time.length; i++) {
     var dt = new Date(h.time[i]);
     if (dt.getHours() % 3 === 0) {
       slots.push({ i: i, time: dt, t: h.time[i] });
@@ -13287,42 +13373,60 @@ html += '<div style="overflow-x:auto;">';
       cursor += g.count;
       var cls = (gIdx > 0 ? 'vz-cond-dayboundary ' : '');
       var inner, attrs = '';
-      // Chiffre de visibilité pour la journée : on interroge le moteur
-      // unique au créneau de référence. Satellite présent -> propagation
-      // vent+vagues depuis la photo ; sinon -> chaîne 9 briques à l'estime.
-      // On injecte le satellite et le sédiment du tableau (le moteur ne
-      // lit plus les globals du drawer ici). Chiffres sur toutes les
-      // colonnes, aujourd'hui comme les jours futurs.
-      var refIdx = (nowIdx >= first && nowIdx <= last) ? nowIdx : Math.floor((first + last) / 2);
-      var refSlot = slots[refIdx];
-      var sObj = computeVisibilityScore_V4(h, refSlot.i, depth, spot.lat, spot.lng,
-        { satellite: VZ_SHEET.data.satellite, sediment: VZ_SHEET.data.sediment });
+      // ----- Doctrine 3 : la visi du jour est une MOYENNE, pas un instant -----
+      // La visi n'est pas une valeur ponctuelle : au Cotentin le 17/07 elle passe
+      // de 7,9 m a maree haute a 2,8 m a maree basse DANS LA MEME JOURNEE, avec
+      // un vent nul — c'est la maree qui decide si la houle touche le fond.
+      // Afficher le creneau de reference (souvent minuit, a maree haute, le plus
+      // flatteur) etait faux par omission. On moyenne donc les creneaux du jour.
+      // Pour le jour EN COURS, uniquement les heures ECOULEES : le futur du jour
+      // n'a pas encore ete vecu. Les creneaux non calculables sont exclus de la
+      // moyenne et comptes a part — jamais remplaces par une constante de zone.
+      var opts_ = { satellite: VZ_SHEET.data.satellite, sediment: VZ_SHEET.data.sediment };
+      var isToday = (nowIdx >= first && nowIdx <= last);
+      var lastSlotIdx = isToday ? Math.min(last, nowIdx) : last;
+      var accV = 0, accN = 0, nInsuf = 0, sObj = null;
+      for (var si = first; si <= lastSlotIdx; si++) {
+        var oi = computeVisibilityScore_V4(h, slots[si].i, depth, spot.lat, spot.lng, opts_);
+        sObj = oi;   // dernier creneau retenu : sert a decrire la source au survol
+        if (oi.insufficient) { nInsuf++; continue; }
+        if (typeof oi.visi_m === 'number' && isFinite(oi.visi_m) && oi.visi_m > 0) {
+          accV += oi.visi_m; accN++;
+        }
+      }
+      var refSlot = slots[lastSlotIdx];
+      if (!sObj) sObj = computeVisibilityScore_V4(h, refSlot.i, depth, spot.lat, spot.lng, opts_);
       // Une decimale : "2,3 m" plutot que "2 m". Un entier laisse croire a une
-      // classe ("2 m" = la case bleue), la decimale dit que c'est une estimation
-      // calculee, et rend visible la variation jour a jour que l'arrondi ecrasait.
-      var vm = (typeof sObj.visi_m === 'number' && isFinite(sObj.visi_m) && sObj.visi_m > 0)
-        ? Math.round(sObj.visi_m * 10) / 10 : null;
+      // classe, la decimale dit que c'est une estimation calculee et rend
+      // visible la variation que l'arrondi ecrasait.
+      var vm = (accN > 0) ? Math.round((accV / accN) * 10) / 10 : null;
       var title;
-      if (sObj.insufficient) {
-        // Rien de calculable ici : on l'assume plutot que d'afficher la
-        // constante optique de zone en chiffre confiant (doctrine 5).
+      if (vm === null) {
+        // Rien de calculable sur toute la journee : on l'assume plutot que
+        // d'afficher la constante optique de zone en chiffre confiant.
         inner = '?';
         cls += 'vz-cond-vis-na';
         title = 'Donnee insuffisante : ' +
-          ((sObj.trace && sObj.trace.fallback_reason) ? sObj.trace.fallback_reason : 'physique locale inapplicable');
+          ((sObj && sObj.trace && sObj.trace.fallback_reason) ? sObj.trace.fallback_reason : 'physique locale inapplicable');
       } else {
-        inner = (vm !== null) ? vm.toFixed(1).replace('.', ',') + 'm' : visLabel(sObj.score);
-        cls += visClass(sObj.score);
-        if (sObj.observation) {
-          title = 'Retour chasseur ' + sObj.observation.real_m + ' m il y a '
+        inner = vm.toFixed(1).replace('.', ',') + 'm';
+        cls += visClass(mapVisiToScore(vm));
+        var srcTxt;
+        if (sObj && sObj.observation) {
+          srcTxt = 'retour chasseur ' + sObj.observation.real_m + ' m il y a '
             + Math.round(sObj.observation.age_hours) + ' h a '
             + (Math.round(sObj.observation.dist_km * 10) / 10) + ' km (poids '
-            + Math.round(sObj.observation.weight * 100) + ' %) + chaine 9 briques';
-        } else if (sObj.engine === 'coriolis_propagated') {
-          title = 'Bouee Coriolis + propagation';
+            + Math.round(sObj.observation.weight * 100) + ' %) + modele';
+        } else if (sObj && sObj.engine === 'satellite_propagated') {
+          srcTxt = 'satellite propage avec le vent, la mer et la maree depuis la photo';
+        } else if (sObj && sObj.engine === 'coriolis_propagated') {
+          srcTxt = 'bouee Coriolis + propagation';
         } else {
-          title = 'Chaine 9 briques : vent, mer, maree, orientation de cote';
+          srcTxt = 'chaine 9 briques : vent, mer, maree, orientation de cote';
         }
+        title = 'Moyenne de ' + accN + ' creneau' + (accN > 1 ? 'x' : '') + ' '
+          + (isToday ? 'ecoules aujourd\'hui' : 'du jour') + ' — ' + srcTxt;
+        if (nInsuf > 0) title += ' (' + nInsuf + ' creneau' + (nInsuf > 1 ? 'x' : '') + ' non calculable)';
       }
       attrs = ' onclick="vzSheetCellClick(\'' + refSlot.t + '\')" title="' + title + '"';
       visRow += '<td class="' + cls.trim() + '" colspan="' + g.count + '"' + attrs + '>' + inner + '</td>';
