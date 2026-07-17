@@ -1289,6 +1289,7 @@ initLitto3dLayer();
   vzUpdateSpotMarkers();
 
 S.map.on('click', function(e) {
+    if (S.shareMode) { vzShareCapture(e.latlng); return; }
     if (S.measureMode) { vzMeasureAddPoint(e.latlng); return; }
     if (S.spotMode) { vzAddHuntPoint(e.latlng); return; }
     // Si le bandeau bas est déployé, le clic sur la carte le ferme et stop
@@ -1645,6 +1646,7 @@ window.vzSectorDetails = function() {
 
 function vzDesktopPointSelect(latlng) {
   if (typeof vzHideSector === 'function') vzHideSector();  // un clic libre ferme le secteur communautaire
+  if (typeof vzShareClose === 'function') vzShareClose();  // et le panneau de partage
   S.clickLatLng = latlng;
   S._spotDepth = null;
 
@@ -2455,6 +2457,7 @@ function toggleLayer(type) {
     }
   } else if (type === 'spots') {
     if (!S.spotMode && S.measureMode) vzMeasureToggle();
+    if (!S.spotMode && S.shareMode && typeof vzShareDisarm === 'function') vzShareDisarm();
     S.spotMode = !S.spotMode;
     document.body.classList.toggle('vz-edit-mode', S.spotMode);
   var rowSp = document.getElementById('vzRowSpots');
@@ -2566,6 +2569,7 @@ function vzMeasureFmt(m) {
 function vzMeasureToggle() {
   // Exclusivite (sens 2) : couper le mode Points s'il tourne.
   if (!S.measureMode && S.spotMode && typeof toggleLayer === 'function') toggleLayer('spots');
+  if (!S.measureMode && S.shareMode && typeof vzShareDisarm === 'function') vzShareDisarm();
   S.measureMode = !S.measureMode;
   if (S.measureMode && !S.measureLayer) S.measureLayer = L.layerGroup().addTo(S.map);
   var btn = document.getElementById('vzBtnMeasure');
@@ -2737,35 +2741,163 @@ function vzFormatDDM(lat, lon) {
   return fmt(lat, 'N', 'S') + ' ' + fmt(lon, 'E', 'W');
 }
 /* ============================================================
-   PARTAGE DE POINT - lien profond ?p=lat,lon
-   Bouton lateral #vzBtnShare : partage le point du curseur.
-   Mobile : centre carte (= viseur central). Desktop : point
-   selectionne S.clickLatLng s'il existe, sinon centre carte.
-   navigator.share si dispo (feuille native SMS/WhatsApp),
-   sinon copie presse-papier + feedback teal 1 s sur le bouton
-   (meme grammaire visuelle que vzCopyCoord).
-   Lecture du lien au boot : vzApplyDeepLink() appele dans
-   boot(), prime sur la geoloc auto.
+   PARTAGE DE POINT v2 - lien profond ?p=lat,lon
+   Bouton lateral #vzBtnShare. Le partage est toujours ancre
+   visuellement : un sonar teal pulsant (classes .vz-pulse-*
+   existantes) marque le point partage, et un panneau Talisker
+   propose SMS / WhatsApp / Mail / Copier (+ feuille native si
+   dispo), message pre-rempli avec le lien. Aucune dependance
+   exclusive a navigator.share : quelque chose de visible
+   s'ouvre sur toutes les plateformes.
+   - Mobile : la fleche partage le centre du viseur, sonar +
+     panneau immediats.
+   - Desktop : si un point est selectionne (S.clickLatLng, la
+     pastille pulsante sert de sonar), partage direct ; sinon
+     mode "clique le point a partager" (curseur crosshair,
+     exclusif avec mesure et spots, Echap ou re-clic desarme).
+   Lecture du lien au boot : vzApplyDeepLink() dans boot().
    ============================================================ */
-function vzSharePoint() {
-  var mob = (typeof isMobile === 'function' && isMobile());
-  var p = mob ? (S.map && S.map.getCenter()) : (S.clickLatLng || (S.map && S.map.getCenter()));
-  if (!p) return;
-  var lon = (typeof p.lng === 'number') ? p.lng : p.lon;
-  var url = location.origin + location.pathname + '?p=' + p.lat.toFixed(5) + ',' + lon.toFixed(5);
-  var done = function() {
-    var btn = document.getElementById('vzBtnShare');
-    if (!btn) return;
-    btn.classList.add('active');
-    setTimeout(function() { btn.classList.remove('active'); }, 1000);
-  };
-  if (navigator.share) {
-    navigator.share({ title: 'Visimer', text: 'Regarde ce point sur Visimer', url: url }).then(done).catch(function() {});
-  } else if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(url).then(done).catch(function() {});
+function vzShareUrl_(lat, lon) {
+  return location.origin + location.pathname + '?p=' + lat.toFixed(5) + ',' + lon.toFixed(5);
+}
+
+function vzShareEnsureCSS_() {
+  if (document.getElementById('vzShareStyle')) return;
+  var st = document.createElement('style'); st.id = 'vzShareStyle';
+  st.textContent =
+    "#vzBtnShare.active{color:#4DD4A8;background:rgba(77,212,168,0.15);}"
+  + "#vzSharePanel{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:1360;display:flex;align-items:stretch;gap:4px;max-width:calc(100vw - 20px);padding:8px;background:rgba(10,21,32,0.94);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(77,212,168,0.42);border-radius:14px;box-shadow:0 8px 28px rgba(4,16,28,0.45);font-family:'Inter',sans-serif;}"
+  + "@media (max-width:768px){#vzSharePanel{bottom:96px;}}"
+  + "#vzSharePanel .vz-share-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-width:60px;padding:9px 6px;border:0;border-radius:10px;background:transparent;color:#D8E1EB;cursor:pointer;text-decoration:none;font-family:'Inter',sans-serif;font-size:10.5px;font-weight:600;-webkit-tap-highlight-color:transparent;}"
+  + "#vzSharePanel .vz-share-item:hover{background:rgba(255,255,255,0.08);}"
+  + "#vzSharePanel .vz-share-item svg{width:20px;height:20px;stroke:#4DD4A8;}"
+  + "#vzSharePanel .vz-share-close{position:absolute;top:-9px;right:-9px;display:flex;align-items:center;justify-content:center;width:22px;height:22px;background:#0F2438;color:#E6EEF4;border:1.5px solid #4DD4A8;border-radius:50%;cursor:pointer;padding:0;box-shadow:0 4px 12px rgba(4,16,28,0.5);}"
+  + "#vzShareHint{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:1360;padding:9px 16px;background:rgba(10,21,32,0.92);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(77,212,168,0.42);border-radius:12px;color:#E8F0F4;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;white-space:nowrap;}";
+  (document.head || document.documentElement).appendChild(st);
+  // Echap : desarme le mode et ferme le panneau (inoffensif si absents)
+  document.addEventListener('keydown', function(e) {
+    if (e.key !== 'Escape') return;
+    if (S.shareMode) vzShareDisarm();
+    vzShareClose();
+  });
+}
+
+function vzShareSonarHtml_() {
+  return '<div class="vz-pulse-marker">'
+    + '<div class="vz-pulse-ring"></div>'
+    + '<div class="vz-pulse-wave vz-pulse-wave-1"></div>'
+    + '<div class="vz-pulse-wave vz-pulse-wave-2"></div>'
+    + '<div class="vz-pulse-wave vz-pulse-wave-3"></div>'
+    + '<div class="vz-pulse-core"></div>'
+    + '<div class="vz-pulse-dot"></div>'
+    + '</div>';
+}
+
+function vzShareClose() {
+  var el = document.getElementById('vzSharePanel');
+  if (el) el.parentNode.removeChild(el);
+  if (S._shareSonar) { S.map.removeLayer(S._shareSonar); S._shareSonar = null; }
+}
+
+function vzShareOpenAt(lat, lon, withSonar) {
+  vzShareEnsureCSS_();
+  vzShareClose();
+  if (withSonar) {
+    S._shareSonar = L.marker([lat, lon], {
+      icon: L.divIcon({ className: '', html: vzShareSonarHtml_(), iconSize: [40, 40], iconAnchor: [20, 20] }),
+      interactive: false
+    }).addTo(S.map);
+  }
+  var url = vzShareUrl_(lat, lon);
+  var msg = 'Regarde ce point sur Visimer : ' + url;
+  var enc = encodeURIComponent(msg);
+  function ic(paths) {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + paths + '</svg>';
+  }
+  var icSms = ic('<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8Z"/>');
+  var icWa = ic('<path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8Z"/><path d="M8.5 9.5c0 3.5 2.5 6 6 6"/>');
+  var icMail = ic('<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/>');
+  var icCopy = ic('<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>');
+  var icMore = ic('<path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>');
+  var icX = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>';
+  var el = document.createElement('div');
+  el.id = 'vzSharePanel';
+  el.innerHTML =
+      '<a class="vz-share-item" href="sms:?&body=' + enc + '">' + icSms + '<span>SMS</span></a>'
+    + '<a class="vz-share-item" href="https://wa.me/?text=' + enc + '" target="_blank" rel="noopener">' + icWa + '<span>WhatsApp</span></a>'
+    + '<a class="vz-share-item" href="mailto:?subject=' + encodeURIComponent('Un point sur Visimer') + '&body=' + enc + '">' + icMail + '<span>Mail</span></a>'
+    + '<button class="vz-share-item" id="vzShareCopy" type="button">' + icCopy + '<span>Copier</span></button>'
+    + (navigator.share ? '<button class="vz-share-item" id="vzShareNative" type="button">' + icMore + '<span>Plus</span></button>' : '')
+    + '<button class="vz-share-close" type="button" aria-label="Fermer">' + icX + '</button>';
+  document.body.appendChild(el);
+  el.querySelector('.vz-share-close').addEventListener('click', vzShareClose);
+  var cp = document.getElementById('vzShareCopy');
+  if (cp) cp.addEventListener('click', function() {
+    if (!(navigator.clipboard && navigator.clipboard.writeText)) return;
+    navigator.clipboard.writeText(url).then(function() {
+      var lbl = cp.querySelector('span');
+      if (lbl) { lbl.textContent = 'Copie !'; setTimeout(function() { lbl.textContent = 'Copier'; }, 1200); }
+    }).catch(function() {});
+  });
+  var nat = document.getElementById('vzShareNative');
+  if (nat) nat.addEventListener('click', function() {
+    // Appel synchrone dans la pile du geste utilisateur (contrainte iOS)
+    navigator.share({ title: 'Visimer', text: msg, url: url }).then(vzShareClose).catch(function() {});
+  });
+}
+
+function vzShareArm_() {
+  // Exclusivite : couper mesure et spots (les deux interceptent le clic carte)
+  if (S.measureMode && typeof vzMeasureToggle === 'function') vzMeasureToggle();
+  if (S.spotMode && typeof toggleLayer === 'function') toggleLayer('spots');
+  vzShareEnsureCSS_();
+  S.shareMode = true;
+  var btn = document.getElementById('vzBtnShare');
+  if (btn) btn.classList.add('active');
+  var mc = S.map.getContainer();
+  if (mc) mc.style.cursor = 'crosshair';
+  if (!document.getElementById('vzShareHint')) {
+    var h = document.createElement('div');
+    h.id = 'vzShareHint';
+    h.textContent = 'Clique le point a partager';
+    document.body.appendChild(h);
   }
 }
+
+function vzShareDisarm() {
+  S.shareMode = false;
+  var btn = document.getElementById('vzBtnShare');
+  if (btn) btn.classList.remove('active');
+  var mc = S.map && S.map.getContainer();
+  if (mc && !S.measureMode && !S.spotMode) mc.style.cursor = '';
+  var h = document.getElementById('vzShareHint');
+  if (h) h.parentNode.removeChild(h);
+}
+
+function vzShareCapture(latlng) {
+  vzShareDisarm();
+  vzShareOpenAt(latlng.lat, latlng.lng, true);
+}
+
+function vzSharePoint() {
+  var mob = (typeof isMobile === 'function' && isMobile());
+  if (mob) {
+    var c = S.map && S.map.getCenter();
+    if (c) vzShareOpenAt(c.lat, c.lng, true);
+    return;
+  }
+  if (S.shareMode) { vzShareDisarm(); vzShareClose(); return; }
+  if (S.clickLatLng) {
+    var lon = (typeof S.clickLatLng.lng === 'number') ? S.clickLatLng.lng : S.clickLatLng.lon;
+    // La pastille de selection pulse deja sur ce point : elle sert de sonar
+    vzShareOpenAt(S.clickLatLng.lat, lon, false);
+    return;
+  }
+  vzShareArm_();
+}
 window.vzSharePoint = vzSharePoint;
+window.vzShareClose = vzShareClose;
+window.vzShareDisarm = vzShareDisarm;
 
 function vzApplyDeepLink() {
   var m = /[?&]p=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/.exec(location.search);
