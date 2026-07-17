@@ -2736,6 +2736,56 @@ function vzFormatDDM(lat, lon) {
   }
   return fmt(lat, 'N', 'S') + ' ' + fmt(lon, 'E', 'W');
 }
+/* ============================================================
+   PARTAGE DE POINT - lien profond ?p=lat,lon
+   Bouton lateral #vzBtnShare : partage le point du curseur.
+   Mobile : centre carte (= viseur central). Desktop : point
+   selectionne S.clickLatLng s'il existe, sinon centre carte.
+   navigator.share si dispo (feuille native SMS/WhatsApp),
+   sinon copie presse-papier + feedback teal 1 s sur le bouton
+   (meme grammaire visuelle que vzCopyCoord).
+   Lecture du lien au boot : vzApplyDeepLink() appele dans
+   boot(), prime sur la geoloc auto.
+   ============================================================ */
+function vzSharePoint() {
+  var mob = (typeof isMobile === 'function' && isMobile());
+  var p = mob ? (S.map && S.map.getCenter()) : (S.clickLatLng || (S.map && S.map.getCenter()));
+  if (!p) return;
+  var lon = (typeof p.lng === 'number') ? p.lng : p.lon;
+  var url = location.origin + location.pathname + '?p=' + p.lat.toFixed(5) + ',' + lon.toFixed(5);
+  var done = function() {
+    var btn = document.getElementById('vzBtnShare');
+    if (!btn) return;
+    btn.classList.add('active');
+    setTimeout(function() { btn.classList.remove('active'); }, 1000);
+  };
+  if (navigator.share) {
+    navigator.share({ title: 'Visimer', text: 'Regarde ce point sur Visimer', url: url }).then(done).catch(function() {});
+  } else if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(done).catch(function() {});
+  }
+}
+window.vzSharePoint = vzSharePoint;
+
+function vzApplyDeepLink() {
+  var m = /[?&]p=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/.exec(location.search);
+  if (!m) return false;
+  var lat = parseFloat(m[1]), lon = parseFloat(m[2]);
+  if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return false;
+  S.map.setView([lat, lon], 13);
+  // Differe : les modules mobiles (vzm*) s'installent sur des
+  // DOMContentLoaded enregistres apres boot() ; le setTimeout
+  // garantit qu'ils sont prets, et laisse la carte s'afficher
+  // sur le point avant d'ouvrir l'analyse.
+  setTimeout(function() {
+    isOnSea(lat, lon, function(onSea) {
+      if (!onSea) return; // point a terre : on centre seulement, facon Google Maps
+      if (typeof openSpotPopup === 'function') openSpotPopup(L.latLng(lat, lon), null);
+    });
+  }, 600);
+  return true;
+}
+
 function vzCopyCoord(el) {
   var txt = el.textContent;
   if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -12100,7 +12150,10 @@ function boot() {
   // Doctrine secteur : plus aucun marqueur d'observation spot-precis sur la
   // carte. Les retours communautaires sont consultables uniquement agreges
   // par secteur, via le bouton sonar (get_observations y reste consomme).
-  initGeolocationFlow();
+  // Lien profond ?p=lat,lon : le point partage prime sur la geoloc
+  // auto (sinon le GPS du destinataire ecrase le point une seconde
+  // apres l'ouverture). Le bouton localiser manuel reste intact.
+  if (!vzApplyDeepLink()) initGeolocationFlow();
 }
 
 if (document.readyState === 'loading') {
