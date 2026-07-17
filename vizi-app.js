@@ -5880,6 +5880,57 @@ function computeShieldsCriterion(tau_max, sediment) {
 // Retour   : w_s (m/s)  = vitesse de chute terminale (positive,
 //                          vers le bas par convention)
 //          ou null si regime hors domaine
+// ============================================================
+// MODELE A DEUX MATERIAUX — le sable retombe, les fines aveuglent
+// ------------------------------------------------------------
+// L'optique geometrique donne b* = 3/(2*rho*D50) [m2/kg] :
+//   gravier 2 mm  -> b* = 0.3      sable fin 0.125 mm -> b* = 4.5
+//   silt 0.02 mm  -> b* = 28       argile 1 um        -> b* = 566
+// Or le code appliquait b_local = 500 (Manche) a une concentration de SABLE.
+// 500 m2/kg correspond a un grain de 1.1 um : une optique d'ARGILE posee sur
+// du sable. Deux erreurs qui se compensaient — une concentration 100x trop
+// faible (le sable ne monte quasi pas) fois une attenuation 100x trop forte.
+// Resultat : un moteur sans memoire qui plongeait a 0 m sur 1 mg/L.
+//
+// La physique reelle : un fond sableux n'est jamais du sable pur, il contient
+// une fraction fine (silt/argile/organique). La houle souleve les deux.
+//   - Le SABLE retombe en 4 minutes (w_s = 13.8 mm/s) et n'aveugle personne
+//     (b* = 4.5). C'est pourtant lui que la chaine calculait.
+//   - Les FINES restent des heures et font TOUTE la turbidite (b* = 28 a 566).
+//     C'est a elles que b_local s'applique legitimement.
+// D'ou : concentration optique = fraction_fine x erosion, et decantation a la
+// vitesse des fines. La memoire meteo apparait ici, et nulle part ailleurs.
+//
+// La fraction fine vient de la classification Folk (deja fetchee via EMODnet),
+// donc elle est SPATIALE : un fond vaseux en retient beaucoup, un gravier
+// presque rien. La memoire devient une propriete du terrain, pas une constante
+// nationale — ca vaut de Dunkerque a Menton. Calibrable sur visi_feedback.
+function _fineFractionFromSediment(sediment) {
+  if (!sediment) return 0;
+  if (sediment.regime === 'rock') return 0;          // rien a soulever
+  var f = sediment.folk5;
+  if (f === 1) return 0.60;                          // vase
+  if (f === 4) return 0.15;                          // mixte
+  if (f === 3) return 0.02;                          // grossier
+  var d = sediment.D50_mm;                           // sable (folk5=2) ou inconnu
+  if (typeof d !== 'number' || !isFinite(d) || d <= 0) return 0.05;
+  if (d <= 0.125) return 0.08;                       // sable fin : plus de fines piegees
+  if (d <= 0.25)  return 0.05;
+  if (d <= 0.5)   return 0.03;
+  if (d <= 1.0)   return 0.02;
+  return 0.01;                                       // graviers : quasi laves
+}
+
+// Vitesse de chute des FINES en milieu cotier. On n'utilise volontairement PAS
+// Stokes sur un grain d'argile isole : a 1 um il donnerait 0.001 mm/s, soit une
+// demi-vie de 1200 h — l'eau ne se rabattrait jamais. En mer les fines
+// floculent (argile + matiere organique + sel) et tombent en flocs de
+// 100-500 um a 0.1-1 mm/s. C'est LA constante qui fixe la memoire du systeme.
+// Source : Whitehouse, Soulsby, Roberts & Mitchener 2000, "Dynamics of
+// Estuarine Muds", ch.3. Calibrable sur visi_feedback : si l'eau se rabat trop
+// vite face au terrain, baisser ; trop lentement, monter.
+var VZ_WS_FINES = 3.0e-4;    // m/s = 0.3 mm/s -> demi-vie ~2.75 h a 5 m de fond
+
 function computeSettlingVelocity(sediment) {
   // Cas sediment absent ou hors champ d'application
   if (!sediment || !sediment.D50_m) return null;
@@ -6817,6 +6868,13 @@ function vzExplainVisi(hoursBack) {
     console.log('Spot        : ' + (spot.name || '?') + '  (' + f(lat, 4) + ', ' + f(lon, 4) + ')');
     console.log('Profondeur  : ' + f(depthLAT, 2) + ' m au zero des cartes (LAT)');
     console.log('Sediment    : ' + (sed ? (sed.nameFr + ' / regime ' + sed.regime + ' / D50 ' + sed.D50_mm + ' mm') : 'ABSENT'));
+    if (sed && typeof _fineFractionFromSediment === 'function') {
+      var _phi = _fineFractionFromSediment(sed);
+      console.log('Fraction fine : ' + (_phi * 100).toFixed(0) + ' % du lit (folk5='
+        + sed.folk5 + ') — seule cette part aveugle. w_s flocs = '
+        + (VZ_WS_FINES * 1000).toFixed(2) + ' mm/s -> demi-vie ~'
+        + (Math.log(2) / (VZ_WS_FINES * 3600 / Math.max(1, depthLAT + 3)) ).toFixed(1) + ' h');
+    }
 
     console.log('\n--- SOURCES DISPONIBLES ---');
     if (sat && sat.status) {
@@ -7601,7 +7659,8 @@ result.trace.brique6 = {
   // théorie complète.
   // ============================================================
   var kinResult = computeKineticConcentration(
-    h, idx, depth, lat, lon, sediment, concResult.c_moyen_kg
+    h, idx, depth, lat, lon, sediment,
+    concResult.c_moyen_kg * _fineFractionFromSediment(sediment)
   );
   // Push des éventuels warnings (cache tronqué, profondeur nulle...)
   if (kinResult.warnings && kinResult.warnings.length > 0) {
@@ -8043,8 +8102,12 @@ function _scoreToLabel(score) {
 //      computeVisibilityScore_V4 (regime === 'cohesive').
 // ============================================================
 function computeKineticConcentration(h, idxNow, depth_lat, lat, lon, sediment, C_equilibre_now) {
-  // Vitesse de chute du sédiment (Brique 7, déjà sourcée Soulsby 1997 eq.102)
-  var w_s = computeSettlingVelocity(sediment);
+  // Vitesse de chute des FINES, pas du sable. C'est le coeur de la memoire :
+  // avec le w_s du sable (13.8 mm/s) le decay valait exp(-10) ~ 0, la Brique 9
+  // ne remontait qu'1 h et C(t) valait exactement E(t-1) — zero memoire, verifie
+  // sur 4 lignes du log Courseulles 17/07. Avec les flocs (0.3 mm/s) la demi-vie
+  // passe a ~3 h : l'eau met une journee a se rabattre apres un coup de vent.
+  var w_s = (sediment && sediment.regime !== 'rock') ? VZ_WS_FINES : null;
   if (w_s === null || w_s <= 0) {
     return {
       C_kinetic: C_equilibre_now,
@@ -8237,7 +8300,10 @@ function _computeEquilibriumConcentrationAt(h, k, depth_lat, lat, lon, sediment)
   var concResult = computeSuspendedConcentration(tau_max, shieldsResult, w_s, depth_k, sediment);
   if (concResult === null) return null;
 
-  return concResult.c_moyen_kg;
+  // Seule la FRACTION FINE soulevee avec le sable compte optiquement (cf.
+  // _fineFractionFromSediment). Le sable retombe en minutes et n'attenue
+  // quasi rien : c'est a ces fines que b_local s'applique legitimement.
+  return concResult.c_moyen_kg * _fineFractionFromSediment(sediment);
 }
 // ============================================================
 // SPRINT 2 — INVERSION BEER-LAMBERT (ZSD satellite → C_kg_m3)
@@ -8430,8 +8496,10 @@ function propagate0D(C_sat_kg_m3, dateSatISO, h, idxTarget, depth, lat, lon, sed
       'Photo satellite plus récente que cible, pas de propagation', warnings, []);
   }
 
-  // ----- Vitesse de chute (constante sur l'intégration) -----
-  var w_s = computeSettlingVelocity(sediment);
+  // ----- Vitesse de chute des FINES (constante sur l'intégration) -----
+  // Voir computeKineticConcentration : c'est cette vitesse qui donne au systeme
+  // sa memoire. Le sable retombe trop vite pour en avoir une.
+  var w_s = (sediment && sediment.regime !== 'rock') ? VZ_WS_FINES : null;
   if (w_s === null || w_s <= 0) {
     return null;
   }
