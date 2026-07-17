@@ -2882,7 +2882,12 @@ function vzShareCapture(latlng) {
 function vzSharePoint() {
   var mob = (typeof isMobile === 'function' && isMobile());
   if (mob) {
-    var c = S.map && S.map.getCenter();
+    if (!S.map) return;
+    // Le viseur mobile (vzm-xhair) est a 1/3 de la hauteur d'ecran, pas au
+    // centre carte : meme conversion que openCondDrawer, sinon le sonar
+    // tombe sous la croix.
+    var sz = S.map.getSize();
+    var c = S.map.containerPointToLatLng([sz.x / 2, sz.y / 3]);
     if (c) vzShareOpenAt(c.lat, c.lng, true);
     return;
   }
@@ -2905,6 +2910,12 @@ function vzApplyDeepLink() {
   var lat = parseFloat(m[1]), lon = parseFloat(m[2]);
   if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return false;
   S.map.setView([lat, lon], 13);
+  // Sur mobile le viseur est a 1/3 de hauteur : on decale le centre pour
+  // que la croix tombe exactement sur le point partage.
+  if (typeof isMobile === 'function' && isMobile()) {
+    var _dlSz = S.map.getSize();
+    S.map.setView(S.map.containerPointToLatLng([_dlSz.x / 2, _dlSz.y * 2 / 3]), 13, { animate: false });
+  }
   // Differe : les modules mobiles (vzm*) s'installent sur des
   // DOMContentLoaded enregistres apres boot() ; le setTimeout
   // garantit qu'ils sont prets, et laisse la carte s'afficher
