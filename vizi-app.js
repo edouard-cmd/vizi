@@ -1089,7 +1089,12 @@ function initMap() {
   // Vue d'accueil : Cotentin + baie de Seine (relief Litto3D mis en valeur).
   // Bornes distinctes desktop / mobile : en portrait l'ecran etroit forcerait
   // un dezoom sur des bornes larges, donc on resserre pour garder le meme grain.
-  if (typeof isMobile === 'function' && isMobile()) {
+  // Lien profond ?p=lat,lon : pas de vue d'accueil, le fitBounds s'applique
+  // en differe (des que Leaflet connait la taille du conteneur) et ecraserait
+  // le setView du deep-link. vzApplyDeepLink (boot) cadre alors le point.
+  if (/[?&]p=-?\d/.test(location.search)) {
+    // vue initiale posee par vzApplyDeepLink
+  } else if (typeof isMobile === 'function' && isMobile()) {
     S.map.fitBounds([[49.05, -1.55], [49.78, 0.30]]);
   } else {
     S.map.fitBounds([[48.95, -2.10], [49.85, 0.75]]);
@@ -2909,12 +2914,12 @@ function vzApplyDeepLink() {
   if (!m) return false;
   var lat = parseFloat(m[1]), lon = parseFloat(m[2]);
   if (!isFinite(lat) || !isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return false;
-  S.map.setView([lat, lon], 13);
+  S.map.setView([lat, lon], 15);
   // Sur mobile le viseur est a 1/3 de hauteur : on decale le centre pour
   // que la croix tombe exactement sur le point partage.
   if (typeof isMobile === 'function' && isMobile()) {
     var _dlSz = S.map.getSize();
-    S.map.setView(S.map.containerPointToLatLng([_dlSz.x / 2, _dlSz.y * 2 / 3]), 13, { animate: false });
+    S.map.setView(S.map.containerPointToLatLng([_dlSz.x / 2, _dlSz.y * 2 / 3]), 15, { animate: false });
   }
   // Differe : les modules mobiles (vzm*) s'installent sur des
   // DOMContentLoaded enregistres apres boot() ; le setTimeout
