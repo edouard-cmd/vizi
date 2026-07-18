@@ -13053,8 +13053,17 @@ function loadSheetConditions(spot) {
   var sedimentPromise = (typeof fetchSedimentType === 'function')
     ? fetchSedimentType(spot.lat, spot.lng).catch(function(){ return null; })
     : Promise.resolve(null);
+  // Retours chasseurs : DOCTRINE 1. S_allFeedback n'etait peuple que par le clic
+  // sur un PORT (fetchPortCounts_) ; en ouvrant le tableau sur un point en mer,
+  // il restait null et vzNearestFeedback renvoyait null — un retour frais (ex.
+  // "Doudou, il y a 3 h : 1 m", bien affiche dans le popup) etait donc IGNORE
+  // par le moteur, en violation directe de la doctrine 1. On garantit ici son
+  // chargement avant le calcul du tableau.
+  var feedbackPromise = (typeof ensurePortCounts_ === 'function')
+    ? ensurePortCounts_().catch(function(){ return null; })
+    : Promise.resolve(null);
 
-  Promise.all([meteoPromise, depthPromise, tidesPromise, satPromise, sedimentPromise]).then(function(results) {
+  Promise.all([meteoPromise, depthPromise, tidesPromise, satPromise, sedimentPromise, feedbackPromise]).then(function(results) {
     if (VZ_SHEET.mode !== 'cond') return;
     var meteo = results[0];
     var depth = results[1];
