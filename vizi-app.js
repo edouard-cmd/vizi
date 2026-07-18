@@ -13363,21 +13363,38 @@ html += '<div style="overflow-x:auto;">';
   var _dayRange = {};       // par gIdx : {min,max,n} ou null
   (function() {
     var optsC = { satellite: VZ_SHEET.data.satellite, sediment: VZ_SHEET.data.sediment };
-    var cur = 0;
-    dayGroups.forEach(function(g, gi) {
-      var f0 = cur, l0 = cur + g.count - 1; cur += g.count;
-      var mn = Infinity, mx = -Infinity, nn = 0;
-      for (var si = f0; si <= l0; si++) {
-        var o = computeVisibilityScore_V4(h, slots[si].i, depth, spot.lat, spot.lng, optsC);
-        if (o.insufficient || typeof o.visi_m !== 'number' || !isFinite(o.visi_m) || o.visi_m <= 0) {
-          _visiCells[si] = { vm: null, sObj: o }; continue;
-        }
-        var vm = Math.round(o.visi_m * 10) / 10;
-        _visiCells[si] = { vm: vm, sObj: o };
-        if (vm < mn) mn = vm; if (vm > mx) mx = vm; nn++;
+    // Marée du tableau injectée AVANT le calcul : sans elle, depthAtTime lit le
+    // global TIDES (vide en contexte tableau), la profondeur reste au LAT brut,
+    // la houle ne touche jamais le fond et TOUTES les cases sortent au plafond
+    // de zone (4,1 m plats). C'est exactement le bug observe le 18/07 : cases
+    // par creneau OK mais toutes identiques. Restaure en finally.
+    var _tSave = (typeof TIDES !== 'undefined') ? TIDES.data : undefined;
+    var _tSwap = false;
+    try {
+      if (typeof TIDES !== 'undefined' && VZ_SHEET.data.tides
+          && VZ_SHEET.data.tides.points && VZ_SHEET.data.tides.points.length) {
+        TIDES.data = VZ_SHEET.data.tides.points;
+        _depthAtTimeCache = {};
+        _tSwap = true;
       }
-      _dayRange[gi] = nn ? { min: mn, max: mx, n: nn } : null;
-    });
+      var cur = 0;
+      dayGroups.forEach(function(g, gi) {
+        var f0 = cur, l0 = cur + g.count - 1; cur += g.count;
+        var mn = Infinity, mx = -Infinity, nn = 0;
+        for (var si = f0; si <= l0; si++) {
+          var o = computeVisibilityScore_V4(h, slots[si].i, depth, spot.lat, spot.lng, optsC);
+          if (o.insufficient || typeof o.visi_m !== 'number' || !isFinite(o.visi_m) || o.visi_m <= 0) {
+            _visiCells[si] = { vm: null, sObj: o }; continue;
+          }
+          var vm = Math.round(o.visi_m * 10) / 10;
+          _visiCells[si] = { vm: vm, sObj: o };
+          if (vm < mn) mn = vm; if (vm > mx) mx = vm; nn++;
+        }
+        _dayRange[gi] = nn ? { min: mn, max: mx, n: nn } : null;
+      });
+    } finally {
+      if (_tSwap) { TIDES.data = _tSave; _depthAtTimeCache = {}; }
+    }
   })();
   function _fmtRange(r) {
     if (!r) return '';
@@ -13470,27 +13487,9 @@ html += '<div style="overflow-x:auto;">';
   //     (se trouble / stable / s'eclaircit), conforme a "meteo = tendance".
   (function() {
     var visRow = '<tr class="vz-cond-row-vis"><td class="vz-cond-rowlabel">Visibilité</td>';
-    var cursor = 0;
-    // ----- Marée du tableau injectée dans le calcul de profondeur -----
-    // Le moteur reconstitue la profondeur à chaque heure via depthAtTime,
-    // qui lit le cache marée GLOBAL (celui du drawer, vide ici). Sans
-    // marée, il retombe sur le LAT brut (~0.15m sur estran) qui passe
-    // sous le garde 0.5m et annule toute resuspension. On prête donc
-    // temporairement au global les points marée du tableau (même shape
-    // {time, height}) le temps du calcul, puis on restaure. Swap
-    // synchrone borné par try/finally : aucun état corrompu ne survit.
-    var _tidesSave = (typeof TIDES !== 'undefined') ? TIDES.data : undefined;
-    var _tidesSwapped = false;
-    if (typeof TIDES !== 'undefined' && VZ_SHEET.data.tides &&
-        VZ_SHEET.data.tides.points && VZ_SHEET.data.tides.points.length) {
-      TIDES.data = VZ_SHEET.data.tides.points;
-      _depthAtTimeCache = {};
-      _tidesSwapped = true;
-    }
-    try {
-    // ----- Visi PAR CRENEAU (une cellule par colonne, alignee sous les autres
-    // lignes). Remplace la case unique par jour. Chiffres pre-calcules dans
-    // _visiCells ci-dessus, sous la meme maree. -----
+    // Visi PAR CRENEAU : une cellule par colonne, alignee sous les autres lignes.
+    // Le calcul (avec injection de maree) a deja eu lieu dans _visiCells plus
+    // haut ; ici on ne fait QUE lire, donc plus aucun swap de maree necessaire.
     slots.forEach(function(sl, si) {
       var c = _visiCells[si];
       var cls = 'vz-cond-viscell', inner, title;
@@ -13522,9 +13521,6 @@ html += '<div style="overflow-x:auto;">';
     });
     visRow += '</tr>';
     html += visRow;
-    } finally {
-      if (_tidesSwapped) { TIDES.data = _tidesSave; _depthAtTimeCache = {}; }
-    }
   })();
 // Bande marée : courbe alignée sur les colonnes + PM/BM (heures).
   // Le coef est desormais affiché une fois par jour dans l'en-tête (header jours).
