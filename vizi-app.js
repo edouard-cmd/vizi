@@ -12647,6 +12647,10 @@ var css = `
     .vz-cond-vis-2 { background: rgba(216,200,74,0.75) !important; color: #1A2535 !important; }
     .vz-cond-vis-3 { background: rgba(77,212,168,0.65) !important; color: #1A2535 !important; }
     .vz-cond-vis-4 { background: rgba(45,168,136,0.92) !important; }
+    /* Visi par creneau : meme granularite que vent/houle/maree, alignee colonne */
+    .vz-cond-viscell { font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 12px; text-align: center; cursor: pointer; }
+    /* Fourchette de visi dans l'en-tete du jour */
+    .vz-cond-dayvisi { display: block; margin-top: 3px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; color: #4DD4A8; white-space: nowrap; }
     /* Donnee insuffisante : gris neutre, volontairement hors de l'echelle
        rouge->teal. Le chasseur doit voir au premier coup d'oeil que ce n'est
        pas une visi mais un trou : ni rassurant, ni alarmant. */
@@ -13345,6 +13349,42 @@ html += '<div style="overflow-x:auto;">';
 
   // Header jours
   html += '<tr><th class="vz-cond-cornerlabel"></th>';
+  // ============================================================
+  // VISI PAR CRENEAU DE 3 H (remplace la moyenne unique par jour)
+  // ------------------------------------------------------------
+  // Doctrine revue avec Edouard le 18/07 : sur un estran a gros marnage la
+  // moyenne du jour ment sur l'instant (11 h de maree haute claire noyaient le
+  // creneau marron de maree basse). On calcule donc la visi de CHAQUE creneau,
+  // au meme pas que vent/houle/maree, et l'en-tete du jour resume par une
+  // FOURCHETTE min-max (pas une moyenne trompeuse). Le chasseur lit "1 a 3 m"
+  // en tete, puis descend a l'heure de sa maree.
+  // Pre-calcul en une passe, sous la maree du tableau (deja swappee ci-dessus).
+  var _visiCells = [];      // par slot global : {vm, sObj} (vm null si insuffisant)
+  var _dayRange = {};       // par gIdx : {min,max,n} ou null
+  (function() {
+    var optsC = { satellite: VZ_SHEET.data.satellite, sediment: VZ_SHEET.data.sediment };
+    var cur = 0;
+    dayGroups.forEach(function(g, gi) {
+      var f0 = cur, l0 = cur + g.count - 1; cur += g.count;
+      var mn = Infinity, mx = -Infinity, nn = 0;
+      for (var si = f0; si <= l0; si++) {
+        var o = computeVisibilityScore_V4(h, slots[si].i, depth, spot.lat, spot.lng, optsC);
+        if (o.insufficient || typeof o.visi_m !== 'number' || !isFinite(o.visi_m) || o.visi_m <= 0) {
+          _visiCells[si] = { vm: null, sObj: o }; continue;
+        }
+        var vm = Math.round(o.visi_m * 10) / 10;
+        _visiCells[si] = { vm: vm, sObj: o };
+        if (vm < mn) mn = vm; if (vm > mx) mx = vm; nn++;
+      }
+      _dayRange[gi] = nn ? { min: mn, max: mx, n: nn } : null;
+    });
+  })();
+  function _fmtRange(r) {
+    if (!r) return '';
+    if (Math.abs(r.max - r.min) < 0.05) return r.min.toFixed(1).replace('.', ',') + ' m';
+    return r.min.toFixed(1).replace('.', ',') + '-' + r.max.toFixed(1).replace('.', ',') + ' m';
+  }
+
   dayGroups.forEach(function(g, gIdx) {
     var cls = 'vz-cond-dayhead' + (gIdx > 0 ? ' vz-cond-dayboundary' : '');
     var cd = g.date;
@@ -13364,9 +13404,11 @@ html += '<div style="overflow-x:auto;">';
         }
       }
     }
+    var _rngTxt = _fmtRange(_dayRange[gIdx]);
     html += '<th class="' + cls + '" colspan="' + g.count + '">'
       + '<span class="vz-cond-dayname">' + g.label + '</span>'
       + '<span class="vz-cond-daycoef ' + coefCls(dayCoef) + '">coef ' + dayCoef + '</span>'
+      + (_rngTxt ? '<span class="vz-cond-dayvisi">visi ' + _rngTxt + '</span>' : '')
       + sunHtml
       + '</th>';
   });
@@ -13383,7 +13425,9 @@ html += '<div style="overflow-x:auto;">';
     slots.forEach(function(s, idx) {
       var cell = cellFn(s, idx);
       var cls = cell.cls || '';
-      if (idx === nowIdx) cls += ' vz-cond-now';
+      // Surlignage colonne "maintenant" retire (18/07) : il induisait en erreur
+      // les chasseurs qui planifient pour un autre jour (la colonne mise en avant
+      // etait lue comme le creneau pertinent quel que soit le jour regarde).
       if (idx > 0 && s.time.toDateString() !== slots[idx-1].time.toDateString()) cls += ' vz-cond-dayboundary';
       var attrs = cell.attrs || '';
       row += '<td class="' + cls.trim() + '"' + attrs + '>' + cell.html + '</td>';
@@ -13444,69 +13488,37 @@ html += '<div style="overflow-x:auto;">';
       _tidesSwapped = true;
     }
     try {
-    dayGroups.forEach(function(g, gIdx) {
-      var first = cursor;
-      var last = cursor + g.count - 1;
-      cursor += g.count;
-      var cls = (gIdx > 0 ? 'vz-cond-dayboundary ' : '');
-      var inner, attrs = '';
-      // ----- Doctrine 3 : la visi du jour est une MOYENNE, pas un instant -----
-      // La visi n'est pas une valeur ponctuelle : au Cotentin le 17/07 elle passe
-      // de 7,9 m a maree haute a 2,8 m a maree basse DANS LA MEME JOURNEE, avec
-      // un vent nul — c'est la maree qui decide si la houle touche le fond.
-      // Afficher le creneau de reference (souvent minuit, a maree haute, le plus
-      // flatteur) etait faux par omission. On moyenne donc les creneaux du jour.
-      // Pour le jour EN COURS, uniquement les heures ECOULEES : le futur du jour
-      // n'a pas encore ete vecu. Les creneaux non calculables sont exclus de la
-      // moyenne et comptes a part — jamais remplaces par une constante de zone.
-      var opts_ = { satellite: VZ_SHEET.data.satellite, sediment: VZ_SHEET.data.sediment };
-      var isToday = (nowIdx >= first && nowIdx <= last);
-      var lastSlotIdx = isToday ? Math.min(last, nowIdx) : last;
-      var accV = 0, accN = 0, nInsuf = 0, sObj = null;
-      for (var si = first; si <= lastSlotIdx; si++) {
-        var oi = computeVisibilityScore_V4(h, slots[si].i, depth, spot.lat, spot.lng, opts_);
-        sObj = oi;   // dernier creneau retenu : sert a decrire la source au survol
-        if (oi.insufficient) { nInsuf++; continue; }
-        if (typeof oi.visi_m === 'number' && isFinite(oi.visi_m) && oi.visi_m > 0) {
-          accV += oi.visi_m; accN++;
-        }
-      }
-      var refSlot = slots[lastSlotIdx];
-      if (!sObj) sObj = computeVisibilityScore_V4(h, refSlot.i, depth, spot.lat, spot.lng, opts_);
-      // Une decimale : "2,3 m" plutot que "2 m". Un entier laisse croire a une
-      // classe, la decimale dit que c'est une estimation calculee et rend
-      // visible la variation que l'arrondi ecrasait.
-      var vm = (accN > 0) ? Math.round((accV / accN) * 10) / 10 : null;
-      var title;
-      if (vm === null) {
-        // Rien de calculable sur toute la journee : on l'assume plutot que
-        // d'afficher la constante optique de zone en chiffre confiant.
+    // ----- Visi PAR CRENEAU (une cellule par colonne, alignee sous les autres
+    // lignes). Remplace la case unique par jour. Chiffres pre-calcules dans
+    // _visiCells ci-dessus, sous la meme maree. -----
+    slots.forEach(function(sl, si) {
+      var c = _visiCells[si];
+      var cls = 'vz-cond-viscell', inner, title;
+      if (!c || c.vm === null) {
         inner = '?';
-        cls += 'vz-cond-vis-na';
+        cls += ' vz-cond-vis-na';
         title = 'Donnee insuffisante : ' +
-          ((sObj && sObj.trace && sObj.trace.fallback_reason) ? sObj.trace.fallback_reason : 'physique locale inapplicable');
+          ((c && c.sObj && c.sObj.trace && c.sObj.trace.fallback_reason) ? c.sObj.trace.fallback_reason : 'physique locale inapplicable');
       } else {
-        inner = vm.toFixed(1).replace('.', ',') + 'm';
-        cls += visClass(mapVisiToScore(vm));
-        var srcTxt;
-        if (sObj && sObj.observation) {
-          srcTxt = 'retour chasseur ' + sObj.observation.real_m + ' m il y a '
-            + Math.round(sObj.observation.age_hours) + ' h a '
-            + (Math.round(sObj.observation.dist_km * 10) / 10) + ' km (poids '
-            + Math.round(sObj.observation.weight * 100) + ' %) + modele';
-        } else if (sObj && sObj.engine === 'satellite_propagated') {
-          srcTxt = 'satellite propage avec le vent, la mer et la maree depuis la photo';
-        } else if (sObj && sObj.engine === 'coriolis_propagated') {
+        inner = c.vm.toFixed(1).replace('.', ',') + 'm';
+        cls += ' ' + visClass(mapVisiToScore(c.vm));
+        var o = c.sObj, srcTxt;
+        if (o && o.observation) {
+          srcTxt = 'retour chasseur ' + o.observation.real_m + ' m il y a '
+            + Math.round(o.observation.age_hours) + ' h a '
+            + (Math.round(o.observation.dist_km * 10) / 10) + ' km (poids '
+            + Math.round(o.observation.weight * 100) + ' %) + modele';
+        } else if (o && o.engine === 'satellite_propagated') {
+          srcTxt = 'satellite propage (vent, mer, maree) depuis la photo';
+        } else if (o && o.engine === 'coriolis_propagated') {
           srcTxt = 'bouee Coriolis + propagation';
         } else {
           srcTxt = 'chaine 9 briques : vent, mer, maree, orientation de cote';
         }
-        title = 'Moyenne de ' + accN + ' creneau' + (accN > 1 ? 'x' : '') + ' '
-          + (isToday ? 'ecoules aujourd\'hui' : 'du jour') + ' — ' + srcTxt;
-        if (nInsuf > 0) title += ' (' + nInsuf + ' creneau' + (nInsuf > 1 ? 'x' : '') + ' non calculable)';
+        title = sl.t.substr(11, 5) + ' — ' + srcTxt;
       }
-      attrs = ' onclick="vzSheetCellClick(\'' + refSlot.t + '\')" title="' + title + '"';
-      visRow += '<td class="' + cls.trim() + '" colspan="' + g.count + '"' + attrs + '>' + inner + '</td>';
+      var attrs = ' onclick="vzSheetCellClick(\'' + sl.t + '\')" title="' + title + '"';
+      visRow += '<td class="' + cls + '"' + attrs + '>' + inner + '</td>';
     });
     visRow += '</tr>';
     html += visRow;
@@ -13522,7 +13534,7 @@ html += '<div style="overflow-x:auto;">';
   html += '<tr><th class="vz-cond-cornerhour"></th>';
   slots.forEach(function(s, idx) {
     var cls = 'vz-cond-hourhead';
-    if (idx === nowIdx) cls += ' vz-cond-now-header';
+    // (pas de surlignage "maintenant" sur l'en-tete d'heure : cf. note ci-dessus)
     if (idx > 0 && s.time.toDateString() !== slots[idx-1].time.toDateString()) cls += ' vz-cond-dayboundary';
     html += '<th class="' + cls + '">' + String(s.time.getHours()).padStart(2,'0') + 'h</th>';
   });
