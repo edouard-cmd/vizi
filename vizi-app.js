@@ -5929,7 +5929,16 @@ function _fineFractionFromSediment(sediment) {
 // Source : Whitehouse, Soulsby, Roberts & Mitchener 2000, "Dynamics of
 // Estuarine Muds", ch.3. Calibrable sur visi_feedback : si l'eau se rabat trop
 // vite face au terrain, baisser ; trop lentement, monter.
-var VZ_WS_FINES = 3.0e-4;    // m/s = 0.3 mm/s -> demi-vie ~2.75 h a 5 m de fond
+var VZ_WS_FINES = 8.0e-5;    // m/s = 0.08 mm/s -> demi-vie ~12 h a 5 m de fond.
+                             // Avant : 3.0e-4 (~2-3 h), trop rapide : la charge d'un coup de
+                             // vent retombait avant le lendemain, le moteur n'avait aucune
+                             // memoire jour-a-jour (l'eau se "nettoyait" en une nuit, ce qui
+                             // contredisait le terrain). A 0.08 mm/s la turbidite d'hier est
+                             // encore la aujourd'hui. Levier de calibration de la MEMOIRE :
+                             // si l'eau reste trouble trop longtemps vs le terrain, remonter ;
+                             // si elle se nettoie trop vite, baisser. NB : une persistance de
+                             // plusieurs JOURS (advection continue des fines) releve du regime
+                             // cohesif, pas de la seule decantation lente.
 
 function computeSettlingVelocity(sediment) {
   // Cas sediment absent ou hors champ d'application
@@ -6579,7 +6588,11 @@ function _getRegionalOpticalBaselineTable(lat, lon) {
 // k ET c_baseline ensemble. Le satellite est un calibrateur direct de
 // c_baseline : chaque fois qu'il mesure c_total < c_baseline (Courseulles,
 // 0.664 < 0.80), il PROUVE que la baseline de la zone est trop turbide.
-var VZ_VISI_K = 2.38;
+var VZ_VISI_K = 1.19;   // 0.7 x 1.7 : aligne le front sur la conversion satellite/GAS
+                        // (visi = 0.7 x ZSD, Wright & Colling). Avant : 2.38 (= 1.4 x ZSD,
+                        // Davies-Colley) surestimait d'un facteur 2 vs la mesure satellite et
+                        // vs le terrain (ratio reel/ZSD ~0.5-0.9 sur visi_feedback). Une seule
+                        // voix desormais : badge, tableau et pied de page satellite concordent.
 
 function _visiFromAttenuation(c_total) {
   if (typeof c_total !== 'number' || !isFinite(c_total) || c_total <= 0) return null;
