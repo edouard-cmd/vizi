@@ -13105,15 +13105,15 @@ function fetchSheetTides(spot) {
 function fetchSheetMeteo(lat, lon) {
   var aromeUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon
     + '&hourly=windspeed_10m,winddirection_10m,windgusts_10m,wave_height,temperature_2m,precipitation,cloud_cover'
-    + '&wind_speed_unit=kmh&timezone=Europe/Paris&past_days=7&forecast_days=2'
+    + '&wind_speed_unit=kmh&timezone=Europe/Paris&past_days=30&forecast_days=2'
     + '&models=meteofrance_arome_france';
 var arpegeUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon
     + '&hourly=windspeed_10m,winddirection_10m,windgusts_10m,wave_height,temperature_2m,precipitation,cloud_cover'
     + '&daily=sunrise,sunset'
-    + '&wind_speed_unit=kmh&timezone=Europe/Paris&past_days=7&forecast_days=5'
+    + '&wind_speed_unit=kmh&timezone=Europe/Paris&past_days=30&forecast_days=5'
     + '&models=meteofrance_arpege_europe';
 var marineUrl = 'https://marine-api.open-meteo.com/v1/marine?latitude=' + lat + '&longitude=' + lon
-    + '&hourly=wave_height,wave_period,wind_wave_peak_period&timezone=Europe/Paris&past_days=7&forecast_days=5';
+    + '&hourly=wave_height,wave_period,wind_wave_peak_period&timezone=Europe/Paris&past_days=30&forecast_days=5';
   // past_days=7 : le moteur DOIT disposer de l'histoire entre la photo satellite
   // (J-2 a J-6 selon la couverture nuageuse) et maintenant. Sans elle, h demarrait
   // aujourd'hui a 00h et la photo tombait 142 h HORS FENETRE : la propagation
