@@ -6060,11 +6060,20 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
     
 <script src="vizi-app.js?v=10"></script>
   <script>
+function setLayersPopover(open) {
+  var pop = document.getElementById('vzLayersPopover');
+  if (!pop) return;
+  pop.classList.toggle('open', open);
+  if (open) syncLayersPopover();
+  // La legende sediment vit sous le popover (z 900 < 1300) : on l'efface tant
+  // que le popover est ouvert, elle revient a la fermeture si Nature du fond
+  // est active. Point d'entree unique cote moteur.
+  if (typeof vzRefreshSedLegendVisibility === 'function') vzRefreshSedLegendVisibility();
+}
 function toggleLayersPopover(e) {
   if (e) e.stopPropagation();
   var pop = document.getElementById('vzLayersPopover');
-  pop.classList.toggle('open');
-  syncLayersPopover();
+  setLayersPopover(!(pop && pop.classList.contains('open')));
 }
 function selectBasemap(type) {
   switchBasemap(type);
@@ -6106,7 +6115,7 @@ document.addEventListener('click', function(e) {
   var btn = document.getElementById('vzBtnLayers');
   if (!pop || !btn) return;
   if (pop.classList.contains('open') && !pop.contains(e.target) && !btn.contains(e.target)) {
-    pop.classList.remove('open');
+    setLayersPopover(false);
   }
 });
 </script>
