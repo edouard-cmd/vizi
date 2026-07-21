@@ -2370,6 +2370,23 @@ function vzRefreshSedLegendVisibility() {
   el.style.display = (S.showSed && !popOpen) ? 'block' : 'none';
 }
 
+// Compteur de couches actives affiche sur le bouton Couches de la barre :
+// permet de savoir, panneau ferme, combien de couches sont affichees.
+// Compte brut des 6 couches du groupe Afficher (pas le fond de carte ni
+// les unites). Recalcule a chaque toggle et au demarrage.
+function vzUpdateLayersBadge() {
+  var el = document.getElementById('vzLayersCount');
+  if (!el) return;
+  var n = (S.showSed ? 1 : 0) + (S.showIso ? 1 : 0) + (S.showLitto3d ? 1 : 0)
+        + (S.showRain ? 1 : 0) + (S.showWindFlow ? 1 : 0) + (S.showZsd ? 1 : 0);
+  if (n > 0) { el.textContent = n; el.classList.add('on'); }
+  else { el.classList.remove('on'); }
+}
+(function vzLayersBadgeBoot(){
+  if (document.getElementById('vzLayersCount')) { try { vzUpdateLayersBadge(); } catch(e){} }
+  else setTimeout(vzLayersBadgeBoot, 300);
+})();
+
 function toggleLayer(type) {
   if (type === 'heatmap') {
     S.showHeatmap = !S.showHeatmap;
@@ -2489,6 +2506,7 @@ function toggleLayer(type) {
   } else if (type === 'measure') {
     vzMeasureToggle();
   }
+  vzUpdateLayersBadge();
 }
 /* ============================================================
    SPOTS CHASSE - marquage XY sur fond Litto3D + export GPX
