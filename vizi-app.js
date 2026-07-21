@@ -4938,6 +4938,93 @@ function vzmInitCrosshair(){
   if (typeof S !== 'undefined' && S && S.map) { try { vzmInitCrosshair(); } catch(e){ console.warn('[vzm] xhair init', e); } }
   else setTimeout(vzmXhairBoot, 300);
 })();
+
+// ============ READOUT NATURE DU FOND SOUS LE VISEUR (mobile) ============
+// Affiche le nom du fond au centre de la carte quand elle s'immobilise,
+// colle sous le viseur. Remplace la lecture de la legende globale : on
+// decode un fond a la fois, a la demande, en langage lisible.
+//
+// Contrainte : chaque nom = un appel gasGet('sediment'). Donc pas de
+// temps reel image par image : on lit au 'moveend' avec un debounce, et
+// on met en cache par zone (~100 m) pour ne jamais reinterroger un point
+// deja vu. Garde S.showSed : actif seulement quand la couche fond est
+// affichee (evite de spammer le backend quand personne ne regarde le fond).
+//
+// Effet de bord isole : lecture PURE. N'ecrit ni S._spotSediment ni le
+// DOM legacy #sedimentType, contrairement a fetchSedimentType. Le contexte
+// sediment du dernier spot analyse (consomme par le moteur) reste intact.
+function vzmInitSedReadout(){
+  if (document.getElementById('vzmSedReadout')) return;      // idempotent
+  if (!(S && S.map)) return;
+
+  var st = document.createElement('style');
+  st.id = 'vzmSedReadoutStyle';
+  st.textContent = `
+.vzm-sed-readout{position:fixed;left:50%;top:33.333%;margin-top:30px;transform:translateX(-50%) translateY(4px);z-index:1200;pointer-events:none;opacity:0;transition:opacity .18s ease,transform .2s ease;max-width:72vw;padding:4px 11px;background:rgba(15,36,56,0.9);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:0.5px solid rgba(77,212,168,0.4);border-radius:9px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#CDE7DD;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:0.02em;box-shadow:0 4px 14px rgba(4,16,28,0.4);}
+.vzm-sed-readout.on{opacity:1;transform:translateX(-50%) translateY(0);}
+@media (min-width:769px){.vzm-sed-readout{display:none !important;}}
+`;
+  document.head.appendChild(st);
+
+  var el = document.createElement('div');
+  el.className = 'vzm-sed-readout'; el.id = 'vzmSedReadout';
+  document.body.appendChild(el);
+
+  var cache = {};          // cle "lat,lon" arrondie -> nom ('' si hors couverture)
+  var reqTok = 0;          // jeton anti-course : seule la derniere requete affiche
+  var debTimer = 0;
+
+  function drawerOpenM(){
+    var d = document.getElementById('spotDrawerMobile');
+    return d && (d.classList.contains('vzm-peek') || d.classList.contains('vzm-mid') || d.classList.contains('vzm-full'));
+  }
+  function hide(){ el.classList.remove('on'); }
+  function show(txt){ el.textContent = 'Fond : ' + txt; el.classList.add('on'); }
+
+  function readNameAt(lat, lon){
+    return gasGet('sediment', { lat: lat, lon: lon }).then(function(data){
+      if (!data || !data.text) return '';
+      try {
+        var json = JSON.parse(data.text);
+        if (!json.features || !json.features.length) return '';
+        var p = json.features[0].properties;
+        var raw = p.original_substrate || p.folk_5cl_txt || '';
+        return (raw || '').slice(0, 48);
+      } catch(e){ return ''; }
+    }).catch(function(){ return ''; });
+  }
+
+  function eligible(){ return isMobile() && S.showSed && !drawerOpenM(); }
+
+  function update(){
+    if (!eligible()) { hide(); return; }
+    var c = S.map.getCenter();
+    var key = c.lat.toFixed(3) + ',' + c.lng.toFixed(3);
+    if (Object.prototype.hasOwnProperty.call(cache, key)) {
+      var cached = cache[key];
+      if (cached) show(cached); else hide();
+      return;
+    }
+    var tok = ++reqTok;
+    readNameAt(c.lat, c.lng).then(function(name){
+      cache[key] = name;
+      if (tok !== reqTok) return;             // une requete plus recente a pris la main
+      if (!eligible()) { hide(); return; }
+      if (name) show(name); else hide();
+    });
+  }
+
+  S.map.on('movestart zoomstart', hide);      // carte en mouvement : on efface
+  S.map.on('moveend zoomend', function(){
+    clearTimeout(debTimer);
+    debTimer = setTimeout(update, 350);       // ignore les micro-arrets
+  });
+  window.vzmSedReadoutHide = hide;
+}
+(function vzmSedReadoutBoot(){
+  if (typeof S !== 'undefined' && S && S.map) { try { vzmInitSedReadout(); } catch(e){ console.warn('[vzm] sed readout init', e); } }
+  else setTimeout(vzmSedReadoutBoot, 300);
+})();
 // ======================================================================
 function vzmBuildSources(){
   var TEAL='#0E7C62', CAUTION='#B5611E', OFF='rgba(11,26,38,0.14)';
