@@ -5009,7 +5009,8 @@ function vzmInitSedReadout(){
 
   function update(){
     if (!eligible()) { hide(); return; }
-    var c = S.map.getCenter();
+    var sz = S.map.getSize();
+    var c = S.map.containerPointToLatLng([sz.x / 2, sz.y / 3]);  // point sous le viseur (1/3 hauteur), pas le centre geometrique (meme conversion que openCondDrawer)
     var key = c.lat.toFixed(3) + ',' + c.lng.toFixed(3);
     if (Object.prototype.hasOwnProperty.call(cache, key)) {
       var cached = cache[key];
