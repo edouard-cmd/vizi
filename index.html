@@ -2314,38 +2314,38 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
 .vz-side-btn svg { width: 18px; height: 18px; }
 .vz-layers-count {
   position: absolute;
-  top: -3px; right: -3px;
-  min-width: 16px; height: 16px;
+  top: -4px; right: -4px;
+  min-width: 18px; height: 18px;
   padding: 0 4px; box-sizing: border-box;
-  border-radius: 8px;
-  background: var(--vz-accent);
-  color: #0A1520;
+  border-radius: 9px;
+  background: #0A1520;
+  color: #FFFFFF;
+  border: 1.5px solid #FFFFFF;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px; font-weight: 700; line-height: 16px;
-  text-align: center;
+  font-size: 10px; font-weight: 700;
+  align-items: center; justify-content: center;
   pointer-events: none;
   display: none;
   box-shadow: 0 1px 4px rgba(4,16,28,0.5);
 }
-.vz-layers-count.on { display: block; }
+.vz-layers-count.on { display: flex; }
 .vz-layers-fab {
   display: none;
   position: fixed;
   align-items: center;
   gap: 8px;
-  padding: 8px 15px 8px 12px;
-  background: rgba(10,21,32,0.9);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-  border: 0.5px solid rgba(77,212,168,0.45);
+  padding: 10px 16px;
+  background: #4DD4A8;
+  border: none;
   border-radius: 24px;
-  color: #D8E1EB;
+  color: #0A1520;
   font-family: 'Inter', sans-serif;
   cursor: pointer;
-  box-shadow: 0 6px 20px rgba(4,16,28,0.4);
+  box-shadow: 0 6px 20px rgba(4,16,28,0.35);
 }
-.vz-layers-fab svg { width: 18px; height: 18px; stroke: #4DD4A8; flex-shrink: 0; }
-.vz-layers-fab-text { font-size: 13px; font-weight: 600; letter-spacing: 0.02em; }
+.vz-layers-fab svg { width: 18px; height: 18px; stroke: #0A1520; flex-shrink: 0; }
+.vz-layers-fab-text { font-size: 14px; font-weight: 700; letter-spacing: 0.02em; }
+.vz-layers-fab-chevron { width: 14px !important; height: 14px !important; opacity: 0.65; }
 .vz-side-btn + .vz-side-btn::before {
   content: '';
   position: absolute;
@@ -2378,11 +2378,12 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
   gap: 0;
 }
 .vz-layers-popover.open { display: flex; }
-.vz-layers-popover > div + div {
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 0.5px solid var(--vz-border-glass);
+.vz-layers-popover > div {
+  background: #F0F3F6;
+  border-radius: 14px;
+  padding: 12px 12px 8px;
 }
+.vz-layers-popover > div + div { margin-top: 12px; }
 .vz-layers-section-title {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 10px;
@@ -5236,6 +5237,7 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
       <polyline points="2 12 12 17 22 12"></polyline>
     </svg>
     <span class="vz-layers-fab-text">Couches</span>
+    <svg class="vz-layers-fab-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
     <span class="vz-layers-count"></span>
   </button>
   <div class="vz-logo-pill" title="Visimer">
