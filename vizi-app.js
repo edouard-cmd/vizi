@@ -4992,16 +4992,45 @@ function vzmInitSedReadout(){
   function showLoading(){ txtEl.textContent = 'Fond...'; el.classList.add('on', 'loading'); }
   function showName(txt){ el.classList.remove('loading'); txtEl.textContent = 'Fond : ' + txt; el.classList.add('on'); }
 
+  // Table de correspondance code SHOM (attribut typelem du WMS vecteur
+  // Natures de fond 1/50 000) vers libelle lisible. Source : descriptif de
+  // contenu SHOM (services.data.shom.fr). Libelles alignes sur la legende
+  // affichee pour que le readout dise exactement ce que montre la couleur.
+  var VZ_SHOM_NDF = {
+    NFRoche:'Roche', NFCo:'Corail',
+    NFC:'Cailloutis', NFCG:'Cailloutis et graviers', NFCS:'Cailloutis et sables',
+    NFCV:'Cailloutis envasés', NFNoP:'Nodules polymétalliques',
+    NFG:'Graviers', NFGC:'Graviers et cailloutis', NFGS:'Graviers et sables',
+    NFGSV:'Graviers et sables envasés', NFGV:'Graviers envasés',
+    NFS:'Sables', NFSC:'Sables et cailloutis', NFSG:'Sables graveleux',
+    NFSGV:'Sables et graviers envasés', NFSV:'Sables vaseux', NFSSi:'Sables et silts',
+    NFSF:'Sables fins', NFSFC:'Sables fins et cailloutis', NFSFG:'Sables fins et graviers',
+    NFSFSi:'Sables fins et silts', NFSFV:'Sables fins vaseux',
+    NFSi:'Silts', NFSiA:'Silts argileux', NFASi:'Argiles silteuses', NFA:'Argiles',
+    NFV:'Vases', NFVC:'Vases et cailloutis', NFVG:'Vases et graviers',
+    NFVSG:'Vases sables et graviers', NFVS:'Vases sableuses', NFVSF:'Vases et sables fins'
+  };
+
+  // Lecture PURE du fond via la MEME source que la couche affichee : SHOM
+  // GetFeatureInfo sur NDF_BDD_WLD_WGS84G_WMS. Le point vise est au centre
+  // d'une fenetre 256x256 (I=J=128) autour du latlng, donc I/J designent
+  // exactement le point sous la croix quelle que soit la taille de bbox.
+  // WMS 1.3.0 + EPSG:4326 : ordre BBOX = latMin,lonMin,latMax,lonMax.
+  // N'ecrit ni S._spotSediment ni le DOM legacy (le moteur reste sur EMODnet).
   function readNameAt(lat, lon){
-    return gasGet('sediment', { lat: lat, lon: lon }).then(function(data){
-      if (!data || !data.text) return '';
-      try {
-        var json = JSON.parse(data.text);
-        if (!json.features || !json.features.length) return '';
-        var p = json.features[0].properties;
-        var raw = p.original_substrate || p.folk_5cl_txt || '';
-        return (raw || '').slice(0, 48);
-      } catch(e){ return ''; }
+    var d = 0.01;
+    var bbox = (lat - d) + ',' + (lon - d) + ',' + (lat + d) + ',' + (lon + d);
+    var url = 'https://services.data.shom.fr/INSPIRE/wms/v'
+      + '?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetFeatureInfo'
+      + '&LAYERS=NDF_BDD_WLD_WGS84G_WMS&QUERY_LAYERS=NDF_BDD_WLD_WGS84G_WMS'
+      + '&CRS=EPSG:4326&BBOX=' + bbox
+      + '&WIDTH=256&HEIGHT=256&I=128&J=128'
+      + '&INFO_FORMAT=application/json&FEATURE_COUNT=1';
+    return fetch(url).then(function(r){ return r.json(); }).then(function(json){
+      if (!json || !json.features || !json.features.length) return '';
+      var p = json.features[0].properties || {};
+      var code = p.typelem || '';
+      return VZ_SHOM_NDF[code] || '';
     }).catch(function(){ return ''; });
   }
 
