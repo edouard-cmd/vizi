@@ -2312,6 +2312,22 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
 .vz-side-btn:hover { background: rgba(255,255,255,0.08); color: var(--vz-text-on-dark); }
 .vz-side-btn.active { color: var(--vz-accent); background: var(--vz-accent-glow); }
 .vz-side-btn svg { width: 18px; height: 18px; }
+.vz-layers-count {
+  position: absolute;
+  top: -3px; right: -3px;
+  min-width: 16px; height: 16px;
+  padding: 0 4px; box-sizing: border-box;
+  border-radius: 8px;
+  background: var(--vz-accent);
+  color: #0A1520;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; font-weight: 700; line-height: 16px;
+  text-align: center;
+  pointer-events: none;
+  display: none;
+  box-shadow: 0 1px 4px rgba(4,16,28,0.5);
+}
+.vz-layers-count.on { display: block; }
 .vz-side-btn + .vz-side-btn::before {
   content: '';
   position: absolute;
@@ -5222,6 +5238,7 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
       <polyline points="2 17 12 22 22 17"></polyline>
       <polyline points="2 12 12 17 22 12"></polyline>
     </svg>
+    <span class="vz-layers-count" id="vzLayersCount"></span>
   </button>
   <button class="vz-side-btn" id="vzBtnMeasure" onclick="toggleLayer('measure')" title="Mesurer une distance">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
