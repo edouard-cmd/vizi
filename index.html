@@ -2328,6 +2328,24 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
   box-shadow: 0 1px 4px rgba(4,16,28,0.5);
 }
 .vz-layers-count.on { display: block; }
+.vz-layers-fab {
+  display: none;
+  position: fixed;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 15px 8px 12px;
+  background: rgba(10,21,32,0.9);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 0.5px solid rgba(77,212,168,0.45);
+  border-radius: 24px;
+  color: #D8E1EB;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(4,16,28,0.4);
+}
+.vz-layers-fab svg { width: 18px; height: 18px; stroke: #4DD4A8; flex-shrink: 0; }
+.vz-layers-fab-text { font-size: 13px; font-weight: 600; letter-spacing: 0.02em; }
 .vz-side-btn + .vz-side-btn::before {
   content: '';
   position: absolute;
@@ -2807,6 +2825,22 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
   .vz-tab-btn { padding: 6px 12px; font-size: 12px; gap: 6px; }
   .vz-tab-btn svg { width: 13px; height: 13px; }
   .vz-stack-side { top: 50%; transform: translateY(-50%); }
+  .vz-logo-pill { display: none; }
+  #vzBtnLayers { display: none; }
+  .vz-layers-fab {
+    display: flex;
+    bottom: calc(34px + env(safe-area-inset-bottom, 0px));
+    left: 12px;
+    z-index: 1050;
+  }
+  .vz-layers-popover {
+    top: auto;
+    bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+    left: 12px;
+    right: auto;
+    max-height: 68vh;
+    overflow-y: auto;
+  }
 }
     /* Cacher les boutons mobile quand le bandeau bas est en mode half ou full */
 #vzSheet.sheet-half ~ #mobileAnalyzeBtn,
@@ -5183,6 +5217,15 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
   </div>
 </div>
 <div id="map"></div>
+  <button class="vz-layers-fab" id="vzLayersFab" onclick="toggleLayersPopover(event)" title="Couches">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+      <polyline points="2 17 12 22 22 17"></polyline>
+      <polyline points="2 12 12 17 22 12"></polyline>
+    </svg>
+    <span class="vz-layers-fab-text">Couches</span>
+    <span class="vz-layers-count"></span>
+  </button>
   <div class="vz-logo-pill" title="Visimer">
   <div class="vz-logo-pill-mark">
     <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
