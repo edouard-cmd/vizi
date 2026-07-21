@@ -2358,6 +2358,18 @@ function vzZsdEnsureLegend_() {
   return leg;
 }
 
+// Visibilite effective de la legende sediment : affichee seulement si la couche
+// Nature du fond est active ET que le popover Couches n'occupe pas l'ecran (sinon
+// elle se retrouve empilee sous le popover, z-index 900 < 1300). Point d'entree
+// unique appele par toggleLayer('sed') et par setLayersPopover (index.html).
+function vzRefreshSedLegendVisibility() {
+  var el = document.getElementById('sedLegend');
+  if (!el) return;
+  var pop = document.getElementById('vzLayersPopover');
+  var popOpen = pop && pop.classList.contains('open');
+  el.style.display = (S.showSed && !popOpen) ? 'block' : 'none';
+}
+
 function toggleLayer(type) {
   if (type === 'heatmap') {
     S.showHeatmap = !S.showHeatmap;
@@ -2377,7 +2389,7 @@ function toggleLayer(type) {
  } else if (type === 'sed') {
     S.showSed = !S.showSed;
     document.getElementById('btnSed').classList.toggle('active', S.showSed);
-    document.getElementById('sedLegend').style.display = S.showSed ? 'block' : 'none';
+    vzRefreshSedLegendVisibility();
     if (S.showSed) { S.sedLayer.addTo(S.map); }
     else { if (S.map.hasLayer(S.sedLayer)) S.map.removeLayer(S.sedLayer); }
   } else if (type === 'rain') {
