@@ -2404,7 +2404,19 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
   font-size: 13.5px;
   transition: background 0.15s;
 }
-.vz-layers-label { flex: 1; }
+.vz-layers-label { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.vz-layers-name { font-size: 13.5px; font-weight: 500; color: var(--vz-text-on-dark); line-height: 1.2; }
+.vz-layers-sub { font-size: 11px; color: var(--vz-text-on-dark-muted); line-height: 1.2; }
+.vz-layers-ico {
+  width: 34px; height: 34px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 9px;
+  background: rgba(11,26,38,0.05);
+  color: var(--vz-text-on-dark);
+  transition: background 0.15s, color 0.15s;
+}
+.vz-layers-ico svg { width: 18px; height: 18px; }
+.vz-layers-row.active .vz-layers-ico { background: var(--vz-accent); color: #FFFFFF; }
 .vz-layers-row:hover { background: rgba(11,26,38,0.04); }
 .vz-layers-row.active { color: var(--vz-accent-deep); font-weight: 500; }
 .vz-layers-row.disabled { opacity: 0.4; cursor: not-allowed; }
@@ -5328,38 +5340,46 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
   <div>
     <div class="vz-layers-section-title">Fond de carte</div>
     <div class="vz-layers-row" id="vzRowSat" onclick="selectBasemap('sat')">
+      <span class="vz-layers-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.5 2.5 2.5 15 0 18M12 3c-2.5 2.5-2.5 15 0 18"/></svg></span>
+      <span class="vz-layers-label"><span class="vz-layers-name">Satellite</span><span class="vz-layers-sub">imagerie satellite</span></span>
       <div class="vz-layers-radio"></div>
-      <span>Satellite</span>
     </div>
     <div class="vz-layers-row" id="vzRowIGN" onclick="selectBasemap('ign')">
+      <span class="vz-layers-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg></span>
+      <span class="vz-layers-label"><span class="vz-layers-name">Plan</span><span class="vz-layers-sub">carte IGN</span></span>
       <div class="vz-layers-radio"></div>
-      <span>Plan</span>
     </div>
   </div>
   <div>
     <div class="vz-layers-section-title">Afficher</div>
     <div class="vz-layers-row" id="vzRowSed" onclick="toggleLayer('sed')">
-      <span class="vz-layers-label">Nature du fond</span>
+      <span class="vz-layers-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><path d="M2 15c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/></svg></span>
+      <span class="vz-layers-label"><span class="vz-layers-name">Nature du fond</span><span class="vz-layers-sub">sable, roche, vase</span></span>
       <div class="vz-layers-check"></div>
     </div>
     <div class="vz-layers-row" id="vzRowIso" onclick="toggleLayer('iso')">
-      <span class="vz-layers-label">Balisage</span>
+      <span class="vz-layers-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l3 4-3 4-3-4z"/><path d="M12 11v9"/><path d="M8 20h8"/></svg></span>
+      <span class="vz-layers-label"><span class="vz-layers-name">Balisage</span><span class="vz-layers-sub">bouées et marques</span></span>
       <div class="vz-layers-check"></div>
     </div>
    <div class="vz-layers-row" id="vzRowLitto3d" onclick="toggleLayer('litto3d')">
-      <span class="vz-layers-label">Relief du fond</span>
+      <span class="vz-layers-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16c3-4 13-4 16 0"/><path d="M7 16c2-2.6 8-2.6 10 0"/><path d="M10 16c1-1.2 3-1.2 4 0"/></svg></span>
+      <span class="vz-layers-label"><span class="vz-layers-name">Relief du fond</span><span class="vz-layers-sub">détail près des côtes</span></span>
       <div class="vz-layers-check"></div>
     </div>
     <div class="vz-layers-row" id="vzRowRain" onclick="toggleLayer('rain')">
-      <span class="vz-layers-label">Pluie</span>
+      <span class="vz-layers-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 13a4 4 0 0 1 .5-8 5 5 0 0 1 9.3 1.2A3.4 3.4 0 0 1 17 13z"/><path d="M8 17l-1 2M12 17l-1 2M16 17l-1 2"/></svg></span>
+      <span class="vz-layers-label"><span class="vz-layers-name">Pluie</span><span class="vz-layers-sub">radar animé</span></span>
       <div class="vz-layers-check"></div>
     </div>
     <div class="vz-layers-row" id="vzRowWindFlow" onclick="toggleLayer('windflow')">
-      <span class="vz-layers-label">Vent</span>
+      <span class="vz-layers-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h9a2.5 2.5 0 1 0-2.5-2.5"/><path d="M3 12h13a2.5 2.5 0 1 1-2.5 2.5"/><path d="M3 16h7"/></svg></span>
+      <span class="vz-layers-label"><span class="vz-layers-name">Vent</span><span class="vz-layers-sub">prévision animée</span></span>
       <div class="vz-layers-check"></div>
     </div>
     <div class="vz-layers-row" id="vzRowZsd" onclick="toggleLayer('zsd')">
-      <span class="vz-layers-label">Visibilité</span>
+      <span class="vz-layers-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></span>
+      <span class="vz-layers-label"><span class="vz-layers-name">Visibilité</span><span class="vz-layers-sub">estimation par zone</span></span>
       <div class="vz-layers-check"></div>
     </div>
   </div>
