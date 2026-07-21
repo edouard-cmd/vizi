@@ -2331,42 +2331,48 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
   top: 168px;
   left: 64px;
   z-index: 1300;
-  min-width: 240px;
+  min-width: 250px;
   background: var(--vz-bg-glass-strong);
   backdrop-filter: blur(var(--vz-blur));
   -webkit-backdrop-filter: blur(var(--vz-blur));
-  border: 0.5px solid var(--vz-accent-border);
-  border-radius: var(--vz-radius-card);
-  padding: 12px 14px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  border: 0.5px solid var(--vz-border-glass);
+  border-radius: 18px;
+  padding: 14px 16px;
+  box-shadow: 0 14px 44px rgba(4,16,28,0.20);
   display: none;
   flex-direction: column;
-  gap: 14px;
+  gap: 0;
 }
 .vz-layers-popover.open { display: flex; }
+.vz-layers-popover > div + div {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 0.5px solid var(--vz-border-glass);
+}
 .vz-layers-section-title {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 10px;
   font-weight: 600;
-  color: var(--vz-text-on-dark-faint);
+  color: var(--vz-accent);
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  margin-bottom: 6px;
+  letter-spacing: 0.12em;
+  margin-bottom: 8px;
 }
 .vz-layers-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 7px 8px;
-  border-radius: 8px;
+  gap: 11px;
+  padding: 8px 6px;
+  border-radius: 10px;
   cursor: pointer;
   color: var(--vz-text-on-dark);
   font-family: 'Inter', sans-serif;
-  font-size: 13px;
+  font-size: 13.5px;
   transition: background 0.15s;
 }
-.vz-layers-row:hover { background: rgba(255,255,255,0.06); }
-.vz-layers-row.active { color: var(--vz-accent); }
+.vz-layers-label { flex: 1; }
+.vz-layers-row:hover { background: rgba(11,26,38,0.04); }
+.vz-layers-row.active { color: var(--vz-accent-deep); font-weight: 500; }
 .vz-layers-row.disabled { opacity: 0.4; cursor: not-allowed; }
     #vzHuntBar {
   position: fixed; bottom: 28px; left: 16px;
@@ -2406,50 +2412,56 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
 .vz-hunt-format { font-size: 10px; color: var(--vz-text-on-dark-faint); text-align: center; margin-top: 6px; letter-spacing: 0.02em; }
     .vz-units-toggle {
   display: flex;
-  gap: 2px;
+  gap: 3px;
   padding: 3px;
-  background: rgba(255,255,255,0.06);
-  border-radius: 8px;
+  background: #EDF1F4;
+  border-radius: 10px;
 }
 .vz-units-btn {
   flex: 1;
-  padding: 6px 10px;
+  padding: 7px 10px;
   background: transparent;
   border: none;
-  border-radius: 6px;
+  border-radius: 8px;
   color: var(--vz-text-on-dark-muted);
   font-family: 'Inter', sans-serif;
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.15s;
 }
 .vz-units-btn:hover { color: var(--vz-text-on-dark); }
 .vz-units-btn.active {
-  background: var(--vz-accent-glow);
+  background: #FFFFFF;
   color: var(--vz-accent);
   font-weight: 600;
+  box-shadow: 0 1px 4px rgba(11,26,38,0.12);
 }
-.vz-layers-radio, .vz-layers-check {
-  width: 16px; height: 16px;
-  border: 1.5px solid var(--vz-text-on-dark-muted);
+.vz-layers-radio {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 1.5px solid #B4C0C9;
   flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
+  transition: border-color 0.15s;
 }
-.vz-layers-radio { border-radius: 50%; }
-.vz-layers-check { border-radius: 4px; }
-.vz-layers-row.active .vz-layers-radio,
-.vz-layers-row.active .vz-layers-check {
-  border-color: var(--vz-accent);
-  background: var(--vz-accent);
-}
+.vz-layers-row.active .vz-layers-radio { border-color: var(--vz-accent); }
 .vz-layers-row.active .vz-layers-radio::after {
-  content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--vz-bg-deep);
+  content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--vz-accent);
 }
-.vz-layers-row.active .vz-layers-check::after {
-  content: ''; width: 4px; height: 8px; border: solid var(--vz-bg-deep);
-  border-width: 0 2px 2px 0; transform: rotate(45deg) translate(-1px, -1px);
+.vz-layers-check {
+  width: 38px; height: 22px; border-radius: 11px;
+  background: #DCE3E8;
+  flex-shrink: 0; position: relative;
+  transition: background 0.2s;
 }
+.vz-layers-check::after {
+  content: ''; position: absolute; top: 2px; left: 2px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: #FFFFFF; box-shadow: 0 1px 3px rgba(11,26,38,0.28);
+  transition: transform 0.2s;
+}
+.vz-layers-row.active .vz-layers-check { background: var(--vz-accent); }
+.vz-layers-row.active .vz-layers-check::after { transform: translateX(16px); }
     #vzFabImprove {
   position: fixed;
   bottom: 24px;
@@ -5268,34 +5280,34 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
     </div>
     <div class="vz-layers-row" id="vzRowIGN" onclick="selectBasemap('ign')">
       <div class="vz-layers-radio"></div>
-      <span>Carte</span>
+      <span>Plan</span>
     </div>
   </div>
   <div>
-    <div class="vz-layers-section-title">Couches</div>
+    <div class="vz-layers-section-title">Afficher</div>
     <div class="vz-layers-row" id="vzRowSed" onclick="toggleLayer('sed')">
+      <span class="vz-layers-label">Nature du fond</span>
       <div class="vz-layers-check"></div>
-      <span>Nature du fond</span>
     </div>
     <div class="vz-layers-row" id="vzRowIso" onclick="toggleLayer('iso')">
+      <span class="vz-layers-label">Balisage</span>
       <div class="vz-layers-check"></div>
-      <span>Repères marins</span>
     </div>
    <div class="vz-layers-row" id="vzRowLitto3d" onclick="toggleLayer('litto3d')">
+      <span class="vz-layers-label">Relief du fond</span>
       <div class="vz-layers-check"></div>
-      <span>Bathymétrie SHOM</span>
     </div>
     <div class="vz-layers-row" id="vzRowRain" onclick="toggleLayer('rain')">
+      <span class="vz-layers-label">Pluie</span>
       <div class="vz-layers-check"></div>
-      <span>Pluie</span>
     </div>
     <div class="vz-layers-row" id="vzRowWindFlow" onclick="toggleLayer('windflow')">
+      <span class="vz-layers-label">Vent</span>
       <div class="vz-layers-check"></div>
-      <span>Vent</span>
     </div>
     <div class="vz-layers-row" id="vzRowZsd" onclick="toggleLayer('zsd')">
+      <span class="vz-layers-label">Visibilité</span>
       <div class="vz-layers-check"></div>
-      <span>Visibilité satellite</span>
     </div>
   </div>
   <div>
