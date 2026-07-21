@@ -2418,6 +2418,11 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
 }
 .vz-layers-ico svg { width: 18px; height: 18px; }
 .vz-layers-row.active .vz-layers-ico { background: var(--vz-accent); color: #FFFFFF; }
+.vz-layers-popover .vz-layers-row.active .vz-layers-ico,
+.vz-layers-popover .vz-layers-row.active .vz-layers-check { background: #4DD4A8; }
+.vz-layers-popover .vz-layers-row.active .vz-layers-radio { border-color: #4DD4A8; }
+.vz-layers-popover .vz-layers-row.active .vz-layers-radio::after { background: #4DD4A8; }
+.vz-layers-popover .vz-units-btn.active { background: #4DD4A8; color: #0A1520; box-shadow: none; }
 .vz-layers-row:hover { background: rgba(11,26,38,0.04); }
 .vz-layers-row.active { color: var(--vz-accent-deep); font-weight: 500; }
 .vz-layers-row.disabled { opacity: 0.4; cursor: not-allowed; }
@@ -5236,7 +5241,7 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
       <polyline points="2 17 12 22 22 17"></polyline>
       <polyline points="2 12 12 17 22 12"></polyline>
     </svg>
-    <span class="vz-layers-fab-text">Couches</span>
+    <span class="vz-layers-fab-text">Afficher</span>
     <svg class="vz-layers-fab-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
     <span class="vz-layers-count"></span>
   </button>
