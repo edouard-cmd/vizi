@@ -2392,6 +2392,7 @@ function toggleLayer(type) {
     vzRefreshSedLegendVisibility();
     if (S.showSed) { S.sedLayer.addTo(S.map); }
     else { if (S.map.hasLayer(S.sedLayer)) S.map.removeLayer(S.sedLayer); }
+    if (!S.showSed && typeof window.vzmSedReadoutHide === 'function') window.vzmSedReadoutHide();
   } else if (type === 'rain') {
     S.showRain = !S.showRain;
     var _rowRain = document.getElementById('vzRowRain');
@@ -4960,15 +4961,24 @@ function vzmInitSedReadout(){
   var st = document.createElement('style');
   st.id = 'vzmSedReadoutStyle';
   st.textContent = `
-.vzm-sed-readout{position:fixed;left:50%;top:33.333%;margin-top:30px;transform:translateX(-50%) translateY(4px);z-index:1200;pointer-events:none;opacity:0;transition:opacity .18s ease,transform .2s ease;max-width:72vw;padding:4px 11px;background:rgba(15,36,56,0.9);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:0.5px solid rgba(77,212,168,0.4);border-radius:9px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#CDE7DD;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:0.02em;box-shadow:0 4px 14px rgba(4,16,28,0.4);}
+.vzm-sed-readout{position:fixed;left:50%;top:33.333%;margin-top:30px;transform:translateX(-50%) translateY(4px);z-index:1200;pointer-events:none;opacity:0;transition:opacity .18s ease,transform .2s ease;display:flex;align-items:center;gap:7px;max-width:72vw;padding:4px 11px;background:rgba(15,36,56,0.9);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:0.5px solid rgba(77,212,168,0.4);border-radius:9px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#CDE7DD;white-space:nowrap;letter-spacing:0.02em;box-shadow:0 4px 14px rgba(4,16,28,0.4);}
 .vzm-sed-readout.on{opacity:1;transform:translateX(-50%) translateY(0);}
+.vzm-sed-readout .vzm-sed-txt{overflow:hidden;text-overflow:ellipsis;}
+.vzm-sed-readout .vzm-sed-spin{width:12px;height:12px;flex:0 0 auto;display:none;}
+.vzm-sed-readout.loading .vzm-sed-spin{display:inline-block;animation:vzmSedSpin .8s linear infinite;}
+@keyframes vzmSedSpin{to{transform:rotate(360deg);}}
 @media (min-width:769px){.vzm-sed-readout{display:none !important;}}
 `;
   document.head.appendChild(st);
 
   var el = document.createElement('div');
   el.className = 'vzm-sed-readout'; el.id = 'vzmSedReadout';
+  el.innerHTML = '<span class="vzm-sed-spin"><svg viewBox="0 0 24 24" width="12" height="12">'
+    + '<circle cx="12" cy="12" r="9" fill="none" stroke="rgba(77,212,168,0.25)" stroke-width="3"/>'
+    + '<path d="M12 3 a9 9 0 0 1 9 9" fill="none" stroke="#4DD4A8" stroke-width="3" stroke-linecap="round"/>'
+    + '</svg></span><span class="vzm-sed-txt"></span>';
   document.body.appendChild(el);
+  var txtEl = el.querySelector('.vzm-sed-txt');
 
   var cache = {};          // cle "lat,lon" arrondie -> nom ('' si hors couverture)
   var reqTok = 0;          // jeton anti-course : seule la derniere requete affiche
@@ -4978,8 +4988,9 @@ function vzmInitSedReadout(){
     var d = document.getElementById('spotDrawerMobile');
     return d && (d.classList.contains('vzm-peek') || d.classList.contains('vzm-mid') || d.classList.contains('vzm-full'));
   }
-  function hide(){ el.classList.remove('on'); }
-  function show(txt){ el.textContent = 'Fond : ' + txt; el.classList.add('on'); }
+  function hide(){ el.classList.remove('on', 'loading'); }
+  function showLoading(){ txtEl.textContent = 'Fond...'; el.classList.add('on', 'loading'); }
+  function showName(txt){ el.classList.remove('loading'); txtEl.textContent = 'Fond : ' + txt; el.classList.add('on'); }
 
   function readNameAt(lat, lon){
     return gasGet('sediment', { lat: lat, lon: lon }).then(function(data){
@@ -5002,15 +5013,16 @@ function vzmInitSedReadout(){
     var key = c.lat.toFixed(3) + ',' + c.lng.toFixed(3);
     if (Object.prototype.hasOwnProperty.call(cache, key)) {
       var cached = cache[key];
-      if (cached) show(cached); else hide();
+      if (cached) showName(cached); else hide();
       return;
     }
+    showLoading();                            // spinner pendant l'interrogation reseau
     var tok = ++reqTok;
     readNameAt(c.lat, c.lng).then(function(name){
       cache[key] = name;
       if (tok !== reqTok) return;             // une requete plus recente a pris la main
       if (!eligible()) { hide(); return; }
-      if (name) show(name); else hide();
+      if (name) showName(name); else hide();
     });
   }
 
