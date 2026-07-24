@@ -751,8 +751,7 @@ var S = {
   canvas: null, ctx: null, _spotDepth: 5,
 showLitto3d: true, litto3d: null,
   spotMode: false, huntPoints: [], huntLayer: null,
-  showWrecks: false, wrecksLayer: null, wrecksData: null,
-  mntDeco: null
+  showWrecks: false, wrecksLayer: null, wrecksData: null
 };
 
 var S_forecastOpen = false;
@@ -1106,16 +1105,6 @@ function initMap() {
   // sediment au-dessus de Litto3D.
   S.map.createPane('litto3dPane');
   S.map.getPane('litto3dPane').style.zIndex = 250;
-  // Fond bathy decoratif (MNT HOMONIM Atlantique 100m, pre-rendu palette
-  // Talisker calee sur les bleus profonds Litto3D). Purement esthetique :
-  // habille le pourtour des dalles Litto3D, aucune valeur mesuree consommee.
-  // Pane sous Litto3D (250) et au-dessus du basemap. Couvre Atlantique+Manche
-  // uniquement (le MNT ne contient pas la Mediterranee).
-  S.map.createPane('mntDecoPane');
-  S.map.getPane('mntDecoPane').style.zIndex = 240;
-  S.mntDeco = L.imageOverlay('mnt_atlantique_deco.png',
-    [[43.2495, -6.0005], [52.9005, 5.8505]],
-    { pane: 'mntDecoPane', opacity: 1, interactive: false });
   S.map.createPane('vzSeaOverlayPane');
   S.map.getPane('vzSeaOverlayPane').style.zIndex = 350;
   S.map.createPane('vzRainPane');
@@ -1201,7 +1190,6 @@ S.basemapSat = L.layerGroup([
 
 initLitto3dLayer();
   S.litto3d.addTo(S.map);
-  if (S.mntDeco) S.mntDeco.addTo(S.map);   // fond deco suit Litto3D
   S.litto3d.eachLayer(function(l) { if (l.bringToBack) l.bringToBack(); });
   vzInitSeaMask();
   if (S.basemapSat) S.basemapSat.eachLayer(function(l) { if (l.bringToBack) l.bringToBack(); });
@@ -2483,8 +2471,7 @@ function toggleLayer(type) {
       // Exclusion mutuelle avec le fond vent (deux couches de fond).
       if (S.showWindFlow) toggleLayer('windflow');
       S.litto3d.addTo(S.map);
-      if (S.mntDeco && !S.map.hasLayer(S.mntDeco)) S.mntDeco.addTo(S.map);
-      // Ordre Z : basemap < fond deco < Litto3D < sediment/isobathes/markers
+      // Ordre Z : basemap < Litto3D < sediment/isobathes/markers
       S.litto3d.eachLayer(function(l) { if (l.bringToBack) l.bringToBack(); });
       // Remet la basemap encore plus en arriere
       if (S.currentBasemap === 'sat' && S.map.hasLayer(S.basemapSat)) {
@@ -2494,7 +2481,6 @@ function toggleLayer(type) {
       }
  } else {
       if (S.map.hasLayer(S.litto3d)) S.map.removeLayer(S.litto3d);
-      if (S.mntDeco && S.map.hasLayer(S.mntDeco)) S.map.removeLayer(S.mntDeco);
     }
   } else if (type === 'zsd') {
     S.showZsd = !S.showZsd;
