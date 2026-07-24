@@ -1217,19 +1217,28 @@ initLitto3dLayer();
 
   var regionColors = { 'Manche':'#0BA888', 'Bretagne':'#16A34A', 'Atlantique':'#E8A838', 'Mediterranee':'#DC2626' };
 
+  // Marqueur secteur port : ecusson a pointe basse + ancre (Claude Design).
+  // Casse toute lecture circulaire (fini l'effet oeil du disque cerne). La
+  // classe .vz-spot-dot est conservee : vzUpdateSpotMarkers/vzApplyZoomScale
+  // la ciblent pour le scaling au zoom, et le halo/popup se calent sur
+  // spot.lat/lon, pas sur l'icone. Actif = ecusson teal plein, ancre sombre.
   function vzSpotIconHtml(active) {
     if (active) {
-      return '<div class="vz-spot-dot" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:34px;height:34px;display:flex;align-items:center;justify-content:center;">'
-        + '<div style="position:absolute;width:42px;height:42px;border-radius:50%;background:#4DD4A8;filter:blur(10px);opacity:0.65;"></div>'
-        + '<div style="position:relative;width:30px;height:30px;border-radius:50%;background:#4DD4A8;border:1.5px solid #EAFBF4;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 1px rgba(10,21,32,0.25);">'
-        + '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#0A1520" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" stroke-dasharray="3 3"/><circle cx="12" cy="12" r="2.4" fill="#0A1520"/></svg>'
-        + '</div></div>';
+      return '<div class="vz-spot-dot" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:36px;height:42px;display:flex;align-items:center;justify-content:center;">'
+        + '<div style="position:absolute;width:40px;height:40px;border-radius:50%;background:#4DD4A8;filter:blur(11px);opacity:0.7;"></div>'
+        + '<svg style="position:relative;" width="36" height="42" viewBox="0 0 44 52" fill="none">'
+        + '<path d="M22 51 L6 32 Q2 27 2 19 Q2 4 22 4 Q42 4 42 19 Q42 27 38 32 Z" fill="#4DD4A8" stroke="#EAFBF4" stroke-width="2"/>'
+        + '<g fill="none" stroke="#0A1520" stroke-width="2.6" stroke-linecap="round">'
+        + '<path d="M22 12 L22 30"/><path d="M16 16 L28 16"/><path d="M13 24 Q13 32 22 32 Q31 32 31 24"/></g>'
+        + '</svg></div>';
     }
-    return '<div class="vz-spot-dot" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:30px;height:30px;display:flex;align-items:center;justify-content:center;">'
-      + '<div style="position:absolute;width:30px;height:30px;border-radius:50%;background:#4DD4A8;filter:blur(7px);opacity:0.45;"></div>'
-      + '<div style="position:relative;width:26px;height:26px;border-radius:50%;background:rgba(10,21,32,0.92);border:1px solid rgba(77,212,168,0.55);display:flex;align-items:center;justify-content:center;">'
-      + '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4DD4A8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" stroke-dasharray="3 3"/><circle cx="12" cy="12" r="2.2" fill="#4DD4A8"/></svg>'
-      + '</div></div>';
+    return '<div class="vz-spot-dot" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:30px;height:36px;display:flex;align-items:center;justify-content:center;">'
+      + '<div style="position:absolute;width:28px;height:28px;border-radius:50%;background:#4DD4A8;filter:blur(7px);opacity:0.4;"></div>'
+      + '<svg style="position:relative;" width="30" height="36" viewBox="0 0 44 52" fill="none">'
+      + '<path d="M22 51 L6 32 Q2 27 2 19 Q2 4 22 4 Q42 4 42 19 Q42 27 38 32 Z" fill="#0A1520" stroke="#2DA888" stroke-width="2"/>'
+      + '<g fill="none" stroke="#4DD4A8" stroke-width="2.4" stroke-linecap="round">'
+      + '<path d="M22 12 L22 30"/><path d="M16 16 L28 16"/><path d="M13 24 Q13 32 22 32 Q31 32 31 24"/></g>'
+      + '</svg></div>';
   }
 
   SPOTS.forEach(function(spot) {
