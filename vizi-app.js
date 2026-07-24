@@ -750,7 +750,8 @@ var S = {
   spotMarkers: {}, clickMarker: null, clickLatLng: null,
   canvas: null, ctx: null, _spotDepth: 5,
 showLitto3d: true, litto3d: null,
-  spotMode: false, huntPoints: [], huntLayer: null
+  spotMode: false, huntPoints: [], huntLayer: null,
+  showWrecks: false, wrecksLayer: null, wrecksData: null
 };
 
 var S_forecastOpen = false;
@@ -2378,7 +2379,8 @@ function vzUpdateLayersBadge() {
   var els = document.querySelectorAll('.vz-layers-count');
   if (!els.length) return;
   var n = (S.showSed ? 1 : 0) + (S.showIso ? 1 : 0) + (S.showLitto3d ? 1 : 0)
-        + (S.showRain ? 1 : 0) + (S.showWindFlow ? 1 : 0) + (S.showZsd ? 1 : 0);
+        + (S.showRain ? 1 : 0) + (S.showWindFlow ? 1 : 0) + (S.showZsd ? 1 : 0)
+        + (S.showWrecks ? 1 : 0);
   for (var i = 0; i < els.length; i++) {
     if (n > 0) { els[i].textContent = n; els[i].classList.add('on'); }
     else { els[i].classList.remove('on'); }
@@ -2507,9 +2509,107 @@ function toggleLayer(type) {
     vzRenderHuntBar();
   } else if (type === 'measure') {
     vzMeasureToggle();
+  } else if (type === 'wrecks') {
+    S.showWrecks = !S.showWrecks;
+    var _rowWr = document.getElementById('vzRowWrecks');
+    if (_rowWr) _rowWr.classList.toggle('active', S.showWrecks);
+    if (S.showWrecks) {
+      // Pas d'exclusion mutuelle : les epaves se superposent a tout,
+      // le combo relief Litto3D + epaves est justement l'usage vise.
+      vzWrecksEnsure_().then(function(layer){
+        if (!S.showWrecks) return;   // re-toggle off pendant le fetch
+        if (!S.map.hasLayer(layer)) layer.addTo(S.map);
+      }).catch(function(e){
+        console.warn('[wrecks] couche epaves indisponible', e);
+        S.showWrecks = false;
+        if (_rowWr) _rowWr.classList.remove('active');
+      });
+    } else {
+      if (S.wrecksLayer && S.map.hasLayer(S.wrecksLayer)) S.map.removeLayer(S.wrecksLayer);
+    }
   }
   vzUpdateLayersBadge();
 }
+/* ============================================================
+   COUCHE EPAVES - SHOM "Epaves et obstructions" (CC BY-SA 4.0)
+   DOI 10.17183/EPAVES_OBSTRUCTIONS. Asset statique wrecks.geojson
+   (format compact custom), charge en lazy au premier toggle.
+   WRECKS metropole, brassiage 0-30m, precis_loc<=50m.
+   Le brassiage est la sonde du point le plus haut de l'epave par
+   rapport au zero des cartes marines : c'est la profondeur qui
+   interesse l'apneiste, pas celle du fond.
+   Aucun contact avec le moteur ni les caches S_spot*. Additif pur.
+   ============================================================ */
+function vzWrecksEsc_(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Icone marqueur epave : losange teal, coherent charte Talisker.
+function vzWrecksIconHtml_() {
+  return '<div style="width:18px;height:18px;transform:rotate(45deg);'
+    + 'background:rgba(15,36,56,0.9);border:2px solid #4DD4A8;'
+    + 'box-shadow:0 0 6px rgba(77,212,168,0.5);border-radius:3px;"></div>';
+}
+
+// Identification en cascade : nom > type > description > "non identifiee".
+function vzWrecksPopupHtml_(w) {
+  var titre = (w.n && w.n.trim()) ? w.n.trim()
+            : (w.t && w.t.trim()) ? w.t.trim()
+            : 'Epave non identifiee';
+  var html = '<div style="font-family:Inter,sans-serif;min-width:210px;max-width:280px;color:#E8F0F4;">'
+    + '<div style="font-weight:600;font-size:14px;color:#4DD4A8;margin-bottom:6px;">'
+    + vzWrecksEsc_(titre) + '</div>';
+  // Brassiage : la donnee la plus utile en premier.
+  if (w.b != null) {
+    html += '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:12px;margin-bottom:3px;">'
+      + 'Brassiage <span style="color:#4DD4A8;">' + vzWrecksEsc_(w.b) + ' m</span>'
+      + ' <span style="color:#7A8FA0;">(sommet / zero des cartes)</span></div>';
+  }
+  if (w.t && w.t.trim() && w.n && w.n.trim()) {
+    html += '<div style="font-size:12px;color:#B8C7D2;margin-bottom:3px;">' + vzWrecksEsc_(w.t) + '</div>';
+  }
+  if (w.h && w.h.trim()) {
+    html += '<div style="font-size:11px;color:#B8C7D2;margin-bottom:3px;">' + vzWrecksEsc_(w.h) + '</div>';
+  }
+  if (w.w && w.w.trim()) {
+    html += '<div style="font-size:11px;color:#B8C7D2;margin-bottom:3px;">' + vzWrecksEsc_(w.w) + '</div>';
+  }
+  if (w.c && w.c.trim()) {
+    html += '<div style="font-size:11px;color:#8FA3B0;margin-bottom:4px;font-style:italic;">' + vzWrecksEsc_(w.c) + '</div>';
+  }
+  html += '<div style="font-size:10px;color:#7A8FA0;margin-top:6px;">Position +/- ' + vzWrecksEsc_(w.p) + ' m</div>';
+  // Attribution CC BY-SA + restriction officielle : obligatoire.
+  html += '<div style="font-size:9px;color:#5E7383;margin-top:5px;border-top:1px solid rgba(94,115,131,0.3);padding-top:4px;line-height:1.4;">'
+    + 'Source SHOM, dx.doi.org/10.17183/EPAVES_OBSTRUCTIONS (CC BY-SA 4.0). '
+    + 'Ne pas utiliser pour la navigation.</div>';
+  html += '</div>';
+  return html;
+}
+
+// Lazy-load : fetch + parse une seule fois, construit le layerGroup.
+function vzWrecksEnsure_() {
+  if (S.wrecksLayer) return Promise.resolve(S.wrecksLayer);
+  return fetch('wrecks.geojson', { cache: 'no-store' })
+    .then(function(r){ if (!r.ok) throw new Error('wrecks.geojson HTTP ' + r.status); return r.json(); })
+    .then(function(data){
+      S.wrecksData = data;
+      var grp = L.layerGroup();
+      var pts = (data && data.pts) || [];
+      for (var i = 0; i < pts.length; i++) {
+        var w = pts[i];
+        var m = L.marker([w.la, w.lo], {
+          icon: L.divIcon({ className: '', html: vzWrecksIconHtml_(), iconSize: [18, 18], iconAnchor: [9, 9] }),
+          keyboard: false
+        });
+        m.bindPopup(vzWrecksPopupHtml_(w), { className: 'vz-wreck-popup', maxWidth: 300 });
+        grp.addLayer(m);
+      }
+      S.wrecksLayer = grp;
+      return grp;
+    });
+}
+
 /* ============================================================
    SPOTS CHASSE - marquage XY sur fond Litto3D + export GPX
    Le chasseur lit une structure sur l'image Litto3D (laser vert)
