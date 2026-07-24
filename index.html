@@ -5402,6 +5402,11 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
       <span class="vz-layers-label"><span class="vz-layers-name">Visibilité</span><span class="vz-layers-sub">estimation par zone</span></span>
       <div class="vz-layers-check"></div>
     </div>
+    <div class="vz-layers-row" id="vzRowWrecks" onclick="toggleLayer('wrecks')">
+      <span class="vz-layers-ico"><svg viewBox="0 0 24 24"><path d="M3 15 Q12 12 21 15"></path><path d="M6 15 L7 20 L17 20 L18 15"></path><path d="M12 4 L12 15"></path><path d="M12 4 L17 8"></path></svg></span>
+      <span class="vz-layers-label"><span class="vz-layers-name">Épaves</span><span class="vz-layers-sub">SHOM, moins de 30 m</span></span>
+      <div class="vz-layers-check"></div>
+    </div>
   </div>
   <div>
     <div class="vz-layers-section-title">Unités</div>
@@ -6164,7 +6169,7 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
 <script src="https://cdn.jsdelivr.net/npm/leaflet-velocity@1.9.2/dist/leaflet-velocity.js"></script>
 
     
-<script src="vizi-app.js?v=10"></script>
+<script src="vizi-app.js?v=11"></script>
   <script>
 function setLayersPopover(open) {
   var pop = document.getElementById('vzLayersPopover');
