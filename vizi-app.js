@@ -2552,6 +2552,40 @@ function vzWrecksIconHtml_() {
     + 'box-shadow:0 0 6px rgba(77,212,168,0.5);border-radius:3px;"></div>';
 }
 
+// Conversion degres decimaux -> degres-minutes decimales (format marine/plotter).
+// Ex : 49.7315833, 0.1868 -> "49\u00B043.895'N 000\u00B011.208'E".
+// Longitude sur 3 chiffres de degre (convention marine), minutes a 3 decimales.
+function vzWrecksDM_(lat, lon) {
+  function fmt(v, isLon) {
+    var hemi = isLon ? (v >= 0 ? 'E' : 'W') : (v >= 0 ? 'N' : 'S');
+    var abs = Math.abs(v);
+    var deg = Math.floor(abs);
+    var min = (abs - deg) * 60;
+    var degStr = String(deg);
+    while (degStr.length < (isLon ? 3 : 2)) degStr = '0' + degStr;
+    var minStr = min.toFixed(3);
+    if (min < 10) minStr = '0' + minStr;
+    return degStr + '\u00B0' + minStr + "'" + hemi;
+  }
+  return fmt(lat, false) + ' ' + fmt(lon, true);
+}
+
+// Copie presse-papier depuis le popup (HTML injecte par Leaflet -> fonction
+// globale). Retour visuel bref. Fallback silencieux si l'API est absente.
+window.vzWrecksCopy_ = function(txt, btn) {
+  function ok() {
+    if (!btn) return;
+    var old = btn.textContent;
+    btn.textContent = 'copie';
+    setTimeout(function(){ btn.textContent = old; }, 1200);
+  }
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(ok, function(){});
+    }
+  } catch (e) {}
+};
+
 // Identification en cascade : nom > type > description > "non identifiee".
 function vzWrecksPopupHtml_(w) {
   var titre = (w.n && w.n.trim()) ? w.n.trim()
@@ -2578,7 +2612,15 @@ function vzWrecksPopupHtml_(w) {
   if (w.c && w.c.trim()) {
     html += '<div style="font-size:11px;color:#8FA3B0;margin-bottom:4px;font-style:italic;">' + vzWrecksEsc_(w.c) + '</div>';
   }
-  html += '<div style="font-size:10px;color:#7A8FA0;margin-top:6px;">Position +/- ' + vzWrecksEsc_(w.p) + ' m</div>';
+  // Coordonnees format marine (degres-minutes decimales) + bouton copier.
+  var _dm = vzWrecksDM_(w.la, w.lo);
+  html += '<div style="display:flex;align-items:center;gap:6px;margin-top:7px;">'
+    + '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:12px;color:#E8F0F4;">' + vzWrecksEsc_(_dm) + '</span>'
+    + '<button onclick="vzWrecksCopy_(\'' + _dm + '\', this)" '
+    + 'style="cursor:pointer;border:1px solid rgba(77,212,168,0.5);background:rgba(77,212,168,0.12);'
+    + 'color:#4DD4A8;font-family:Inter,sans-serif;font-size:10px;font-weight:600;'
+    + 'padding:2px 8px;border-radius:6px;">copier</button></div>';
+  html += '<div style="font-size:10px;color:#7A8FA0;margin-top:4px;">Position +/- ' + vzWrecksEsc_(w.p) + ' m</div>';
   // Attribution CC BY-SA + restriction officielle : obligatoire.
   html += '<div style="font-size:9px;color:#5E7383;margin-top:5px;border-top:1px solid rgba(94,115,131,0.3);padding-top:4px;line-height:1.4;">'
     + 'Source SHOM, dx.doi.org/10.17183/EPAVES_OBSTRUCTIONS (CC BY-SA 4.0). '
