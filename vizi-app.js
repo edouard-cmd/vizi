@@ -11128,6 +11128,11 @@ function openObsSheet() {
     var savedPseudo = localStorage.getItem('vizi_pseudo');
     pseudoInput.value = savedPseudo || '';
   } catch(e) { pseudoInput.value = ''; }
+  // Commentaire : jamais restaure d'un depot a l'autre. Contrairement au
+  // pseudo (identite stable, persistee en localStorage), un commentaire
+  // decrit un etat de mer date : le recycler produirait de la fausse donnee.
+  var commentInput = document.getElementById('obsSheetComment');
+  if (commentInput) commentInput.value = '';
   document.getElementById('obsSheetSubmit').style.display = 'block';
   document.getElementById('obsSheetSubmit').disabled = false;
   document.getElementById('obsSheetSubmit').textContent = 'Partager au secteur';
@@ -11213,6 +11218,12 @@ function submitObsSheet() {
 if (pseudo) {
   try { localStorage.setItem('vizi_pseudo', pseudo); } catch(e) {}
 }
+  // Champ libre conditions. Le GAS lit deja e.parameter.comment et l'ecrit
+  // dans la colonne 'comment' de la feuille observations (ecriture mappee
+  // sur les en-tetes) : rien a changer cote stockage. Cap a 180 caracteres
+  // pour tenir la limite d'URL du GET et rester une info, pas un recit.
+  var commentEl = document.getElementById('obsSheetComment');
+  var comment = commentEl ? commentEl.value.trim().slice(0, 180) : '';
   gasGet('submit_observation', {
     lat: latlng.lat, lon: latlng.lng,
     date: document.getElementById('obsSheetDate').value,
@@ -11220,7 +11231,8 @@ if (pseudo) {
     visibility_m: visM,
     visibility_label: visLabel,
     turbidity: OBS_WATER,
-    pseudo: pseudo || 'Anonyme'
+    pseudo: pseudo || 'Anonyme',
+    comment: comment
   }).then(function(result) {
     OBS_SUBMITTING = false;
     if (result && result.success) {
