@@ -2618,17 +2618,26 @@ function vzWrecksPopupHtml_(w) {
   if (w.w && w.w.trim()) {
     html += '<div style="font-size:11px;color:#B8C7D2;margin-bottom:3px;">' + vzWrecksEsc_(w.w) + '</div>';
   }
+  // caract_obj : releves de campagne, souvent longs et truffes de codes
+  // hydrographiques (xx/xx/aaaa, L:.., etc). On tronque pour garder le debut
+  // utile sans noyer le popup. Contraste remonte pour la lisibilite.
   if (w.c && w.c.trim()) {
-    html += '<div style="font-size:11px;color:#8FA3B0;margin-bottom:4px;font-style:italic;">' + vzWrecksEsc_(w.c) + '</div>';
+    var _c = w.c.trim();
+    if (_c.length > 130) _c = _c.slice(0, 130).replace(/[\s,;:.]+$/, '') + '...';
+    html += '<div style="font-size:11px;color:#A9BAC6;margin-bottom:4px;line-height:1.45;">' + vzWrecksEsc_(_c) + '</div>';
   }
-  // Coordonnees format marine (degres-minutes decimales) + bouton copier.
+  // Coordonnees : element principal du popup. Pastille claire + texte sombre
+  // pour ressortir franchement sur le fond sombre, gros et gras. Bouton copier
+  // teal plein bien visible (usage plotter en mer, l'action cle).
   var _dm = vzWrecksDM_(w.la, w.lo);
-  html += '<div style="display:flex;align-items:center;gap:6px;margin-top:7px;">'
-    + '<span style="font-family:\'IBM Plex Mono\',monospace;font-size:12px;color:#E8F0F4;">' + vzWrecksEsc_(_dm) + '</span>'
+  html += '<div style="display:flex;align-items:stretch;gap:6px;margin-top:9px;">'
+    + '<span style="flex:1;font-family:\'IBM Plex Mono\',monospace;font-size:14px;font-weight:700;'
+    + 'color:#0A1520;background:#EAFBF4;border-radius:7px;padding:6px 9px;letter-spacing:0.3px;'
+    + 'display:flex;align-items:center;">' + vzWrecksEsc_(_dm) + '</span>'
     + '<button onclick="vzWrecksCopy_(\'' + _dm + '\', this)" '
-    + 'style="cursor:pointer;border:1px solid rgba(77,212,168,0.5);background:rgba(77,212,168,0.12);'
-    + 'color:#4DD4A8;font-family:Inter,sans-serif;font-size:10px;font-weight:600;'
-    + 'padding:2px 8px;border-radius:6px;">copier</button></div>';
+    + 'style="cursor:pointer;border:none;background:#4DD4A8;color:#0A1520;'
+    + 'font-family:Inter,sans-serif;font-size:11px;font-weight:700;'
+    + 'padding:0 12px;border-radius:7px;">copier</button></div>';
   html += '<div style="font-size:10px;color:#7A8FA0;margin-top:4px;">Position +/- ' + vzWrecksEsc_(w.p) + ' m</div>';
   // Attribution CC BY-SA + restriction officielle : obligatoire.
   html += '<div style="font-size:9px;color:#5E7383;margin-top:5px;border-top:1px solid rgba(94,115,131,0.3);padding-top:4px;line-height:1.4;">'
