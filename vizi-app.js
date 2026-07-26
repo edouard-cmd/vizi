@@ -11224,6 +11224,15 @@ if (pseudo) {
   // pour tenir la limite d'URL du GET et rester une info, pas un recit.
   var commentEl = document.getElementById('obsSheetComment');
   var comment = commentEl ? commentEl.value.trim().slice(0, 180) : '';
+  // Nom de lieu du depot, calcule ICI sur la liste nationale SPOTS (134
+  // ports) et transmis au backend, qui n'a plus aucune table geographique.
+  // Meme source que le libelle "Secteur X" affiche en haut du formulaire :
+  // l'email d'alerte cite donc exactement le lieu que le deposant a vu.
+  var sectorName = '';
+  if (typeof findNearestPort === 'function') {
+    var np = findNearestPort(latlng.lat, latlng.lng);
+    if (np && np.spot && np.spot.name) sectorName = np.spot.name;
+  }
   gasGet('submit_observation', {
     lat: latlng.lat, lon: latlng.lng,
     date: document.getElementById('obsSheetDate').value,
@@ -11232,7 +11241,8 @@ if (pseudo) {
     visibility_label: visLabel,
     turbidity: OBS_WATER,
     pseudo: pseudo || 'Anonyme',
-    comment: comment
+    comment: comment,
+    sector: sectorName
   }).then(function(result) {
     OBS_SUBMITTING = false;
     if (result && result.success) {
