@@ -17152,11 +17152,15 @@ function vzmInit() {
     }
   }
 
-  // Le champ est-il en mode replie (loupe) ? On interroge le CSS au lieu de
-  // redupliquer le point de rupture en JS : une seule source de verite.
+  // Le champ est-il en mode replie (loupe) ? On lit un drapeau CSS porte par
+  // #vzSearch lui-meme : une seule source de verite, le point de rupture reste
+  // dans la media query. Surtout, ce drapeau ne depend pas de l'etat
+  // ouvert/ferme, contrairement a la visibilite de la loupe que le mode
+  // deploye masque precisement au moment ou l'on a besoin de la tester.
   function isCollapsed() {
-    if (!toggle) return false;
-    return window.getComputedStyle(toggle).display !== 'none';
+    if (!root) return false;
+    return window.getComputedStyle(root)
+      .getPropertyValue('--vz-search-collapsed').trim() === '1';
   }
 
   function setOpen(on) {
@@ -17178,7 +17182,7 @@ function vzmInit() {
     var st = document.createElement('style');
     st.id = 'vzSearchCss';
     st.textContent = ''
-    + "#vzSearch{position:fixed;top:17px;left:168px;width:264px;z-index:1250;font-family:'Inter',sans-serif;}"
+    + "#vzSearch{position:fixed;top:17px;left:168px;width:264px;z-index:1250;font-family:'Inter',sans-serif;--vz-search-collapsed:0;}"
     + "#vzSearch .vz-search-toggle{display:none;align-items:center;justify-content:center;width:40px;height:40px;padding:0;background:rgba(10,21,32,0.82);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border:0.5px solid rgba(77,212,168,0.3);border-radius:12px;color:#E6EEF4;cursor:pointer;}"
     + "#vzSearch .vz-search-toggle svg{width:19px;height:19px;}"
     + "#vzSearch .vz-search-box{display:flex;align-items:center;gap:9px;height:40px;padding:0 10px 0 12px;background:rgba(10,21,32,0.82);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border:0.5px solid rgba(77,212,168,0.3);border-radius:12px;transition:border-color 0.18s ease;}"
@@ -17205,12 +17209,15 @@ function vzmInit() {
     // Conditions / Maree centres. On reutilise le mecanisme de repli mobile
     // plutot que d'ecraser la largeur jusqu'a l'illisible.
     + "@media (max-width:1150px){"
-    +   "#vzSearch{width:40px;}"
+    +   "#vzSearch{width:40px;--vz-search-collapsed:1;}"
     +   "#vzSearch .vz-search-toggle{display:flex;}"
     +   "#vzSearch .vz-search-box{display:none;}"
     +   "#vzSearch.vzm-open{width:300px;}"
     +   "#vzSearch.vzm-open .vz-search-toggle{display:none;}"
     +   "#vzSearch.vzm-open .vz-search-box{display:flex;}"
+         // La croix devient un bouton fermer : elle reste visible meme champ
+         // vide, sinon il n'y a plus aucune sortie explicite du mode deploye.
+    +   "#vzSearch.vzm-open .vz-search-clear{display:flex;}"
     + "}"
     + "@media (max-width:768px){"
     +   "#vzSearch{top:12px;right:12px;left:auto;}"
@@ -17220,6 +17227,10 @@ function vzmInit() {
          // et decale tous les position:fixed. Aucun contournement par le meta
          // viewport n'est acceptable, il tuerait le pinch-zoom de la carte.
     +   "#vzSearch .vz-search-in{font-size:16px;}"
+         // La croix est desormais la sortie principale du champ sur mobile :
+         // 22px etait sous le seuil de confort tactile.
+    +   "#vzSearch .vz-search-clear{width:32px;height:32px;background:rgba(255,255,255,0.07);color:rgba(230,238,244,0.75);}"
+    +   "#vzSearch .vz-search-clear svg{width:15px;height:15px;}"
     +   "#vzSearch .vz-search-list{max-height:min(34vh,270px);}"
     + "}";
     (document.head || document.documentElement).appendChild(st);
@@ -17252,6 +17263,10 @@ function vzmInit() {
 
     toggle.addEventListener('click', function () { setOpen(true); });
     root.querySelector('#vzSearchClear').addEventListener('click', function () {
+      // En mode replie la croix est un bouton fermer : on rend la vue et la
+      // loupe. En mode deploye permanent (desktop large) le champ fait partie
+      // de l'en-tete et ne disparait pas, la croix se contente de vider.
+      if (isCollapsed()) { setOpen(false); return; }
       input.value = ''; closeList(); syncClear(); input.focus();
     });
 
