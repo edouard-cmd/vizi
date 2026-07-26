@@ -2581,18 +2581,29 @@ function vzWrecksDM_(lat, lon) {
 
 // Copie presse-papier depuis le popup (HTML injecte par Leaflet -> fonction
 // globale). Retour visuel bref. Fallback silencieux si l'API est absente.
-window.vzWrecksCopy_ = function(txt, btn) {
+window.vzWrecksCopy_ = function(btn) {
+  // Coordonnee lue depuis data-dm : les apostrophes du format DM cassaient
+  // la chaine inline de l'onclick quand on la passait en argument texte.
+  var txt = btn ? btn.getAttribute('data-dm') : '';
   function ok() {
     if (!btn) return;
     var old = btn.textContent;
     btn.textContent = 'copie';
     setTimeout(function(){ btn.textContent = old; }, 1200);
   }
+  function fallback() {
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      document.execCommand('copy'); document.body.removeChild(ta); ok();
+    } catch (e) {}
+  }
   try {
     if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(txt).then(ok, function(){});
-    }
-  } catch (e) {}
+      navigator.clipboard.writeText(txt).then(ok, fallback);
+    } else { fallback(); }
+  } catch (e) { fallback(); }
 };
 
 // Identification en cascade : nom > type > description > "non identifiee".
@@ -2606,8 +2617,8 @@ function vzWrecksPopupHtml_(w) {
   // Brassiage : la donnee la plus utile en premier.
   if (w.b != null) {
     html += '<div style="font-family:\'IBM Plex Mono\',monospace;font-size:12px;margin-bottom:3px;">'
-      + 'Brassiage <span style="color:#4DD4A8;">' + vzWrecksEsc_(w.b) + ' m</span>'
-      + ' <span style="color:#7A8FA0;">(sommet / zero des cartes)</span></div>';
+      + 'Sommet a <span style="color:#4DD4A8;font-weight:600;">' + vzWrecksEsc_(w.b) + ' m</span>'
+      + '<br><span style="color:#7A8FA0;font-size:10px;">sous le zero des cartes, ajoute la maree du moment</span></div>';
   }
   if (w.t && w.t.trim() && w.n && w.n.trim()) {
     html += '<div style="font-size:12px;color:#B8C7D2;margin-bottom:3px;">' + vzWrecksEsc_(w.t) + '</div>';
@@ -2634,7 +2645,7 @@ function vzWrecksPopupHtml_(w) {
     + '<span style="flex:1;font-family:\'IBM Plex Mono\',monospace;font-size:14px;font-weight:700;'
     + 'color:#0A1520;background:#EAFBF4;border-radius:7px;padding:6px 9px;letter-spacing:0.3px;'
     + 'display:flex;align-items:center;">' + vzWrecksEsc_(_dm) + '</span>'
-    + '<button onclick="vzWrecksCopy_(\'' + _dm + '\', this)" '
+    + '<button data-dm="' + vzWrecksEsc_(_dm) + '" onclick="vzWrecksCopy_(this)" '
     + 'style="cursor:pointer;border:none;background:#4DD4A8;color:#0A1520;'
     + 'font-family:Inter,sans-serif;font-size:11px;font-weight:700;'
     + 'padding:0 12px;border-radius:7px;">copier</button></div>';
