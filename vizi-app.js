@@ -16889,3 +16889,373 @@ function vzmInit() {
     build();
   }
 })();
+
+
+/* ==========================================================================
+   VZ_SEARCH - Recherche de lieu avec precompletion et recadrage carte
+   --------------------------------------------------------------------------
+   Doctrine : la recherche DEPLACE la camera, elle n'analyse pas.
+   Aucune ecriture dans S.clickLatLng, aucun openSpotPopup, aucun marqueur
+   actif. L'analyse reste au clic (desktop) ou au viseur (mobile).
+
+   Hierarchie des sources de precompletion :
+     1. SPOTS local (134 ports) : instantane, zero reseau, et surtout ce sont
+        les points dont le moteur possede deja la donnee.
+     2. API Adresse data.gouv.fr (type=municipality) : toutes les communes,
+        sans cle, Licence Ouverte Etalab, concue pour l'autocompletion au fil
+        de la frappe. Nominatim est volontairement ecarte ici : sa politique
+        d'usage interdit l'autocomplete as-you-type (1 req/s).
+
+   Filtre littoral : chaque commune passe par findNearestPort. Au-dela de
+   COAST_MAX_KM elle est ecartee. Zero constante regionale codee en dur.
+   ========================================================================== */
+(function () {
+
+  var MIN_API_LEN  = 2;    // les ports locaux repondent des 1 caractere
+  var DEBOUNCE_MS  = 220;
+  var MAX_ITEMS    = 8;
+  var MAX_LOCAL    = 4;    // on laisse toujours de la place aux communes
+  var COAST_MAX_KM = 30;   // au-dela : commune de l'interieur, ecartee
+  var DEDUP_KM     = 3;    // commune confondue avec un port deja liste
+  var CACHE_MAX    = 60;
+
+  var _cache = {};
+  var _cacheKeys = [];
+  var _timer = null;
+  var _ctrl = null;
+  var _items = [];
+  var _sel = -1;
+  var _built = false;
+
+  var root = null, input = null, list = null;
+
+  var ICO_SEARCH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="16.5" y1="16.5" x2="21" y2="21"></line></svg>';
+  var ICO_CLEAR  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"></line><line x1="18" y1="6" x2="6" y2="18"></line></svg>';
+  var ICO_ANCHOR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="4.5" r="2"></circle><line x1="12" y1="6.5" x2="12" y2="21"></line><line x1="7" y1="10" x2="17" y2="10"></line><path d="M4 15a8 8 0 0 0 16 0"></path></svg>';
+  var ICO_PIN    = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11z"></path><circle cx="12" cy="10" r="2.4"></circle></svg>';
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // Normalisation accents / casse : SPOTS stocke "Fecamp", l'API renvoie
+  // "Fecamp" accentue. Sans ca, la moitie des recherches echoue.
+  function norm(s) {
+    var t = String(s == null ? '' : s).toLowerCase();
+    if (t.normalize) t = t.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return t.replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+
+  function putCache(k, v) {
+    if (!_cache[k]) {
+      _cacheKeys.push(k);
+      if (_cacheKeys.length > CACHE_MAX) delete _cache[_cacheKeys.shift()];
+    }
+    _cache[k] = v;
+  }
+
+  /* ---------- source 1 : les ports connus du moteur ---------- */
+  function collectLocal(q) {
+    var out = [];
+    if (!q || typeof SPOTS === 'undefined' || !SPOTS || !SPOTS.length) return out;
+    for (var i = 0; i < SPOTS.length; i++) {
+      var s = SPOTS[i];
+      var n = norm(s.name);
+      var rank = -1;
+      if (n.indexOf(q) === 0) rank = 0;                    // debut du nom
+      else if ((' ' + n).indexOf(' ' + q) !== -1) rank = 1; // debut d'un mot
+      else if (n.indexOf(q) !== -1) rank = 2;               // n'importe ou
+      if (rank < 0) continue;
+      out.push({
+        kind: 'port', name: s.name, sub: 'Port - ' + (s.region || ''),
+        lat: s.lat, lon: s.lon, dist: 0, rank: rank
+      });
+    }
+    out.sort(function (a, b) {
+      return (a.rank - b.rank) || String(a.name).localeCompare(String(b.name));
+    });
+    return out.slice(0, MAX_LOCAL);
+  }
+
+  /* ---------- source 2 : communes littorales via API Adresse ---------- */
+  function collectApi(q, done) {
+    if (_ctrl) { try { _ctrl.abort(); } catch (e) {} _ctrl = null; }
+    if (_cache[q]) { done(_cache[q]); return; }
+    if (typeof fetch !== 'function') { done([]); return; }
+
+    var url = 'https://api-adresse.data.gouv.fr/search/?type=municipality'
+            + '&autocomplete=1&limit=12&q=' + encodeURIComponent(q);
+    var c = (typeof AbortController === 'function') ? new AbortController() : null;
+    _ctrl = c;
+
+    fetch(url, c ? { signal: c.signal } : undefined)
+      .then(function (r) { return r && r.ok ? r.json() : null; })
+      .then(function (j) {
+        var feats = (j && j.features) ? j.features : [];
+        var out = [];
+        for (var i = 0; i < feats.length; i++) {
+          var p = feats[i].properties || {};
+          var g = feats[i].geometry || {};
+          var co = g.coordinates || [];
+          var lon = co[0], lat = co[1];
+          if (typeof lat !== 'number' || typeof lon !== 'number') continue;
+          if (typeof findNearestPort !== 'function') continue;
+          var np = findNearestPort(lat, lon);
+          if (!np || !np.spot) continue;
+          if (np.distanceKm > COAST_MAX_KM) continue; // commune de l'interieur
+          var d = Math.round(np.distanceKm * 10) / 10;
+          out.push({
+            kind: 'city',
+            name: p.city || p.name || p.label || '',
+            sub: (p.postcode ? p.postcode + ' - ' : '') + np.spot.name + ' a ' + d + ' km',
+            lat: lat, lon: lon, dist: np.distanceKm, port: np.spot
+          });
+        }
+        putCache(q, out);
+        done(out);
+      })
+      .catch(function () { done([]); }); // reseau muet : les ports locaux suffisent
+  }
+
+  /* ---------- fusion ---------- */
+  function merge(locals, cities) {
+    var out = locals.slice(0);
+    for (var i = 0; i < cities.length && out.length < MAX_ITEMS; i++) {
+      var c = cities[i], dup = false;
+      for (var j = 0; j < locals.length; j++) {
+        if (norm(locals[j].name) === norm(c.name)) { dup = true; break; }
+        if (typeof haversineKm === 'function'
+            && haversineKm(c.lat, c.lon, locals[j].lat, locals[j].lon) < DEDUP_KM) {
+          dup = true; break;
+        }
+      }
+      if (!dup) out.push(c);
+    }
+    return out.slice(0, MAX_ITEMS);
+  }
+
+  /* ---------- recadrage carte ---------- */
+  // Zoom adaptatif : une commune a 20 km de mer zoomee au 12 ne montre pas
+  // une goutte d'eau. On desserre pour que le plan d'eau reste dans le cadre.
+  function zoomFor(distKm) {
+    var d = (typeof distKm === 'number' && isFinite(distKm)) ? distKm : 0;
+    if (d <= 4) return 12;
+    if (d <= 12) return 11;
+    return 10;
+  }
+
+  // Point d'entree public unique du recadrage. Reutilisable par le badge
+  // sous viseur ou un futur deep-link ?q=.
+  // Note : le decalage viseur mobile (sz.y * 2 / 3) est le meme calcul que
+  // dans vzApplyDeepLink / openCondDrawer / vzSharePoint. 4e occurrence :
+  // candidat a factorisation dans un chantier dedie, pas ici.
+  function vzSearchGoTo(lat, lon, distKm) {
+    if (typeof S === 'undefined' || !S || !S.map) return false;
+    if (!isFinite(lat) || !isFinite(lon)) return false;
+    var z = zoomFor(distKm);
+    S.map.setView([lat, lon], z);
+    if (typeof isMobile === 'function' && isMobile()) {
+      var sz = S.map.getSize();
+      S.map.setView(S.map.containerPointToLatLng([sz.x / 2, sz.y * 2 / 3]), z, { animate: false });
+    }
+    return true;
+  }
+  window.vzSearchGoTo = vzSearchGoTo;
+
+  /* ---------- rendu de la liste ---------- */
+  function closeList() {
+    _items = []; _sel = -1;
+    if (list) { list.innerHTML = ''; list.classList.remove('show'); }
+  }
+
+  function render() {
+    if (!list) return;
+    if (!_items.length) { list.innerHTML = ''; list.classList.remove('show'); return; }
+    var h = '';
+    for (var i = 0; i < _items.length; i++) {
+      var it = _items[i];
+      h += '<div class="vz-search-item' + (i === _sel ? ' sel' : '') + '" data-idx="' + i + '">'
+         +   '<span class="vz-search-ico">' + (it.kind === 'port' ? ICO_ANCHOR : ICO_PIN) + '</span>'
+         +   '<span class="vz-search-txt">'
+         +     '<span class="vz-search-name">' + esc(it.name) + '</span>'
+         +     '<span class="vz-search-sub">' + esc(it.sub) + '</span>'
+         +   '</span>'
+         + '</div>';
+    }
+    list.innerHTML = h;
+    list.classList.add('show');
+  }
+
+  function pick(i) {
+    var it = _items[i];
+    if (!it) return;
+    vzSearchGoTo(it.lat, it.lon, it.dist);
+    closeList();
+    if (input) input.blur();
+    // Mobile : on referme le champ pour rendre la vue au viseur.
+    if (typeof isMobile === 'function' && isMobile()) setOpen(false);
+    else if (input) input.value = it.name;
+    syncClear();
+  }
+
+  /* ---------- pilotage de la saisie ---------- */
+  function run() {
+    var raw = input ? input.value : '';
+    var q = norm(raw);
+    if (!q) { closeList(); return; }
+    var locals = collectLocal(q);
+    _items = locals; _sel = -1; render();
+    if (q.length < MIN_API_LEN) return;
+    collectApi(q, function (cities) {
+      // garde anti-reponse obsolete : la frappe a pu changer entre-temps
+      if (norm(input ? input.value : '') !== q) return;
+      _items = merge(locals, cities); _sel = -1; render();
+    });
+  }
+
+  function onInput() {
+    syncClear();
+    if (_timer) clearTimeout(_timer);
+    _timer = setTimeout(run, DEBOUNCE_MS);
+  }
+
+  function syncClear() {
+    if (!root) return;
+    var has = !!(input && input.value);
+    root.classList[has ? 'add' : 'remove']('has-val');
+  }
+
+  function onKey(e) {
+    if (e.key === 'Escape') {
+      // Escape est aussi ecoute globalement par vzShare : on l'intercepte ici
+      // pour que la premiere pression ferme d'abord la liste de resultats.
+      if (_items.length) { e.stopPropagation(); closeList(); return; }
+      e.stopPropagation();
+      if (typeof isMobile === 'function' && isMobile()) setOpen(false);
+      else if (input) { input.value = ''; input.blur(); syncClear(); }
+      return;
+    }
+    if (!_items.length) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      _sel += (e.key === 'ArrowDown') ? 1 : -1;
+      if (_sel < 0) _sel = _items.length - 1;
+      if (_sel >= _items.length) _sel = 0;
+      render();
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      pick(_sel >= 0 ? _sel : 0);
+    }
+  }
+
+  function setOpen(on) {
+    if (!root) return;
+    if (on) {
+      root.classList.add('vzm-open');
+      if (input) { input.focus(); try { input.select(); } catch (e) {} }
+    } else {
+      root.classList.remove('vzm-open');
+      closeList();
+      if (input) { input.value = ''; input.blur(); }
+      syncClear();
+    }
+  }
+
+  /* ---------- CSS (charte Talisker, injecte comme les autres modules) ---------- */
+  function css() {
+    if (document.getElementById('vzSearchCss')) return;
+    var st = document.createElement('style');
+    st.id = 'vzSearchCss';
+    st.textContent = ''
+    + "#vzSearch{position:fixed;top:68px;left:16px;width:272px;z-index:1250;font-family:'Inter',sans-serif;}"
+    + "#vzSearch .vz-search-toggle{display:none;align-items:center;justify-content:center;width:40px;height:40px;padding:0;background:rgba(10,21,32,0.82);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border:0.5px solid rgba(77,212,168,0.3);border-radius:12px;color:#E6EEF4;cursor:pointer;}"
+    + "#vzSearch .vz-search-toggle svg{width:19px;height:19px;}"
+    + "#vzSearch .vz-search-box{display:flex;align-items:center;gap:9px;height:40px;padding:0 10px 0 12px;background:rgba(10,21,32,0.82);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border:0.5px solid rgba(77,212,168,0.3);border-radius:12px;transition:border-color 0.18s ease;}"
+    + "#vzSearch .vz-search-box:focus-within{border-color:#4DD4A8;}"
+    + "#vzSearch .vz-search-glass{display:flex;flex-shrink:0;color:rgba(230,238,244,0.5);}"
+    + "#vzSearch .vz-search-glass svg{width:16px;height:16px;}"
+    + "#vzSearch .vz-search-box:focus-within .vz-search-glass{color:#4DD4A8;}"
+    + "#vzSearch .vz-search-in{flex:1;min-width:0;background:none;border:none;outline:none;color:#E6EEF4;font-family:'Inter',sans-serif;font-size:13.5px;font-weight:500;}"
+    + "#vzSearch .vz-search-in::placeholder{color:rgba(230,238,244,0.38);font-weight:400;}"
+    + "#vzSearch .vz-search-clear{display:none;align-items:center;justify-content:center;width:22px;height:22px;flex-shrink:0;padding:0;background:none;border:none;border-radius:50%;color:rgba(230,238,244,0.5);cursor:pointer;}"
+    + "#vzSearch .vz-search-clear svg{width:13px;height:13px;}"
+    + "#vzSearch .vz-search-clear:hover{color:#E6EEF4;background:rgba(255,255,255,0.07);}"
+    + "#vzSearch.has-val .vz-search-clear{display:flex;}"
+    + "#vzSearch .vz-search-list{display:none;margin-top:6px;padding:4px;max-height:min(46vh,330px);overflow-y:auto;background:rgba(15,36,56,0.94);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border:0.5px solid rgba(77,212,168,0.22);border-radius:12px;box-shadow:0 10px 30px rgba(4,16,28,0.5);}"
+    + "#vzSearch .vz-search-list.show{display:block;}"
+    + "#vzSearch .vz-search-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;cursor:pointer;}"
+    + "#vzSearch .vz-search-item:hover,#vzSearch .vz-search-item.sel{background:rgba(77,212,168,0.12);}"
+    + "#vzSearch .vz-search-ico{display:flex;flex-shrink:0;color:#4DD4A8;opacity:0.8;}"
+    + "#vzSearch .vz-search-ico svg{width:16px;height:16px;}"
+    + "#vzSearch .vz-search-txt{display:flex;flex-direction:column;gap:1px;min-width:0;}"
+    + "#vzSearch .vz-search-name{font-size:13.5px;font-weight:600;color:#E6EEF4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}"
+    + "#vzSearch .vz-search-sub{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:rgba(230,238,244,0.48);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}"
+    + "@media (max-width:768px){"
+    +   "#vzSearch{top:12px;right:12px;left:auto;width:40px;}"
+    +   "#vzSearch .vz-search-toggle{display:flex;}"
+    +   "#vzSearch .vz-search-box{display:none;}"
+    +   "#vzSearch.vzm-open{left:12px;right:12px;width:auto;}"
+    +   "#vzSearch.vzm-open .vz-search-toggle{display:none;}"
+    +   "#vzSearch.vzm-open .vz-search-box{display:flex;}"
+    + "}";
+    (document.head || document.documentElement).appendChild(st);
+  }
+
+  /* ---------- montage (idempotent) ---------- */
+  function build() {
+    if (_built || !document.body) return;
+    css();
+
+    root = document.createElement('div');
+    root.id = 'vzSearch';
+    root.innerHTML = ''
+      + '<button class="vz-search-toggle" id="vzSearchToggle" type="button" aria-label="Rechercher un lieu">' + ICO_SEARCH + '</button>'
+      + '<div class="vz-search-box">'
+      +   '<span class="vz-search-glass">' + ICO_SEARCH + '</span>'
+      +   '<input class="vz-search-in" id="vzSearchIn" type="search" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search" placeholder="Ville ou port">'
+      +   '<button class="vz-search-clear" id="vzSearchClear" type="button" aria-label="Effacer">' + ICO_CLEAR + '</button>'
+      + '</div>'
+      + '<div class="vz-search-list" id="vzSearchList"></div>';
+    document.body.appendChild(root);
+
+    input = root.querySelector('#vzSearchIn');
+    list  = root.querySelector('#vzSearchList');
+
+    input.addEventListener('input', onInput);
+    input.addEventListener('keydown', onKey);
+    input.addEventListener('focus', function () { if (input.value) run(); });
+
+    root.querySelector('#vzSearchToggle').addEventListener('click', function () { setOpen(true); });
+    root.querySelector('#vzSearchClear').addEventListener('click', function () {
+      input.value = ''; closeList(); syncClear(); input.focus();
+    });
+
+    // Delegation : la liste est reconstruite a chaque frappe.
+    list.addEventListener('click', function (e) {
+      var el = e.target.closest ? e.target.closest('.vz-search-item') : null;
+      if (!el) return;
+      pick(parseInt(el.getAttribute('data-idx'), 10));
+    });
+
+    // Clic hors du module : on referme. L'overlay est hors du conteneur
+    // Leaflet, donc aucun risque de propagation vers S.map.on('click')
+    // (modes partage / mesure / spots intacts).
+    document.addEventListener('pointerdown', function (e) {
+      if (!root || root.contains(e.target)) return;
+      closeList();
+      if (typeof isMobile === 'function' && isMobile() && !input.value) setOpen(false);
+    });
+
+    _built = true;
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', build);
+  } else {
+    build();
+  }
+})();
