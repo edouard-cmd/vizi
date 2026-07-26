@@ -16927,7 +16927,7 @@ function vzmInit() {
   var _sel = -1;
   var _built = false;
 
-  var root = null, input = null, list = null;
+  var root = null, input = null, list = null, toggle = null;
 
   var ICO_SEARCH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="16.5" y1="16.5" x2="21" y2="21"></line></svg>';
   var ICO_CLEAR  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"></line><line x1="18" y1="6" x2="6" y2="18"></line></svg>';
@@ -17095,7 +17095,7 @@ function vzmInit() {
     closeList();
     if (input) input.blur();
     // Mobile : on referme le champ pour rendre la vue au viseur.
-    if (typeof isMobile === 'function' && isMobile()) setOpen(false);
+    if (isCollapsed()) setOpen(false);
     else if (input) input.value = it.name;
     syncClear();
   }
@@ -17133,7 +17133,7 @@ function vzmInit() {
       // pour que la premiere pression ferme d'abord la liste de resultats.
       if (_items.length) { e.stopPropagation(); closeList(); return; }
       e.stopPropagation();
-      if (typeof isMobile === 'function' && isMobile()) setOpen(false);
+      if (isCollapsed()) setOpen(false);
       else if (input) { input.value = ''; input.blur(); syncClear(); }
       return;
     }
@@ -17150,6 +17150,13 @@ function vzmInit() {
       e.preventDefault();
       pick(_sel >= 0 ? _sel : 0);
     }
+  }
+
+  // Le champ est-il en mode replie (loupe) ? On interroge le CSS au lieu de
+  // redupliquer le point de rupture en JS : une seule source de verite.
+  function isCollapsed() {
+    if (!toggle) return false;
+    return window.getComputedStyle(toggle).display !== 'none';
   }
 
   function setOpen(on) {
@@ -17171,7 +17178,7 @@ function vzmInit() {
     var st = document.createElement('style');
     st.id = 'vzSearchCss';
     st.textContent = ''
-    + "#vzSearch{position:fixed;top:68px;left:16px;width:272px;z-index:1250;font-family:'Inter',sans-serif;}"
+    + "#vzSearch{position:fixed;top:17px;left:168px;width:264px;z-index:1250;font-family:'Inter',sans-serif;}"
     + "#vzSearch .vz-search-toggle{display:none;align-items:center;justify-content:center;width:40px;height:40px;padding:0;background:rgba(10,21,32,0.82);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border:0.5px solid rgba(77,212,168,0.3);border-radius:12px;color:#E6EEF4;cursor:pointer;}"
     + "#vzSearch .vz-search-toggle svg{width:19px;height:19px;}"
     + "#vzSearch .vz-search-box{display:flex;align-items:center;gap:9px;height:40px;padding:0 10px 0 12px;background:rgba(10,21,32,0.82);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border:0.5px solid rgba(77,212,168,0.3);border-radius:12px;transition:border-color 0.18s ease;}"
@@ -17194,13 +17201,26 @@ function vzmInit() {
     + "#vzSearch .vz-search-txt{display:flex;flex-direction:column;gap:1px;min-width:0;}"
     + "#vzSearch .vz-search-name{font-size:13.5px;font-weight:600;color:#E6EEF4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}"
     + "#vzSearch .vz-search-sub{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:rgba(230,238,244,0.48);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}"
-    + "@media (max-width:768px){"
-    +   "#vzSearch{top:12px;right:12px;left:auto;width:40px;}"
+    // Sous 1150px le champ deployé entrerait en collision avec les onglets
+    // Conditions / Maree centres. On reutilise le mecanisme de repli mobile
+    // plutot que d'ecraser la largeur jusqu'a l'illisible.
+    + "@media (max-width:1150px){"
+    +   "#vzSearch{width:40px;}"
     +   "#vzSearch .vz-search-toggle{display:flex;}"
     +   "#vzSearch .vz-search-box{display:none;}"
-    +   "#vzSearch.vzm-open{left:12px;right:12px;width:auto;}"
+    +   "#vzSearch.vzm-open{width:300px;}"
     +   "#vzSearch.vzm-open .vz-search-toggle{display:none;}"
     +   "#vzSearch.vzm-open .vz-search-box{display:flex;}"
+    + "}"
+    + "@media (max-width:768px){"
+    +   "#vzSearch{top:12px;right:12px;left:auto;}"
+    +   "#vzSearch.vzm-open{left:12px;right:12px;width:auto;}"
+    +   "#vzSearch.vzm-open .vz-search-box{height:44px;}"
+         // 16px imperatif : sous ce seuil Safari iOS zoome le viewport au focus
+         // et decale tous les position:fixed. Aucun contournement par le meta
+         // viewport n'est acceptable, il tuerait le pinch-zoom de la carte.
+    +   "#vzSearch .vz-search-in{font-size:16px;}"
+    +   "#vzSearch .vz-search-list{max-height:min(34vh,270px);}"
     + "}";
     (document.head || document.documentElement).appendChild(st);
   }
@@ -17216,20 +17236,21 @@ function vzmInit() {
       + '<button class="vz-search-toggle" id="vzSearchToggle" type="button" aria-label="Rechercher un lieu">' + ICO_SEARCH + '</button>'
       + '<div class="vz-search-box">'
       +   '<span class="vz-search-glass">' + ICO_SEARCH + '</span>'
-      +   '<input class="vz-search-in" id="vzSearchIn" type="search" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="search" placeholder="Ville ou port">'
+      +   '<input class="vz-search-in" id="vzSearchIn" type="text" inputmode="search" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" enterkeyhint="search" placeholder="Ville ou port">'
       +   '<button class="vz-search-clear" id="vzSearchClear" type="button" aria-label="Effacer">' + ICO_CLEAR + '</button>'
       + '</div>'
       + '<div class="vz-search-list" id="vzSearchList"></div>';
     document.body.appendChild(root);
 
-    input = root.querySelector('#vzSearchIn');
-    list  = root.querySelector('#vzSearchList');
+    input  = root.querySelector('#vzSearchIn');
+    list   = root.querySelector('#vzSearchList');
+    toggle = root.querySelector('#vzSearchToggle');
 
     input.addEventListener('input', onInput);
     input.addEventListener('keydown', onKey);
     input.addEventListener('focus', function () { if (input.value) run(); });
 
-    root.querySelector('#vzSearchToggle').addEventListener('click', function () { setOpen(true); });
+    toggle.addEventListener('click', function () { setOpen(true); });
     root.querySelector('#vzSearchClear').addEventListener('click', function () {
       input.value = ''; closeList(); syncClear(); input.focus();
     });
@@ -17247,7 +17268,7 @@ function vzmInit() {
     document.addEventListener('pointerdown', function (e) {
       if (!root || root.contains(e.target)) return;
       closeList();
-      if (typeof isMobile === 'function' && isMobile() && !input.value) setOpen(false);
+      if (isCollapsed() && !input.value) setOpen(false);
     });
 
     _built = true;
