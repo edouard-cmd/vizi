@@ -4115,6 +4115,18 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
   font-size: 18px !important;
   padding: 6px 8px !important;
 }
+/* Popup epaves : croix lisible et repositionnee, sinon elle chevauche le
+   titre sur mobile (popup etroit). Padding-right reserve sur le contenu. */
+.vz-wreck-popup .leaflet-popup-close-button {
+  color: var(--vz-text-on-dark-muted) !important;
+  font-size: 20px !important;
+  width: auto !important;
+  height: auto !important;
+  padding: 8px 10px !important;
+  top: 2px !important;
+  right: 2px !important;
+}
+.vz-wreck-popup .leaflet-popup-content { padding-right: 14px; }
 .vz-obs-pop-head {
   display: flex;
   align-items: center;
@@ -6195,7 +6207,7 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
 <script src="https://cdn.jsdelivr.net/npm/leaflet-velocity@1.9.2/dist/leaflet-velocity.js"></script>
 
     
-<script src="vizi-app.js?v=15"></script>
+<script src="vizi-app.js?v=16"></script>
   <script>
 function setLayersPopover(open) {
   var pop = document.getElementById('vzLayersPopover');
