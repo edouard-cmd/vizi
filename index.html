@@ -1034,6 +1034,27 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
   cursor: not-allowed;
 }
 .obs-pseudo-input::placeholder { color: var(--vz-text-on-dark-faint); }
+/* Champ libre conditions : meme grammaire visuelle que .obs-pseudo-input,
+   en textarea 2 lignes. Cap 180 caracteres cote markup et cote JS. */
+.obs-comment-input {
+  width: 100%;
+  box-sizing: border-box;
+  display: block;
+  padding: 11px 14px;
+  background: rgba(255,255,255,0.06);
+  border: 0.5px solid var(--vz-border-glass);
+  border-radius: var(--vz-radius-btn);
+  color: var(--vz-text-on-dark);
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  line-height: 1.45;
+  height: 62px;
+  resize: none;
+  outline: none;
+  transition: all 0.15s;
+}
+.obs-comment-input:focus { border-color: var(--vz-accent); }
+.obs-comment-input::placeholder { color: var(--vz-text-on-dark-faint); }
 .obs-anon-toggle {
   padding: 0 16px;
   background: rgba(255,255,255,0.04);
@@ -5606,6 +5627,11 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
         <button class="obs-water on" type="button" data-w="voilee" data-c="#D8C84A" onclick="setObsWater('voilee')"><span class="obs-water-dots"><i></i><i></i><i></i><i></i></span><span class="obs-water-lab">Voilée</span></button>
         <button class="obs-water" type="button" data-w="chargee" data-c="#E89B3C" onclick="setObsWater('chargee')"><span class="obs-water-dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="obs-water-lab">Chargée</span></button>
       </div>
+    </div>
+
+    <div>
+      <span class="obs-field-label">Un mot sur les conditions ? (optionnel)</span>
+      <textarea class="obs-comment-input" id="obsSheetComment" maxlength="180" placeholder="Courant, thermocline, sable en suspension..."></textarea>
     </div>
 
     <div>
