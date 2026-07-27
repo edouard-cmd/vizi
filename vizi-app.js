@@ -16746,7 +16746,13 @@ function vzmInit() {
     var st = document.createElement('style');
     st.id = 'vzspStyle';
     st.textContent =
-      '.vzm-sonar-panel[data-vzsp="1"]{background:#F4F7F9;border-radius:26px 26px 0 0;padding:10px 12px 14px;max-height:88vh;overflow:hidden;display:flex;flex-direction:column;}'
+      // position:fixed (et non absolute comme le panneau de base) : sur iOS
+      // Safari un element absolute se cale sur le large viewport, donc son
+      // sommet passe derriere la barre d'adresse et son pied derriere la
+      // barre d'outils. En fixed, Safari le recadre entre les deux barres.
+      // max-height : vh d'abord (fallback), puis dvh qui suit la hauteur
+      // reellement visible quand les barres apparaissent ou disparaissent.
+      '.vzm-sonar-panel[data-vzsp="1"]{position:fixed;background:#F4F7F9;border-radius:26px 26px 0 0;padding:10px 12px 14px;padding-bottom:calc(14px + env(safe-area-inset-bottom));max-height:82vh;max-height:82dvh;overflow:hidden;display:flex;flex-direction:column;}'
     + '.vzm-sonar-panel[data-vzsp="1"]>.vzm-sonar-grab,.vzm-sonar-panel[data-vzsp="1"]>.vzm-sonar-x{display:none;}'
     + '.vzsp-wrap{--vzsp-ink:#0A1520;--vzsp-ink2:#46586B;--vzsp-hair:#DCE4EA;--vzsp-hair2:#EDF1F4;--vzsp-paper:#FFFFFF;--vzsp-paper2:#F4F7F9;--vzsp-teal:#4DD4A8;--vzsp-teal-mid:#2DA888;--vzsp-teal-deep:#1A6B5D;--vzsp-warn:#D8C84A;--vzsp-caution:#E89B3C;--vzsp-danger:#C94A3D;display:flex;flex-direction:column;min-height:0;flex:1;font-family:Inter,-apple-system,sans-serif;color:var(--vzsp-ink);-webkit-font-smoothing:antialiased;}'
     + '.vzsp-wrap *,.vzsp-wrap *::before,.vzsp-wrap *::after{box-sizing:border-box;}'
@@ -16855,7 +16861,7 @@ function vzmInit() {
     // sonar). Le selecteur [data-vzsp] est plus specifique et gagnerait
     // sinon avec un rayon mobile et une hauteur de 88vh.
     + '@media (min-width:769px){'
-    +   '.vzm-sonar-panel[data-vzsp="1"]{border-radius:16px;max-height:min(78vh,700px);}'
+    +   '.vzm-sonar-panel[data-vzsp="1"]{border-radius:16px;padding-bottom:14px;max-height:min(78vh,700px);max-height:min(78dvh,700px);}'
     +   '.vzsp-grab{display:none;}'
     + '}';
     document.head.appendChild(st);
