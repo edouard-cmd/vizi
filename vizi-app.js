@@ -16668,7 +16668,12 @@ function vzmInit() {
   }
 
   // ---------- Panneau blanc partage (retours / alertes) ----------
-  function openPanel(html) {
+  // mode facultatif : 'sector' bascule le conteneur sur l'habillage de la
+  // maquette (fond, rayon, padding, scroll interne) via data-vzsp. Les
+  // appels historiques (alertes, succes) n'en passent pas et gardent
+  // exactement le rendu d'avant.
+  function openPanel(html, mode) {
+    panel.setAttribute('data-vzsp', mode === 'sector' ? '1' : '0');
     panel.innerHTML = '<div class="vzm-sonar-grab"></div>'
       + '<button class="vzm-sonar-x" type="button" aria-label="Fermer" data-close="1">&#10005;</button>' + html;
     panel.querySelector('[data-close]').addEventListener('click', closePanel);
@@ -16706,51 +16711,645 @@ function vzmInit() {
     return 'il y a ' + Math.round(ageH / 24) + ' j';
   }
 
+  // ============================================================
+  // PANNEAU SECTEUR - maquette Design integree
+  // ------------------------------------------------------------
+  // Deux sections : Retours du secteur / Maree du secteur.
+  // Le CSS provient de la maquette Claude Design, valeurs inchangees
+  // (couleurs, tailles, rayons, SVG). Seuls les selecteurs sont
+  // prefixes vzsp- : les classes d'origine (.row .card .body .sheet
+  // .tabs .close .val .ico .empty .curve) sont generiques et
+  // repeindraient l'app entiere si elles etaient injectees telles quelles.
+  //
+  // Sources de donnees, toutes deja presentes :
+  //   retours    -> vzEnsureObservations() filtre 12 km / 7 j
+  //   satellite  -> fetchCmemsZSD() (meme fonction que l'etiquette ancree,
+  //                 donc aucune divergence possible entre les deux surfaces)
+  //   maree      -> GAS tides_range, fetch isole : on n'ecrit JAMAIS dans
+  //                 TIDES_DRAWER, qui est l'etat du drawer marees existant
+  //   coefficient-> getCoefForDate(), marnage = max-min des points du jour
+  //   soleil     -> Open-Meteo daily sunrise/sunset
+  // ============================================================
+
+  var VZSP = {
+    lat: null, lon: null, name: '',
+    port: null,
+    tidesData: null, tidesExtremes: null,
+    fromDate: null, selDate: null,
+    tidesLoaded: false, tidesLoading: false,
+    sun: null,
+    token: 0
+  };
+
+  function vzspInjectStyle() {
+    if (document.getElementById('vzspStyle')) return;
+    var st = document.createElement('style');
+    st.id = 'vzspStyle';
+    st.textContent =
+      '.vzm-sonar-panel[data-vzsp="1"]{background:#F4F7F9;border-radius:26px 26px 0 0;padding:10px 12px 14px;max-height:88vh;overflow:hidden;display:flex;flex-direction:column;}'
+    + '.vzm-sonar-panel[data-vzsp="1"]>.vzm-sonar-grab,.vzm-sonar-panel[data-vzsp="1"]>.vzm-sonar-x{display:none;}'
+    + '.vzsp-wrap{--vzsp-ink:#0A1520;--vzsp-ink2:#46586B;--vzsp-hair:#DCE4EA;--vzsp-hair2:#EDF1F4;--vzsp-paper:#FFFFFF;--vzsp-paper2:#F4F7F9;--vzsp-teal:#4DD4A8;--vzsp-teal-mid:#2DA888;--vzsp-teal-deep:#1A6B5D;--vzsp-warn:#D8C84A;--vzsp-caution:#E89B3C;--vzsp-danger:#C94A3D;display:flex;flex-direction:column;min-height:0;flex:1;font-family:Inter,-apple-system,sans-serif;color:var(--vzsp-ink);-webkit-font-smoothing:antialiased;}'
+    + '.vzsp-wrap *,.vzsp-wrap *::before,.vzsp-wrap *::after{box-sizing:border-box;}'
+    + '.vzsp-mono{font-family:\'IBM Plex Mono\',monospace;}'
+    + '.vzsp-grab{width:42px;height:5px;border-radius:3px;background:#C6D0D8;margin:2px auto 12px;flex-shrink:0;}'
+    + '.vzsp-shead{display:flex;align-items:flex-start;gap:10px;padding:0 8px 12px;flex-shrink:0;}'
+    + '.vzsp-shead .vzsp-pin{width:38px;height:38px;border-radius:11px;background:var(--vzsp-ink);display:flex;align-items:center;justify-content:center;flex-shrink:0;}'
+    + '.vzsp-shead .vzsp-pin svg{width:21px;height:25px;overflow:visible;}'
+    + '.vzsp-shead .vzsp-idt{flex:1;min-width:0;}'
+    + '.vzsp-shead .vzsp-idt .vzsp-kicker{font-family:\'IBM Plex Mono\',monospace;font-size:9.5px;letter-spacing:0.14em;text-transform:uppercase;color:var(--vzsp-teal-deep);font-weight:600;}'
+    + '.vzsp-shead .vzsp-idt .vzsp-nm{font-size:20px;font-weight:800;letter-spacing:-0.02em;line-height:1.15;margin-top:2px;}'
+    + '.vzsp-shead .vzsp-close{width:34px;height:34px;border-radius:50%;background:var(--vzsp-hair2);border:1px solid var(--vzsp-hair);display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;padding:0;}'
+    + '.vzsp-shead .vzsp-close svg{width:15px;height:15px;stroke:var(--vzsp-ink);stroke-width:2.4;fill:none;stroke-linecap:round;}'
+    + '.vzsp-tabs{display:flex;gap:4px;background:#E4EAEF;border-radius:12px;padding:4px;margin:0 8px 12px;flex-shrink:0;}'
+    + '.vzsp-tabs button{flex:1;border:none;background:transparent;font-family:inherit;font-size:14px;font-weight:700;color:var(--vzsp-ink2);padding:11px 0;border-radius:9px;cursor:pointer;min-height:44px;letter-spacing:-0.01em;}'
+    + '.vzsp-tabs button[aria-selected="true"]{background:var(--vzsp-paper);color:var(--vzsp-ink);box-shadow:0 1px 3px rgba(10,21,32,0.14);}'
+    + '.vzsp-body{overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 8px 4px;flex:1;min-height:0;}'
+    + '.vzsp-body::-webkit-scrollbar{width:0;}'
+    + '.vzsp-pane{display:none;}'
+    + '.vzsp-pane.vzsp-on{display:block;}'
+    + '.vzsp-slab{font-family:\'IBM Plex Mono\',monospace;font-size:10px;letter-spacing:0.13em;text-transform:uppercase;color:#7A8B99;font-weight:600;margin:16px 6px 8px;}'
+    + '.vzsp-slab:first-child{margin-top:2px;}'
+    + '.vzsp-card{background:var(--vzsp-paper);border-radius:18px;padding:6px 14px;}'
+    + '.vzsp-card.vzsp-pad{padding:14px;}'
+    + '.vzsp-card+.vzsp-card{margin-top:10px;}'
+    + '.vzsp-row{display:flex;align-items:center;gap:12px;padding:12px 0;min-height:56px;}'
+    + '.vzsp-row+.vzsp-row{border-top:1px solid var(--vzsp-hair2);}'
+    + '.vzsp-row .vzsp-ico{width:34px;height:34px;border-radius:8px;background:var(--vzsp-paper);border:1.5px solid var(--vzsp-hair);display:flex;align-items:center;justify-content:center;flex-shrink:0;}'
+    + '.vzsp-row .vzsp-ico svg{width:19px;height:19px;stroke:var(--vzsp-ink);fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}'
+    + '.vzsp-row .vzsp-ico.vzsp-teal{background:var(--vzsp-teal);border-color:var(--vzsp-teal);}'
+    + '.vzsp-row .vzsp-ico.vzsp-teal svg{stroke:var(--vzsp-ink);}'
+    + '.vzsp-row .vzsp-lbl{flex:1;min-width:0;}'
+    + '.vzsp-row .vzsp-lbl .vzsp-t{font-size:15px;font-weight:700;letter-spacing:-0.01em;line-height:1.2;}'
+    + '.vzsp-row .vzsp-lbl .vzsp-s{font-size:12.5px;color:var(--vzsp-ink2);font-weight:500;margin-top:1px;}'
+    + '.vzsp-row .vzsp-val{text-align:right;flex-shrink:0;}'
+    + '.vzsp-row .vzsp-val .vzsp-v{font-family:\'IBM Plex Mono\',monospace;font-size:20px;font-weight:700;color:var(--vzsp-ink);line-height:1;letter-spacing:-0.01em;}'
+    + '.vzsp-row .vzsp-val .vzsp-v small{font-size:13px;font-weight:600;}'
+    + '.vzsp-row .vzsp-val .vzsp-u{font-size:11.5px;font-weight:600;color:var(--vzsp-ink2);margin-top:3px;}'
+    + '.vzsp-fb .vzsp-val .vzsp-v{font-size:26px;color:var(--vzsp-teal-deep);}'
+    + '.vzsp-fb .vzsp-val .vzsp-v,.vzsp-fb .vzsp-val .vzsp-v small{color:var(--vzsp-teal-deep);}'
+    + '.vzsp-fb .vzsp-lbl .vzsp-t{font-size:15px;}'
+    + '.vzsp-fb .vzsp-lbl .vzsp-t.vzsp-quiet{color:#7A8B99;font-weight:500;font-size:14px;}'
+    + '.vzsp-fb .vzsp-lbl .vzsp-s{font-family:\'IBM Plex Mono\',monospace;font-size:12.5px;font-weight:600;letter-spacing:0.02em;color:var(--vzsp-ink2);}'
+    + '.vzsp-fb .vzsp-lbl .vzsp-s .vzsp-who{font-family:Inter,sans-serif;font-weight:600;letter-spacing:0;}'
+    + '.vzsp-water{display:inline-block;font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:6px;margin-top:4px;}'
+    + '.vzsp-w-clear{background:rgba(77,212,168,0.26);color:#0B5B45;}'
+    + '.vzsp-w-veiled{background:rgba(216,200,74,0.3);color:#64590F;}'
+    + '.vzsp-w-turbid{background:rgba(201,74,61,0.2);color:#96271A;}'
+    + '.vzsp-sat{background:var(--vzsp-paper);border-radius:18px;padding:12px 14px;display:flex;align-items:center;gap:12px;border:1px dashed var(--vzsp-hair);}'
+    + '.vzsp-sat .vzsp-sic{width:34px;height:34px;border-radius:8px;background:var(--vzsp-paper);border:1.5px solid var(--vzsp-hair);display:flex;align-items:center;justify-content:center;flex-shrink:0;}'
+    + '.vzsp-sat .vzsp-sic svg{width:19px;height:19px;stroke:var(--vzsp-ink2);fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}'
+    + '.vzsp-sat .vzsp-slbl{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:2px;}'
+    + '.vzsp-sat .vzsp-slbl .vzsp-t{display:block;width:100%;font-size:14px;font-weight:700;color:var(--vzsp-ink2);letter-spacing:-0.01em;line-height:1.2;}'
+    + '.vzsp-sat .vzsp-slbl .vzsp-s{display:block;width:100%;font-family:\'IBM Plex Mono\',monospace;font-size:11.5px;font-weight:600;color:#7A8B99;line-height:1.25;}'
+    + '.vzsp-sat .vzsp-sval{font-family:\'IBM Plex Mono\',monospace;font-size:20px;font-weight:700;color:var(--vzsp-teal-deep);flex-shrink:0;}'
+    + '.vzsp-sat .vzsp-sval small{font-size:12px;}'
+    + '.vzsp-sum{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:8px;align-items:stretch;}'
+    + '.vzsp-sum .vzsp-c{background:var(--vzsp-paper);border-radius:14px;padding:12px 10px;text-align:center;display:flex;flex-direction:column;justify-content:center;}'
+    + '.vzsp-sum .vzsp-c .vzsp-n{font-family:\'IBM Plex Mono\',monospace;font-size:20px;font-weight:700;line-height:1;color:var(--vzsp-ink2);}'
+    + '.vzsp-sum .vzsp-c .vzsp-l{font-size:10.5px;color:var(--vzsp-ink2);font-weight:600;margin-top:5px;line-height:1.25;}'
+    + '.vzsp-sum .vzsp-c.vzsp-hero{background:var(--vzsp-ink);}'
+    + '.vzsp-sum .vzsp-c.vzsp-hero .vzsp-n{font-size:34px;color:var(--vzsp-teal);letter-spacing:-0.02em;}'
+    + '.vzsp-sum .vzsp-c.vzsp-hero .vzsp-n small{font-size:17px;}'
+    + '.vzsp-sum .vzsp-c.vzsp-hero .vzsp-l{color:rgba(255,255,255,0.72);font-size:11px;margin-top:6px;}'
+    + '.vzsp-acts{display:flex;flex-direction:column;gap:10px;margin-top:12px;}'
+    + '.vzsp-act{border-radius:15px;padding:13px 16px;cursor:pointer;font-family:inherit;display:flex;align-items:center;gap:12px;min-height:60px;text-align:left;width:100%;border:1px solid var(--vzsp-hair);color:var(--vzsp-ink);}'
+    + '.vzsp-act:active{background-color:var(--vzsp-hair2);}'
+    + '.vzsp-act:focus-visible{outline:2px solid var(--vzsp-teal-deep);outline-offset:2px;}'
+    + '.vzsp-act .vzsp-aic{width:34px;height:34px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;}'
+    + '.vzsp-act svg{width:20px;height:20px;stroke:var(--vzsp-ink);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}'
+    + '.vzsp-act .vzsp-atx{flex:1;min-width:0;}'
+    + '.vzsp-act .vzsp-at{display:block;font-size:15px;font-weight:800;letter-spacing:-0.015em;line-height:1.2;color:var(--vzsp-ink);}'
+    + '.vzsp-act .vzsp-chev{width:18px;height:18px;flex-shrink:0;stroke-width:2.4;opacity:0.5;}'
+    + '.vzsp-act.vzsp-fill{background:var(--vzsp-teal);border-color:var(--vzsp-teal-mid);}'
+    + '.vzsp-act.vzsp-fill .vzsp-aic{background:rgba(10,21,32,0.14);}'
+    + '.vzsp-act.vzsp-fill:active{background-color:var(--vzsp-teal-mid);}'
+    + '.vzsp-act.vzsp-line{background:var(--vzsp-paper);}'
+    + '.vzsp-act.vzsp-line .vzsp-aic{background:var(--vzsp-paper);border:1.5px solid var(--vzsp-hair);}'
+    + '.vzsp-empty{background:var(--vzsp-paper);border-radius:18px;padding:26px 20px;text-align:center;}'
+    + '.vzsp-empty .vzsp-eic{width:52px;height:52px;border-radius:14px;background:var(--vzsp-paper);border:1.5px solid var(--vzsp-hair);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;}'
+    + '.vzsp-empty .vzsp-eic svg{width:26px;height:26px;stroke:var(--vzsp-ink2);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}'
+    + '.vzsp-empty .vzsp-et{font-size:16px;font-weight:800;letter-spacing:-0.015em;}'
+    + '.vzsp-empty .vzsp-es{font-size:13px;color:var(--vzsp-ink2);margin-top:6px;line-height:1.45;font-weight:500;}'
+    + '.vzsp-datepick{display:flex;gap:8px;align-items:stretch;}'
+    + '.vzsp-datepick .vzsp-dnav{width:52px;flex-shrink:0;border:2px solid var(--vzsp-hair);background:var(--vzsp-paper);border-radius:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;min-height:60px;}'
+    + '.vzsp-datepick .vzsp-dnav svg{width:20px;height:20px;stroke:var(--vzsp-ink);fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;}'
+    + '.vzsp-datepick .vzsp-dnav:active{background:var(--vzsp-hair2);}'
+    + '.vzsp-datepick .vzsp-dfield{flex:1;min-width:0;background:var(--vzsp-paper);border:2px solid var(--vzsp-ink);border-radius:14px;padding:7px 12px 8px;display:flex;flex-direction:column;justify-content:center;cursor:pointer;}'
+    + '.vzsp-datepick .vzsp-dfield .vzsp-dlab{font-family:\'IBM Plex Mono\',monospace;font-size:9.5px;letter-spacing:0.13em;text-transform:uppercase;color:var(--vzsp-ink2);font-weight:600;}'
+    + '.vzsp-datepick .vzsp-dfield input{border:none;background:transparent;padding:0;margin-top:2px;width:100%;font-family:\'IBM Plex Mono\',monospace;font-size:19px;font-weight:700;color:var(--vzsp-ink);letter-spacing:-0.01em;}'
+    + '.vzsp-datepick .vzsp-dfield input::-webkit-calendar-picker-indicator{cursor:pointer;opacity:0.8;}'
+    + '.vzsp-datepick .vzsp-dfield input:focus{outline:none;}'
+    + '.vzsp-drange{font-size:11px;font-weight:600;color:var(--vzsp-ink2);margin:8px 6px 0;letter-spacing:0.02em;}'
+    + '.vzsp-coefwrap{display:flex;align-items:center;gap:14px;}'
+    + '.vzsp-coefwrap .vzsp-big{font-family:\'IBM Plex Mono\',monospace;font-size:46px;font-weight:700;line-height:0.9;letter-spacing:-0.02em;}'
+    + '.vzsp-coefwrap .vzsp-meta .vzsp-k{font-family:\'IBM Plex Mono\',monospace;font-size:10px;letter-spacing:0.13em;text-transform:uppercase;color:#7A8B99;font-weight:600;}'
+    + '.vzsp-coefwrap .vzsp-meta .vzsp-q{font-size:15px;font-weight:700;margin-top:3px;}'
+    + '.vzsp-tide .vzsp-ico,.vzsp-tide .vzsp-ico.vzsp-bm{background:var(--vzsp-paper);border-color:var(--vzsp-hair);}'
+    + '.vzsp-tide .vzsp-ico svg,.vzsp-tide .vzsp-ico.vzsp-bm svg{stroke:var(--vzsp-ink);}'
+    + '.vzsp-tide .vzsp-val .vzsp-v{font-size:22px;}'
+    + '.vzsp-curve{background:var(--vzsp-paper);border-radius:18px;padding:14px 12px 10px;}'
+    + '.vzsp-curve svg{display:block;width:100%;height:auto;}'
+    + '.vzsp-axis{display:flex;justify-content:space-between;font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:#7A8B99;font-weight:600;padding:6px 4px 0;}'
+    + '.vzsp-note{font-size:12.5px;color:#7A8B99;font-weight:500;padding:18px 6px;text-align:center;line-height:1.45;}'
+    // Desktop : le panneau flotte en bas a droite (media query du module
+    // sonar). Le selecteur [data-vzsp] est plus specifique et gagnerait
+    // sinon avec un rayon mobile et une hauteur de 88vh.
+    + '@media (min-width:769px){'
+    +   '.vzm-sonar-panel[data-vzsp="1"]{border-radius:16px;max-height:min(78vh,700px);}'
+    +   '.vzsp-grab{display:none;}'
+    + '}';
+    document.head.appendChild(st);
+  }
+
+  // ---------- SVG de la maquette, repris a l'identique ----------
+  var VZSP_SVG_PIN = '<svg viewBox="0 0 44 52"><path d="M22 51 L6 32 Q2 27 2 19 Q2 4 22 4 Q42 4 42 19 Q42 27 38 32 Z" fill="none" stroke="#4DD4A8" stroke-width="3"></path><g fill="none" stroke="#4DD4A8" stroke-width="3.4" stroke-linecap="round"><path d="M22 13 L22 30"></path><path d="M15 17 L29 17"></path><path d="M13 24 Q13 32 22 32 Q31 32 31 24"></path></g></svg>';
+  var VZSP_SVG_X = '<svg viewBox="0 0 24 24"><path d="M6 6 L18 18"></path><path d="M18 6 L6 18"></path></svg>';
+  var VZSP_SVG_SAT = '<svg viewBox="0 0 24 24"><rect x="9" y="8" width="6" height="8" rx="1.2"></rect><rect x="1.5" y="9.5" width="6" height="5" rx="1"></rect><rect x="16.5" y="9.5" width="6" height="5" rx="1"></rect><path d="M7.5 12 L9 12"></path><path d="M15 12 L16.5 12"></path><path d="M12 8 L12 4.5"></path><path d="M9.5 5.5 Q12 3 14.5 5.5"></path></svg>';
+  var VZSP_SVG_BELL = '<svg viewBox="0 0 24 24"><path d="M18 16 L18 11 A6 6 0 0 0 6 11 L6 16 L4.5 18.5 L19.5 18.5 Z"></path><path d="M9.5 18.5 A2.5 2.5 0 0 0 14.5 18.5"></path></svg>';
+  var VZSP_SVG_MASK = '<svg viewBox="0 0 24 24"><path d="M5 9.5 A3 3 0 0 1 8 6.5 L16 6.5 A3 3 0 0 1 19 9.5 L19 13 A3 3 0 0 1 16 16 L14 16 A2 2 0 0 1 12 14 A2 2 0 0 1 10 16 L8 16 A3 3 0 0 1 5 13 Z"></path><path d="M19 8.5 L21.5 7"></path></svg>';
+  var VZSP_SVG_CHEV = '<svg class="vzsp-chev" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5 L16 12 L9 19"></path></svg>';
+  var VZSP_SVG_PREV = '<svg viewBox="0 0 24 24"><path d="M15 5 L8 12 L15 19"></path></svg>';
+  var VZSP_SVG_NEXT = '<svg viewBox="0 0 24 24"><path d="M9 5 L16 12 L9 19"></path></svg>';
+  var VZSP_SVG_PM = '<svg viewBox="0 0 24 24"><path d="M4 16 Q9 11 14 16 T21 16"></path><path d="M12 3 L12 11"></path><path d="M8 7 L12 3 L16 7"></path></svg>';
+  var VZSP_SVG_BM = '<svg viewBox="0 0 24 24"><path d="M4 8 Q9 13 14 8 T21 8"></path><path d="M12 11 L12 20"></path><path d="M8 16 L12 20 L16 16"></path></svg>';
+  var VZSP_SVG_SUNUP = '<svg viewBox="0 0 24 24"><circle cx="12" cy="14" r="4"></circle><path d="M12 5 L12 7"></path><path d="M5 14 L7 14"></path><path d="M17 14 L19 14"></path><path d="M7 9 L8.5 10.5"></path><path d="M15.5 10.5 L17 9"></path><path d="M3 20 L21 20"></path></svg>';
+  var VZSP_SVG_SUNDOWN = '<svg viewBox="0 0 24 24"><circle cx="12" cy="14" r="4"></circle><path d="M3 20 L21 20"></path><path d="M12 3 L12 6"></path><path d="M8 6 L12 3 L16 6" transform="rotate(180 12 4.5)"></path></svg>';
+  var VZSP_SVG_WAVE = '<svg viewBox="0 0 24 24"><path d="M2 9 Q7 5 12 9 T22 9"></path><path d="M2 15 Q7 11 12 15 T22 15"></path></svg>';
+  var VZSP_SVG_PHASE_UP = '<svg viewBox="0 0 24 24"><path d="M4 17 Q9 12 14 17 T21 17"></path><path d="M12 4 L12 12"></path><path d="M8.5 7.5 L12 4 L15.5 7.5"></path></svg>';
+  var VZSP_SVG_PHASE_DOWN = '<svg viewBox="0 0 24 24"><path d="M4 7 Q9 12 14 7 T21 7"></path><path d="M12 12 L12 20"></path><path d="M8.5 16.5 L12 20 L15.5 16.5"></path></svg>';
+  var VZSP_SVG_RANGE = '<svg viewBox="0 0 24 24"><path d="M12 4 L12 20"></path><path d="M8 7.5 L12 4 L16 7.5"></path><path d="M8 16.5 L12 20 L16 16.5"></path></svg>';
+
+  // ---------- helpers ----------
+  function vzspNum(n) { return String(n).replace('.', ','); }
+  function vzspPad(n) { return ('0' + n).slice(-2); }
+
+  // Le pseudo est stocke litteralement 'Anonyme' cote Sheet quand le
+  // chasseur depose sans signer. L'absence de nom n'est pas une identite :
+  // on ne l'affiche jamais comme un pseudo.
+  function vzspWho(p) {
+    var s = String(p == null ? '' : p).trim();
+    if (!s || /^anonyme$/i.test(s)) return '';
+    return s;
+  }
+
+  function vzspWater(obs) {
+    var t = (obs.turbidity || obs.water || '').toString().toLowerCase();
+    if (/clair/.test(t)) return { l: 'claire', c: 'vzsp-w-clear' };
+    if (/voil/.test(t)) return { l: 'voilée', c: 'vzsp-w-veiled' };
+    if (/charg/.test(t)) return { l: 'chargée', c: 'vzsp-w-turbid' };
+    return null;
+  }
+
+  function vzspHM(iso) {
+    var d = new Date(iso);
+    if (isNaN(d.getTime())) return '--:--';
+    return vzspPad(d.getHours()) + ':' + vzspPad(d.getMinutes());
+  }
+
+  function vzspFrDate(ymd) {
+    var p = String(ymd || '').split('-');
+    if (p.length !== 3) return '';
+    return p[2] + '/' + p[1] + '/' + p[0];
+  }
+
+  function vzspTodayISO() {
+    var n = new Date();
+    return n.getFullYear() + '-' + vzspPad(n.getMonth() + 1) + '-' + vzspPad(n.getDate());
+  }
+
+  function vzspShiftISO(ymd, delta) {
+    var d = new Date(ymd + 'T12:00:00');
+    d.setDate(d.getDate() + delta);
+    return d.getFullYear() + '-' + vzspPad(d.getMonth() + 1) + '-' + vzspPad(d.getDate());
+  }
+
+  // Ferme les surfaces concurrentes : une seule surface active a la fois,
+  // regle deja appliquee ailleurs dans l'app (refreshVisibility).
+  function vzspCloseCompeting() {
+    try {
+      if (typeof VZ_SHEET !== 'undefined' && VZ_SHEET && VZ_SHEET.mode) {
+        if (VZ_SHEET.mode === 'tides' && typeof window.closeTidesInSheet === 'function') window.closeTidesInSheet();
+        else if (typeof window.closeCondDrawer === 'function') window.closeCondDrawer();
+      }
+    } catch (e) {}
+  }
+
+  // ---------- rendu : coquille ----------
+  function vzspShell(name) {
+    return '<div class="vzsp-wrap">'
+      + '<div class="vzsp-grab"></div>'
+      + '<div class="vzsp-shead">'
+      +   '<span class="vzsp-pin">' + VZSP_SVG_PIN + '</span>'
+      +   '<div class="vzsp-idt"><div class="vzsp-kicker">Secteur</div><div class="vzsp-nm">' + escapeH(name || 'Ton secteur') + '</div></div>'
+      +   '<button class="vzsp-close" type="button" id="vzspClose" aria-label="Fermer">' + VZSP_SVG_X + '</button>'
+      + '</div>'
+      + '<div class="vzsp-tabs" role="tablist">'
+      +   '<button role="tab" aria-selected="true" data-vzsptab="fb">Retours</button>'
+      +   '<button role="tab" aria-selected="false" data-vzsptab="td">Marée</button>'
+      + '</div>'
+      + '<div class="vzsp-body">'
+      +   '<div class="vzsp-pane vzsp-on" data-vzsppane="fb" id="vzspPaneFb">'
+      +     '<div class="vzsp-note">Lecture des retours du secteur...</div>'
+      +   '</div>'
+      +   '<div class="vzsp-pane" data-vzsppane="td" id="vzspPaneTd">'
+      +     '<div class="vzsp-note">Chargement de la marée...</div>'
+      +   '</div>'
+      + '</div>'
+      + '</div>';
+  }
+
+  // ---------- rendu : onglet Retours ----------
+  function vzspRenderFeedback(near, satHtml) {
+    var html = '';
+    var n = 0, sum = 0;
+    near.forEach(function (o) { if (o.visibility_m > 0) { sum += o.visibility_m; n++; } });
+    var moy = n ? (Math.round(sum / n * 10) / 10) : null;
+    var pseudos = {};
+    near.forEach(function (o) { var w = vzspWho(o.pseudo); pseudos[w || ('_a' + o.timestamp)] = 1; });
+    var nbChasseurs = Object.keys(pseudos).length;
+
+    html += '<div class="vzsp-slab">Ces 7 derniers jours</div>'
+      + '<div class="vzsp-sum">'
+      +   '<div class="vzsp-c vzsp-hero"><div class="vzsp-n">' + (moy != null ? vzspNum(moy) + '<small> m</small>' : '&ndash;') + '</div><div class="vzsp-l">Visi moyenne</div></div>'
+      +   '<div class="vzsp-c"><div class="vzsp-n">' + nbChasseurs + '</div><div class="vzsp-l">Chasseurs</div></div>'
+      +   '<div class="vzsp-c"><div class="vzsp-n">' + near.length + '</div><div class="vzsp-l">Retours</div></div>'
+      + '</div>';
+
+    html += '<div class="vzsp-slab">Observation satellite</div><div id="vzspSatSlot">' + satHtml + '</div>';
+
+    html += '<div class="vzsp-slab">Derniers retours</div>';
+    if (!near.length) {
+      html += '<div class="vzsp-empty">'
+        + '<div class="vzsp-eic">' + VZSP_SVG_WAVE + '</div>'
+        + '<div class="vzsp-et">Aucun retour sur ce secteur</div>'
+        + '<div class="vzsp-es">Personne n\u2019a encore partagé sa visi ici. Sois le premier à la donner.</div>'
+        + '</div>';
+    } else {
+      var rows = near.slice(0, 8).map(function (o) {
+        var w = vzspWho(o.pseudo);
+        var when = whenLabel(o.timestamp);
+        var sub = w ? '<span class="vzsp-who">' + escapeH(w) + '</span> · ' + when : when;
+        var cm = (o.comment == null ? '' : String(o.comment)).trim();
+        var title = cm
+          ? '<div class="vzsp-t">' + escapeH(cm) + '</div>'
+          : '<div class="vzsp-t vzsp-quiet">Sans commentaire</div>';
+        var wt = vzspWater(o);
+        var v = (o.visibility_m > 0) ? (vzspNum(o.visibility_m) + '<small> m</small>') : '&ndash;';
+        return '<div class="vzsp-row vzsp-fb">'
+          + '<div class="vzsp-lbl">' + title + '<div class="vzsp-s">' + sub + '</div></div>'
+          + '<div class="vzsp-val"><div class="vzsp-v">' + v + '</div>'
+          + (wt ? '<span class="vzsp-water ' + wt.c + '">' + wt.l + '</span>' : '')
+          + '</div></div>';
+      }).join('');
+      html += '<div class="vzsp-card">' + rows + '</div>';
+    }
+
+    html += '<div class="vzsp-acts">'
+      + '<button class="vzsp-act vzsp-fill" type="button" id="vzspToAlerts"><span class="vzsp-aic">' + VZSP_SVG_BELL + '</span><span class="vzsp-atx"><span class="vzsp-at">Recevoir les alertes</span></span>' + VZSP_SVG_CHEV + '</button>'
+      + '<button class="vzsp-act vzsp-line" type="button" id="vzspToShare"><span class="vzsp-aic">' + VZSP_SVG_MASK + '</span><span class="vzsp-atx"><span class="vzsp-at">Partager la visibilité</span></span>' + VZSP_SVG_CHEV + '</button>'
+      + '</div><div style="height:8px"></div>';
+
+    return html;
+  }
+
+  function vzspSatHtml(sat) {
+    // Meme regle de validite que l'etiquette ancree (_ptSatDone) : la
+    // valeur affichee ici et celle du point clique ne peuvent pas diverger.
+    var ok = sat && typeof sat.visi_plongeur_m === 'number' && isFinite(sat.visi_plongeur_m) && sat.visi_plongeur_m > 0
+      && (typeof sat.age_hours !== 'number' || sat.age_hours <= 72)
+      && (!sat.status || sat.status === 'ok' || sat.status === 'cloudy_J1' || sat.status === 'cloudy_J2');
+    if (!ok) {
+      return '<div class="vzsp-sat"><span class="vzsp-sic">' + VZSP_SVG_SAT + '</span>'
+        + '<span class="vzsp-slbl"><span class="vzsp-t">Satellite</span><span class="vzsp-s">pas de mesure exploitable</span></span>'
+        + '<span class="vzsp-sval">&ndash;</span></div>';
+    }
+    var meta = '';
+    if (sat.date_observed) {
+      var d = new Date(sat.date_observed);
+      if (!isNaN(d.getTime())) meta = 'le ' + vzspPad(d.getUTCDate()) + '/' + vzspPad(d.getUTCMonth() + 1);
+    }
+    if (typeof sat.age_hours === 'number' && isFinite(sat.age_hours)) {
+      var age = sat.age_hours < 24
+        ? 'il y a ' + Math.round(sat.age_hours) + ' h'
+        : 'il y a ' + Math.round(sat.age_hours / 24) + ' j';
+      meta = meta ? (meta + ' · ' + age) : age;
+    }
+    return '<div class="vzsp-sat"><span class="vzsp-sic">' + VZSP_SVG_SAT + '</span>'
+      + '<span class="vzsp-slbl"><span class="vzsp-t">Satellite</span><span class="vzsp-s">' + escapeH(meta || 'date inconnue') + '</span></span>'
+      + '<span class="vzsp-sval">' + Math.round(sat.visi_plongeur_m) + '<small> m</small></span></div>';
+  }
+
+  // ---------- rendu : courbe de maree ----------
+  // La maquette porte un trace decoratif fige. Ici on genere le meme
+  // habillage (degrade, epaisseur, pastilles, badge MAINTENANT) a partir
+  // des points reels du jour renvoyes par tides_range.
+  function vzspCurve(points, extremes, isToday) {
+    var W = 320, H = 130, TOP = 18, BOT = 104;
+    if (!points || points.length < 2) return '';
+    var hs = points.map(function (p) { return p.height; });
+    var hMin = Math.min.apply(null, hs), hMax = Math.max.apply(null, hs);
+    var span = (hMax - hMin) || 1;
+    function px(iso) {
+      var d = new Date(iso);
+      return ((d.getHours() * 60 + d.getMinutes()) / 1440) * W;
+    }
+    function py(h) { return BOT - ((h - hMin) / span) * (BOT - TOP); }
+
+    var d = '';
+    points.forEach(function (p, i) {
+      d += (i === 0 ? 'M' : ' L') + px(p.time).toFixed(1) + ' ' + py(p.height).toFixed(1);
+    });
+
+    var dots = (extremes || []).map(function (e) {
+      var c = (e.type === 'high') ? '#1A6B5D' : '#E89B3C';
+      return '<circle cx="' + px(e.time).toFixed(1) + '" cy="' + py(e.height).toFixed(1) + '" r="4" fill="' + c + '"></circle>';
+    }).join('');
+
+    var nowMark = '';
+    if (isToday) {
+      var n = new Date();
+      var xn = ((n.getHours() * 60 + n.getMinutes()) / 1440) * W;
+      var closest = points[0], best = Infinity;
+      points.forEach(function (p) {
+        var dd = Math.abs(px(p.time) - xn);
+        if (dd < best) { best = dd; closest = p; }
+      });
+      var yn = py(closest.height);
+      var bx = Math.max(2, Math.min(W - 98, xn - 48));
+      nowMark = '<line x1="' + xn.toFixed(1) + '" y1="4" x2="' + xn.toFixed(1) + '" y2="126" stroke="#0A1520" stroke-width="2.4"></line>'
+        + '<circle cx="' + xn.toFixed(1) + '" cy="' + yn.toFixed(1) + '" r="6" fill="#0A1520" stroke="#fff" stroke-width="2.4"></circle>'
+        + '<rect x="' + bx.toFixed(1) + '" y="2" width="96" height="19" rx="5" fill="#0A1520"></rect>'
+        + '<text x="' + (bx + 48).toFixed(1) + '" y="15.5" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" font-weight="700" fill="#4DD4A8" letter-spacing="1">MAINTENANT</text>';
+    }
+
+    return '<div class="vzsp-curve">'
+      + '<svg viewBox="0 0 320 130" preserveAspectRatio="none" style="height:130px">'
+      +   '<defs><linearGradient id="vzspTGrad" x1="0" y1="0" x2="0" y2="1">'
+      +     '<stop offset="0%" stop-color="#4DD4A8" stop-opacity="0.34"></stop>'
+      +     '<stop offset="100%" stop-color="#4DD4A8" stop-opacity="0"></stop>'
+      +   '</linearGradient></defs>'
+      +   '<g stroke="#EDF1F4" stroke-width="1"><line x1="0" y1="30" x2="320" y2="30"></line><line x1="0" y1="65" x2="320" y2="65"></line><line x1="0" y1="100" x2="320" y2="100"></line></g>'
+      +   '<path d="' + d + ' L320 130 L0 130 Z" fill="url(#vzspTGrad)"></path>'
+      +   '<path d="' + d + '" fill="none" stroke="#1A6B5D" stroke-width="3" stroke-linecap="round"></path>'
+      +   dots + nowMark
+      + '</svg>'
+      + '<div class="vzsp-axis"><span>0h</span><span>6h</span><span>12h</span><span>18h</span><span>24h</span></div>'
+      + '</div>';
+  }
+
+  // ---------- rendu : onglet Maree ----------
+  function vzspRenderTide() {
+    var pane = document.getElementById('vzspPaneTd');
+    if (!pane) return;
+    var port = VZSP.port;
+    if (!port) {
+      pane.innerHTML = '<div class="vzsp-note">Aucun port de référence marée à proximité.</div>';
+      return;
+    }
+    var sel = VZSP.selDate;
+    var pts = (VZSP.tidesData || []).filter(function (p) { return p.time.slice(0, 10) === sel; });
+    var exs = (VZSP.tidesExtremes || []).filter(function (e) { return e.time.slice(0, 10) === sel; });
+
+    var minD = VZSP.fromDate || vzspTodayISO();
+    var maxD = vzspShiftISO(minD, 13);
+
+    var html = '<div class="vzsp-slab">Date</div>'
+      + '<div class="vzsp-datepick">'
+      +   '<button class="vzsp-dnav" type="button" data-vzspnav="-1" aria-label="Jour précédent">' + VZSP_SVG_PREV + '</button>'
+      +   '<label class="vzsp-dfield"><span class="vzsp-dlab">Jour observé</span>'
+      +     '<input type="date" id="vzspDate" value="' + sel + '" min="' + minD + '" max="' + maxD + '">'
+      +   '</label>'
+      +   '<button class="vzsp-dnav" type="button" data-vzspnav="1" aria-label="Jour suivant">' + VZSP_SVG_NEXT + '</button>'
+      + '</div>'
+      + '<div class="vzsp-drange vzsp-mono">Marées disponibles jusqu\u2019au ' + vzspFrDate(maxD) + '</div>';
+
+    if (!pts.length) {
+      pane.innerHTML = html + '<div class="vzsp-note">Aucune donnée de marée pour cette date.</div>';
+      vzspWireTideNav();
+      return;
+    }
+
+    var hs = pts.map(function (p) { return p.height; });
+    var marnage = Math.max.apply(null, hs) - Math.min.apply(null, hs);
+    var isMed = (typeof isMediterraneanTidePort === 'function') && isMediterraneanTidePort(port.siteId);
+
+    html += '<div class="vzsp-slab">Coefficient</div><div class="vzsp-card vzsp-pad"><div class="vzsp-coefwrap">';
+    if (isMed) {
+      html += '<div class="vzsp-meta"><div class="vzsp-k">Coefficient</div><div class="vzsp-q">non applicable en Méditerranée</div></div>';
+    } else {
+      var coef = (typeof getCoefForDate === 'function') ? getCoefForDate(sel) : null;
+      html += '<div class="vzsp-big">' + (coef != null ? coef : '&ndash;') + '</div>';
+    }
+    html += '</div></div>';
+
+    html += '<div class="vzsp-slab">Marées du jour</div><div class="vzsp-card vzsp-tide">';
+    exs.forEach(function (e) {
+      var high = (e.type === 'high');
+      html += '<div class="vzsp-row">'
+        + '<span class="vzsp-ico">' + (high ? VZSP_SVG_PM : VZSP_SVG_BM) + '</span>'
+        + '<div class="vzsp-lbl"><div class="vzsp-t">' + (high ? 'Pleine mer' : 'Basse mer') + '</div></div>'
+        + '<div class="vzsp-val"><div class="vzsp-v">' + vzspHM(e.time) + '</div>'
+        + '<div class="vzsp-u vzsp-mono">' + vzspNum((Math.round(e.height * 10) / 10).toFixed(1)) + ' m</div></div></div>';
+    });
+    html += '</div>';
+
+    // Phase en cours et marnage : uniquement des faits, aucun conseil.
+    var todayISO = vzspTodayISO();
+    var isToday = (sel === todayISO);
+    var phaseTxt = null, phaseSvg = VZSP_SVG_PHASE_UP;
+    if (isToday) {
+      // On balaie toute la plage chargee, pas seulement le jour affiche :
+      // entre la derniere maree du jour et minuit, la prochaine bascule
+      // appartient au lendemain et la phase serait sinon vide.
+      var now = Date.now(), next = null;
+      (VZSP.tidesExtremes || []).forEach(function (e) {
+        var t = new Date(e.time).getTime();
+        if (t > now && (next == null || t < new Date(next.time).getTime())) next = e;
+      });
+      if (next) {
+        phaseTxt = (next.type === 'high') ? 'Mer montante' : 'Mer descendante';
+        phaseSvg = (next.type === 'high') ? VZSP_SVG_PHASE_UP : VZSP_SVG_PHASE_DOWN;
+      }
+    }
+    html += '<div class="vzsp-slab">Phase et marnage</div><div class="vzsp-card">';
+    if (phaseTxt) {
+      html += '<div class="vzsp-row"><span class="vzsp-ico">' + phaseSvg + '</span>'
+        + '<div class="vzsp-lbl"><div class="vzsp-t">' + phaseTxt + '</div></div>'
+        + '<div class="vzsp-val"><div class="vzsp-u vzsp-mono">en cours</div></div></div>';
+    }
+    html += '<div class="vzsp-row"><span class="vzsp-ico">' + VZSP_SVG_RANGE + '</span>'
+      + '<div class="vzsp-lbl"><div class="vzsp-t">Marnage</div></div>'
+      + '<div class="vzsp-val"><div class="vzsp-v">' + vzspNum(marnage.toFixed(1)) + '<small> m</small></div></div></div>'
+      + '</div>';
+
+    html += '<div class="vzsp-slab">Courbe du jour</div>' + vzspCurve(pts, exs, isToday);
+
+    html += '<div class="vzsp-slab">Soleil</div><div class="vzsp-card">'
+      + '<div class="vzsp-row"><span class="vzsp-ico">' + VZSP_SVG_SUNUP + '</span>'
+      +   '<div class="vzsp-lbl"><div class="vzsp-t">Lever</div><div class="vzsp-s">Aube</div></div>'
+      +   '<div class="vzsp-val"><div class="vzsp-v" id="vzspSunUp">' + ((VZSP.sun && VZSP.sun.day === sel && VZSP.sun.up) || '--:--') + '</div></div></div>'
+      + '<div class="vzsp-row"><span class="vzsp-ico">' + VZSP_SVG_SUNDOWN + '</span>'
+      +   '<div class="vzsp-lbl"><div class="vzsp-t">Coucher</div><div class="vzsp-s">Crépuscule</div></div>'
+      +   '<div class="vzsp-val"><div class="vzsp-v" id="vzspSunDown">' + ((VZSP.sun && VZSP.sun.day === sel && VZSP.sun.down) || '--:--') + '</div></div></div>'
+      + '</div><div style="height:8px"></div>';
+
+    pane.innerHTML = html;
+    vzspWireTideNav();
+    vzspLoadSun();
+  }
+
+  function vzspWireTideNav() {
+    var pane = document.getElementById('vzspPaneTd');
+    if (!pane) return;
+    pane.querySelectorAll('[data-vzspnav]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var delta = parseInt(b.getAttribute('data-vzspnav'), 10) || 0;
+        var d = vzspShiftISO(VZSP.selDate, delta);
+        var min = VZSP.fromDate, max = vzspShiftISO(VZSP.fromDate, 13);
+        if (d < min || d > max) return;
+        VZSP.selDate = d;
+        vzspRenderTide();
+      });
+    });
+    var inp = document.getElementById('vzspDate');
+    if (inp) inp.addEventListener('change', function () {
+      if (!inp.value) return;
+      VZSP.selDate = inp.value;
+      vzspRenderTide();
+    });
+  }
+
+  // Le soleil est mis en cache par jour : changer de date dans l'onglet
+  // Maree doit rafraichir le lever et le coucher, pas garder ceux d'hier.
+  function vzspLoadSun() {
+    if (VZSP.lat == null) return;
+    var day = VZSP.selDate || vzspTodayISO();
+    if (VZSP.sun && VZSP.sun.day === day) return;
+    var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + VZSP.lat
+      + '&longitude=' + VZSP.lon + '&daily=sunrise,sunset&timezone=Europe/Paris'
+      + '&start_date=' + day + '&end_date=' + day;
+    var tk = VZSP.token;
+    fetch(url).then(function (r) { return r.json(); }).then(function (d) {
+      if (tk !== VZSP.token || !d || !d.daily) return;
+      VZSP.sun = {
+        day: day,
+        up: (d.daily.sunrise && d.daily.sunrise[0]) ? d.daily.sunrise[0].slice(11, 16) : null,
+        down: (d.daily.sunset && d.daily.sunset[0]) ? d.daily.sunset[0].slice(11, 16) : null
+      };
+      var a = document.getElementById('vzspSunUp'), b = document.getElementById('vzspSunDown');
+      if (a && VZSP.sun.up) a.textContent = VZSP.sun.up;
+      if (b && VZSP.sun.down) b.textContent = VZSP.sun.down;
+    }).catch(function () {});
+  }
+
+  // Fetch marees isole : on ne touche pas a TIDES_DRAWER, qui pilote le
+  // drawer marees existant et serait corrompu par un currentPort ecrase.
+  function vzspLoadTides() {
+    if (VZSP.tidesLoaded || VZSP.tidesLoading) return;
+    var port = VZSP.port;
+    if (!port) { vzspRenderTide(); return; }
+    VZSP.tidesLoading = true;
+    VZSP.fromDate = vzspTodayISO();
+    VZSP.selDate = VZSP.fromDate;
+    var tk = VZSP.token;
+    var url = GAS_URL + '?action=tides_range&site=' + encodeURIComponent(port.siteId)
+      + '&from=' + VZSP.fromDate + '&days=14';
+    fetch(url).then(function (r) { return r.json(); }).then(function (data) {
+      if (tk !== VZSP.token) return;
+      VZSP.tidesLoading = false;
+      if (!data || data.error || !data.data) {
+        var pane = document.getElementById('vzspPaneTd');
+        if (pane) pane.innerHTML = '<div class="vzsp-note">Marée indisponible pour ce secteur.</div>';
+        return;
+      }
+      VZSP.tidesData = data.data;
+      VZSP.tidesExtremes = data.extremes || [];
+      VZSP.tidesLoaded = true;
+      vzspRenderTide();
+    }).catch(function () {
+      if (tk !== VZSP.token) return;
+      VZSP.tidesLoading = false;
+      var pane = document.getElementById('vzspPaneTd');
+      if (pane) pane.innerHTML = '<div class="vzsp-note">Marée indisponible (réseau).</div>';
+    });
+  }
+
   function actionSector(optLat, optLon, optName) {
     setMenu(false);
-    var name = optName || currentSectorName();
-    var chip = '<span class="vzm-sonar-chip"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1A6B5D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.4-7-11a7 7 0 0 1 14 0c0 4.6-7 11-7 11Z"/><circle cx="12" cy="10" r="2.4"/></svg>Secteur ' + escapeH(name || '') + '</span>';
-    openPanel(chip + '<div class="vzm-sonar-h">Retours du secteur</div><div class="vzm-sonar-sub" id="vzmSonarSectorSub">Chargement...</div><div id="vzmSonarSectorList"></div>'
-      + '<button class="vzm-sonar-cta" type="button" id="vzmSonarToAlerts">Recevoir les alertes de ce secteur</button>'
-      + '<div style="text-align:center;color:#1A6B5D;font-size:13.5px;font-weight:500;margin-top:12px;cursor:pointer;" id="vzmSonarToShare">J\u2019y étais, je donne ma visi</div>');
-
-    document.getElementById('vzmSonarToAlerts').addEventListener('click', function () { closePanel(); setTimeout(actionAlerts, 260); });
-    document.getElementById('vzmSonarToShare').addEventListener('click', function () { closePanel(); setTimeout(actionShare, 260); });
+    vzspInjectStyle();
+    vzspCloseCompeting();
 
     var c = (isFinite(optLat) && isFinite(optLon))
       ? { lat: optLat, lng: optLon }
-      : S.map.getCenter();
+      : (S && S.map ? S.map.getCenter() : { lat: 49.34, lng: -0.45 });
+
+    VZSP.token++;
+    var tk = VZSP.token;
+    VZSP.lat = c.lat; VZSP.lon = c.lng;
+    VZSP.name = optName || currentSectorName();
+    VZSP.port = (typeof findNearestTidePort === 'function') ? findNearestTidePort(c.lat, c.lng) : null;
+    VZSP.tidesData = null; VZSP.tidesExtremes = null;
+    VZSP.tidesLoaded = false; VZSP.tidesLoading = false;
+    VZSP.selDate = null; VZSP.fromDate = null; VZSP.sun = null;
+
+    openPanel(vzspShell(VZSP.name), 'sector');
+
+    var closeBtn = document.getElementById('vzspClose');
+    if (closeBtn) closeBtn.addEventListener('click', closePanel);
+
+    panel.querySelectorAll('[data-vzsptab]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var t = b.getAttribute('data-vzsptab');
+        panel.querySelectorAll('[data-vzsptab]').forEach(function (x) {
+          x.setAttribute('aria-selected', x === b ? 'true' : 'false');
+        });
+        panel.querySelectorAll('[data-vzsppane]').forEach(function (p) {
+          p.classList.toggle('vzsp-on', p.getAttribute('data-vzsppane') === t);
+        });
+        var body = panel.querySelector('.vzsp-body');
+        if (body) body.scrollTop = 0;
+        if (t === 'td') vzspLoadTides();
+      });
+    });
+
+    // --- retours communautaires ---
     var _obsP = (typeof vzEnsureObservations === 'function')
       ? vzEnsureObservations()
       : gasGet('get_observations', {}).then(function (res) { return (res && res.observations) || []; });
+
+    var _satP = (typeof fetchCmemsZSD === 'function')
+      ? fetchCmemsZSD(c.lat, c.lng).catch(function () { return null; })
+      : Promise.resolve(null);
+
     _obsP.then(function (allObs) {
-      var subEl = document.getElementById('vzmSonarSectorSub');
-      var listEl = document.getElementById('vzmSonarSectorList');
-      if (!subEl || !listEl) return;
-      var obs = (allObs || []).slice();
-      var near = obs.filter(function (o) {
+      if (tk !== VZSP.token) return;
+      var pane = document.getElementById('vzspPaneFb');
+      if (!pane) return;
+      var near = (allObs || []).filter(function (o) {
         return typeof o.lat === 'number' && haversineKm(c.lat, c.lng, o.lat, o.lon) <= 12
           && (Date.now() - new Date(o.timestamp).getTime()) < 7 * 86400000;
       }).sort(function (a, b) { return new Date(b.timestamp) - new Date(a.timestamp); });
 
-      if (!near.length) {
-        subEl.textContent = 'Aucun retour ces 7 derniers jours dans ce secteur.';
-        listEl.innerHTML = '<div class="vzm-sonar-empty">Sois le premier à partager ta visi ici.</div>';
-        return;
-      }
-      var sum = 0, n = 0;
-      near.forEach(function (o) { if (o.visibility_m > 0) { sum += o.visibility_m; n++; } });
-      var moy = n ? (Math.round(sum / n * 10) / 10).toString().replace('.', ',') : '-';
-      subEl.textContent = near.length + ' chasseur' + (near.length > 1 ? 's' : '') + ' ces 7 derniers jours, visi moyenne ' + moy + ' m';
-      var rows = near.slice(0, 8).map(function (o) {
-        var tag = turbidityTag(o);
-        return '<div class="vzm-sonar-row"><div><div class="vzm-sonar-who">' + escapeH(o.pseudo || 'Anonyme')
-          + '</div><div class="vzm-sonar-when">' + whenLabel(o.timestamp) + '</div></div>'
-          + '<div><div class="vzm-sonar-visi" style="color:' + visColor(o.visibility_m) + '">'
-          + (o.visibility_m > 0 ? (o.visibility_m.toString().replace('.', ',') + ' m') : '-') + '</div>'
-          + (tag ? '<div class="vzm-sonar-tag">' + tag + '</div>' : '') + '</div></div>';
-      }).join('');
-      listEl.innerHTML = '<div class="vzm-sonar-card">' + rows + '</div>';
+      var loadingSat = '<div class="vzsp-sat"><span class="vzsp-sic">' + VZSP_SVG_SAT + '</span>'
+        + '<span class="vzsp-slbl"><span class="vzsp-t">Satellite</span><span class="vzsp-s">lecture en cours...</span></span>'
+        + '<span class="vzsp-sval">&nbsp;</span></div>';
+
+      pane.innerHTML = vzspRenderFeedback(near, loadingSat);
+
+      var a = document.getElementById('vzspToAlerts');
+      var s = document.getElementById('vzspToShare');
+      if (a) a.addEventListener('click', function () { closePanel(); setTimeout(actionAlerts, 260); });
+      if (s) s.addEventListener('click', function () { closePanel(); setTimeout(actionShare, 260); });
+
+      _satP.then(function (sat) {
+        if (tk !== VZSP.token) return;
+        var slot = document.getElementById('vzspSatSlot');
+        if (slot) slot.innerHTML = vzspSatHtml(sat);
+      });
+    }).catch(function () {
+      if (tk !== VZSP.token) return;
+      var pane = document.getElementById('vzspPaneFb');
+      if (pane) pane.innerHTML = '<div class="vzsp-note">Retours indisponibles (réseau).</div>';
     });
   }
 
