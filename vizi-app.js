@@ -1659,6 +1659,104 @@ window.vzSectorDetails = function() {
   if (typeof S_forecastOpen !== 'undefined' && S_forecastOpen && typeof loadForecast === 'function') loadForecast(lat, lon, name);
 };
 
+/* ============================================================
+   RESOLUTION DE LA VISIBILITE D'UN POINT - point d'entree unique
+   ------------------------------------------------------------
+   Doctrine Visimer : la mesure la plus recente gagne. Satellite
+   CMEMS (<= 72 h) et retour de chasseur (5 km, <= 72 h) sont mis
+   en concurrence sur leur AGE, pas sur leur rang.
+   Fonctions PURES : aucune ecriture DOM, aucune ecriture d'etat
+   partage (ni S.clickLatLng, ni S._spotDepth, ni
+   S_spotSatelliteCache - fetchCmemsZSD n'alimente que son propre
+   _cmemsCache). Consommees par la pastille desktop
+   (vzDesktopPointSelect) et par le badge mobile sous le viseur
+   (vzmInitPointBadge) : la regle d'arbitrage vit ici, et nulle
+   part ailleurs.
+   ============================================================ */
+
+// Meilleure donnee terrain autour du point (5 km, < 72 h) : fusionne les
+// retours anonymes (visi_feedback) et les observations deposees via le
+// sonar, qui portent le pseudo. La plus recente gagne quel que soit le
+// canal ; pseudo "Anonyme" traite comme anonyme.
+function vzPointTerrainAt(lat, lon) {
+  var best = null;
+  var fb = (typeof vzNearestFeedback === 'function') ? vzNearestFeedback(lat, lon, 5) : null;
+  if (fb) {
+    var v = (fb.real_m != null) ? fb.real_m : fb.predicted_m;
+    if (v != null) best = { visi: v, age_hours: fb.age_hours, pseudo: null };
+  }
+  (S_obsCache || []).forEach(function(o) {
+    if (typeof o.lat !== 'number' || !(o.visibility_m > 0)) return;
+    if (typeof haversineKm !== 'function' || haversineKm(lat, lon, o.lat, o.lon) > 5) return;
+    var ageH = (Date.now() - new Date(o.timestamp).getTime()) / 3600000;
+    if (!isFinite(ageH) || ageH < 0 || ageH > 72) return;
+    if (!best || best.age_hours == null || ageH < best.age_hours) {
+      best = {
+        visi: o.visibility_m,
+        age_hours: ageH,
+        pseudo: (o.pseudo && o.pseudo !== 'Anonyme') ? o.pseudo : null
+      };
+    }
+  });
+  return best;
+}
+
+// Cascade complete : satellite CMEMS puis arbitrage avec le terrain.
+// Renvoie une Promise d'un objet de DONNEES, jamais de HTML :
+//   { kind: 'sat' | 'fb' | 'none', visi, ageH, pseudo, dateTxt }
+// La cascade satellite cote GAS peut enchainer jusqu'a 11 requetes CMEMS
+// sur un point nuageux : passe opts.patienceMs (12 s par defaut) on livre
+// a opts.onPatience un resultat provisoire (terrain ou 'none'), que
+// l'appelant reste libre de remplacer si le satellite aboutit ensuite.
+function vzPointVisiAt(lat, lon, opts) {
+  opts = opts || {};
+  function terrainRes() {
+    var t = vzPointTerrainAt(lat, lon);
+    return t
+      ? { kind: 'fb', visi: t.visi, ageH: t.age_hours, pseudo: t.pseudo, dateTxt: '' }
+      : { kind: 'none', visi: null, ageH: null, pseudo: null, dateTxt: '' };
+  }
+  if (typeof fetchCmemsZSD !== 'function') return Promise.resolve(terrainRes());
+
+  var satDone = false;
+  if (typeof opts.onPatience === 'function') {
+    setTimeout(function() {
+      if (!satDone) opts.onPatience(terrainRes());
+    }, opts.patienceMs || 12000);
+  }
+
+  return ensurePortCounts_().then(function() {
+    return fetchCmemsZSD(lat, lon);
+  }).then(function(sat) {
+    satDone = true;
+    var okSat = sat && typeof sat.visi_plongeur_m === 'number' && isFinite(sat.visi_plongeur_m) && sat.visi_plongeur_m > 0
+      && (typeof sat.age_hours !== 'number' || sat.age_hours <= 72)
+      && (!sat.status || sat.status === 'ok' || sat.status === 'cloudy_J1' || sat.status === 'cloudy_J2');
+    var satAge = (okSat && typeof sat.age_hours === 'number') ? sat.age_hours : null;
+
+    var terrain = vzPointTerrainAt(lat, lon);
+    var chasseurGagne = terrain && (satAge == null || (terrain.age_hours != null && terrain.age_hours < satAge));
+
+    if (chasseurGagne) {
+      return { kind: 'fb', visi: terrain.visi, ageH: terrain.age_hours, pseudo: terrain.pseudo, dateTxt: '' };
+    }
+    if (okSat) {
+      var dateTxt = '';
+      if (sat.date_observed) {
+        var dSat = new Date(sat.date_observed);
+        if (!isNaN(dSat.getTime())) {
+          dateTxt = ('0' + dSat.getUTCDate()).slice(-2) + '/' + ('0' + (dSat.getUTCMonth() + 1)).slice(-2);
+        }
+      }
+      return { kind: 'sat', visi: sat.visi_plongeur_m, ageH: satAge, pseudo: null, dateTxt: dateTxt };
+    }
+    return terrainRes();
+  }).catch(function() {
+    satDone = true;
+    return terrainRes();
+  });
+}
+
 function vzDesktopPointSelect(latlng) {
   if (typeof vzHideSector === 'function') vzHideSector();  // un clic libre ferme le secteur communautaire
   if (typeof vzShareClose === 'function') vzShareClose();  // et le panneau de partage
@@ -1784,90 +1882,36 @@ function vzDesktopPointSelect(latlng) {
     if (ageH < 24) return ', il y a ' + Math.round(ageH) + ' h';
     return ', il y a ' + Math.round(ageH / 24) + ' j';
   }
-  function _ptFbLabel(t) {
-    var who = (t && t.pseudo) ? t.pseudo : 'un chasseur';
-    return _ptTwoLines('Visibilité vue par ' + who + _ptAgeTxt(t.age_hours) + ' : ' + Math.round(t.visi) + ' m');
-  }
-  // Meilleure donnee terrain autour du point (5 km, <72 h) : fusionne
-  // les retours anonymes (visi_feedback) et les observations deposees
-  // via le sonar, qui portent le pseudo. La plus recente gagne, quel
-  // que soit le canal ; pseudo "Anonyme" affiche comme "un chasseur".
-  function _ptBestTerrain() {
-    var best = null;
-    var fb = vzNearestFeedback(latlng.lat, latlng.lng, 5);
-    if (fb) {
-      var v = (fb.real_m != null) ? fb.real_m : fb.predicted_m;
-      if (v != null) best = { visi: v, age_hours: fb.age_hours, pseudo: null };
+  // Rendu d'un resultat vzPointVisiAt en libelle de pastille. Seule
+  // couche de presentation : l'arbitrage des sources est fait en amont.
+  function _ptRenderRes(res) {
+    if (!res) return;
+    if (res.kind === 'sat') {
+      _ptMainKind = 'sat';
+      var satMain = res.dateTxt
+        ? 'Visibilit\u00e9 mesur\u00e9e par satellite le ' + res.dateTxt + ' : ' + Math.round(res.visi) + ' m'
+        : 'Visibilit\u00e9 mesur\u00e9e par satellite : ' + Math.round(res.visi) + ' m';
+      _ptSetLabel(_ptTwoLines(satMain));
+    } else if (res.kind === 'fb') {
+      _ptMainKind = 'fb';
+      var who = res.pseudo ? res.pseudo : 'un chasseur';
+      _ptSetLabel(_ptTwoLines('Visibilit\u00e9 vue par ' + who + _ptAgeTxt(res.ageH) + ' : ' + Math.round(res.visi) + ' m'));
+    } else {
+      _ptMainKind = 'cond';
+      _ptSetLabel(_ptTwoLines('Conditions'));
     }
-    (S_obsCache || []).forEach(function(o) {
-      if (typeof o.lat !== 'number' || !(o.visibility_m > 0)) return;
-      if (typeof haversineKm !== 'function' || haversineKm(latlng.lat, latlng.lng, o.lat, o.lon) > 5) return;
-      var ageH = (Date.now() - new Date(o.timestamp).getTime()) / 3600000;
-      if (!isFinite(ageH) || ageH < 0 || ageH > 72) return;
-      if (!best || best.age_hours == null || ageH < best.age_hours) {
-        best = {
-          visi: o.visibility_m,
-          age_hours: ageH,
-          pseudo: (o.pseudo && o.pseudo !== 'Anonyme') ? o.pseudo : null
-        };
-      }
-    });
-    return best;
   }
+  // Repli synchrone (timeout de patience, arrivee tardive des retours) :
+  // meme lecture terrain que la cascade, sans reseau.
   function _ptFallbackLabel() {
-    var t = _ptBestTerrain();
-    if (t) { _ptMainKind = 'fb'; _ptSetLabel(_ptFbLabel(t)); }
-    else { _ptMainKind = 'cond'; _ptSetLabel(_ptTwoLines('Conditions')); }
+    var t = vzPointTerrainAt(latlng.lat, latlng.lng);
+    _ptRenderRes(t
+      ? { kind: 'fb', visi: t.visi, ageH: t.age_hours, pseudo: t.pseudo, dateTxt: '' }
+      : { kind: 'none' });
   }
-  if (typeof fetchCmemsZSD === 'function') {
-    var _ptSatDone = false;
-    setTimeout(function() { if (!_ptSatDone) _ptFallbackLabel(); }, 12000);
-    ensurePortCounts_().then(function() {
-      return fetchCmemsZSD(latlng.lat, latlng.lng);
-    }).then(function(sat) {
-      _ptSatDone = true;
-      var okSat = sat && typeof sat.visi_plongeur_m === 'number' && isFinite(sat.visi_plongeur_m) && sat.visi_plongeur_m > 0
-        && (typeof sat.age_hours !== 'number' || sat.age_hours <= 72)
-        && (!sat.status || sat.status === 'ok' || sat.status === 'cloudy_J1' || sat.status === 'cloudy_J2');
-      var satAge = (okSat && typeof sat.age_hours === 'number') ? sat.age_hours : null;
-
-      // Meilleure donnee terrain (5 km, feedbacks anonymes + observations
-      // avec pseudo). Elle prime sur le satellite si elle est plus
-      // fraiche (regle "la mesure la plus recente gagne") ou si le
-      // satellite est indisponible.
-      var terrain = _ptBestTerrain();
-      var chasseurGagne = terrain && (satAge == null || (terrain.age_hours != null && terrain.age_hours < satAge));
-
-      if (chasseurGagne) {
-        _ptMainKind = 'fb';
-        _ptSetLabel(_ptFbLabel(terrain));
-      } else if (okSat) {
-        _ptMainKind = 'sat';
-        var satDateTxt = '';
-        if (sat.date_observed) {
-          var dSat = new Date(sat.date_observed);
-          if (!isNaN(dSat.getTime())) {
-            satDateTxt = ' ' + ('0' + dSat.getUTCDate()).slice(-2) + '/' + ('0' + (dSat.getUTCMonth() + 1)).slice(-2);
-          }
-        }
-        var satMain = satDateTxt
-          ? 'Visibilité mesurée par satellite le' + satDateTxt + ' : ' + Math.round(sat.visi_plongeur_m) + ' m'
-          : 'Visibilité mesurée par satellite : ' + Math.round(sat.visi_plongeur_m) + ' m';
-        _ptSetLabel(_ptTwoLines(satMain));
-      } else if (terrain) {
-        _ptMainKind = 'fb';
-        _ptSetLabel(_ptFbLabel(terrain));
-      } else {
-        _ptMainKind = 'cond';
-        _ptSetLabel(_ptTwoLines('Conditions'));
-      }
-    }).catch(function() {
-      _ptSatDone = true;
-      _ptFallbackLabel();
-    });
-  } else {
-    _ptFallbackLabel();
-  }
+  // Le garde _ptGen vit dans _ptSetLabel : un resultat qui arrive apres
+  // que la pastille a change de point est ignore silencieusement.
+  vzPointVisiAt(latlng.lat, latlng.lng, { onPatience: _ptRenderRes }).then(_ptRenderRes);
 }
 
 
@@ -3095,8 +3139,7 @@ function vzSharePoint() {
     // Le viseur mobile (vzm-xhair) est a 1/3 de la hauteur d'ecran, pas au
     // centre carte : meme conversion que openCondDrawer, sinon le sonar
     // tombe sous la croix.
-    var sz = S.map.getSize();
-    var c = S.map.containerPointToLatLng([sz.x / 2, sz.y / 3]);
+    var c = vzmAimLatLng();
     if (c) vzShareOpenAt(c.lat, c.lng, true);
     return;
   }
@@ -5050,6 +5093,17 @@ function vzmFreshBars(ageH, fenetreH){
 // La barre "Analyser ce point" a ete retiree : l'onglet Conditions est
 // desormais le seul point d'entree d'analyse sur mobile (openCondDrawer
 // recale S.clickLatLng sur la croix et declenche vzmFlashXhair).
+// Point vise par la croix mobile : 1/3 de la hauteur d'ecran, pas le centre
+// geometrique de la carte. Point d'entree unique de cette conversion,
+// consomme par openCondDrawer, le sonar, le readout de fond et le badge
+// visi. Si la position de la croix change (CSS .vzm-xhair top:33.333%),
+// c'est ici et dans le CSS qu'il faut la changer, nulle part ailleurs.
+function vzmAimLatLng(){
+  if (!(S && S.map)) return null;
+  var sz = S.map.getSize();
+  return S.map.containerPointToLatLng([sz.x / 2, sz.y / 3]);
+}
+
 function vzmInitCrosshair(){
   if (document.getElementById('vzmXhair')) return;           // idempotent
   if (!(S && S.map)) return;
@@ -5152,7 +5206,7 @@ function vzmInitSedReadout(){
   var st = document.createElement('style');
   st.id = 'vzmSedReadoutStyle';
   st.textContent = `
-.vzm-sed-readout{position:fixed;left:50%;top:33.333%;margin-top:30px;transform:translateX(-50%) translateY(4px);z-index:1200;pointer-events:none;opacity:0;transition:opacity .18s ease,transform .2s ease;display:flex;align-items:center;gap:7px;max-width:72vw;padding:4px 11px;background:rgba(15,36,56,0.9);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:0.5px solid rgba(77,212,168,0.4);border-radius:9px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#CDE7DD;white-space:nowrap;letter-spacing:0.02em;box-shadow:0 4px 14px rgba(4,16,28,0.4);}
+.vzm-sed-readout{position:fixed;left:50%;top:33.333%;margin-top:74px;transform:translateX(-50%) translateY(4px);z-index:1200;pointer-events:none;opacity:0;transition:opacity .18s ease,transform .2s ease;display:flex;align-items:center;gap:7px;max-width:72vw;padding:4px 11px;background:rgba(15,36,56,0.9);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:0.5px solid rgba(77,212,168,0.4);border-radius:9px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:#CDE7DD;white-space:nowrap;letter-spacing:0.02em;box-shadow:0 4px 14px rgba(4,16,28,0.4);}
 .vzm-sed-readout.on{opacity:1;transform:translateX(-50%) translateY(0);}
 .vzm-sed-readout .vzm-sed-txt{overflow:hidden;text-overflow:ellipsis;}
 .vzm-sed-readout .vzm-sed-spin{width:12px;height:12px;flex:0 0 auto;display:none;}
@@ -5229,8 +5283,8 @@ function vzmInitSedReadout(){
 
   function update(){
     if (!eligible()) { hide(); return; }
-    var sz = S.map.getSize();
-    var c = S.map.containerPointToLatLng([sz.x / 2, sz.y / 3]);  // point sous le viseur (1/3 hauteur), pas le centre geometrique (meme conversion que openCondDrawer)
+    var c = vzmAimLatLng();  // point sous le viseur (1/3 hauteur), pas le centre geometrique
+    if (!c) { hide(); return; }
     var key = c.lat.toFixed(3) + ',' + c.lng.toFixed(3);
     if (Object.prototype.hasOwnProperty.call(cache, key)) {
       var cached = cache[key];
@@ -5257,6 +5311,210 @@ function vzmInitSedReadout(){
 (function vzmSedReadoutBoot(){
   if (typeof S !== 'undefined' && S && S.map) { try { vzmInitSedReadout(); } catch(e){ console.warn('[vzm] sed readout init', e); } }
   else setTimeout(vzmSedReadoutBoot, 300);
+})();
+
+// ============ BADGE VISIBILITE SOUS LE VISEUR (mobile) ============
+// Equivalent mobile de la pastille desktop (vzDesktopPointSelect) : meme
+// resolution de source via vzPointVisiAt, meme doctrine, rendu compact.
+//
+// Trois etats dans UN seul element, jamais deux surfaces concurrentes :
+//   repos    -> bouton "Voir la visibilite" (aucun reseau)
+//   calcul   -> ring de patience
+//   resultat -> source + date + metres, tapable pour ouvrir Previsions
+//
+// Pourquoi pas de calcul automatique au 'moveend' : fetchCmemsZSD peut
+// enchainer jusqu'a 11 requetes CMEMS cote GAS sur un point nuageux. Un
+// declenchement a chaque immobilisation de carte mettrait le backend en
+// cascade permanente et ferait clignoter un chiffre pendant le scroll de
+// la cote. Le calcul est donc a la demande, et seulement a la demande.
+//
+// Honnetete epistemique : le badge n'affiche jamais un chiffre pour un
+// point qu'il ne vise plus. Des que la carte bouge il repasse au repos.
+// Fluidite : un cache par maille ~1 km (resolution reelle du produit
+// CMEMS multi-capteurs) permet de reafficher instantanement, sans reseau
+// ni ring, un point deja calcule. Un micro-recadrage rend donc le chiffre
+// tout de suite.
+//
+// Etat partage : lecture seule. Le badge n'ecrit ni S.clickLatLng ni
+// S._spotDepth (resolveSheetSpot les lit en priorite 1 : un point perime
+// court-circuiterait le drawer marees et la geoloc). C'est openCondDrawer,
+// au tap, qui recale lui-meme la position sur la croix.
+function vzmInitPointBadge(){
+  if (document.getElementById('vzmVisiBadge')) return;        // idempotent
+  if (!(S && S.map)) return;
+
+  var st = document.createElement('style');
+  st.id = 'vzmVisiBadgeStyle';
+  st.textContent = `
+.vzm-visi-badge{position:fixed;left:50%;top:33.333%;margin-top:30px;transform:translateX(-50%) translateY(4px);z-index:1201;pointer-events:none;opacity:0;transition:opacity .18s ease,transform .2s ease;max-width:82vw;}
+.vzm-visi-badge.on{opacity:1;transform:translateX(-50%) translateY(0);}
+.vzm-visi-btn{pointer-events:auto;display:inline-flex;align-items:center;gap:7px;max-width:82vw;padding:7px 12px;background:#0F2438;color:#E6EEF4;border:1.5px solid #4DD4A8;border-radius:10px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;line-height:1;cursor:pointer;box-shadow:0 6px 20px rgba(4,16,28,0.45);-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
+.vzm-visi-btn:active{filter:brightness(1.12);}
+.vzm-visi-txt{font-family:'IBM Plex Mono',monospace;font-size:12.5px;letter-spacing:.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.vzm-visi-badge.is-idle .vzm-visi-txt{font-family:'Inter',sans-serif;font-size:13px;}
+.vzm-visi-badge.is-none .vzm-visi-btn{border-color:rgba(157,189,203,0.5);color:#9DBDCB;}
+.vzm-visi-ring,.vzm-visi-chev{flex:0 0 auto;display:none;}
+.vzm-visi-badge.is-load .vzm-visi-ring{display:inline-flex;animation:vzmVisiSpin .8s linear infinite;}
+.vzm-visi-badge.is-idle .vzm-visi-chev,.vzm-visi-badge.is-res .vzm-visi-chev{display:inline-flex;}
+@keyframes vzmVisiSpin{to{transform:rotate(360deg);}}
+@media (min-width:769px){.vzm-visi-badge{display:none !important;}}
+`;
+  document.head.appendChild(st);
+
+  var el = document.createElement('div');
+  el.className = 'vzm-visi-badge'; el.id = 'vzmVisiBadge';
+  el.innerHTML = '<button type="button" class="vzm-visi-btn">'
+    + '<span class="vzm-visi-ring"><svg viewBox="0 0 24 24" width="13" height="13">'
+    +   '<circle cx="12" cy="12" r="9" fill="none" stroke="rgba(77,212,168,0.25)" stroke-width="3"/>'
+    +   '<path d="M12 3 a9 9 0 0 1 9 9" fill="none" stroke="#4DD4A8" stroke-width="3" stroke-linecap="round"/>'
+    + '</svg></span>'
+    + '<span class="vzm-visi-txt"></span>'
+    + '<span class="vzm-visi-chev"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#4DD4A8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>'
+    + '</button>';
+  document.body.appendChild(el);
+  var txtEl = el.querySelector('.vzm-visi-txt');
+  var btnEl = el.querySelector('.vzm-visi-btn');
+
+  var resCache = {};            // cle maille ~1 km -> { res, at }
+  var CACHE_TTL = 30 * 60 * 1000;
+  var reqTok = 0;               // jeton anti-course : seul le dernier calcul affiche
+  var debTimer = 0;
+  var state = 'idle';           // 'idle' | 'load' | 'res'
+  var shownRes = null;
+
+  // Maille ~1,1 km en latitude : la resolution reelle du produit CMEMS
+  // multi-capteurs (1 km). Deux points de la meme maille partagent la
+  // meme mesure satellite, les recalculer separement n'aurait aucun sens.
+  function mailleKey(c){ return c.lat.toFixed(2) + ',' + c.lng.toFixed(2); }
+
+  function drawerOpenM(){
+    var d = document.getElementById('spotDrawerMobile');
+    return d && (d.classList.contains('vzm-peek') || d.classList.contains('vzm-mid') || d.classList.contains('vzm-full'));
+  }
+  function eligible(){
+    return (typeof isMobile === 'function' && isMobile())
+      && !drawerOpenM()
+      && !(typeof VZ_SHEET !== 'undefined' && VZ_SHEET && VZ_SHEET.mode);
+  }
+
+  function ageTxt(ageH){
+    if (typeof ageH !== 'number' || !isFinite(ageH)) return '';
+    if (ageH < 1) return ', il y a moins d\u20191 h';
+    if (ageH < 24) return ', il y a ' + Math.round(ageH) + ' h';
+    return ', il y a ' + Math.round(ageH / 24) + ' j';
+  }
+  // Rendu compact : la source se nomme et se date, toujours. Jamais un
+  // chiffre nu, jamais de valeur rassurante sans provenance.
+  function resTxt(res){
+    if (!res || res.kind === 'none') return 'Pas de mesure ici';
+    if (res.kind === 'sat') {
+      return 'Satellite' + (res.dateTxt ? ' ' + res.dateTxt : '') + ' \u00b7 ' + Math.round(res.visi) + ' m';
+    }
+    var who = res.pseudo ? res.pseudo : 'Un chasseur';
+    return who + ageTxt(res.ageH) + ' \u00b7 ' + Math.round(res.visi) + ' m';
+  }
+
+  function paint(){
+    el.classList.remove('is-idle', 'is-load', 'is-res', 'is-none');
+    if (state === 'load') {
+      el.classList.add('is-load');
+      txtEl.textContent = 'Analyse du point...';
+    } else if (state === 'res') {
+      el.classList.add('is-res');
+      if (!shownRes || shownRes.kind === 'none') el.classList.add('is-none');
+      txtEl.textContent = resTxt(shownRes);
+    } else {
+      el.classList.add('is-idle');
+      txtEl.textContent = 'Voir la visibilit\u00e9';
+    }
+    if (eligible()) el.classList.add('on'); else el.classList.remove('on');
+  }
+
+  function toIdle(){
+    reqTok++;                                  // un calcul en vol ne repeindra plus
+    state = 'idle'; shownRes = null; paint();
+  }
+
+  // Carte immobile : on ne relance jamais de reseau ici. On regarde
+  // seulement si la maille visee a deja ete calculee - auquel cas le
+  // chiffre revient instantanement, ce qui rend le micro-recadrage fluide.
+  function sync(){
+    if (!eligible()) { el.classList.remove('on'); return; }
+    if (state === 'load') { paint(); return; }
+    var c = vzmAimLatLng();
+    if (!c) { paint(); return; }
+    var hit = resCache[mailleKey(c)];
+    if (hit && (Date.now() - hit.at) < CACHE_TTL) { state = 'res'; shownRes = hit.res; }
+    else { state = 'idle'; shownRes = null; }
+    paint();
+  }
+
+  btnEl.addEventListener('click', function(ev){
+    ev.preventDefault(); ev.stopPropagation();
+    // Un resultat deja affiche : le tap suivant ouvre les Previsions.
+    // openCondDrawer recale lui-meme S.clickLatLng sur la croix.
+    if (state === 'res') {
+      if (typeof window.openCondDrawer === 'function') window.openCondDrawer();
+      return;
+    }
+    if (state === 'load') return;
+    var c = vzmAimLatLng();
+    if (!c) return;
+    var key = mailleKey(c);
+    var hit = resCache[key];
+    if (hit && (Date.now() - hit.at) < CACHE_TTL) { state = 'res'; shownRes = hit.res; paint(); return; }
+
+    state = 'load'; paint();
+    if (typeof window.vzmFlashXhair === 'function') window.vzmFlashXhair();
+    var tok = ++reqTok;
+    // Les retours de chasseurs vivent dans S_obsCache (TTL 5 min cote
+    // vzEnsureObservations) : sans cette garantie, vzPointTerrainAt ne
+    // verrait que les feedbacks anonymes au premier tap de la session.
+    var pre = (typeof vzEnsureObservations === 'function')
+      ? vzEnsureObservations().catch(function(){ return null; })
+      : Promise.resolve(null);
+    pre.then(function(){
+      return vzPointVisiAt(c.lat, c.lng, {
+        onPatience: function(prov){
+          if (tok !== reqTok || state !== 'load') return;
+          shownRes = prov; state = 'res'; paint();   // provisoire, remplace si le satellite aboutit
+        }
+      });
+    }).then(function(res){
+      resCache[key] = { res: res, at: Date.now() };
+      if (tok !== reqTok) return;                    // la croix a bouge entre-temps
+      if (!eligible()) return;
+      shownRes = res; state = 'res'; paint();
+    });
+  });
+
+  // Des que la carte bouge, le chiffre affiche ne vaut plus pour le point
+  // vise : retour au repos immediat plutot qu'une valeur qui ment.
+  S.map.on('movestart zoomstart', function(){ if (state !== 'idle') toIdle(); });
+  S.map.on('moveend zoomend', function(){
+    clearTimeout(debTimer);
+    debTimer = setTimeout(sync, 120);                // court : le repli cache est gratuit
+  });
+
+  // Le drawer et le bandeau peuvent s'ouvrir sans mouvement de carte :
+  // on suit leur classe plutot que de sonder en boucle.
+  function watch(id){
+    var n = document.getElementById(id);
+    if (!n) return false;
+    new MutationObserver(function(){ sync(); }).observe(n, { attributes: true, attributeFilter: ['class', 'style'] });
+    return true;
+  }
+  (function armWatch(tries){
+    var ok = watch('spotDrawerMobile'); ok = watch('vzSheet') && ok;
+    if (!ok && tries < 20) setTimeout(function(){ armWatch(tries + 1); }, 400);
+  })(0);
+
+  window.vzmVisiBadgeSync = sync;
+  sync();
+}
+(function vzmPointBadgeBoot(){
+  if (typeof S !== 'undefined' && S && S.map) { try { vzmInitPointBadge(); } catch(e){ console.warn('[vzm] visi badge init', e); } }
+  else setTimeout(vzmPointBadgeBoot, 300);
 })();
 // ======================================================================
 function vzmBuildSources(){
@@ -13234,8 +13492,7 @@ window.openCondDrawer = function() {
   // un toggle de fermeture (mode deja 'cond').
   if (typeof isMobile === 'function' && isMobile() && S && S.map
       && !(typeof VZ_SHEET !== 'undefined' && VZ_SHEET && VZ_SHEET.mode === 'cond')) {
-    var sz = S.map.getSize();
-    S.clickLatLng = S.map.containerPointToLatLng([sz.x / 2, sz.y / 3]);
+    S.clickLatLng = vzmAimLatLng();
     S._spotDepth = null;
     if (typeof window.vzmFlashXhair === 'function') window.vzmFlashXhair();
   }
