@@ -16857,6 +16857,13 @@ function vzmInit() {
     + '.vzsp-curve svg{display:block;width:100%;height:auto;}'
     + '.vzsp-axis{display:flex;justify-content:space-between;font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:#7A8B99;font-weight:600;padding:6px 4px 0;}'
     + '.vzsp-note{font-size:12.5px;color:#7A8B99;font-weight:500;padding:18px 6px;text-align:center;line-height:1.45;}'
+    // Etat de chargement : reprend le ring .vsm-spinner deja utilise partout
+    // dans l'app, recolore pour un fond clair (piste hairline, arc teal-deep).
+    // La hauteur reservee empeche le panneau de se retracter puis de se
+    // rouvrir quand on bascule d'onglet avant que la donnee soit arrivee.
+    + '.vzsp-load{min-height:44vh;min-height:44dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px 6px;text-align:center;}'
+    + '.vzsp-load .vsm-spinner{--vsm-track:#DCE4EA;--vsm-arc:#1A6B5D;}'
+    + '.vzsp-load span.vzsp-lt{font-size:13px;color:#7A8B99;font-weight:600;letter-spacing:0.01em;}'
     // Desktop : le panneau flotte en bas a droite (media query du module
     // sonar). Le selecteur [data-vzsp] est plus specifique et gagnerait
     // sinon avec un rayon mobile et une hauteur de 88vh.
@@ -16940,6 +16947,26 @@ function vzmInit() {
     } catch (e) {}
   }
 
+  // ---------- etat de chargement ----------
+  function vzspLoad(txt) {
+    return '<div class="vzsp-load">'
+      + '<span class="vsm-spinner vsm-lg" role="status" aria-label="Chargement">'
+      +   '<svg viewBox="0 0 48 48"><circle class="vsm-track" cx="24" cy="24" r="20" stroke-width="5.8"/>'
+      +   '<path class="vsm-arc" d="M 24 4 A 20 20 0 0 1 44 24" stroke-width="5.8"/></svg></span>'
+      + '<span class="vzsp-lt">' + txt + '</span></div>';
+  }
+
+  // Gele la hauteur du corps pendant qu'un onglet vide se remplit, sinon le
+  // panneau se retracte a la taille du spinner puis se rouvre d'un coup.
+  function vzspFreeze() {
+    var b = panel && panel.querySelector('.vzsp-body');
+    if (b && b.offsetHeight) b.style.minHeight = b.offsetHeight + 'px';
+  }
+  function vzspRelease() {
+    var b = panel && panel.querySelector('.vzsp-body');
+    if (b) b.style.minHeight = '';
+  }
+
   // ---------- rendu : coquille ----------
   function vzspShell(name) {
     return '<div class="vzsp-wrap">'
@@ -16955,10 +16982,10 @@ function vzmInit() {
       + '</div>'
       + '<div class="vzsp-body">'
       +   '<div class="vzsp-pane vzsp-on" data-vzsppane="fb" id="vzspPaneFb">'
-      +     '<div class="vzsp-note">Lecture des retours du secteur...</div>'
+      +     vzspLoad('Lecture des retours du secteur')
       +   '</div>'
       +   '<div class="vzsp-pane" data-vzsppane="td" id="vzspPaneTd">'
-      +     '<div class="vzsp-note">Chargement de la marée...</div>'
+      +     vzspLoad('Chargement de la marée')
       +   '</div>'
       + '</div>'
       + '</div>';
@@ -17110,6 +17137,7 @@ function vzmInit() {
     var port = VZSP.port;
     if (!port) {
       pane.innerHTML = '<div class="vzsp-note">Aucun port de référence marée à proximité.</div>';
+      vzspRelease();
       return;
     }
     var sel = VZSP.selDate;
@@ -17131,6 +17159,7 @@ function vzmInit() {
 
     if (!pts.length) {
       pane.innerHTML = html + '<div class="vzsp-note">Aucune donnée de marée pour cette date.</div>';
+      vzspRelease();
       vzspWireTideNav();
       return;
     }
@@ -17200,6 +17229,7 @@ function vzmInit() {
       + '</div><div style="height:8px"></div>';
 
     pane.innerHTML = html;
+    vzspRelease();
     vzspWireTideNav();
     vzspLoadSun();
   }
@@ -17266,6 +17296,7 @@ function vzmInit() {
       if (!data || data.error || !data.data) {
         var pane = document.getElementById('vzspPaneTd');
         if (pane) pane.innerHTML = '<div class="vzsp-note">Marée indisponible pour ce secteur.</div>';
+        vzspRelease();
         return;
       }
       VZSP.tidesData = data.data;
@@ -17277,6 +17308,7 @@ function vzmInit() {
       VZSP.tidesLoading = false;
       var pane = document.getElementById('vzspPaneTd');
       if (pane) pane.innerHTML = '<div class="vzsp-note">Marée indisponible (réseau).</div>';
+      vzspRelease();
     });
   }
 
@@ -17313,6 +17345,7 @@ function vzmInit() {
           p.classList.toggle('vzsp-on', p.getAttribute('data-vzsppane') === t);
         });
         var body = panel.querySelector('.vzsp-body');
+        if (t === 'td' && !VZSP.tidesLoaded) vzspFreeze();
         if (body) body.scrollTop = 0;
         if (t === 'td') vzspLoadTides();
       });
@@ -17337,8 +17370,10 @@ function vzmInit() {
       }).sort(function (a, b) { return new Date(b.timestamp) - new Date(a.timestamp); });
 
       var loadingSat = '<div class="vzsp-sat"><span class="vzsp-sic">' + VZSP_SVG_SAT + '</span>'
-        + '<span class="vzsp-slbl"><span class="vzsp-t">Satellite</span><span class="vzsp-s">lecture en cours...</span></span>'
-        + '<span class="vzsp-sval">&nbsp;</span></div>';
+        + '<span class="vzsp-slbl"><span class="vzsp-t">Satellite</span><span class="vzsp-s">lecture en cours</span></span>'
+        + '<span class="vzsp-sval"><span class="vsm-spinner vsm-sm" style="--vsm-track:#DCE4EA;--vsm-arc:#1A6B5D;" role="status" aria-label="Chargement">'
+        + '<svg viewBox="0 0 48 48"><circle class="vsm-track" cx="24" cy="24" r="20" stroke-width="7"/>'
+        + '<path class="vsm-arc" d="M 24 4 A 20 20 0 0 1 44 24" stroke-width="7"/></svg></span></span></div>';
 
       pane.innerHTML = vzspRenderFeedback(near, loadingSat);
 
