@@ -5313,27 +5313,27 @@ function vzmInitSedReadout(){
   else setTimeout(vzmSedReadoutBoot, 300);
 })();
 
-// ============ BADGE VISIBILITE SOUS LE VISEUR (mobile) ============
-// Equivalent mobile de la pastille desktop (vzDesktopPointSelect) : meme
-// resolution de source via vzPointVisiAt, meme doctrine, rendu compact.
+// ============ VISI SOUS LE VISEUR (mobile) ============
+// Un chiffre en metres sous la croix, avec sa source et sa date. Rien
+// d'autre : pas de bouton, pas de ring, pas d'appel a l'action.
 //
-// Trois etats dans UN seul element, jamais deux surfaces concurrentes :
-//   repos    -> bouton "Voir la visibilite" (aucun reseau)
-//   calcul   -> ring de patience
-//   resultat -> source + date + metres, tapable pour ouvrir Previsions
+// Principe : le badge n'existe que quand il a une valeur. Le calcul part
+// en fond a l'immobilisation de la carte sans rien afficher, et le chiffre
+// apparait en fondu quand la mesure revient. Il n'y a donc jamais d'etat
+// de chargement a regarder. Carte qui bouge = badge efface : on n'affiche
+// jamais une valeur pour un point qu'on ne vise plus.
 //
-// Pourquoi pas de calcul automatique au 'moveend' : fetchCmemsZSD peut
-// enchainer jusqu'a 11 requetes CMEMS cote GAS sur un point nuageux. Un
-// declenchement a chaque immobilisation de carte mettrait le backend en
-// cascade permanente et ferait clignoter un chiffre pendant le scroll de
-// la cote. Le calcul est donc a la demande, et seulement a la demande.
+// Cout maitrise sans renoncer a l'automatisme : fetchCmemsZSD peut
+// enchainer jusqu'a 11 requetes CMEMS cote GAS sur un point nuageux, donc
+// (1) debounce 700 ms pour ignorer les recadrages successifs, (2) cache
+// par maille ~1 km - la resolution reelle du produit CMEMS multi-capteurs,
+// ce qui rend gratuit tout retour sur une zone deja vue, (3) un seul
+// calcul en vol a la fois via jeton anti-course, (4) garde de zoom : en
+// dessous du zoom 9 une maille CMEMS fait quelques pixels et le chiffre ne
+// veut plus rien dire, donc on n'affiche pas.
 //
-// Honnetete epistemique : le badge n'affiche jamais un chiffre pour un
-// point qu'il ne vise plus. Des que la carte bouge il repasse au repos.
-// Fluidite : un cache par maille ~1 km (resolution reelle du produit
-// CMEMS multi-capteurs) permet de reafficher instantanement, sans reseau
-// ni ring, un point deja calcule. Un micro-recadrage rend donc le chiffre
-// tout de suite.
+// Aucune mesure exploitable : on n'affiche rien. Un badge absent n'affirme
+// rien, la ou un "?" occuperait l'espace pour dire qu'il ne sait pas.
 //
 // Etat partage : lecture seule. Le badge n'ecrit ni S.clickLatLng ni
 // S._spotDepth (resolveSheetSpot les lit en priorite 1 : un point perime
@@ -5343,48 +5343,35 @@ function vzmInitPointBadge(){
   if (document.getElementById('vzmVisiBadge')) return;        // idempotent
   if (!(S && S.map)) return;
 
+  var VZM_VISI_MIN_ZOOM = 9;          // sous ce zoom, une maille CMEMS ne veut plus rien dire
+  var VZM_VISI_DEBOUNCE = 700;        // ignore les recadrages successifs
+  var VZM_VISI_TTL = 30 * 60 * 1000;  // fraicheur du cache badge
+
   var st = document.createElement('style');
   st.id = 'vzmVisiBadgeStyle';
   st.textContent = `
-.vzm-visi-badge{position:fixed;left:50%;top:33.333%;margin-top:30px;transform:translateX(-50%) translateY(4px);z-index:1201;pointer-events:none;opacity:0;transition:opacity .18s ease,transform .2s ease;max-width:82vw;}
-.vzm-visi-badge.on{opacity:1;transform:translateX(-50%) translateY(0);}
-.vzm-visi-btn{pointer-events:auto;display:inline-flex;align-items:center;gap:7px;max-width:82vw;padding:7px 12px;background:#0F2438;color:#E6EEF4;border:1.5px solid #4DD4A8;border-radius:10px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;line-height:1;cursor:pointer;box-shadow:0 6px 20px rgba(4,16,28,0.45);-webkit-tap-highlight-color:transparent;touch-action:manipulation;}
-.vzm-visi-btn:active{filter:brightness(1.12);}
-.vzm-visi-txt{font-family:'IBM Plex Mono',monospace;font-size:12.5px;letter-spacing:.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.vzm-visi-badge.is-idle .vzm-visi-txt{font-family:'Inter',sans-serif;font-size:13px;}
-.vzm-visi-badge.is-none .vzm-visi-btn{border-color:rgba(157,189,203,0.5);color:#9DBDCB;}
-.vzm-visi-ring,.vzm-visi-chev{flex:0 0 auto;display:none;}
-.vzm-visi-badge.is-load .vzm-visi-ring{display:inline-flex;animation:vzmVisiSpin .8s linear infinite;}
-.vzm-visi-badge.is-idle .vzm-visi-chev,.vzm-visi-badge.is-res .vzm-visi-chev{display:inline-flex;}
-@keyframes vzmVisiSpin{to{transform:rotate(360deg);}}
+.vzm-visi-badge{position:fixed;left:50%;top:33.333%;margin-top:26px;transform:translateX(-50%) translateY(3px);z-index:1201;pointer-events:none;opacity:0;transition:opacity .22s ease,transform .22s ease;display:flex;flex-direction:column;align-items:center;gap:1px;max-width:76vw;}
+.vzm-visi-badge.on{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto;}
+.vzm-visi-val{font-family:'IBM Plex Mono',monospace;font-size:17px;font-weight:600;line-height:1.1;color:#EAF4EF;letter-spacing:.01em;text-shadow:0 1px 3px rgba(4,16,28,0.85),0 0 10px rgba(4,16,28,0.6);}
+.vzm-visi-src{font-family:'Inter',sans-serif;font-size:9px;font-weight:500;line-height:1.2;color:#9DBDCB;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:76vw;text-shadow:0 1px 3px rgba(4,16,28,0.85);}
 @media (min-width:769px){.vzm-visi-badge{display:none !important;}}
 `;
   document.head.appendChild(st);
 
   var el = document.createElement('div');
   el.className = 'vzm-visi-badge'; el.id = 'vzmVisiBadge';
-  el.innerHTML = '<button type="button" class="vzm-visi-btn">'
-    + '<span class="vzm-visi-ring"><svg viewBox="0 0 24 24" width="13" height="13">'
-    +   '<circle cx="12" cy="12" r="9" fill="none" stroke="rgba(77,212,168,0.25)" stroke-width="3"/>'
-    +   '<path d="M12 3 a9 9 0 0 1 9 9" fill="none" stroke="#4DD4A8" stroke-width="3" stroke-linecap="round"/>'
-    + '</svg></span>'
-    + '<span class="vzm-visi-txt"></span>'
-    + '<span class="vzm-visi-chev"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#4DD4A8" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>'
-    + '</button>';
+  el.innerHTML = '<div class="vzm-visi-val"></div><div class="vzm-visi-src"></div>';
   document.body.appendChild(el);
-  var txtEl = el.querySelector('.vzm-visi-txt');
-  var btnEl = el.querySelector('.vzm-visi-btn');
+  var valEl = el.querySelector('.vzm-visi-val');
+  var srcEl = el.querySelector('.vzm-visi-src');
 
-  var resCache = {};            // cle maille ~1 km -> { res, at }
-  var CACHE_TTL = 30 * 60 * 1000;
-  var reqTok = 0;               // jeton anti-course : seul le dernier calcul affiche
+  var resCache = {};        // cle maille ~1 km -> { res, at }
+  var reqTok = 0;           // jeton anti-course : un seul calcul compte
   var debTimer = 0;
-  var state = 'idle';           // 'idle' | 'load' | 'res'
-  var shownRes = null;
+  var shown = false;
 
-  // Maille ~1,1 km en latitude : la resolution reelle du produit CMEMS
-  // multi-capteurs (1 km). Deux points de la meme maille partagent la
-  // meme mesure satellite, les recalculer separement n'aurait aucun sens.
+  // Maille ~1,1 km en latitude : deux points de la meme maille partagent
+  // la meme mesure satellite, les recalculer separement n'aurait pas de sens.
   function mailleKey(c){ return c.lat.toFixed(2) + ',' + c.lng.toFixed(2); }
 
   function drawerOpenM(){
@@ -5394,106 +5381,87 @@ function vzmInitPointBadge(){
   function eligible(){
     return (typeof isMobile === 'function' && isMobile())
       && !drawerOpenM()
-      && !(typeof VZ_SHEET !== 'undefined' && VZ_SHEET && VZ_SHEET.mode);
+      && !(typeof VZ_SHEET !== 'undefined' && VZ_SHEET && VZ_SHEET.mode)
+      && S.map.getZoom() >= VZM_VISI_MIN_ZOOM;
   }
 
   function ageTxt(ageH){
     if (typeof ageH !== 'number' || !isFinite(ageH)) return '';
-    if (ageH < 1) return ', il y a moins d\u20191 h';
-    if (ageH < 24) return ', il y a ' + Math.round(ageH) + ' h';
-    return ', il y a ' + Math.round(ageH / 24) + ' j';
+    if (ageH < 1) return 'il y a moins d\u20191 h';
+    if (ageH < 24) return 'il y a ' + Math.round(ageH) + ' h';
+    return 'il y a ' + Math.round(ageH / 24) + ' j';
   }
-  // Rendu compact : la source se nomme et se date, toujours. Jamais un
-  // chiffre nu, jamais de valeur rassurante sans provenance.
-  function resTxt(res){
-    if (!res || res.kind === 'none') return 'Pas de mesure ici';
-    if (res.kind === 'sat') {
-      return 'Satellite' + (res.dateTxt ? ' ' + res.dateTxt : '') + ' \u00b7 ' + Math.round(res.visi) + ' m';
-    }
+  // La source se nomme et se date, toujours : jamais un chiffre nu.
+  function srcTxt(res){
+    if (res.kind === 'sat') return 'Satellite' + (res.dateTxt ? ' ' + res.dateTxt : '');
     var who = res.pseudo ? res.pseudo : 'Un chasseur';
-    return who + ageTxt(res.ageH) + ' \u00b7 ' + Math.round(res.visi) + ' m';
+    var a = ageTxt(res.ageH);
+    return a ? who + ', ' + a : who;
   }
 
-  function paint(){
-    el.classList.remove('is-idle', 'is-load', 'is-res', 'is-none');
-    if (state === 'load') {
-      el.classList.add('is-load');
-      txtEl.textContent = 'Analyse du point...';
-    } else if (state === 'res') {
-      el.classList.add('is-res');
-      if (!shownRes || shownRes.kind === 'none') el.classList.add('is-none');
-      txtEl.textContent = resTxt(shownRes);
-    } else {
-      el.classList.add('is-idle');
-      txtEl.textContent = 'Voir la visibilit\u00e9';
-    }
-    if (eligible()) el.classList.add('on'); else el.classList.remove('on');
+  function hide(){
+    if (!shown) return;
+    shown = false;
+    el.classList.remove('on');
+  }
+  function show(res){
+    if (!res || res.kind === 'none' || !(res.visi > 0)) { hide(); return; }
+    valEl.textContent = Math.round(res.visi) + ' m';
+    srcEl.textContent = srcTxt(res);
+    shown = true;
+    el.classList.add('on');
   }
 
-  function toIdle(){
-    reqTok++;                                  // un calcul en vol ne repeindra plus
-    state = 'idle'; shownRes = null; paint();
-  }
-
-  // Carte immobile : on ne relance jamais de reseau ici. On regarde
-  // seulement si la maille visee a deja ete calculee - auquel cas le
-  // chiffre revient instantanement, ce qui rend le micro-recadrage fluide.
-  function sync(){
-    if (!eligible()) { el.classList.remove('on'); return; }
-    if (state === 'load') { paint(); return; }
+  // Carte immobile : cache d'abord (affichage instantane), reseau ensuite
+  // et seulement si necessaire. Rien n'est affiche pendant le calcul.
+  function resolve(){
+    if (!eligible()) { hide(); return; }
     var c = vzmAimLatLng();
-    if (!c) { paint(); return; }
-    var hit = resCache[mailleKey(c)];
-    if (hit && (Date.now() - hit.at) < CACHE_TTL) { state = 'res'; shownRes = hit.res; }
-    else { state = 'idle'; shownRes = null; }
-    paint();
-  }
-
-  btnEl.addEventListener('click', function(ev){
-    ev.preventDefault(); ev.stopPropagation();
-    // Un resultat deja affiche : le tap suivant ouvre les Previsions.
-    // openCondDrawer recale lui-meme S.clickLatLng sur la croix.
-    if (state === 'res') {
-      if (typeof window.openCondDrawer === 'function') window.openCondDrawer();
-      return;
-    }
-    if (state === 'load') return;
-    var c = vzmAimLatLng();
-    if (!c) return;
+    if (!c) { hide(); return; }
     var key = mailleKey(c);
     var hit = resCache[key];
-    if (hit && (Date.now() - hit.at) < CACHE_TTL) { state = 'res'; shownRes = hit.res; paint(); return; }
+    if (hit && (Date.now() - hit.at) < VZM_VISI_TTL) { show(hit.res); return; }
 
-    state = 'load'; paint();
-    if (typeof window.vzmFlashXhair === 'function') window.vzmFlashXhair();
+    hide();                                  // pas de valeur pour ce point : rien, pas de spinner
     var tok = ++reqTok;
     // Les retours de chasseurs vivent dans S_obsCache (TTL 5 min cote
     // vzEnsureObservations) : sans cette garantie, vzPointTerrainAt ne
-    // verrait que les feedbacks anonymes au premier tap de la session.
+    // verrait que les feedbacks anonymes au premier calcul de la session.
     var pre = (typeof vzEnsureObservations === 'function')
       ? vzEnsureObservations().catch(function(){ return null; })
       : Promise.resolve(null);
     pre.then(function(){
       return vzPointVisiAt(c.lat, c.lng, {
+        // Le satellite peut mettre 12 s : si un retour de chasseur existe
+        // deja, il s'affiche sans attendre et sera remplace si la mesure
+        // satellite arrive et se revele plus fraiche.
         onPatience: function(prov){
-          if (tok !== reqTok || state !== 'load') return;
-          shownRes = prov; state = 'res'; paint();   // provisoire, remplace si le satellite aboutit
+          if (tok !== reqTok || !eligible()) return;
+          show(prov);
         }
       });
     }).then(function(res){
       resCache[key] = { res: res, at: Date.now() };
-      if (tok !== reqTok) return;                    // la croix a bouge entre-temps
-      if (!eligible()) return;
-      shownRes = res; state = 'res'; paint();
+      if (tok !== reqTok) return;            // la croix a bouge entre-temps
+      if (!eligible()) { hide(); return; }
+      show(res);
     });
+  }
+
+  // Le tap sur le chiffre ouvre les Previsions du point vise.
+  // openCondDrawer recale lui-meme S.clickLatLng sur la croix.
+  el.addEventListener('click', function(ev){
+    if (!shown) return;
+    ev.preventDefault(); ev.stopPropagation();
+    if (typeof window.openCondDrawer === 'function') window.openCondDrawer();
   });
 
-  // Des que la carte bouge, le chiffre affiche ne vaut plus pour le point
-  // vise : retour au repos immediat plutot qu'une valeur qui ment.
-  S.map.on('movestart zoomstart', function(){ if (state !== 'idle') toIdle(); });
+  // Des que la carte bouge, la valeur affichee ne vaut plus pour le point
+  // vise : effacement immediat plutot qu'un chiffre qui ment.
+  S.map.on('movestart zoomstart', hide);
   S.map.on('moveend zoomend', function(){
     clearTimeout(debTimer);
-    debTimer = setTimeout(sync, 120);                // court : le repli cache est gratuit
+    debTimer = setTimeout(resolve, VZM_VISI_DEBOUNCE);
   });
 
   // Le drawer et le bandeau peuvent s'ouvrir sans mouvement de carte :
@@ -5501,7 +5469,7 @@ function vzmInitPointBadge(){
   function watch(id){
     var n = document.getElementById(id);
     if (!n) return false;
-    new MutationObserver(function(){ sync(); }).observe(n, { attributes: true, attributeFilter: ['class', 'style'] });
+    new MutationObserver(function(){ if (!eligible()) hide(); }).observe(n, { attributes: true, attributeFilter: ['class', 'style'] });
     return true;
   }
   (function armWatch(tries){
@@ -5509,8 +5477,8 @@ function vzmInitPointBadge(){
     if (!ok && tries < 20) setTimeout(function(){ armWatch(tries + 1); }, 400);
   })(0);
 
-  window.vzmVisiBadgeSync = sync;
-  sync();
+  window.vzmVisiBadgeRefresh = resolve;
+  setTimeout(resolve, VZM_VISI_DEBOUNCE);    // premiere vue : le chiffre arrive tout seul
 }
 (function vzmPointBadgeBoot(){
   if (typeof S !== 'undefined' && S && S.map) { try { vzmInitPointBadge(); } catch(e){ console.warn('[vzm] visi badge init', e); } }
