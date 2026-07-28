@@ -16855,6 +16855,9 @@ function vzmInit() {
     + '.vzsp-tide .vzsp-val .vzsp-v{font-size:22px;}'
     + '.vzsp-curve{background:var(--vzsp-paper);border-radius:18px;padding:14px 12px 10px;}'
     + '.vzsp-curve svg{display:block;width:100%;height:auto;}'
+    + '.vzsp-cwrap{position:relative;touch-action:pan-y;cursor:ew-resize;user-select:none;-webkit-user-select:none;}'
+    + '.vzsp-cbadge{position:absolute;top:2px;left:50%;transform:translateX(-50%);background:#0A1520;color:#4DD4A8;font-size:10.5px;font-weight:700;letter-spacing:0.08em;padding:3px 9px;border-radius:5px;white-space:nowrap;pointer-events:none;}'
+    + '.vzsp-cwrap.vzsp-dragging .vzsp-cbadge{background:#1A6B5D;color:#EAFBF4;}'
     + '.vzsp-axis{display:flex;justify-content:space-between;font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:#7A8B99;font-weight:600;padding:6px 4px 0;}'
     + '.vzsp-note{font-size:12.5px;color:#7A8B99;font-weight:500;padding:18px 6px;text-align:center;line-height:1.45;}'
     // Etat de chargement : reprend le ring .vsm-spinner deja utilise partout
@@ -17074,60 +17077,169 @@ function vzmInit() {
 
   // ---------- rendu : courbe de maree ----------
   // La maquette porte un trace decoratif fige. Ici on genere le meme
-  // habillage (degrade, epaisseur, pastilles, badge MAINTENANT) a partir
-  // des points reels du jour renvoyes par tides_range.
+  // habillage (degrade, epaisseur, pastilles) a partir des points reels
+  // du jour renvoyes par tides_range.
+  //
+  // Deux reperes distincts, volontairement :
+  //   - un trait fin pointille fige a l'heure courante (aujourd'hui seul),
+  //     qui ne bouge jamais et reste la reference "maintenant"
+  //   - un curseur plein deplacable au doigt ou a la souris, qui affiche
+  //     l'heure pointee et la hauteur d'eau a cette heure
+  // Faire bouger le repere "maintenant" lui-meme serait un mensonge : une
+  // fois deplace il ne designe plus maintenant. D'ou le dedoublement.
   function vzspCurve(points, extremes, isToday) {
-    var W = 320, H = 130, TOP = 18, BOT = 104;
+    var W = 320, TOP = 18, BOT = 104;
     if (!points || points.length < 2) return '';
-    var hs = points.map(function (p) { return p.height; });
+
+    var pts = points.map(function (p) {
+      var d = new Date(p.time);
+      return { m: d.getHours() * 60 + d.getMinutes(), h: p.height };
+    }).sort(function (a, b) { return a.m - b.m; });
+
+    var hs = pts.map(function (p) { return p.h; });
     var hMin = Math.min.apply(null, hs), hMax = Math.max.apply(null, hs);
     var span = (hMax - hMin) || 1;
-    function px(iso) {
-      var d = new Date(iso);
-      return ((d.getHours() * 60 + d.getMinutes()) / 1440) * W;
-    }
+
+    // Geometrie conservee dans VZSP : le curseur la relit a chaque
+    // deplacement sans regenerer le SVG.
+    VZSP.curve = { pts: pts, hMin: hMin, span: span, W: W, TOP: TOP, BOT: BOT };
+
+    function px(m) { return (m / 1440) * W; }
     function py(h) { return BOT - ((h - hMin) / span) * (BOT - TOP); }
 
     var d = '';
-    points.forEach(function (p, i) {
-      d += (i === 0 ? 'M' : ' L') + px(p.time).toFixed(1) + ' ' + py(p.height).toFixed(1);
+    pts.forEach(function (p, i) {
+      d += (i === 0 ? 'M' : ' L') + px(p.m).toFixed(1) + ' ' + py(p.h).toFixed(1);
     });
 
     var dots = (extremes || []).map(function (e) {
+      var dt = new Date(e.time);
       var c = (e.type === 'high') ? '#1A6B5D' : '#E89B3C';
-      return '<circle cx="' + px(e.time).toFixed(1) + '" cy="' + py(e.height).toFixed(1) + '" r="4" fill="' + c + '"></circle>';
+      return '<circle cx="' + px(dt.getHours() * 60 + dt.getMinutes()).toFixed(1)
+        + '" cy="' + py(e.height).toFixed(1) + '" r="4" fill="' + c + '"></circle>';
     }).join('');
 
-    var nowMark = '';
+    // Repere fige "maintenant", non interactif
+    var nowTick = '';
+    var startM = 12 * 60;
     if (isToday) {
       var n = new Date();
-      var xn = ((n.getHours() * 60 + n.getMinutes()) / 1440) * W;
-      var closest = points[0], best = Infinity;
-      points.forEach(function (p) {
-        var dd = Math.abs(px(p.time) - xn);
-        if (dd < best) { best = dd; closest = p; }
-      });
-      var yn = py(closest.height);
-      var bx = Math.max(2, Math.min(W - 98, xn - 48));
-      nowMark = '<line x1="' + xn.toFixed(1) + '" y1="4" x2="' + xn.toFixed(1) + '" y2="126" stroke="#0A1520" stroke-width="2.4"></line>'
-        + '<circle cx="' + xn.toFixed(1) + '" cy="' + yn.toFixed(1) + '" r="6" fill="#0A1520" stroke="#fff" stroke-width="2.4"></circle>'
-        + '<rect x="' + bx.toFixed(1) + '" y="2" width="96" height="19" rx="5" fill="#0A1520"></rect>'
-        + '<text x="' + (bx + 48).toFixed(1) + '" y="15.5" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" font-weight="700" fill="#4DD4A8" letter-spacing="1">MAINTENANT</text>';
+      startM = n.getHours() * 60 + n.getMinutes();
+      nowTick = '<line x1="' + px(startM).toFixed(1) + '" y1="6" x2="' + px(startM).toFixed(1)
+        + '" y2="124" stroke="#9DB0BF" stroke-width="1.6" stroke-dasharray="3 3"></line>';
     }
 
+    var y0 = vzspCurveH(startM);
+    VZSP.curve.startM = startM;
     return '<div class="vzsp-curve">'
-      + '<svg viewBox="0 0 320 130" preserveAspectRatio="none" style="height:130px">'
-      +   '<defs><linearGradient id="vzspTGrad" x1="0" y1="0" x2="0" y2="1">'
-      +     '<stop offset="0%" stop-color="#4DD4A8" stop-opacity="0.34"></stop>'
-      +     '<stop offset="100%" stop-color="#4DD4A8" stop-opacity="0"></stop>'
-      +   '</linearGradient></defs>'
-      +   '<g stroke="#EDF1F4" stroke-width="1"><line x1="0" y1="30" x2="320" y2="30"></line><line x1="0" y1="65" x2="320" y2="65"></line><line x1="0" y1="100" x2="320" y2="100"></line></g>'
-      +   '<path d="' + d + ' L320 130 L0 130 Z" fill="url(#vzspTGrad)"></path>'
-      +   '<path d="' + d + '" fill="none" stroke="#1A6B5D" stroke-width="3" stroke-linecap="round"></path>'
-      +   dots + nowMark
-      + '</svg>'
+      + '<div class="vzsp-cwrap" id="vzspCwrap">'
+      +   '<svg viewBox="0 0 320 130" preserveAspectRatio="none" style="height:130px">'
+      +     '<defs><linearGradient id="vzspTGrad" x1="0" y1="0" x2="0" y2="1">'
+      +       '<stop offset="0%" stop-color="#4DD4A8" stop-opacity="0.34"></stop>'
+      +       '<stop offset="100%" stop-color="#4DD4A8" stop-opacity="0"></stop>'
+      +     '</linearGradient></defs>'
+      +     '<g stroke="#EDF1F4" stroke-width="1"><line x1="0" y1="30" x2="320" y2="30"></line><line x1="0" y1="65" x2="320" y2="65"></line><line x1="0" y1="100" x2="320" y2="100"></line></g>'
+      +     '<path d="' + d + ' L320 130 L0 130 Z" fill="url(#vzspTGrad)"></path>'
+      +     '<path d="' + d + '" fill="none" stroke="#1A6B5D" stroke-width="3" stroke-linecap="round"></path>'
+      +     dots + nowTick
+      +     '<line id="vzspCurLine" x1="' + px(startM).toFixed(1) + '" y1="4" x2="' + px(startM).toFixed(1) + '" y2="126" stroke="#0A1520" stroke-width="2.4"></line>'
+      +     '<circle id="vzspCurDot" cx="' + px(startM).toFixed(1) + '" cy="' + py(y0).toFixed(1) + '" r="6" fill="#0A1520" stroke="#fff" stroke-width="2.4"></circle>'
+      +   '</svg>'
+      +   '<div class="vzsp-cbadge vzsp-mono" id="vzspCurBadge">' + vzspCurveTxt(startM) + '</div>'
+      + '</div>'
       + '<div class="vzsp-axis"><span>0h</span><span>6h</span><span>12h</span><span>18h</span><span>24h</span></div>'
       + '</div>';
+  }
+
+  // Hauteur d'eau interpolee lineairement entre les deux points encadrants.
+  function vzspCurveH(mins) {
+    var c = VZSP.curve;
+    if (!c || !c.pts.length) return 0;
+    var p = c.pts;
+    if (mins <= p[0].m) return p[0].h;
+    if (mins >= p[p.length - 1].m) return p[p.length - 1].h;
+    for (var i = 1; i < p.length; i++) {
+      if (p[i].m >= mins) {
+        var a = p[i - 1], b = p[i];
+        var t = (mins - a.m) / ((b.m - a.m) || 1);
+        return a.h + (b.h - a.h) * t;
+      }
+    }
+    return p[p.length - 1].h;
+  }
+
+  function vzspCurveTxt(mins) {
+    var h = vzspCurveH(mins);
+    return vzspPad(Math.floor(mins / 60)) + ':' + vzspPad(mins % 60)
+      + ' \u00B7 ' + vzspNum((Math.round(h * 10) / 10).toFixed(1)) + ' m';
+  }
+
+  // Deplace le curseur a la minute demandee. Le badge est un element HTML
+  // hors du SVG : le viewBox est en preserveAspectRatio="none", du texte
+  // place dedans serait etire horizontalement.
+  function vzspCurveMove(mins) {
+    var c = VZSP.curve;
+    if (!c) return;
+    mins = Math.max(0, Math.min(1439, Math.round(mins)));
+    var wrap = document.getElementById('vzspCwrap');
+    var line = document.getElementById('vzspCurLine');
+    var dot = document.getElementById('vzspCurDot');
+    var badge = document.getElementById('vzspCurBadge');
+    if (!wrap || !line || !dot || !badge) return;
+    var x = (mins / 1440) * c.W;
+    var y = c.BOT - ((vzspCurveH(mins) - c.hMin) / c.span) * (c.BOT - c.TOP);
+    line.setAttribute('x1', x.toFixed(1));
+    line.setAttribute('x2', x.toFixed(1));
+    dot.setAttribute('cx', x.toFixed(1));
+    dot.setAttribute('cy', y.toFixed(1));
+    badge.textContent = vzspCurveTxt(mins);
+    var wpx = wrap.clientWidth || 0;
+    var bw = badge.offsetWidth || 0;
+    var lpx = (mins / 1440) * wpx;
+    if (wpx && bw) lpx = Math.max(bw / 2 + 2, Math.min(wpx - bw / 2 - 2, lpx));
+    badge.style.left = lpx.toFixed(1) + 'px';
+  }
+
+  // Souris et tactile via Pointer Events. touch-action:none sur le wrap
+  // empeche le geste de faire defiler le panneau pendant le glissement.
+  function vzspWireCurve() {
+    var wrap = document.getElementById('vzspCwrap');
+    if (!wrap || !VZSP.curve) return;
+    var dragging = false;
+    function minsFromEvent(ev) {
+      var r = wrap.getBoundingClientRect();
+      if (!r.width) return 0;
+      return ((ev.clientX - r.left) / r.width) * 1440;
+    }
+    function down(ev) {
+      dragging = true;
+      wrap.classList.add('vzsp-dragging');
+      if (wrap.setPointerCapture && ev.pointerId != null) {
+        try { wrap.setPointerCapture(ev.pointerId); } catch (e) {}
+      }
+      vzspCurveMove(minsFromEvent(ev));
+      ev.preventDefault();
+    }
+    function move(ev) {
+      if (!dragging) return;
+      vzspCurveMove(minsFromEvent(ev));
+      ev.preventDefault();
+    }
+    function up(ev) {
+      if (!dragging) return;
+      dragging = false;
+      wrap.classList.remove('vzsp-dragging');
+      if (wrap.releasePointerCapture && ev && ev.pointerId != null) {
+        try { wrap.releasePointerCapture(ev.pointerId); } catch (e) {}
+      }
+    }
+    wrap.addEventListener('pointerdown', down);
+    wrap.addEventListener('pointermove', move);
+    wrap.addEventListener('pointerup', up);
+    wrap.addEventListener('pointercancel', up);
+    wrap.addEventListener('pointerleave', up);
+    // Recalage du badge une fois la largeur reelle connue
+    vzspCurveMove(VZSP.curve.startM != null ? VZSP.curve.startM : 720);
   }
 
   // ---------- rendu : onglet Maree ----------
@@ -17231,6 +17343,7 @@ function vzmInit() {
     pane.innerHTML = html;
     vzspRelease();
     vzspWireTideNav();
+    vzspWireCurve();
     vzspLoadSun();
   }
 
