@@ -1662,9 +1662,13 @@ window.vzSectorDetails = function() {
 /* ============================================================
    RESOLUTION DE LA VISIBILITE D'UN POINT - point d'entree unique
    ------------------------------------------------------------
-   Doctrine Visimer : la mesure la plus recente gagne. Satellite
-   CMEMS (<= 72 h) et retour de chasseur (5 km, <= 72 h) sont mis
-   en concurrence sur leur AGE, pas sur leur rang.
+   Doctrine Visimer, alignee sur vzRenderCondVerdict (drawer
+   Previsions) : la mesure satellite CMEMS (<= 72 h) FAIT FOI. Un
+   retour de chasseur ne la remplace jamais, il n'est servi que
+   lorsqu'aucune mesure satellite n'est exploitable. Regle imposee
+   par la coherence entre surfaces : un chiffre sous la croix qui
+   contredit le chiffre du drawer sur le meme point ne se lit pas
+   comme deux sources, il se lit comme une app qui deconne.
    Fonctions PURES : aucune ecriture DOM, aucune ecriture d'etat
    partage (ni S.clickLatLng, ni S._spotDepth, ni
    S_spotSatelliteCache - fetchCmemsZSD n'alimente que son propre
@@ -1710,36 +1714,36 @@ function vzPointTerrainAt(lat, lon) {
 // l'appelant reste libre de remplacer si le satellite aboutit ensuite.
 function vzPointVisiAt(lat, lon, opts) {
   opts = opts || {};
+  // ensurePortCounts_ alimente vzNearestFeedback, donc il n'est requis que
+  // pour le REPLI terrain. Lance en parallele, il ne rallonge plus le
+  // chemin critique : seul fetchCmemsZSD y reste.
+  var portsP = (typeof ensurePortCounts_ === 'function')
+    ? ensurePortCounts_().catch(function(){ return null; })
+    : Promise.resolve(null);
+
   function terrainRes() {
-    var t = vzPointTerrainAt(lat, lon);
-    return t
-      ? { kind: 'fb', visi: t.visi, ageH: t.age_hours, pseudo: t.pseudo, dateTxt: '' }
-      : { kind: 'none', visi: null, ageH: null, pseudo: null, dateTxt: '' };
+    return portsP.then(function(){
+      var t = vzPointTerrainAt(lat, lon);
+      return t
+        ? { kind: 'fb', visi: t.visi, ageH: t.age_hours, pseudo: t.pseudo, dateTxt: '' }
+        : { kind: 'none', visi: null, ageH: null, pseudo: null, dateTxt: '' };
+    });
   }
-  if (typeof fetchCmemsZSD !== 'function') return Promise.resolve(terrainRes());
+  if (typeof fetchCmemsZSD !== 'function') return terrainRes();
 
   var satDone = false;
   if (typeof opts.onPatience === 'function') {
     setTimeout(function() {
-      if (!satDone) opts.onPatience(terrainRes());
+      if (!satDone) terrainRes().then(opts.onPatience);
     }, opts.patienceMs || 12000);
   }
 
-  return ensurePortCounts_().then(function() {
-    return fetchCmemsZSD(lat, lon);
-  }).then(function(sat) {
+  return fetchCmemsZSD(lat, lon).then(function(sat) {
     satDone = true;
     var okSat = sat && typeof sat.visi_plongeur_m === 'number' && isFinite(sat.visi_plongeur_m) && sat.visi_plongeur_m > 0
       && (typeof sat.age_hours !== 'number' || sat.age_hours <= 72)
       && (!sat.status || sat.status === 'ok' || sat.status === 'cloudy_J1' || sat.status === 'cloudy_J2');
-    var satAge = (okSat && typeof sat.age_hours === 'number') ? sat.age_hours : null;
 
-    var terrain = vzPointTerrainAt(lat, lon);
-    var chasseurGagne = terrain && (satAge == null || (terrain.age_hours != null && terrain.age_hours < satAge));
-
-    if (chasseurGagne) {
-      return { kind: 'fb', visi: terrain.visi, ageH: terrain.age_hours, pseudo: terrain.pseudo, dateTxt: '' };
-    }
     if (okSat) {
       var dateTxt = '';
       if (sat.date_observed) {
@@ -1748,9 +1752,10 @@ function vzPointVisiAt(lat, lon, opts) {
           dateTxt = ('0' + dSat.getUTCDate()).slice(-2) + '/' + ('0' + (dSat.getUTCMonth() + 1)).slice(-2);
         }
       }
+      var satAge = (typeof sat.age_hours === 'number') ? sat.age_hours : null;
       return { kind: 'sat', visi: sat.visi_plongeur_m, ageH: satAge, pseudo: null, dateTxt: dateTxt };
     }
-    return terrainRes();
+    return terrainRes();          // secours seulement : pas de satellite exploitable
   }).catch(function() {
     satDone = true;
     return terrainRes();
@@ -3818,7 +3823,10 @@ function openSpotPopup(latlng, name) {
   // ----- Reset cache de la chaîne physique (hygiène) -----
   if (typeof invalidateChainCache === 'function') {
     invalidateChainCache();
-  invalidateCmemsCache();
+  // invalidateCmemsCache() retire ici : la mesure satellite d'une maille ne
+  // change pas parce que l'utilisateur ouvre un autre spot, et le cache a
+  // deja son propre TTL de 6 h. Le purger a chaque analyse remettait la
+  // cascade GAS a zero et rendait toute mutualisation impossible.
   S_spotSatelliteCache = null;
   S_spotFeedbackCache = null;
   }
@@ -4176,20 +4184,61 @@ function fetchSpotWeather(lat, lon) {
 // Comportement : retourne une Promise qui résout vers l'objet
 // satellite ou null si erreur. Ne throw jamais (silent fail).
 // ============================================================
+// Cache satellite indexe sur la maille REELLE du produit CMEMS
+// multi-capteurs (1 km), pas sur la position exacte : toFixed(4) valait
+// onze metres, donc deux surfaces qui interrogent le meme point ne se
+// partageaient jamais rien et repayaient chacune la cascade GAS (jusqu'a
+// 11 requetes CMEMS sur un point nuageux). toFixed(2) ~ 1,1 km en
+// latitude : deux points de la meme maille tombent physiquement dans le
+// meme pixel satellite, les calculer separement n'a aucun sens.
+// Persistance localStorage : au retour sur une zone deja vue, meme apres
+// fermeture de l'app, la valeur s'affiche sans reseau.
 var _cmemsCache = {};
+var VZ_CMEMS_LS_KEY = 'vz_cmems_v1';
+var VZ_CMEMS_TTL = 6 * 3600 * 1000;
+var VZ_CMEMS_MAX = 400;              // garde-fou quota localStorage (~400 Ko)
+
+(function vzCmemsCacheLoad(){
+  try {
+    var raw = localStorage.getItem(VZ_CMEMS_LS_KEY);
+    if (!raw) return;
+    var obj = JSON.parse(raw), now = Date.now();
+    for (var k in obj) {
+      if (obj[k] && obj[k].timestamp && (now - obj[k].timestamp) < VZ_CMEMS_TTL) _cmemsCache[k] = obj[k];
+    }
+  } catch(e) {}                      // storage indisponible : cache memoire seul
+})();
+
+var _cmemsSaveTimer = 0;
+function vzCmemsCacheSave(){
+  clearTimeout(_cmemsSaveTimer);
+  _cmemsSaveTimer = setTimeout(function(){
+    try {
+      var keys = Object.keys(_cmemsCache);
+      if (keys.length > VZ_CMEMS_MAX) {
+        keys.sort(function(a, b){ return _cmemsCache[b].timestamp - _cmemsCache[a].timestamp; });
+        var trimmed = {};
+        keys.slice(0, VZ_CMEMS_MAX).forEach(function(k){ trimmed[k] = _cmemsCache[k]; });
+        _cmemsCache = trimmed;
+      }
+      localStorage.setItem(VZ_CMEMS_LS_KEY, JSON.stringify(_cmemsCache));
+    } catch(e) {}                    // quota plein ou navigation privee : sans consequence
+  }, 400);
+}
 
 function invalidateCmemsCache() {
   _cmemsCache = {};
+  try { localStorage.removeItem(VZ_CMEMS_LS_KEY); } catch(e) {}
 }
 
 function fetchCmemsZSD(lat, lon) {
   var dayStr = new Date().toISOString().slice(0, 10);
-  var cacheKey = lat.toFixed(4) + '|' + lon.toFixed(4) + '|' + dayStr;
+  var cacheKey = lat.toFixed(2) + '|' + lon.toFixed(2) + '|' + dayStr;
 
   if (_cmemsCache[cacheKey]) {
     var entry = _cmemsCache[cacheKey];
     var ageMs = Date.now() - entry.timestamp;
-    if (ageMs < 6 * 3600 * 1000) {
+    if (ageMs < VZ_CMEMS_TTL) {
       return Promise.resolve(entry.data);
     }
   }
@@ -4209,6 +4258,7 @@ function fetchCmemsZSD(lat, lon) {
         timestamp: Date.now(),
         data: data
       };
+      vzCmemsCacheSave();
       return data;
     })
     .catch(function(err) {
@@ -5344,8 +5394,11 @@ function vzmInitPointBadge(){
   if (!(S && S.map)) return;
 
   var VZM_VISI_MIN_ZOOM = 9;          // sous ce zoom, une maille CMEMS ne veut plus rien dire
-  var VZM_VISI_DEBOUNCE = 700;        // ignore les recadrages successifs
-  var VZM_VISI_TTL = 30 * 60 * 1000;  // fraicheur du cache badge
+  var VZM_VISI_DEBOUNCE = 300;        // ignore les recadrages successifs sans peser sur le budget 1 s
+  // Le badge ne garde plus de cache propre : fetchCmemsZSD persiste deja par
+  // maille 1 km en localStorage, donc un second passage est servi sans
+  // reseau et sans duplication d'etat.
+  var VZM_VISI_TTL = 30 * 60 * 1000;  // fraicheur du cache d'affichage
 
   var st = document.createElement('style');
   st.id = 'vzmVisiBadgeStyle';
@@ -5424,22 +5477,19 @@ function vzmInitPointBadge(){
 
     hide();                                  // pas de valeur pour ce point : rien, pas de spinner
     var tok = ++reqTok;
-    // Les retours de chasseurs vivent dans S_obsCache (TTL 5 min cote
-    // vzEnsureObservations) : sans cette garantie, vzPointTerrainAt ne
-    // verrait que les feedbacks anonymes au premier calcul de la session.
-    var pre = (typeof vzEnsureObservations === 'function')
-      ? vzEnsureObservations().catch(function(){ return null; })
-      : Promise.resolve(null);
-    pre.then(function(){
-      return vzPointVisiAt(c.lat, c.lng, {
-        // Le satellite peut mettre 12 s : si un retour de chasseur existe
-        // deja, il s'affiche sans attendre et sera remplace si la mesure
-        // satellite arrive et se revele plus fraiche.
-        onPatience: function(prov){
-          if (tok !== reqTok || !eligible()) return;
-          show(prov);
-        }
-      });
+    // Les retours de chasseurs (S_obsCache) ne servent qu'au repli quand le
+    // satellite manque : on les charge en parallele, jamais en amont. Les
+    // mettre en serie ajoutait un aller-retour GAS au chemin critique pour
+    // une donnee dont on n'a le plus souvent pas besoin.
+    if (typeof vzEnsureObservations === 'function') vzEnsureObservations().catch(function(){ return null; });
+    vzPointVisiAt(c.lat, c.lng, {
+      // Le satellite peut mettre 12 s : passe ce delai, un retour de
+      // chasseur disponible s'affiche en attendant, et cede la place des
+      // que la mesure satellite arrive (elle fait foi).
+      onPatience: function(prov){
+        if (tok !== reqTok || !eligible()) return;
+        show(prov);
+      }
     }).then(function(res){
       resCache[key] = { res: res, at: Date.now() };
       if (tok !== reqTok) return;            // la croix a bouge entre-temps
