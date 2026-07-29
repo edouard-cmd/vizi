@@ -2202,48 +2202,130 @@ function vzWindFrameLabel_(iso) {
   return jourDate + ', ' + d.getHours() + 'h';
 }
 
+/* ============================================================
+   CHARTE "INSTRUMENT DE PONT" - tokens partages
+   Extraits du menu Couches (index.html, .vz-layers-popover) : surface blanche
+   opaque, filet noir epais, AUCUN backdrop-filter, cibles tactiles 44-48px.
+   C'est le seul langage lisible en plein soleil sur un bateau. Tout nouveau
+   panneau de terrain (curseur vent, legende, badge sous reticule, panneau
+   port) doit s'y conformer. Injecte une seule fois, sur :root.
+   ============================================================ */
+function vzInstrEnsureTokens_() {
+  if (document.getElementById('vzInstrTokens')) return;
+  var st = document.createElement('style');
+  st.id = 'vzInstrTokens';
+  st.textContent =
+    ":root{"
+  +   "--vzi-bg:#FFFFFF;"           /* surface opaque */
+  +   "--vzi-block:#EDF1F4;"        /* bloc interne */
+  +   "--vzi-line:#0A1520;"         /* filet structurant 2px */
+  +   "--vzi-ink:#0A1520;"          /* texte primaire */
+  +   "--vzi-sub:#33475A;"          /* texte secondaire */
+  +   "--vzi-hair:#C3D0DA;"         /* filet secondaire 1.5px */
+  +   "--vzi-accent:#4DD4A8;"
+  +   "--vzi-accent-deep:#1A6B5D;"
+  +   "--vzi-accent-soft:#DCEFE7;"
+  +   "--vzi-radius:16px;"
+  +   "--vzi-radius-in:12px;"
+  +   "--vzi-tap:44px;"
+  + "}";
+  (document.head || document.documentElement).appendChild(st);
+}
+
+// Genere la barre de degrade de la legende DEPUIS VZ_WIND_COLOR_STOPS au lieu
+// de la recopier a la main. Garantit qu'une refonte future de la palette ne
+// pourra plus faire mentir la legende. La barre couvre la plage physique
+// VZ_WIND_LEGEND_MAX_KMH, donc les reperes en noeuds restent vrais.
+function vzWindGradientCss_() {
+  var s = VZ_WIND_COLOR_STOPS;
+  var maxMs = VZ_WIND_LEGEND_MAX_KMH / 3.6;
+  var parts = [];
+  for (var i = 0; i < s.length; i++) {
+    var pct = Math.min(100, s[i].v / maxMs * 100);
+    parts.push('rgb(' + s[i].c[0] + ',' + s[i].c[1] + ',' + s[i].c[2] + ') ' + pct.toFixed(1) + '%');
+    if (pct >= 100) break;
+  }
+  return 'linear-gradient(to right,' + parts.join(',') + ')';
+}
+
+// Avance/recule d'une echeance. Passe par vzWindOnSlider_ (et donc par
+// vzWindStop_) pour ne pas dupliquer le chemin de mise a jour.
+function vzWindStep_(d) {
+  if (!S.windFrames || !S.windFrames.length) return;
+  vzWindOnSlider_(Math.max(0, Math.min(S.windPos + d, S.windFrames.length - 1)));
+}
+
 // Cree (une fois) le panneau curseur et le renvoie.
 function vzWindEnsureCtrl_() {
   var pan = document.getElementById('vzWindCtrl');
   if (pan) return pan;
+  vzInstrEnsureTokens_();
   if (!document.getElementById('vzWindCtrlStyle')) {
     var st = document.createElement('style');
     st.id = 'vzWindCtrlStyle';
     st.textContent =
-      "#vzWindCtrl{position:fixed;bottom:96px;left:50%;transform:translateX(-50%);z-index:1200;display:none;align-items:center;gap:12px;padding:9px 14px;max-width:calc(100vw - 28px);background:rgba(10,21,32,0.88);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(77,212,168,0.4);border-radius:14px;box-shadow:0 8px 28px rgba(4,16,28,0.45);font-family:'Inter',sans-serif;}"
+    // Langage instrument : blanc opaque, filet noir 2px, pas de blur.
+      "#vzWindCtrl{position:fixed;bottom:96px;left:50%;transform:translateX(-50%);z-index:1200;display:none;align-items:center;column-gap:8px;row-gap:2px;padding:8px 10px;max-width:calc(100vw - 28px);box-sizing:border-box;background:var(--vzi-bg);border:2px solid var(--vzi-line);border-radius:var(--vzi-radius);box-shadow:0 12px 34px rgba(8,17,27,0.4);font-family:'Inter',sans-serif;}"
     + "#vzWindCtrl.on{display:flex;}"
-    + "#vzWindPlay{flex:0 0 auto;width:34px;height:34px;border:0;border-radius:9px;background:#4DD4A8;cursor:pointer;display:flex;align-items:center;justify-content:center;}"
-    + "#vzWindPlay.playing{background:#E89B3C;}"
-    + "#vzWindPlay svg{width:16px;height:16px;fill:#072018;}"
-    + "#vzWindSliderWrap{position:relative;flex:1 1 130px;min-width:80px;display:flex;align-items:center;}"
-    + "#vzWindSlider{width:100%;accent-color:#4DD4A8;margin:0;}"
-    + "#vzWindTickNow,#vzWindTick48{position:absolute;top:-2px;width:2px;height:calc(100% + 4px);pointer-events:none;}"
-    + "#vzWindTickNow{background:#E8F0F4;}"
-    + "#vzWindTick48{background:rgba(232,155,60,0.85);}"
-    + "#vzWindLabel{flex:0 0 auto;white-space:nowrap;text-align:center;color:#E8F0F4;font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;}"
-    + "#vzWindNow{flex:0 0 auto;border:1px solid rgba(77,212,168,0.4);background:transparent;color:#4DD4A8;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;padding:6px 10px;border-radius:8px;cursor:pointer;}"
-    // Mobile : pleine largeur, remonte AU-DESSUS du FAB sonar (bas droite,
-    // sommet ~96px) pour ne pas le percuter. Centrage desktop annule.
+    // Boutons : carre 44px, meme grammaire que .vz-layers-ico du menu Couches
+    // (blanc, filet gris, encre noire). Le play reste rempli teal : action
+    // primaire. Chevrons en trace, play/pause en aplat.
+    + ".vzw-btn{flex:0 0 auto;width:var(--vzi-tap);height:var(--vzi-tap);padding:0;box-sizing:border-box;border:1.5px solid var(--vzi-hair);border-radius:10px;background:var(--vzi-bg);cursor:pointer;display:flex;align-items:center;justify-content:center;}"
+    + ".vzw-btn svg{width:20px;height:20px;fill:none;stroke:var(--vzi-ink);stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;}"
+    + ".vzw-btn:active{background:var(--vzi-accent-soft);}"
+    + "#vzWindPlay{background:var(--vzi-accent);border-color:var(--vzi-accent-deep);}"
+    + "#vzWindPlay.playing{background:#E89B3C;border-color:#8C4A10;}"
+    + "#vzWindPlay svg{fill:var(--vzi-ink);stroke:none;}"
+    // Slider : l'input fait 44px de haut (vraie zone de touche), la piste n'en
+    // occupe que 8px visuellement. Pouce de 30px borde noir : prehensible avec
+    // les doigts mouilles, contrairement au thumb natif de 13px.
+    + "#vzWindSliderWrap{position:relative;flex:1 1 170px;min-width:120px;display:flex;align-items:center;height:var(--vzi-tap);}"
+    + "#vzWindSlider{-webkit-appearance:none;appearance:none;width:100%;height:var(--vzi-tap);margin:0;background:transparent;outline:none;cursor:pointer;}"
+    + "#vzWindSlider:focus{outline:none;}"
+    + "#vzWindSlider::-webkit-slider-runnable-track{height:8px;border-radius:5px;background:#DCE4EA;border:1px solid rgba(10,21,32,0.18);}"
+    + "#vzWindSlider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:30px;height:30px;margin-top:-12px;border-radius:50%;background:var(--vzi-accent);border:2.5px solid var(--vzi-line);box-shadow:0 1px 4px rgba(8,17,27,0.35);cursor:pointer;}"
+    + "#vzWindSlider::-moz-range-track{height:8px;border-radius:5px;background:#DCE4EA;border:1px solid rgba(10,21,32,0.18);}"
+    + "#vzWindSlider::-moz-range-thumb{width:30px;height:30px;border:2.5px solid var(--vzi-line);border-radius:50%;background:var(--vzi-accent);cursor:pointer;}"
+    // Reperes : sur fond blanc, l'ancien blanc #E8F0F4 devenait invisible.
+    + "#vzWindTickNow,#vzWindTick48{position:absolute;top:50%;transform:translateY(-50%);width:3px;height:20px;border-radius:2px;pointer-events:none;}"
+    + "#vzWindTickNow{background:var(--vzi-ink);}"
+    + "#vzWindTick48{background:#E89B3C;box-shadow:0 0 0 1px rgba(10,21,32,0.4);}"
+    + "#vzWindLabel{flex:0 0 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;color:var(--vzi-ink);font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;}"
+    + "#vzWindNow{flex:0 0 auto;min-height:var(--vzi-tap);box-sizing:border-box;border:2px solid var(--vzi-line);background:var(--vzi-bg);color:var(--vzi-ink);font-family:'Inter',sans-serif;font-size:14px;font-weight:700;padding:0 14px;border-radius:10px;cursor:pointer;}"
+    + "#vzWindNow:active{background:var(--vzi-accent);}"
+    // Mobile : bandeau pleine largeur colle en bas. Le slider prend toute la
+    // largeur de l'ecran (precision de glisse maximale) sur sa propre ligne,
+    // les commandes dessous. Le bandeau fait ~94px : on repousse donc le FAB
+    // sonar, son menu, le curseur pluie et l'attribution Leaflet (obligatoire
+    // pour SHOM/IGN/EMODnet) tant que la couche vent est active.
     + "@media (max-width:768px){"
-    +   "#vzWindCtrl{left:10px;right:10px;bottom:112px;transform:none;flex-wrap:wrap;row-gap:9px;column-gap:9px;padding:9px 12px;}"
-    +   "#vzWindPlay{order:0;}"
-    +   "#vzWindLabel{order:1;flex:1 1 auto;font-size:12px;}"
-    +   "#vzWindNow{order:2;padding:6px 9px;font-size:11px;}"
-    +   "#vzWindSliderWrap{order:3;flex:1 1 100%;min-width:0;}"   /* slider seul sur la 2e ligne */
+    +   "#vzWindCtrl{left:0;right:0;bottom:0;transform:none;max-width:none;flex-wrap:wrap;padding:4px 12px calc(8px + env(safe-area-inset-bottom));border-width:2px 0 0 0;border-radius:0;box-shadow:0 -8px 28px rgba(8,17,27,0.35);}"
+    +   "#vzWindSliderWrap{order:0;flex:1 1 100%;height:36px;}"
+    +   "#vzWindPrev{order:1;}#vzWindPlay{order:2;}#vzWindNext{order:3;}"
+    +   "#vzWindLabel{order:4;flex:1 1 auto;min-width:0;font-size:13px;padding:0 4px;}"
+    +   "#vzWindNow{order:5;font-size:13px;padding:0 11px;}"
+    +   "body:has(#vzWindCtrl.on) .vzm-sonar-fab{bottom:calc(112px + env(safe-area-inset-bottom));}"
+    +   "body:has(#vzWindCtrl.on) .vzm-sonar-menu{bottom:calc(188px + env(safe-area-inset-bottom));}"
+    +   "body:has(#vzWindCtrl.on) #vzRainCtrl{bottom:calc(104px + env(safe-area-inset-bottom));}"
+    +   "body:has(#vzWindCtrl.on) .leaflet-control-attribution{margin-bottom:calc(98px + env(safe-area-inset-bottom));}"
     + "}";
     (document.head || document.documentElement).appendChild(st);
   }
   pan = document.createElement('div');
   pan.id = 'vzWindCtrl';
   pan.innerHTML =
-    '<button id="vzWindPlay" title="Lecture"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg></button>'
-  + '<span id="vzWindSliderWrap"><input type="range" id="vzWindSlider" min="0" max="0" value="0" step="1">'
+    '<button id="vzWindPrev" class="vzw-btn" type="button" title="Echeance precedente" aria-label="Echeance precedente"><svg viewBox="0 0 24 24"><polyline points="15 5 8 12 15 19"></polyline></svg></button>'
+  + '<button id="vzWindPlay" class="vzw-btn" type="button" title="Lecture" aria-label="Lecture"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg></button>'
+  + '<button id="vzWindNext" class="vzw-btn" type="button" title="Echeance suivante" aria-label="Echeance suivante"><svg viewBox="0 0 24 24"><polyline points="9 5 16 12 9 19"></polyline></svg></button>'
+  + '<span id="vzWindSliderWrap"><input type="range" id="vzWindSlider" min="0" max="0" value="0" step="1" aria-label="Echeance">'
   + '<span id="vzWindTick48"></span><span id="vzWindTickNow"></span></span>'
   + '<span id="vzWindLabel">--</span>'
-  + '<button id="vzWindNow" title="Revenir a maintenant">Maintenant</button>';
+  + '<button id="vzWindNow" type="button" title="Revenir a maintenant">Maintenant</button>';
   document.body.appendChild(pan);
   document.getElementById('vzWindSlider').addEventListener('input', function(){ vzWindOnSlider_(+this.value); });
   document.getElementById('vzWindPlay').addEventListener('click', vzWindPlayStop_);
+  document.getElementById('vzWindPrev').addEventListener('click', function(){ vzWindStep_(-1); });
+  document.getElementById('vzWindNext').addEventListener('click', function(){ vzWindStep_(1); });
   document.getElementById('vzWindNow').addEventListener('click', vzWindGoNow_);
   return pan;
 }
@@ -2254,28 +2336,34 @@ function vzWindEnsureCtrl_() {
 function vzWindEnsureLegend_() {
   var leg = document.getElementById('vzWindLegend');
   if (leg) return leg;
+  vzInstrEnsureTokens_();
   if (!document.getElementById('vzWindLegendStyle')) {
     var st = document.createElement('style');
     st.id = 'vzWindLegendStyle';
     st.textContent =
-      "#vzWindLegend{position:fixed;top:66px;left:50%;transform:translateX(-50%);z-index:1150;display:none;align-items:center;gap:10px;padding:6px 12px;background:rgba(10,21,32,0.88);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(77,212,168,0.4);border-radius:11px;box-shadow:0 6px 20px rgba(4,16,28,0.4);font-family:'Inter',sans-serif;pointer-events:none;}"
+      "#vzWindLegend{position:fixed;top:66px;left:50%;transform:translateX(-50%);z-index:1150;display:none;align-items:center;gap:10px;padding:7px 11px;box-sizing:border-box;background:var(--vzi-bg);border:2px solid var(--vzi-line);border-radius:14px;box-shadow:0 10px 28px rgba(8,17,27,0.35);font-family:'Inter',sans-serif;pointer-events:none;}"
     + "#vzWindLegend.on{display:flex;}"
-    + ".vzwl-cap{color:#4DD4A8;font-size:10px;font-weight:700;letter-spacing:1.5px;}"
-    + ".vzwl-scale{display:flex;flex-direction:column;gap:3px;width:148px;}"
-    + ".vzwl-bar{height:7px;border-radius:4px;background:linear-gradient(to right,#0A3D33 0%,#1A6B5D 14%,#4DD4A8 27%,#D8C84A 39%,#E89B3C 56%,#C94A3D 75%,#8C2620 100%);}"
-    + ".vzwl-ticks{position:relative;height:10px;color:#8FA6B8;font-family:'IBM Plex Mono',monospace;font-size:9px;line-height:1;}"
+    + ".vzwl-cap{color:var(--vzi-ink);font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;}"
+    + ".vzwl-scale{display:flex;flex-direction:column;gap:4px;width:168px;}"
+    // Barre generee depuis VZ_WIND_COLOR_STOPS : plus de degrade recopie a la
+    // main, donc plus de risque de legende qui mente apres une refonte de palette.
+    + ".vzwl-bar{height:12px;border-radius:6px;border:1px solid rgba(10,21,32,0.3);background:" + vzWindGradientCss_() + ";}"
+    // Reperes en encre noire 11px : l'ancien #8FA6B8 en 9px etait illisible en
+    // exterieur, et invisible sur fond blanc.
+    + ".vzwl-ticks{position:relative;height:13px;color:var(--vzi-ink);font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;line-height:1;}"
     + ".vzwl-ticks span{position:absolute;top:0;}"
-    + ".vzwl-unit{pointer-events:auto;cursor:pointer;border:1px solid rgba(77,212,168,0.4);background:transparent;color:#4DD4A8;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;padding:3px 7px;border-radius:6px;line-height:1;}"
-    + "@media (max-width:768px){#vzWindLegend{top:60px;}}";
+    + ".vzwl-unit{pointer-events:auto;cursor:pointer;min-height:36px;min-width:52px;box-sizing:border-box;border:2px solid var(--vzi-line);background:var(--vzi-bg);color:var(--vzi-ink);font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;padding:0 8px;border-radius:9px;line-height:1;}"
+    + ".vzwl-unit:active{background:var(--vzi-accent);}"
+    + "@media (max-width:768px){#vzWindLegend{top:60px;gap:8px;padding:6px 9px;}.vzwl-scale{width:132px;}}";
     (document.head || document.documentElement).appendChild(st);
   }
   leg = document.createElement('div');
   leg.id = 'vzWindLegend';
   leg.innerHTML =
-    '<span class="vzwl-cap">VENT</span>'
+    '<span class="vzwl-cap">Vent</span>'
   + '<span class="vzwl-scale"><span class="vzwl-bar"></span>'
   + '<span class="vzwl-ticks" id="vzWindTicks"></span></span>'
-  + '<button id="vzWindUnitBtn" class="vzwl-unit" title="Changer d\'unite"></button>';
+  + '<button id="vzWindUnitBtn" class="vzwl-unit" type="button" title="Changer d\'unite"></button>';
   document.body.appendChild(leg);
   // Le toggle pilote la MEME preference globale que le drawer (S_windUnit via
   // toggleWindUnit) : un seul systeme, synchro partout.
