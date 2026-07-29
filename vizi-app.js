@@ -2331,6 +2331,39 @@ function vzWindFrameLabelShort_(iso) {
    panneau de terrain (curseur vent, legende, badge sous reticule, panneau
    port) doit s'y conformer. Injecte une seule fois, sur :root.
    ============================================================ */
+/* ============================================================
+   ANTI-ZOOM AUTOMATIQUE iOS
+   iOS Safari zoome la page des qu'un champ de saisie recoit le focus si sa
+   police est sous 16px, et ne dezoome JAMAIS au blur : l'interface reste
+   agrandie sans que l'utilisateur ait fait le moindre geste. C'est la cause du
+   "toute l'interface est en zoom" signale sur iPhone.
+   Precedent dans ce fichier : #vzSearch .vz-search-in et .vzm-sonar-in etaient
+   deja passes a 16px pour cette raison exacte, mais ponctuellement. Ici on
+   generalise : un seul point d'entree, et tout futur champ est couvert d'office.
+   Ne PAS tenter maximum-scale ni user-scalable=no : ignores par iOS depuis
+   iOS 10, correction en trompe-l'oeil.
+   Les curseurs (input[type=range]) et les cases a cocher ne declenchent pas le
+   zoom, ils sont volontairement hors portee.
+   ============================================================ */
+function vzNoIosZoomEnsure_() {
+  if (document.getElementById('vzNoIosZoom')) return;
+  var st = document.createElement('style');
+  st.id = 'vzNoIosZoom';
+  st.textContent =
+    "@media (max-width:768px){"
+  +   "input[type='text'],input[type='email'],input[type='password'],"
+  +   "input[type='search'],input[type='number'],input[type='tel'],"
+  +   "input[type='url'],input[type='date'],input[type='time'],"
+  +   "input[type='datetime-local'],input:not([type]),textarea,select"
+  +   "{font-size:16px !important;}"
+  // Safari rend les champs date/heure tres larges ; a 16px les paires cote a
+  // cote deborderaient de leur ligne. min-width:0 les autorise a se comprimer.
+  +   "input[type='date'],input[type='time'],input[type='datetime-local']"
+  +   "{min-width:0;max-width:100%;}"
+  + "}";
+  (document.head || document.documentElement).appendChild(st);
+}
+
 function vzInstrEnsureTokens_() {
   if (document.getElementById('vzInstrTokens')) return;
   var st = document.createElement('style');
@@ -13367,6 +13400,7 @@ function zoomMapOut() {
   if (S.map) S.map.zoomOut();
 }
 function boot() {
+  vzNoIosZoomEnsure_();   // avant tout rendu : evite le zoom auto iOS au premier focus
   initCanvas();
   initMap();
   var headerH = document.getElementById('header').offsetHeight;
