@@ -2289,17 +2289,31 @@ function vzWindEnsureCtrl_() {
     // occupe que 8px visuellement. Pouce de 30px borde noir : prehensible avec
     // les doigts mouilles, contrairement au thumb natif de 13px.
     + "#vzWindSliderWrap{position:relative;flex:1 1 170px;min-width:120px;display:flex;align-items:center;height:var(--vzi-tap);}"
-    + "#vzWindSlider{-webkit-appearance:none;appearance:none;width:100%;height:var(--vzi-tap);margin:0;background:transparent;outline:none;cursor:pointer;}"
+    // position:relative + z-index : sans ca l'element absolu #vzWindTrack
+    // peindrait AU-DESSUS de l'input statique et masquerait le pouce.
+    + "#vzWindSlider{-webkit-appearance:none;appearance:none;position:relative;z-index:1;width:100%;height:var(--vzi-tap);margin:0;background:transparent;outline:none;cursor:pointer;}"
     + "#vzWindSlider:focus{outline:none;}"
-    + "#vzWindSlider::-webkit-slider-runnable-track{height:8px;border-radius:5px;background:#DCE4EA;border:1px solid rgba(10,21,32,0.18);}"
+    + "#vzWindSlider::-webkit-slider-runnable-track{height:10px;border-radius:5px;background:transparent;border:0;}"
     + "#vzWindSlider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:30px;height:30px;margin-top:-12px;border-radius:50%;background:var(--vzi-accent);border:2.5px solid var(--vzi-line);box-shadow:0 1px 4px rgba(8,17,27,0.35);cursor:pointer;}"
-    + "#vzWindSlider::-moz-range-track{height:8px;border-radius:5px;background:#DCE4EA;border:1px solid rgba(10,21,32,0.18);}"
+    + "#vzWindSlider::-moz-range-track{height:10px;border-radius:5px;background:transparent;border:0;}"
     + "#vzWindSlider::-moz-range-thumb{width:30px;height:30px;border:2.5px solid var(--vzi-line);border-radius:50%;background:var(--vzi-accent);cursor:pointer;}"
-    // Reperes : sur fond blanc, l'ancien blanc #E8F0F4 devenait invisible.
-    + "#vzWindTickNow,#vzWindTick48{position:absolute;top:50%;transform:translateY(-50%);width:3px;height:20px;border-radius:2px;pointer-events:none;}"
-    + "#vzWindTickNow{background:var(--vzi-ink);}"
-    + "#vzWindTick48{background:#E89B3C;box-shadow:0 0 0 1px rgba(10,21,32,0.4);}"
-    + "#vzWindLabel{flex:0 0 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;color:var(--vzi-ink);font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;}"
+    // Piste en TROIS segments a la place des deux traits, qui n'etaient pas
+    // decodables sans legende. Gris = passe (la grille AROME contient des
+    // heures ecoulees). Teal plein = prevision au pas horaire. Teal clair =
+    // au-dela de ~48h, pas de 3h, donc plus grossiere. L'information est dans
+    // la forme, pas dans une note de bas de page.
+    + "#vzWindTrack{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);height:10px;box-sizing:border-box;border:1px solid rgba(10,21,32,0.18);border-radius:5px;overflow:hidden;display:flex;pointer-events:none;}"
+    + "#vzWindTrack > span{height:100%;}"
+    + "#vzWindSegPast{background:#C7D2DA;}"
+    + "#vzWindSegFine{background:var(--vzi-accent);}"
+    + "#vzWindSegCoarse{background:#B4EBD8;}"
+    // Largeur FIGEE : c'est le seul element de largeur variable du panneau, donc
+    // il faisait respirer les deux bords a chaque changement d'echeance et les
+    // boutons fuyaient sous la souris. Calibre sur la chaine francaise la plus
+    // longue, "Mercredi 29 septembre, 23h" = 26 car ; IBM Plex Mono avance de
+    // 0.6em, soit 8.4px a 14px, donc 219px + marge. L'ellipse reste en filet de
+    // securite si la police de secours est plus large.
+    + "#vzWindLabel{flex:0 0 auto;width:226px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;color:var(--vzi-ink);font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;}"
     + "#vzWindNow{flex:0 0 auto;min-height:var(--vzi-tap);box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;border:2px solid var(--vzi-line);background:var(--vzi-bg);color:var(--vzi-ink);font-family:'Inter',sans-serif;font-size:14px;font-weight:700;padding:0 14px;border-radius:10px;cursor:pointer;}"
     + "#vzWindNow:active{background:var(--vzi-accent);}"
     // Desktop : forme longue visible, forme courte et icone masquees.
@@ -2318,7 +2332,7 @@ function vzWindEnsureCtrl_() {
     +   "#vzWindPrev{grid-column:1;grid-row:2;}"
     +   "#vzWindPlay{grid-column:2;grid-row:2;}"
     +   "#vzWindNext{grid-column:3;grid-row:2;}"
-    +   "#vzWindLabel{grid-column:4;grid-row:2;min-width:0;justify-self:stretch;text-align:center;font-size:13px;padding:0 4px;}"
+    +   "#vzWindLabel{grid-column:4;grid-row:2;width:auto;min-width:0;justify-self:stretch;text-align:center;font-size:13px;padding:0 4px;}"
     +   "#vzWindNow{grid-column:5;grid-row:2;font-size:13px;padding:0 11px;}"
     // Libelle : forme longue masquee, forme courte affichee.
     +   "#vzWindLabelLong{display:none;}"
@@ -2350,8 +2364,10 @@ function vzWindEnsureCtrl_() {
     '<button id="vzWindPrev" class="vzw-btn" type="button" title="Echeance precedente" aria-label="Echeance precedente"><svg viewBox="0 0 24 24"><polyline points="15 5 8 12 15 19"></polyline></svg></button>'
   + '<button id="vzWindPlay" class="vzw-btn" type="button" title="Lecture" aria-label="Lecture"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg></button>'
   + '<button id="vzWindNext" class="vzw-btn" type="button" title="Echeance suivante" aria-label="Echeance suivante"><svg viewBox="0 0 24 24"><polyline points="9 5 16 12 9 19"></polyline></svg></button>'
-  + '<span id="vzWindSliderWrap"><input type="range" id="vzWindSlider" min="0" max="0" value="0" step="1" aria-label="Echeance">'
-  + '<span id="vzWindTick48"></span><span id="vzWindTickNow"></span></span>'
+  + '<span id="vzWindSliderWrap">'
+  +   '<span id="vzWindTrack"><span id="vzWindSegPast"></span><span id="vzWindSegFine"></span><span id="vzWindSegCoarse"></span></span>'
+  +   '<input type="range" id="vzWindSlider" min="0" max="0" value="0" step="1" aria-label="Echeance">'
+  + '</span>'
   + '<span id="vzWindLabel"><span id="vzWindLabelLong">--</span><span id="vzWindLabelShort">--</span></span>'
   + '<button id="vzWindNow" type="button" title="Revenir a maintenant" aria-label="Revenir a maintenant">'
   +   '<span id="vzWindNowTxt">Maintenant</span>'
@@ -2441,22 +2457,26 @@ function vzWindRenderLegendTicks_() {
   if (ub) ub.textContent = kt ? 'kt' : 'km/h';
 }
 
-// Place les reperes "maintenant" (blanc) et "bascule 1h->3h" (orange).
+// Dimensionne les trois segments de la piste : passe / prevision fine (pas
+// horaire) / prevision grossiere (pas 3h au-dela de ~48h). Meme calcul de
+// bornes qu'avant, mais rendu en aplats plutot qu'en traits illisibles.
 function vzWindPlaceTicks_() {
   if (!S.windFrames || S.windFrames.length < 2) return;
   var n = S.windFrames.length - 1;
-  var nowEl = document.getElementById('vzWindTickNow');
-  if (nowEl) nowEl.style.left = (vzWindNowIndex_() / n * 100) + '%';
   var sw = -1;
   for (var i = 1; i < S.windFrames.length; i++) {
     var gap = vzWindDate_(S.windFrames[i].time).getTime() - vzWindDate_(S.windFrames[i-1].time).getTime();
     if (gap > 3700000) { sw = i; break; }   // premier saut > ~1h = passage au pas 3h
   }
-  var swEl = document.getElementById('vzWindTick48');
-  if (swEl) {
-    if (sw > 0) { swEl.style.display = 'block'; swEl.style.left = (sw / n * 100) + '%'; }
-    else swEl.style.display = 'none';
-  }
+  var nowPct = vzWindNowIndex_() / n * 100;
+  var swPct = (sw > 0) ? (sw / n * 100) : 100;
+  if (swPct < nowPct) swPct = nowPct;       // garde-fou : bascule deja depassee
+  var past = document.getElementById('vzWindSegPast');
+  var fine = document.getElementById('vzWindSegFine');
+  var coarse = document.getElementById('vzWindSegCoarse');
+  if (past) past.style.width = nowPct.toFixed(2) + '%';
+  if (fine) fine.style.width = (swPct - nowPct).toFixed(2) + '%';
+  if (coarse) coarse.style.width = (100 - swPct).toFixed(2) + '%';
 }
 
 // Maj du libelle + position du slider selon S.windPos.
