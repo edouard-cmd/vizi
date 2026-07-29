@@ -2202,6 +2202,15 @@ function vzWindFrameLabel_(iso) {
   return jourDate + ', ' + d.getHours() + 'h';
 }
 
+// Forme courte pour le bandeau mobile : "Ven. 31, 02h". Les deux formes sont
+// ecrites dans le DOM en meme temps et c'est le CSS qui en montre une : aucun
+// ecouteur de resize, aucun etat a synchroniser, survit a la rotation.
+function vzWindFrameLabelShort_(iso) {
+  var d = vzWindDate_(iso);
+  var h = d.getHours();
+  return VZ_WIND_JOURS[d.getDay()] + ' ' + d.getDate() + ', ' + (h < 10 ? '0' + h : h) + 'h';
+}
+
 /* ============================================================
    CHARTE "INSTRUMENT DE PONT" - tokens partages
    Extraits du menu Couches (index.html, .vz-layers-popover) : surface blanche
@@ -2291,23 +2300,47 @@ function vzWindEnsureCtrl_() {
     + "#vzWindTickNow{background:var(--vzi-ink);}"
     + "#vzWindTick48{background:#E89B3C;box-shadow:0 0 0 1px rgba(10,21,32,0.4);}"
     + "#vzWindLabel{flex:0 0 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center;color:var(--vzi-ink);font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:700;}"
-    + "#vzWindNow{flex:0 0 auto;min-height:var(--vzi-tap);box-sizing:border-box;border:2px solid var(--vzi-line);background:var(--vzi-bg);color:var(--vzi-ink);font-family:'Inter',sans-serif;font-size:14px;font-weight:700;padding:0 14px;border-radius:10px;cursor:pointer;}"
+    + "#vzWindNow{flex:0 0 auto;min-height:var(--vzi-tap);box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;border:2px solid var(--vzi-line);background:var(--vzi-bg);color:var(--vzi-ink);font-family:'Inter',sans-serif;font-size:14px;font-weight:700;padding:0 14px;border-radius:10px;cursor:pointer;}"
     + "#vzWindNow:active{background:var(--vzi-accent);}"
-    // Mobile : bandeau pleine largeur colle en bas. Le slider prend toute la
-    // largeur de l'ecran (precision de glisse maximale) sur sa propre ligne,
-    // les commandes dessous. Le bandeau fait ~94px : on repousse donc le FAB
-    // sonar, son menu, le curseur pluie et l'attribution Leaflet (obligatoire
-    // pour SHOM/IGN/EMODnet) tant que la couche vent est active.
+    // Desktop : forme longue visible, forme courte et icone masquees.
+    + "#vzWindLabelShort{display:none;}"
+    + "#vzWindLabelLong{display:inline;}"
+    + "#vzWindNowIco{display:none;width:20px;height:20px;fill:none;stroke:var(--vzi-ink);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;margin:0 auto;}"
+    // Mobile : bandeau pleine largeur colle en bas, en GRILLE a deux rangees
+    // fixes (le flex-wrap precedent partait sur trois lignes des que le libelle
+    // manquait de place). Rangee 1 : slider pleine largeur. Rangee 2 : chevrons,
+    // play, libelle, Maintenant. Le libelle absorbe la contrainte de largeur
+    // via min-width:0 + ellipse, il ne pousse plus rien hors de la grille.
     + "@media (max-width:768px){"
-    +   "#vzWindCtrl{left:0;right:0;bottom:0;transform:none;max-width:none;flex-wrap:wrap;padding:4px 12px calc(8px + env(safe-area-inset-bottom));border-width:2px 0 0 0;border-radius:0;box-shadow:0 -8px 28px rgba(8,17,27,0.35);}"
-    +   "#vzWindSliderWrap{order:0;flex:1 1 100%;height:36px;}"
-    +   "#vzWindPrev{order:1;}#vzWindPlay{order:2;}#vzWindNext{order:3;}"
-    +   "#vzWindLabel{order:4;flex:1 1 auto;min-width:0;font-size:13px;padding:0 4px;}"
-    +   "#vzWindNow{order:5;font-size:13px;padding:0 11px;}"
-    +   "body:has(#vzWindCtrl.on) .vzm-sonar-fab{bottom:calc(112px + env(safe-area-inset-bottom));}"
-    +   "body:has(#vzWindCtrl.on) .vzm-sonar-menu{bottom:calc(188px + env(safe-area-inset-bottom));}"
-    +   "body:has(#vzWindCtrl.on) #vzRainCtrl{bottom:calc(104px + env(safe-area-inset-bottom));}"
-    +   "body:has(#vzWindCtrl.on) .leaflet-control-attribution{margin-bottom:calc(98px + env(safe-area-inset-bottom));}"
+    +   "#vzWindCtrl{left:0;right:0;bottom:0;transform:none;max-width:none;display:none;grid-template-columns:auto auto auto 1fr auto;grid-template-rows:36px var(--vzi-tap);column-gap:8px;row-gap:2px;align-items:center;padding:4px 12px calc(8px + env(safe-area-inset-bottom, 0px));border-width:2px 0 0 0;border-radius:0;box-shadow:0 -8px 28px rgba(8,17,27,0.35);}"
+    +   "#vzWindCtrl.on{display:grid;}"
+    +   "#vzWindSliderWrap{grid-column:1 / -1;grid-row:1;height:36px;min-width:0;}"
+    +   "#vzWindPrev{grid-column:1;grid-row:2;}"
+    +   "#vzWindPlay{grid-column:2;grid-row:2;}"
+    +   "#vzWindNext{grid-column:3;grid-row:2;}"
+    +   "#vzWindLabel{grid-column:4;grid-row:2;min-width:0;justify-self:stretch;text-align:center;font-size:13px;padding:0 4px;}"
+    +   "#vzWindNow{grid-column:5;grid-row:2;font-size:13px;padding:0 11px;}"
+    // Libelle : forme longue masquee, forme courte affichee.
+    +   "#vzWindLabelLong{display:none;}"
+    +   "#vzWindLabelShort{display:inline;}"
+    // Sous 400px, meme la forme courte ne tient pas a cote de "Maintenant" :
+    // le bouton passe en icone seule (fonction secondaire, le slider et les
+    // chevrons couvrent deja le besoin). title/aria-label conserves.
+    +   "@media (max-width:400px){"
+    +     "#vzWindNow{padding:0;width:var(--vzi-tap);}"
+    +     "#vzWindNowTxt{display:none;}"
+    +     "#vzWindNowIco{display:block;}"
+    +   "}"
+    // Le bandeau recouvre la zone basse : on repousse le FAB sonar, son menu,
+    // le curseur pluie et l'attribution Leaflet (obligatoire SHOM/IGN/EMODnet).
+    // Pilote par une classe explicite sur <body>, PAS par :has() : ne pas faire
+    // dependre le masquage d'une attribution d'une fonctionnalite navigateur.
+    // env() recoit une valeur de repli, sinon toute la declaration est invalidee
+    // sur un navigateur qui ne la connait pas.
+    +   "body.vz-wind-band .vzm-sonar-fab{bottom:calc(112px + env(safe-area-inset-bottom, 0px));}"
+    +   "body.vz-wind-band .vzm-sonar-menu{bottom:calc(188px + env(safe-area-inset-bottom, 0px));}"
+    +   "body.vz-wind-band #vzRainCtrl{bottom:calc(104px + env(safe-area-inset-bottom, 0px));}"
+    +   "body.vz-wind-band .leaflet-control-attribution{margin-bottom:calc(98px + env(safe-area-inset-bottom, 0px));}"
     + "}";
     (document.head || document.documentElement).appendChild(st);
   }
@@ -2319,8 +2352,11 @@ function vzWindEnsureCtrl_() {
   + '<button id="vzWindNext" class="vzw-btn" type="button" title="Echeance suivante" aria-label="Echeance suivante"><svg viewBox="0 0 24 24"><polyline points="9 5 16 12 9 19"></polyline></svg></button>'
   + '<span id="vzWindSliderWrap"><input type="range" id="vzWindSlider" min="0" max="0" value="0" step="1" aria-label="Echeance">'
   + '<span id="vzWindTick48"></span><span id="vzWindTickNow"></span></span>'
-  + '<span id="vzWindLabel">--</span>'
-  + '<button id="vzWindNow" type="button" title="Revenir a maintenant">Maintenant</button>';
+  + '<span id="vzWindLabel"><span id="vzWindLabelLong">--</span><span id="vzWindLabelShort">--</span></span>'
+  + '<button id="vzWindNow" type="button" title="Revenir a maintenant" aria-label="Revenir a maintenant">'
+  +   '<span id="vzWindNowTxt">Maintenant</span>'
+  +   '<svg id="vzWindNowIco" viewBox="0 0 24 24" aria-hidden="true"><polyline points="12 7 12 12 16 14"></polyline><circle cx="12" cy="12" r="9"></circle></svg>'
+  + '</button>';
   document.body.appendChild(pan);
   document.getElementById('vzWindSlider').addEventListener('input', function(){ vzWindOnSlider_(+this.value); });
   document.getElementById('vzWindPlay').addEventListener('click', vzWindPlayStop_);
@@ -2354,7 +2390,16 @@ function vzWindEnsureLegend_() {
     + ".vzwl-ticks span{position:absolute;top:0;}"
     + ".vzwl-unit{pointer-events:auto;cursor:pointer;min-height:36px;min-width:52px;box-sizing:border-box;border:2px solid var(--vzi-line);background:var(--vzi-bg);color:var(--vzi-ink);font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;padding:0 8px;border-radius:9px;line-height:1;}"
     + ".vzwl-unit:active{background:var(--vzi-accent);}"
-    + "@media (max-width:768px){#vzWindLegend{top:60px;gap:8px;padding:6px 9px;}.vzwl-scale{width:132px;}}";
+    // Mobile : legende resserree. Elle etait disproportionnee, en particulier
+    // le bouton d'unite. 36px reste au-dessus du seuil tactile confortable.
+    + "@media (max-width:768px){"
+    +   "#vzWindLegend{top:58px;gap:7px;padding:5px 8px;border-radius:12px;}"
+    +   ".vzwl-cap{font-size:10px;letter-spacing:0.08em;}"
+    +   ".vzwl-scale{width:118px;gap:3px;}"
+    +   ".vzwl-bar{height:10px;border-radius:5px;}"
+    +   ".vzwl-ticks{height:12px;font-size:10px;}"
+    +   ".vzwl-unit{min-height:36px;min-width:44px;font-size:12px;padding:0 6px;border-radius:8px;}"
+    + "}";
     (document.head || document.documentElement).appendChild(st);
   }
   leg = document.createElement('div');
@@ -2420,7 +2465,19 @@ function vzWindSyncCtrl_() {
   var sl = document.getElementById('vzWindSlider');
   var lb = document.getElementById('vzWindLabel');
   if (sl) { sl.max = S.windFrames.length - 1; sl.value = S.windPos; }
-  if (lb) lb.textContent = vzWindFrameLabel_(S.windFrames[S.windPos].time);
+  if (lb) {
+    var _t = S.windFrames[S.windPos].time;
+    var _lg = document.getElementById('vzWindLabelLong');
+    var _sh = document.getElementById('vzWindLabelShort');
+    // Garde-fou : si les spans manquent (DOM ancien en cache), on retombe sur
+    // l'ecriture directe plutot que de laisser le libelle vide.
+    if (_lg && _sh) {
+      _lg.textContent = vzWindFrameLabel_(_t);
+      _sh.textContent = vzWindFrameLabelShort_(_t);
+    } else {
+      lb.textContent = vzWindFrameLabel_(_t);
+    }
+  }
 }
 
 function vzWindOnSlider_(v) { vzWindStop_(); vzWindShowFrame_(v); vzWindSyncCtrl_(); }
@@ -2592,11 +2649,16 @@ function toggleLayer(type) {
         vzWindKeepAnimatedOnPan_(12);              // traits animes pendant le pan
         vzWindEnsureCtrl_().classList.add('on');   // A2 : curseur temporel
         vzWindEnsureLegend_().classList.add('on'); // legende de couleur
+        // Bandeau mobile en place : on repousse FAB sonar, curseur pluie et
+        // attribution Leaflet. Classe explicite, retiree DANS LES DEUX sorties
+        // (toggle off ET echec de chargement) sinon l'attribution reste masquee.
+        document.body.classList.add('vz-wind-band');
         vzWindPlaceTicks_();
         vzWindSyncCtrl_();
       }).catch(function(e){
         console.warn('[wind] couche vent indisponible', e);
         S.showWindFlow = false;
+        document.body.classList.remove('vz-wind-band');
         if (_rowWind) _rowWind.classList.remove('active');
         if (_btnWind) _btnWind.classList.remove('active');
       });
@@ -2606,6 +2668,7 @@ function toggleLayer(type) {
       if (_wc) _wc.classList.remove('on');
       var _wl = document.getElementById('vzWindLegend');
       if (_wl) _wl.classList.remove('on');
+      document.body.classList.remove('vz-wind-band');
       if (S.windFlowLayer && S.map.hasLayer(S.windFlowLayer)) S.map.removeLayer(S.windFlowLayer);
       if (S.windColorLayer && S.map.hasLayer(S.windColorLayer)) S.map.removeLayer(S.windColorLayer);
     }
