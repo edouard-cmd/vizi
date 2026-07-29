@@ -2026,30 +2026,49 @@ var VZ_WIND_COLORS = ['#1A6B5D','#2DA888','#4DD4A8','#D8C84A','#E89B3C','#C94A3D
 // -> teal -> jaune -> orange -> rouge -> rouge profond. Cale sur les vitesses
 // de la facade (0 a ~16 m/s = 0 a ~31 kt, et au-dela pour les coups de vent).
 var VZ_WIND_COLOR_STOPS = [
-  { v: 0.0,  c: [10, 61, 51] },     // calme, teal profond sombre
-  { v: 3.0,  c: [26, 107, 93] },    // 1A6B5D
-  { v: 5.5,  c: [77, 212, 168] },   // 4DD4A8 teal clair (~11 kt)
-  { v: 8.0,  c: [216, 200, 74] },   // D8C84A jaune (~15 kt)
-  { v: 11.5, c: [232, 155, 60] },   // E89B3C orange (~22 kt)
-  { v: 15.5, c: [201, 74, 61] },    // C94A3D rouge (~30 kt)
-  { v: 22.0, c: [140, 38, 32] }     // rouge profond (coup de vent)
+  // Rampe NON LINEAIRE : 6 paliers entre 0 et 20 kt (la zone ou se joue toute
+  // la decision d'un chasseur), 2 seulement au-dela. La borne physique haute
+  // reste inchangee, donc les reperes en noeuds de la legende restent vrais ;
+  // la legende etant generee depuis ces paliers, elle affiche d'elle-meme la
+  // compression. Le teal de marque tombe sur les bonnes conditions.
+  // `a` = opacite du calque (0..1), croissante avec le vent. Le bas ne peut PAS
+  // descendre plus bas sans rendre 0 et 4 kt indiscernables : une teinte pale a
+  // faible alpha sur une mer pale redonne la mer. 0.54 au calme est le prix de
+  // la discrimination du vent faible, et son bleu neutralise le vert du fond.
+  { v: 0.00, c: [ 96, 152, 206], a: 0.54 },   // 0 kt   bleu franc : la mer est verte, donc le calme ne doit PAS l'etre
+  { v: 2.06, c: [110, 206, 206], a: 0.58 },   // 4 kt   cyan
+  { v: 4.12, c: [ 77, 212, 168], a: 0.62 },   // 8 kt   4DD4A8, bonnes conditions
+  { v: 6.17, c: [184, 214,  81], a: 0.70 },   // 12 kt  vert-jaune, ca se degrade
+  { v: 8.23, c: [232, 196,  60], a: 0.76 },   // 16 kt  jaune, limite
+  { v: 10.29, c: [224, 138,  52], a: 0.82 },  // 20 kt  orange, mauvais
+  { v: 14.40, c: [201,  74,  61], a: 0.88 },  // 28 kt  C94A3D rouge charte
+  { v: 20.58, c: [140,  38,  32], a: 0.94 }   // 40 kt  rouge profond, coup de vent
 ];
+
+// Ton de mer de reference (Plan IGN / Esri au large) utilise UNIQUEMENT pour
+// pre-composer la legende. Sans ca, une rampe avec alpha affichee sur le fond
+// blanc de la legende aurait un debut invisible et la legende semblerait
+// cassee. Pre-composer montre ce que l'oeil verra vraiment sur l'eau.
+var VZ_WIND_SEA_REF = [168, 207, 201];
 
 // Vitesse (m/s) -> [r,g,b] par interpolation lineaire entre les stops.
 function vzWindColorForSpeed_(spd) {
   var s = VZ_WIND_COLOR_STOPS;
-  if (spd <= s[0].v) return s[0].c;
+  function out(st) { return [st.c[0], st.c[1], st.c[2], Math.round(st.a * 255)]; }
+  if (spd <= s[0].v) return out(s[0]);
   for (var i = 1; i < s.length; i++) {
     if (spd <= s[i].v) {
       var t = (spd - s[i-1].v) / (s[i].v - s[i-1].v);
+      var p = s[i-1], q = s[i];
       return [
-        Math.round(s[i-1].c[0] + t * (s[i].c[0] - s[i-1].c[0])),
-        Math.round(s[i-1].c[1] + t * (s[i].c[1] - s[i-1].c[1])),
-        Math.round(s[i-1].c[2] + t * (s[i].c[2] - s[i-1].c[2]))
+        Math.round(p.c[0] + t * (q.c[0] - p.c[0])),
+        Math.round(p.c[1] + t * (q.c[1] - p.c[1])),
+        Math.round(p.c[2] + t * (q.c[2] - p.c[2])),
+        Math.round((p.a + t * (q.a - p.a)) * 255)
       ];
     }
   }
-  return s[s.length - 1].c;
+  return out(s[s.length - 1]);
 }
 
 // Peint le fond colore de la frame i (interpolation bilineaire de la vitesse
@@ -2092,7 +2111,7 @@ function vzWindEnsureColorLayer_(i) {
       var sv = sTop + ty * (sBot - sTop);
       var c = vzWindColorForSpeed_(sv);
       var o = (py * W + px) * 4;
-      d[o] = c[0]; d[o+1] = c[1]; d[o+2] = c[2]; d[o+3] = 255;
+      d[o] = c[0]; d[o+1] = c[1]; d[o+2] = c[2]; d[o+3] = c[3];
     }
   }
   ctx.putImageData(img, 0, 0);
@@ -2103,9 +2122,12 @@ function vzWindEnsureColorLayer_(i) {
     S.windColorLayer.setBounds(bounds);
     S.windColorLayer.setUrl(url);
   } else {
+    // opacity: 1 - l'opacite est desormais portee par l'alpha de chaque palier
+    // (VZ_WIND_COLOR_STOPS.a). Un seul point de reglage, plus de multiplicateur
+    // global qui delavait le vent fort autant que le calme.
     S.windColorLayer = L.imageOverlay(url, bounds, {
       pane: 'vzWindColorPane',
-      opacity: 0.55,
+      opacity: 1,
       interactive: false
     });
   }
@@ -2246,12 +2268,19 @@ function vzInstrEnsureTokens_() {
 // pourra plus faire mentir la legende. La barre couvre la plage physique
 // VZ_WIND_LEGEND_MAX_KMH, donc les reperes en noeuds restent vrais.
 function vzWindGradientCss_() {
-  var s = VZ_WIND_COLOR_STOPS;
+  var s = VZ_WIND_COLOR_STOPS, sea = VZ_WIND_SEA_REF;
   var maxMs = VZ_WIND_LEGEND_MAX_KMH / 3.6;
   var parts = [];
   for (var i = 0; i < s.length; i++) {
     var pct = Math.min(100, s[i].v / maxMs * 100);
-    parts.push('rgb(' + s[i].c[0] + ',' + s[i].c[1] + ',' + s[i].c[2] + ') ' + pct.toFixed(1) + '%');
+    var a = s[i].a;
+    // Pre-composition sur le ton de mer : la legende montre la couleur telle
+    // qu'elle apparait sur l'eau, alpha comprise. Opaque, donc lisible sur le
+    // fond blanc du panneau instrument.
+    var r = Math.round(s[i].c[0] * a + sea[0] * (1 - a));
+    var g = Math.round(s[i].c[1] * a + sea[1] * (1 - a));
+    var b = Math.round(s[i].c[2] * a + sea[2] * (1 - a));
+    parts.push('rgb(' + r + ',' + g + ',' + b + ') ' + pct.toFixed(1) + '%');
     if (pct >= 100) break;
   }
   return 'linear-gradient(to right,' + parts.join(',') + ')';
