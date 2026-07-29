@@ -2019,6 +2019,9 @@ function vzRainClear() {
    ============================================================ */
 var VZ_WIND_GRID_URL = GAS_URL + '?action=wind_grid';
 // Palette calee sur la charte Talisker (teal calme -> jaune -> orange -> rouge fort).
+// CODE MORT depuis le passage des particules en monochrome : plus aucun
+// appelant. Conserve un commit pour pouvoir revenir en arriere facilement, a
+// supprimer ensuite. La couleur vit desormais dans VZ_WIND_COLOR_STOPS (fond).
 var VZ_WIND_COLORS = ['#1A6B5D','#2DA888','#4DD4A8','#D8C84A','#E89B3C','#C94A3D'];
 
 // --- A3 : fond colore facon Windy (aplat de vitesse sous les particules) ---
@@ -2174,12 +2177,21 @@ function vzWindShowFrame_(i) {
   if (S.windColorLayer && S.showWindFlow) vzWindEnsureColorLayer_(i);
 }
 
-function vzWindFlowEnsure() {
-  if (S.windFlowLayer) return Promise.resolve(S.windFlowLayer);
-  if (typeof L.velocityLayer !== 'function') {
-    return Promise.reject(new Error('leaflet-velocity non charge'));
-  }
-  return fetch(VZ_WIND_GRID_URL)
+// Plafond de resolution du canvas des particules. Le plugin dimensionne son
+// canvas en pixels CSS, donc sur un ecran en DPR 3 les traits sont tracés au
+// tiers de la resolution physique puis etires par le navigateur : c'est de la
+// bavure mecanique, pas un choix esthetique. On corrige, mais on plafonne a 2
+// car chaque point de DPR multiplie le cout de remplissage par frame.
+var VZ_WIND_DPR_CAP = 2;
+
+// Grille vent, promesse MEMOISEE. Extraite de vzWindFlowEnsure pour pouvoir
+// etre lancee au demarrage (boot) sans creer la couche : si l'utilisateur
+// ouvre la couche pendant que le prechargement est en vol, les deux attendent
+// la MEME requete. En cas d'echec on efface la memo, sinon un couac reseau au
+// chargement condamnerait la couche pour toute la session.
+function vzWindGridEnsure_() {
+  if (S.windGridPromise) return S.windGridPromise;
+  S.windGridPromise = fetch(VZ_WIND_GRID_URL)
     .then(function(r){ if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
     .then(function(res){
       if (!res || res.status !== 'ok' || !res.frames || !res.frames.length) {
@@ -2187,21 +2199,99 @@ function vzWindFlowEnsure() {
       }
       S.windHeader = res.header;
       S.windFrames = res.frames;
-      S.windPos = vzWindNowIndex_();
-      S.windFlowLayer = L.velocityLayer({
-        displayValues: false,        // pas de control de valeurs (evite le CSS separe)
-        data: vzWindBuildVelocity_(res.header, res.frames[S.windPos]),
-        speedUnit: 'kt',             // les chasseurs parlent noeuds
-        velocityScale: 0.007,        // longueur/vivacite des particules
-        particleMultiplier: 0.0022,  // densite reduite pour tenir sur mobile
-        opacity: 0.9,
-        colorScale: VZ_WIND_COLORS,
-        minVelocity: 0,
-        maxVelocity: 20              // ~40 kt : borne haute de la palette
-      });
-      vzWindEnsureColorLayer_(S.windPos);   // A3 : prepare le fond colore de l'instant present
-      return S.windFlowLayer;
+      return res;
+    })
+    .catch(function(e){
+      S.windGridPromise = null;   // reessayable au prochain clic
+      throw e;
     });
+  return S.windGridPromise;
+}
+
+// Prechargement au demarrage. Volontairement differe : la carte, les tuiles et
+// la geolocalisation passent d'abord. On saute si le navigateur signale le mode
+// economie de donnees ou une connexion lente - dans ce cas on retombe sur le
+// chargement au clic, comportement d'avant.
+function vzWindPrefetch_() {
+  try {
+    var c = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (c && (c.saveData === true || c.effectiveType === '2g' || c.effectiveType === 'slow-2g')) return;
+  } catch (e) {}
+  var go = function(){ vzWindGridEnsure_().catch(function(e){ console.warn('[wind] prechargement echoue', e); }); };
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(go, { timeout: 4000 });
+  else setTimeout(go, 1800);
+}
+
+function vzWindFlowEnsure() {
+  if (S.windFlowLayer) return Promise.resolve(S.windFlowLayer);
+  if (typeof L.velocityLayer !== 'function') {
+    return Promise.reject(new Error('leaflet-velocity non charge'));
+  }
+  return vzWindGridEnsure_().then(function(res){
+    if (S.windFlowLayer) return S.windFlowLayer;   // course : deja construite
+    // windPos calcule ICI et non au fetch : la grille peut avoir ete
+    // prechargee des heures plus tot, l'instant present a bouge depuis.
+    S.windPos = vzWindNowIndex_();
+    S.windFlowLayer = L.velocityLayer({
+      displayValues: false,        // pas de control de valeurs (evite le CSS separe)
+      data: vzWindBuildVelocity_(res.header, res.frames[S.windPos]),
+      speedUnit: 'kt',             // les chasseurs parlent noeuds
+      velocityScale: 0.007,        // longueur/vivacite des particules
+      particleMultiplier: 0.0022,  // densite reduite pour tenir sur mobile
+      lineWidth: 1.3,              // en px CSS ; net grace au canvas en DPR physique
+      opacity: 0.9,
+      // Traits BLANCS, une seule couleur. Le plugin dessine en composition
+      // additive ("lighter") : sur un fond clair toute teinte vive sature vers
+      // le blanc, donc une rampe de clarte n'encoderait rien. Toute la force du
+      // vent vit desormais dans le fond colore. Une variable, un encodage.
+      colorScale: ['#FFFFFF'],
+      minVelocity: 0,
+      maxVelocity: 20              // ~40 kt : borne haute de la palette
+    });
+    vzWindEnsureColorLayer_(S.windPos);   // A3 : prepare le fond colore de l'instant present
+    return S.windFlowLayer;
+  });
+}
+
+// Canvas des particules en resolution physique. Le plugin ne relit jamais les
+// dimensions du canvas (verifie : deux ecritures, zero lecture) et demarre son
+// champ depuis map.getSize(), donc le nombre de particules ne bouge pas. On
+// pose une transformation persistante et on la repose apres chaque
+// redimensionnement, car assigner canvas.width reinitialise le contexte. Le
+// redemarrage passe par _clearAndRestart, l'API du plugin, pour qu'il repose
+// lui-meme son lineWidth et son style de fondu. Garde-fou : si l'interne
+// change, on echoue en silence et on retrouve le rendu d'avant.
+function vzWindHiDpiEnsure_(tries) {
+  var vl = S.windFlowLayer;
+  var cl = vl && vl._canvasLayer;
+  var cv = cl && cl._canvas;
+  if (!cv) {
+    if (tries > 0) setTimeout(function(){ vzWindHiDpiEnsure_(tries - 1); }, 200);
+    return;
+  }
+  if (cl._vzHiDpi) return;
+  var dpr = Math.min(window.devicePixelRatio || 1, VZ_WIND_DPR_CAP);
+  cl._vzHiDpi = true;
+  if (dpr <= 1) return;                  // rien a gagner
+
+  function apply() {
+    try {
+      var sz = S.map.getSize();
+      cv.width  = Math.round(sz.x * dpr);
+      cv.height = Math.round(sz.y * dpr);
+      cv.style.width  = sz.x + 'px';
+      cv.style.height = sz.y + 'px';
+      cv.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0);
+    } catch (e) {}
+  }
+
+  var orig = cl._onLayerDidResize;
+  cl._onLayerDidResize = function(ev) {
+    try { if (typeof orig === 'function') orig.call(this, ev); } catch (e) {}
+    apply();
+    try { if (typeof vl._clearAndRestart === 'function') vl._clearAndRestart(); } catch (e) {}
+  };
+  apply();
 }
 
 // --- A2 : curseur temporel (jour/heure, lecture auto) ---
@@ -2696,6 +2786,7 @@ function toggleLayer(type) {
         if (S.windColorLayer && !S.map.hasLayer(S.windColorLayer)) S.windColorLayer.addTo(S.map);
         if (!S.map.hasLayer(layer)) layer.addTo(S.map);
         vzWindKeepAnimatedOnPan_(12);              // traits animes pendant le pan
+        vzWindHiDpiEnsure_(12);                    // canvas en resolution physique
         vzWindEnsureCtrl_().classList.add('on');   // A2 : curseur temporel
         vzWindEnsureLegend_().classList.add('on'); // legende de couleur
         // Bandeau mobile en place : on repousse FAB sonar, curseur pluie et
@@ -13281,6 +13372,9 @@ function boot() {
   // auto (sinon le GPS du destinataire ecrase le point une seconde
   // apres l'ouverture). Le bouton localiser manuel reste intact.
   if (!vzApplyDeepLink()) initGeolocationFlow();
+  // Grille vent prechargee en temps mort : au clic sur la couche, plus d'attente
+  // reseau. Memoisee, donc un clic pendant le vol ne double pas la requete.
+  vzWindPrefetch_();
 }
 
 if (document.readyState === 'loading') {
