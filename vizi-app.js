@@ -1113,13 +1113,21 @@ function initMap() {
   // les marqueurs, au-dessus du basemap. Exclusif avec la bathy Litto3D.
   S.map.createPane('vzWindColorPane');
   S.map.getPane('vzWindColorPane').style.zIndex = 300;
+  // Toponymes du fond satellite (noms de villes, limites administratives).
+  // Pane dedie : un layer qui vit dans son propre pane est insensible aux
+  // bringToBack() successifs appliques au layerGroup basemapSat, qui sinon le
+  // renvoient SOUS l'imagerie opaque. pointerEvents none obligatoire, sinon le
+  // pane intercepte les clics carte (openSpotPopup, crosshair).
+  S.map.createPane('vzLabelsPane');
+  S.map.getPane('vzLabelsPane').style.zIndex = 365;
+  S.map.getPane('vzLabelsPane').style.pointerEvents = 'none';
 
 S.basemapSat = L.layerGroup([
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
       attribution: 'Imagery Esri | SHOM | EMODnet', maxZoom: 19
     }),
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
-      attribution: '', maxZoom: 19, opacity: 0.45
+      attribution: '', maxZoom: 19, maxNativeZoom: 16, opacity: 1, pane: 'vzLabelsPane'
     })
   ]);
   S.basemapIGN = L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=image/png', {
