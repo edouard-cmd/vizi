@@ -2930,7 +2930,7 @@ function vzZsdEnsureLegend_() {
     + "#vzZsdLegend.on{display:flex;}"
     // Vent en haut : on se place dessous plutot que de le recouvrir.
     + "body.vz-wind-band #vzZsdLegend{top:132px;}"
-    + ".vzzl-scale{display:flex;flex-direction:column;gap:5px;width:264px;}"
+    + ".vzzl-scale{display:flex;flex-direction:column;gap:5px;width:300px;}"
     // Titre long : Inter en casse normale plutot que le mono capitales du vent,
     // qui doublerait la largeur pour un libelle de cette taille.
     + ".vzzl-cap{color:var(--vzi-ink);font-size:12px;font-weight:600;line-height:1.25;}"
@@ -2944,7 +2944,7 @@ function vzZsdEnsureLegend_() {
     + "@media (max-width:768px){"
     +   "#vzZsdLegend{top:58px;gap:9px;padding:8px 10px;border-radius:13px;}"
     +   "body.vz-wind-band #vzZsdLegend{top:118px;}"
-    +   ".vzzl-scale{width:196px;gap:4px;}"
+    +   ".vzzl-scale{width:230px;gap:4px;}"
     +   ".vzzl-cap{font-size:11px;}"
     +   ".vzzl-bar{height:14px;border-radius:7px;}"
     +   ".vzzl-ticks{height:13px;font-size:11px;}"
@@ -2953,7 +2953,7 @@ function vzZsdEnsureLegend_() {
     // Tres petits ecrans : le titre passe en version courte pour ne pas forcer
     // la boite au-dela de la largeur de la fenetre.
     + "@media (max-width:400px){"
-    +   ".vzzl-scale{width:168px;}"
+    +   ".vzzl-scale{width:200px;}"
     +   ".vzzl-cap{font-size:10px;}"
     + "}";
     (document.head || document.documentElement).appendChild(st);
@@ -2975,7 +2975,8 @@ function vzZsdEnsureLegend_() {
 // Redessine barre, repères et date. Appelée au montage puis quand GetLegend a
 // répondu. Repères en mètres de visi plongeur, pas en Secchi : c'est l'unité
 // que lit le chasseur.
-// Les crans DOUBLENT (0,5 - 1 - 2 - 4). Sur une échelle logarithmique un
+// Les crans DOUBLENT (1 - 2 - 4), en entiers : une decimale collait au "0"
+// de gauche aux deux extremites. Sur une échelle logarithmique un
 // rapport constant donne un espacement constant, donc ces repères tombent à
 // intervalles rigoureusement égaux, quelle que soit la plage renvoyée par le
 // serveur. C'est ce qui rend l'échelle lisible sans renoncer au log, qui est
@@ -3000,12 +3001,11 @@ function vzZsdRefreshLegend_() {
   if (VZ_ZSD_STATE.min == null) { tk.innerHTML = ''; return; }
   var hi = VZ_ZSD_STATE.max * VZ_ZSD_CFG.visiFactor;
   var html = '<span class="vzzl-zero">0</span>';
-  for (var v = 0.5; v < hi; v *= 2) {
+  for (var v = 1; v < hi; v *= 2) {
     var p = vzZsdPos_(v);
     if (p === null) break;
-    if (p <= 0.04 || p >= 0.90) continue;
-    var lbl = v < 1 ? String(v).replace('.', ',') : String(v);
-    html += '<span style="left:' + (p * 100).toFixed(1) + '%">' + lbl + '</span>';
+    if (p <= 0.06 || p >= 0.90) continue;
+    html += '<span style="left:' + (p * 100).toFixed(1) + '%">' + v + '</span>';
   }
   html += '<span class="vzzl-end">' + hi.toFixed(0) + 'm+</span>';
   tk.innerHTML = html;
