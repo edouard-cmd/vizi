@@ -1151,50 +1151,18 @@ S.basemapSat = L.layerGroup([
   });
 
   // ----- Couche Visibilité satellite (CMEMS ZSD, WMTS EPSG:3857) -----
-  // Champ satellite de profondeur de Secchi (ZSD) en tuiles Leaflet natives,
-  // exactement comme le fond IGN ci-dessus : aucun appel point-par-point,
-  // aucun GAS, pas d'auth (dataset public multi-1km). Montre l'anomalie
-  // spatiale — bord chargé, tombant clair — telle que le satellite l'a
-  // mesurée à J-2. Figée à la mesure (pas de modulation météo), donc
-  // indépendante de la calibration b_local : c'est de la donnée, pas du modèle.
-  // SEUL réglage incertain : le STYLE/colormap CMEMS. Si les tuiles
-  // n'apparaissent pas, ouvrir l'onglet Réseau, regarder une requête de tuile
-  // en échec — le corps CMEMS liste les STYLE valides — et ajuster VZ_ZSD_STYLE
-  // ci-dessous (alternatives en commentaire).
+  // Champ satellite de profondeur de Secchi (ZSD), repeint côté client avec
+  // la palette Visimer. Aucun appel point-par-point, aucun GAS, pas d'auth
+  // (dataset public multi-1km). Montre l'anomalie spatiale telle que le
+  // satellite l'a mesurée à J-2. Figée à la mesure (pas de modulation météo),
+  // donc indépendante de la calibration b_local : c'est de la donnée, pas du
+  // modèle.
+  // Toute la configuration vit dans VZ_ZSD_CFG (source de vérité unique,
+  // partagée avec la légende). Construction : vzZsdBuildLayer_ plus bas.
   S.map.createPane('vzZsdPane');
   S.map.getPane('vzZsdPane').style.zIndex = 340;   // au-dessus du fond, sous sediment/repères (350)
   S.showZsd = false;
-  (function() {
-    var d = new Date();
-    d.setUTCDate(d.getUTCDate() - 2);              // J-2 : latence NRT CMEMS confirmée
-    var timeStr = d.getUTCFullYear() + '-'
-      + String(d.getUTCMonth() + 1).padStart(2, '0') + '-'
-      + String(d.getUTCDate()).padStart(2, '0') + 'T00:00:00.000Z';
-    var VZ_ZSD_LAYER = 'OCEANCOLOUR_ATL_BGC_L3_NRT_009_111/'
-      + 'cmems_obs-oc_atl_bgc-transp_nrt_l3-multi-1km_P1D_202311/ZSD';
-    // Palette orientée charte : Secchi FAIBLE (eau chargée) = rouge,
-    // Secchi ÉLEVÉ (eau claire) = vert/teal. Si la carte apparaît inversée
-    // (large clair affiché en rouge), passer à 'cmap:RdYlGn_r'.
-    var VZ_ZSD_STYLE = 'cmap:RdYlGn';
-    // Plage de valeurs Secchi encodée par la palette. Visi plongeur = 0.7*ZSD,
-    // donc 0-8 m de visi utile = 0-11.43 m de Secchi. C'est CE bornage qui rend
-    // la légende vraie : une couleur = une valeur connue. La légende
-    // (vzZsdEnsureLegend_) est calée sur exactement cette plage.
-    var VZ_ZSD_SECCHI_MAX = 11.43;                 // = 8 m visi / 0.7
-    var url = 'https://wmts.marine.copernicus.eu/teroWmts'
-      + '?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0'
-      + '&LAYER=' + VZ_ZSD_LAYER
-      + '&STYLE=' + VZ_ZSD_STYLE
-      + '&COLORSCALERANGE=0,' + VZ_ZSD_SECCHI_MAX
-      + '&TILEMATRIXSET=EPSG:3857'
-      + '&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}'
-      + '&FORMAT=image/png'
-      + '&time=' + timeStr;
-    S.zsdLayer = L.tileLayer(url, {
-      attribution: 'CMEMS Ocean Colour ZSD',
-      opacity: 0.7, maxZoom: 19, pane: 'vzZsdPane'
-    });
-  })();
+  S.zsdLayer = vzZsdBuildLayer_();
 
 initLitto3dLayer();
   S.litto3d.addTo(S.map);
@@ -2723,10 +2691,226 @@ function vzWindPlayStop_() {
   }, VZ_WIND_ANIM_MS);
 }
 
+// ============================================================
+// COUCHE VISIBILITE SATELLITE - configuration unique
+// ============================================================
+// Copernicus n'expose que 21 colormaps figees (algae, amp, balance, cividis,
+// cyclic, delta, dense, gray, haline, ice, inferno, magma, matter, phase,
+// plasma, rainbow, solar, speed, tempo, thermal, viridis). La palette Visimer
+// n'existe pas cote serveur : on la peint donc nous-memes, tuile par tuile.
+//
+// Principe : les tuiles sont demandees en 'haline', dont la table de 256
+// couleurs est monotone sur le canal vert (24 -> 239) et ne contient aucun
+// gris neutre. Deux consequences exploitees dans vzZsdPaint_ :
+//   - le canal vert d'un pixel donne sa position exacte sur l'echelle, via
+//     une LUT inverse construite depuis la table renvoyee par GetLegend
+//     (donc jamais devinee, jamais figee dans le code) ;
+//   - un pixel r == g == b ne peut pas etre de la donnee : c'est le masque
+//     terre / nodata du serveur, il devient transparent.
+//
+// L'echelle (bornes + logScale) reste entierement pilotee par le serveur, et
+// 'style' ci-dessous est la source de verite unique : la couche et la legende
+// envoient exactement la meme chaine a GetTile et a GetLegend. Une couleur
+// vaut donc une valeur, par construction et non par convention.
+//
+// Syntaxe Copernicus : les attributs de rendu sont des sous-options de STYLE
+// separees par des virgules (cmap:, range:, inverse, noClamp, logScale), et
+// NON des parametres KVP autonomes. Un COLORSCALERANGE est silencieusement
+// ignore. Reference : help.marine.copernicus.eu, "How to use WMTS".
+//
+// Conversion visi plongeur = 0.7 x ZSD (Wright & Colling 1995), identique a
+// celle appliquee cote GAS par fetchCmemsZSD_.
+var VZ_ZSD_CFG = {
+  endpoint: 'https://wmts.marine.copernicus.eu/teroWmts',
+  layer: 'OCEANCOLOUR_ATL_BGC_L3_NRT_009_111/'
+       + 'cmems_obs-oc_atl_bgc-transp_nrt_l3-multi-1km_P1D_202311/ZSD',
+  // Porteuse haline + bornes en profondeur de Secchi. 0.5 -> 11.4 m de Secchi
+  // = 0.35 -> 8 m de visi plongeur. logScale : l'ecart 1 m / 3 m occupe 35 %
+  // de la palette contre 9 % sur l'echelle par defaut du produit (3.4 -> 40.5),
+  // calibree sur l'Atlantique du large et non sur le cotier francais.
+  style: 'cmap:haline,range:0.5/11.4,logScale',
+  // Palette Visimer, du plus charge au plus clair.
+  stops: [
+    [0.00,   8,   8,   8],
+    [0.14, 107,  52,  16],
+    [0.28, 184,  38,  43],
+    [0.43, 232, 119,  34],
+    [0.57, 242, 215,  78],
+    [0.71,  79, 175,  82],
+    [0.86,  45, 212, 191],
+    [1.00,  27,  58, 122]
+  ],
+  visiFactor: 0.7
+};
+
+// Etat partage, rempli une seule fois par session par vzZsdFetchLegend_.
+var VZ_ZSD_STATE = { lut: null, min: null, max: null, log: true, pending: null, warned: false };
+
+// Construit la LUT 256 entrees : canal vert du pixel -> couleur Visimer.
+// colorMap est la table haline exacte du serveur, donc l'inversion ne repose
+// sur aucune constante recopiee a la main.
+function vzZsdBuildLut_(colorMap) {
+  var n = colorMap.length;
+  if (!n) return null;
+  var st = VZ_ZSD_CFG.stops;
+  var target = new Uint8Array(n * 3);
+  for (var i = 0; i < n; i++) {
+    var f = n > 1 ? i / (n - 1) : 0;
+    var k = 0;
+    while (k < st.length - 2 && f > st[k + 1][0]) k++;
+    var a = st[k], b = st[k + 1];
+    var span = (b[0] - a[0]) || 1;
+    var t = (f - a[0]) / span;
+    if (t < 0) t = 0;
+    if (t > 1) t = 1;
+    target[i * 3]     = Math.round(a[1] + (b[1] - a[1]) * t);
+    target[i * 3 + 1] = Math.round(a[2] + (b[2] - a[2]) * t);
+    target[i * 3 + 2] = Math.round(a[3] + (b[3] - a[3]) * t);
+  }
+  var lut = new Uint8Array(256 * 3);
+  for (var g = 0; g < 256; g++) {
+    var best = 0, bestD = 1e9;
+    for (var j = 0; j < n; j++) {
+      var d = Math.abs(colorMap[j][1] - g);
+      if (d < bestD) { bestD = d; best = j; }
+    }
+    lut[g * 3]     = target[best * 3];
+    lut[g * 3 + 1] = target[best * 3 + 1];
+    lut[g * 3 + 2] = target[best * 3 + 2];
+  }
+  return lut;
+}
+
+// Recupere les bornes reelles et la table de couleurs de la porteuse. Un seul
+// appel par session, memoise : sert a la fois au repeinturage des tuiles et
+// au dessin de la legende, ce qui garantit qu'ils ne peuvent pas diverger.
+function vzZsdFetchLegend_() {
+  if (VZ_ZSD_STATE.pending) return VZ_ZSD_STATE.pending;
+  var url = VZ_ZSD_CFG.endpoint
+    + '?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetLegend'
+    + '&LAYER=' + VZ_ZSD_CFG.layer
+    + '&STYLE=' + VZ_ZSD_CFG.style
+    + '&FORMAT=application/json';
+  VZ_ZSD_STATE.pending = fetch(url).then(function(r) {
+    if (!r.ok) throw new Error('GetLegend HTTP ' + r.status);
+    return r.json();
+  }).then(function(j) {
+    var c = j && j.continuous;
+    if (!c || !c.cmap || !c.cmap.colorMap) throw new Error('GetLegend payload inattendu');
+    VZ_ZSD_STATE.min = c.valueMin;
+    VZ_ZSD_STATE.max = c.valueMax;
+    VZ_ZSD_STATE.log = !!c.logScale;
+    VZ_ZSD_STATE.lut = vzZsdBuildLut_(c.cmap.colorMap);
+    return VZ_ZSD_STATE;
+  }).catch(function(e) {
+    console.warn('[zsd] GetLegend indisponible, tuiles haline brutes', e);
+    return VZ_ZSD_STATE;
+  });
+  return VZ_ZSD_STATE.pending;
+}
+
+// Repeint un canvas de tuile en place. Silencieux si la LUT n'est pas encore
+// arrivee ou si le canvas est verrouille faute d'en-tete CORS cote Copernicus :
+// dans les deux cas la tuile haline brute reste affichee. Degradee, mais jamais
+// de carte vide.
+function vzZsdPaint_(ctx, size) {
+  var lut = VZ_ZSD_STATE.lut;
+  if (!lut) return;
+  var img;
+  try {
+    img = ctx.getImageData(0, 0, size, size);
+  } catch (e) {
+    if (!VZ_ZSD_STATE.warned) {
+      VZ_ZSD_STATE.warned = true;
+      console.warn('[zsd] canvas verrouille (CORS absent), palette Visimer inactive', e);
+    }
+    return;
+  }
+  var d = img.data;
+  for (var i = 0; i < d.length; i += 4) {
+    if (d[i + 3] === 0) continue;
+    var r = d[i], g = d[i + 1], b = d[i + 2];
+    if (r === g && g === b) { d[i + 3] = 0; continue; }   // masque terre / nodata
+    var k = g * 3;
+    d[i] = lut[k];
+    d[i + 1] = lut[k + 1];
+    d[i + 2] = lut[k + 2];
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+// Construit la couche. GridLayer sur canvas plutot que tileLayer, pour pouvoir
+// remplacer les couleurs. TILEMATRIXSET @2x : buffer 512 px affiche sur 256,
+// donc pas de flou au redimensionnement.
+function vzZsdBuildLayer_() {
+  var VZ_ZSD_BUF = 512;
+  var d = new Date();
+  d.setUTCDate(d.getUTCDate() - 2);                // J-2 : latence NRT CMEMS confirmée
+  var timeStr = d.getUTCFullYear() + '-'
+    + String(d.getUTCMonth() + 1).padStart(2, '0') + '-'
+    + String(d.getUTCDate()).padStart(2, '0') + 'T00:00:00.000Z';
+  var tpl = VZ_ZSD_CFG.endpoint
+    + '?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0'
+    + '&LAYER=' + VZ_ZSD_CFG.layer
+    + '&STYLE=' + VZ_ZSD_CFG.style
+    + '&TILEMATRIXSET=EPSG:3857@2x'
+    + '&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}'
+    + '&FORMAT=image/png'
+    + '&time=' + timeStr;
+
+  var VzZsdPainted = L.GridLayer.extend({
+    createTile: function(coords, done) {
+      var tile = document.createElement('canvas');
+      tile.width = VZ_ZSD_BUF;
+      tile.height = VZ_ZSD_BUF;
+      var ctx = tile.getContext('2d');
+      var img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = function() {
+        ctx.drawImage(img, 0, 0, VZ_ZSD_BUF, VZ_ZSD_BUF);
+        vzZsdPaint_(ctx, VZ_ZSD_BUF);
+        done(null, tile);
+      };
+      img.onerror = function() { done(null, tile); };
+      img.src = tpl.replace('{z}', coords.z).replace('{y}', coords.y).replace('{x}', coords.x);
+      return tile;
+    }
+  });
+
+  var layer = new VzZsdPainted({
+    attribution: 'CMEMS Ocean Colour ZSD',
+    opacity: 0.7, maxZoom: 19, pane: 'vzZsdPane', tileSize: 256
+  });
+
+  // La LUT arrive apres les premieres tuiles : on repeint une fois prete.
+  vzZsdFetchLegend_().then(function() {
+    if (VZ_ZSD_STATE.lut) layer.redraw();
+    vzZsdRefreshLegend_();
+  });
+  return layer;
+}
+
+// Position 0-1 d'une visi plongeur sur l'echelle reellement appliquee par le
+// serveur. Renvoie null tant que les bornes ne sont pas connues : la legende
+// prefere n'afficher aucun repere plutot qu'un repere invente.
+function vzZsdPos_(visiM) {
+  var mn = VZ_ZSD_STATE.min, mx = VZ_ZSD_STATE.max;
+  if (mn == null || mx == null || mx === mn) return null;
+  var zsd = visiM / VZ_ZSD_CFG.visiFactor;
+  var f;
+  if (VZ_ZSD_STATE.log) {
+    if (zsd <= 0 || mn <= 0) return null;
+    f = (Math.log(zsd) - Math.log(mn)) / (Math.log(mx) - Math.log(mn));
+  } else {
+    f = (zsd - mn) / (mx - mn);
+  }
+  return Math.max(0, Math.min(1, f));
+}
+
 // Légende de la couche Visibilité satellite (calquée sur la légende vent).
-// Barre 0->8 m de visi plongeur : rouge (eau chargée) -> jaune -> teal (claire),
-// orientée comme la palette CMEMS. La plage est verrouillée cote couche par
-// VZ_ZSD_SECCHI_MAX, donc les repères en mètres sont vrais par construction.
+// Le dégradé est construit depuis VZ_ZSD_CFG.stops, exactement la table qui
+// repeint les tuiles, et les repères en mètres sont calculés depuis les bornes
+// renvoyées par GetLegend : ils ne peuvent pas diverger de la carte.
 // Placée en bas (le vent occupe le haut) pour coexister avec la légende vent.
 function vzZsdEnsureLegend_() {
   var leg = document.getElementById('vzZsdLegend');
@@ -2738,24 +2922,65 @@ function vzZsdEnsureLegend_() {
       "#vzZsdLegend{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:1150;display:none;align-items:center;gap:10px;padding:6px 12px;background:rgba(10,21,32,0.88);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(77,212,168,0.4);border-radius:11px;box-shadow:0 6px 20px rgba(4,16,28,0.4);font-family:'Inter',sans-serif;pointer-events:none;}"
     + "#vzZsdLegend.on{display:flex;}"
     + ".vzzl-cap{color:#4DD4A8;font-size:10px;font-weight:700;letter-spacing:1.5px;white-space:nowrap;}"
-    + ".vzzl-scale{display:flex;flex-direction:column;gap:3px;width:160px;}"
-    + ".vzzl-bar{height:7px;border-radius:4px;background:linear-gradient(to right,#440154 0%,#3b528b 30%,#21918c 55%,#5ec962 80%,#fde725 100%);}"
+    + ".vzzl-scale{display:flex;flex-direction:column;gap:3px;width:180px;}"
+    + ".vzzl-bar{height:8px;border-radius:4px;}"
     + ".vzzl-ticks{position:relative;height:10px;color:#8FA6B8;font-family:'IBM Plex Mono',monospace;font-size:9px;line-height:1;}"
-    + ".vzzl-ticks span{position:absolute;top:0;}"
+    + ".vzzl-ticks span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap;}"
     + ".vzzl-note{color:#5C7285;font-size:9px;font-family:'IBM Plex Mono',monospace;white-space:nowrap;}"
-    + "@media (max-width:768px){#vzZsdLegend{bottom:80px;}}";
+    + "@media (max-width:768px){#vzZsdLegend{bottom:80px;}.vzzl-scale{width:140px;}}";
     (document.head || document.documentElement).appendChild(st);
   }
   leg = document.createElement('div');
   leg.id = 'vzZsdLegend';
   leg.innerHTML =
     '<span class="vzzl-cap">VISI SATELLITE</span>'
-  + '<span class="vzzl-scale"><span class="vzzl-bar"></span>'
-  + '<span class="vzzl-ticks"><span style="left:0">Chargé</span>'
-  + '<span style="right:0">Clair</span></span></span>'
-  + '<span class="vzzl-note">mesure J-2 · indicatif</span>';
+  + '<span class="vzzl-scale"><span class="vzzl-bar" id="vzZsdBar"></span>'
+  + '<span class="vzzl-ticks" id="vzZsdTicks"></span></span>'
+  + '<span class="vzzl-note" id="vzZsdNote">mesure J-2</span>';
   document.body.appendChild(leg);
+  vzZsdRefreshLegend_();
+  vzZsdFetchLegend_().then(vzZsdRefreshLegend_);
   return leg;
+}
+
+// Redessine barre, repères et note. Appelée au montage puis quand GetLegend a
+// répondu. Repères en mètres de visi plongeur, pas en Secchi : c'est l'unité
+// que lit le chasseur.
+function vzZsdRefreshLegend_() {
+  var bar = document.getElementById('vzZsdBar');
+  if (bar) {
+    var st = VZ_ZSD_CFG.stops, parts = [];
+    for (var i = 0; i < st.length; i++) {
+      parts.push('rgb(' + st[i][1] + ',' + st[i][2] + ',' + st[i][3] + ') '
+        + (st[i][0] * 100).toFixed(1) + '%');
+    }
+    bar.style.background = 'linear-gradient(to right,' + parts.join(',') + ')';
+  }
+  var tk = document.getElementById('vzZsdTicks');
+  if (tk) {
+    if (VZ_ZSD_STATE.min == null) {
+      tk.innerHTML = '';
+    } else {
+      var marks = [1, 2, 3, 5], html = '';
+      for (var m = 0; m < marks.length; m++) {
+        var p = vzZsdPos_(marks[m]);
+        if (p === null || p <= 0.03 || p >= 0.97) continue;
+        html += '<span style="left:' + (p * 100).toFixed(1) + '%">' + marks[m] + '</span>';
+      }
+      tk.innerHTML = html;
+    }
+  }
+  var nt = document.getElementById('vzZsdNote');
+  if (nt) {
+    if (VZ_ZSD_STATE.max == null) {
+      nt.textContent = 'mesure J-2';
+    } else {
+      // Honnetete : au-dela de la borne haute la couleur est ecretee, donc
+      // elle ne distingue plus rien. La legende le dit au lieu de le taire.
+      var hi = VZ_ZSD_STATE.max * VZ_ZSD_CFG.visiFactor;
+      nt.textContent = 'metres - J-2 - sature au-dela de ' + hi.toFixed(0) + ' m';
+    }
+  }
 }
 
 // Visibilite effective de la legende sediment : affichee seulement si la couche
