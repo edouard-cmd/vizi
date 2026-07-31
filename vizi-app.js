@@ -2907,45 +2907,67 @@ function vzZsdPos_(visiM) {
   return Math.max(0, Math.min(1, f));
 }
 
-// Légende de la couche Visibilité satellite (calquée sur la légende vent).
-// Le dégradé est construit depuis VZ_ZSD_CFG.stops, exactement la table qui
-// repeint les tuiles, et les repères en mètres sont calculés depuis les bornes
-// renvoyées par GetLegend : ils ne peuvent pas diverger de la carte.
-// Placée en bas (le vent occupe le haut) pour coexister avec la légende vent.
+// Légende de la couche Visibilité satellite. Calquée sur vzWindEnsureLegend_ :
+// mêmes tokens instrument (fond opaque, filet 2px, Plex Mono), même structure
+// cap + scale, même resserrement mobile. Le dégradé est construit depuis
+// VZ_ZSD_CFG.stops, exactement la table qui repeint les tuiles, et les repères
+// en mètres sont calculés depuis les bornes renvoyées par GetLegend : ils ne
+// peuvent pas diverger de la carte.
+// Position haute comme le vent : le bas de l'écran est déjà pris par le bouton
+// Afficher et par #vzWindCtrl (bottom 96px), d'où le chevauchement constaté.
+// Quand la couche vent est active, body porte vz-wind-band : on descend d'un
+// cran en CSS pur, sans coupler les deux toggles.
 function vzZsdEnsureLegend_() {
   var leg = document.getElementById('vzZsdLegend');
   if (leg) return leg;
+  vzInstrEnsureTokens_();
   if (!document.getElementById('vzZsdLegendStyle')) {
     var st = document.createElement('style');
     st.id = 'vzZsdLegendStyle';
     st.textContent =
-      "#vzZsdLegend{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:1150;display:none;align-items:center;gap:10px;padding:6px 12px;background:rgba(10,21,32,0.88);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(77,212,168,0.4);border-radius:11px;box-shadow:0 6px 20px rgba(4,16,28,0.4);font-family:'Inter',sans-serif;pointer-events:none;}"
+      "#vzZsdLegend{position:fixed;top:66px;left:50%;transform:translateX(-50%);z-index:1150;display:none;align-items:center;gap:10px;padding:7px 11px;box-sizing:border-box;max-width:calc(100vw - 28px);background:var(--vzi-bg);border:2px solid var(--vzi-line);border-radius:14px;box-shadow:0 10px 28px rgba(8,17,27,0.35);font-family:'Inter',sans-serif;pointer-events:none;}"
     + "#vzZsdLegend.on{display:flex;}"
-    + ".vzzl-cap{color:#4DD4A8;font-size:10px;font-weight:700;letter-spacing:1.5px;white-space:nowrap;}"
-    + ".vzzl-scale{display:flex;flex-direction:column;gap:3px;width:180px;}"
-    + ".vzzl-bar{height:8px;border-radius:4px;}"
-    + ".vzzl-ticks{position:relative;height:10px;color:#8FA6B8;font-family:'IBM Plex Mono',monospace;font-size:9px;line-height:1;}"
+    // Vent en haut : on se place dessous plutot que de le recouvrir.
+    + "body.vz-wind-band #vzZsdLegend{top:126px;}"
+    + ".vzzl-cap{color:var(--vzi-ink);font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;white-space:nowrap;}"
+    + ".vzzl-scale{display:flex;flex-direction:column;gap:4px;width:168px;}"
+    + ".vzzl-bar{height:12px;border-radius:6px;border:1px solid rgba(10,21,32,0.3);}"
+    // Repères en encre noire 11px, comme le vent : l'ancien #8FA6B8 en 9px
+    // etait illisible en exterieur.
+    + ".vzzl-ticks{position:relative;height:13px;color:var(--vzi-ink);font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;line-height:1;}"
     + ".vzzl-ticks span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap;}"
-    + ".vzzl-note{color:#5C7285;font-size:9px;font-family:'IBM Plex Mono',monospace;white-space:nowrap;}"
-    + "@media (max-width:768px){#vzZsdLegend{bottom:80px;}.vzzl-scale{width:140px;}}";
+    + ".vzzl-ticks span.vzzl-end{right:0;left:auto;transform:none;}"
+    // Pastille de fraicheur, calee sur .vzwl-unit du vent mais passive.
+    + ".vzzl-age{box-sizing:border-box;border:2px solid var(--vzi-line);background:var(--vzi-bg);color:var(--vzi-ink);font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;padding:0 8px;min-height:36px;display:flex;align-items:center;border-radius:9px;line-height:1;}"
+    + "@media (max-width:768px){"
+    +   "#vzZsdLegend{top:58px;gap:7px;padding:5px 8px;border-radius:12px;}"
+    +   "body.vz-wind-band #vzZsdLegend{top:112px;}"
+    +   ".vzzl-cap{font-size:10px;letter-spacing:0.08em;}"
+    +   ".vzzl-scale{width:118px;gap:3px;}"
+    +   ".vzzl-bar{height:10px;border-radius:5px;}"
+    +   ".vzzl-ticks{height:12px;font-size:10px;}"
+    +   ".vzzl-ticks span.vzzl-sm{display:none;}"   // 5 m retire : 118px ne tient pas 5 reperes
+    +   ".vzzl-age{min-height:36px;font-size:12px;padding:0 6px;border-radius:8px;}"
+    + "}";
     (document.head || document.documentElement).appendChild(st);
   }
   leg = document.createElement('div');
   leg.id = 'vzZsdLegend';
   leg.innerHTML =
-    '<span class="vzzl-cap">VISI SATELLITE</span>'
+    '<span class="vzzl-cap">Visi</span>'
   + '<span class="vzzl-scale"><span class="vzzl-bar" id="vzZsdBar"></span>'
   + '<span class="vzzl-ticks" id="vzZsdTicks"></span></span>'
-  + '<span class="vzzl-note" id="vzZsdNote">mesure J-2</span>';
+  + '<span class="vzzl-age" id="vzZsdAge">J-2</span>';
   document.body.appendChild(leg);
   vzZsdRefreshLegend_();
   vzZsdFetchLegend_().then(vzZsdRefreshLegend_);
   return leg;
 }
 
-// Redessine barre, repères et note. Appelée au montage puis quand GetLegend a
+// Redessine barre et repères. Appelée au montage puis quand GetLegend a
 // répondu. Repères en mètres de visi plongeur, pas en Secchi : c'est l'unité
-// que lit le chasseur.
+// que lit le chasseur. Le repère de droite porte le "+" de saturation, seule
+// mention honnête du fait que la couleur n'y distingue plus rien.
 function vzZsdRefreshLegend_() {
   var bar = document.getElementById('vzZsdBar');
   if (bar) {
@@ -2957,30 +2979,18 @@ function vzZsdRefreshLegend_() {
     bar.style.background = 'linear-gradient(to right,' + parts.join(',') + ')';
   }
   var tk = document.getElementById('vzZsdTicks');
-  if (tk) {
-    if (VZ_ZSD_STATE.min == null) {
-      tk.innerHTML = '';
-    } else {
-      var marks = [1, 2, 3, 5], html = '';
-      for (var m = 0; m < marks.length; m++) {
-        var p = vzZsdPos_(marks[m]);
-        if (p === null || p <= 0.03 || p >= 0.97) continue;
-        html += '<span style="left:' + (p * 100).toFixed(1) + '%">' + marks[m] + '</span>';
-      }
-      tk.innerHTML = html;
-    }
+  if (!tk) return;
+  if (VZ_ZSD_STATE.min == null) { tk.innerHTML = ''; return; }
+  var marks = [1, 2, 3, 5], html = '';
+  for (var m = 0; m < marks.length; m++) {
+    var p = vzZsdPos_(marks[m]);
+    if (p === null || p <= 0.03 || p >= 0.94) continue;
+    var cls = marks[m] === 5 ? ' class="vzzl-sm"' : '';
+    html += '<span' + cls + ' style="left:' + (p * 100).toFixed(1) + '%">' + marks[m] + '</span>';
   }
-  var nt = document.getElementById('vzZsdNote');
-  if (nt) {
-    if (VZ_ZSD_STATE.max == null) {
-      nt.textContent = 'mesure J-2';
-    } else {
-      // Honnetete : au-dela de la borne haute la couleur est ecretee, donc
-      // elle ne distingue plus rien. La legende le dit au lieu de le taire.
-      var hi = VZ_ZSD_STATE.max * VZ_ZSD_CFG.visiFactor;
-      nt.textContent = 'metres - J-2 - sature au-dela de ' + hi.toFixed(0) + ' m';
-    }
-  }
+  var hi = VZ_ZSD_STATE.max * VZ_ZSD_CFG.visiFactor;
+  html += '<span class="vzzl-end">' + hi.toFixed(0) + 'm+</span>';
+  tk.innerHTML = html;
 }
 
 // Visibilite effective de la legende sediment : affichee seulement si la couche
