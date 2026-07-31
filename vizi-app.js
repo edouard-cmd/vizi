@@ -2938,6 +2938,7 @@ function vzZsdEnsureLegend_() {
     + ".vzzl-ticks{position:relative;height:14px;color:var(--vzi-ink);font-family:\'IBM Plex Mono\',monospace;font-size:12px;font-weight:600;line-height:1;}"
     + ".vzzl-ticks span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap;}"
     + ".vzzl-ticks span.vzzl-end{right:0;left:auto;transform:none;}"
+    + ".vzzl-ticks span.vzzl-zero{left:0;transform:none;}"
     // Pastille de date : nowrap obligatoire, elle se cassait en deux lignes.
     + ".vzzl-age{flex:0 0 auto;box-sizing:border-box;border:2px solid var(--vzi-line);background:var(--vzi-bg);color:var(--vzi-ink);font-family:\'IBM Plex Mono\',monospace;font-size:14px;font-weight:700;padding:0 10px;min-height:40px;display:flex;align-items:center;border-radius:10px;line-height:1;white-space:nowrap;}"
     + "@media (max-width:768px){"
@@ -2948,7 +2949,6 @@ function vzZsdEnsureLegend_() {
     +   ".vzzl-bar{height:14px;border-radius:7px;}"
     +   ".vzzl-ticks{height:13px;font-size:11px;}"
     +   ".vzzl-age{min-height:38px;font-size:13px;padding:0 8px;border-radius:9px;}"
-    +   ".vzzl-ticks span.vzzl-sm{display:none;}"
     + "}"
     // Tres petits ecrans : le titre passe en version courte pour ne pas forcer
     // la boite au-dela de la largeur de la fenetre.
@@ -2974,8 +2974,15 @@ function vzZsdEnsureLegend_() {
 
 // Redessine barre, repères et date. Appelée au montage puis quand GetLegend a
 // répondu. Repères en mètres de visi plongeur, pas en Secchi : c'est l'unité
-// que lit le chasseur. Le repère de droite porte le "+" de saturation, seule
-// mention honnête du fait que la couleur n'y distingue plus rien.
+// que lit le chasseur.
+// Les crans DOUBLENT (0,5 - 1 - 2 - 4). Sur une échelle logarithmique un
+// rapport constant donne un espacement constant, donc ces repères tombent à
+// intervalles rigoureusement égaux, quelle que soit la plage renvoyée par le
+// serveur. C'est ce qui rend l'échelle lisible sans renoncer au log, qui est
+// lui-même ce qui donne 35 % de palette entre 1 et 3 m au lieu de 9 %.
+// Le "0" de gauche n'est pas une mesure : une échelle log n'atteint jamais
+// zéro. Il marque la borne basse, sous laquelle on ne voit plus rien d'utile.
+// Le "+" de droite dit que la couleur y sature et ne distingue plus rien.
 function vzZsdRefreshLegend_() {
   var age = document.getElementById('vzZsdAge');
   if (age) age.textContent = VZ_ZSD_STATE.date || 'J-2';
@@ -2991,14 +2998,15 @@ function vzZsdRefreshLegend_() {
   var tk = document.getElementById('vzZsdTicks');
   if (!tk) return;
   if (VZ_ZSD_STATE.min == null) { tk.innerHTML = ''; return; }
-  var marks = [1, 2, 3, 5], html = '';
-  for (var m = 0; m < marks.length; m++) {
-    var p = vzZsdPos_(marks[m]);
-    if (p === null || p <= 0.03 || p >= 0.92) continue;
-    var cls = marks[m] === 5 ? ' class="vzzl-sm"' : '';
-    html += '<span' + cls + ' style="left:' + (p * 100).toFixed(1) + '%">' + marks[m] + '</span>';
-  }
   var hi = VZ_ZSD_STATE.max * VZ_ZSD_CFG.visiFactor;
+  var html = '<span class="vzzl-zero">0</span>';
+  for (var v = 0.5; v < hi; v *= 2) {
+    var p = vzZsdPos_(v);
+    if (p === null) break;
+    if (p <= 0.04 || p >= 0.90) continue;
+    var lbl = v < 1 ? String(v).replace('.', ',') : String(v);
+    html += '<span style="left:' + (p * 100).toFixed(1) + '%">' + lbl + '</span>';
+  }
   html += '<span class="vzzl-end">' + hi.toFixed(0) + 'm+</span>';
   tk.innerHTML = html;
 }
