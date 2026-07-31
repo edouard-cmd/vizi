@@ -2849,6 +2849,10 @@ function vzZsdBuildLayer_() {
   var timeStr = d.getUTCFullYear() + '-'
     + String(d.getUTCMonth() + 1).padStart(2, '0') + '-'
     + String(d.getUTCDate()).padStart(2, '0') + 'T00:00:00.000Z';
+  // Date de la prise de vue exposée à la légende. Jour seul, sans heure : le
+  // produit est une composition journalière (P1D), une heure serait fausse.
+  VZ_ZSD_STATE.date = String(d.getUTCDate()).padStart(2, '0') + '/'
+    + String(d.getUTCMonth() + 1).padStart(2, '0');
   var tpl = VZ_ZSD_CFG.endpoint
     + '?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0'
     + '&LAYER=' + VZ_ZSD_CFG.layer
@@ -2907,12 +2911,9 @@ function vzZsdPos_(visiM) {
   return Math.max(0, Math.min(1, f));
 }
 
-// Légende de la couche Visibilité satellite. Calquée sur vzWindEnsureLegend_ :
-// mêmes tokens instrument (fond opaque, filet 2px, Plex Mono), même structure
-// cap + scale, même resserrement mobile. Le dégradé est construit depuis
-// VZ_ZSD_CFG.stops, exactement la table qui repeint les tuiles, et les repères
-// en mètres sont calculés depuis les bornes renvoyées par GetLegend : ils ne
-// peuvent pas diverger de la carte.
+// Légende de la couche Visibilité satellite. Reprend les tokens instrument du
+// vent (fond opaque, filet 2px, Plex Mono) mais en disposition colonne : le
+// titre complet ne tient pas sur la ligne de la barre comme le fait "Vent".
 // Position haute comme le vent : le bas de l'écran est déjà pris par le bouton
 // Afficher et par #vzWindCtrl (bottom 96px), d'où le chevauchement constaté.
 // Quand la couche vent est active, body porte vz-wind-band : on descend d'un
@@ -2925,50 +2926,59 @@ function vzZsdEnsureLegend_() {
     var st = document.createElement('style');
     st.id = 'vzZsdLegendStyle';
     st.textContent =
-      "#vzZsdLegend{position:fixed;top:66px;left:50%;transform:translateX(-50%);z-index:1150;display:none;align-items:center;gap:10px;padding:7px 11px;box-sizing:border-box;max-width:calc(100vw - 28px);background:var(--vzi-bg);border:2px solid var(--vzi-line);border-radius:14px;box-shadow:0 10px 28px rgba(8,17,27,0.35);font-family:'Inter',sans-serif;pointer-events:none;}"
+      "#vzZsdLegend{position:fixed;top:66px;left:50%;transform:translateX(-50%);z-index:1150;display:none;align-items:center;gap:12px;padding:9px 13px;box-sizing:border-box;max-width:calc(100vw - 24px);background:var(--vzi-bg);border:2px solid var(--vzi-line);border-radius:14px;box-shadow:0 10px 28px rgba(8,17,27,0.35);font-family:\'Inter\',sans-serif;pointer-events:none;}"
     + "#vzZsdLegend.on{display:flex;}"
     // Vent en haut : on se place dessous plutot que de le recouvrir.
-    + "body.vz-wind-band #vzZsdLegend{top:126px;}"
-    + ".vzzl-cap{color:var(--vzi-ink);font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;white-space:nowrap;}"
-    + ".vzzl-scale{display:flex;flex-direction:column;gap:4px;width:168px;}"
-    + ".vzzl-bar{height:12px;border-radius:6px;border:1px solid rgba(10,21,32,0.3);}"
-    // Repères en encre noire 11px, comme le vent : l'ancien #8FA6B8 en 9px
-    // etait illisible en exterieur.
-    + ".vzzl-ticks{position:relative;height:13px;color:var(--vzi-ink);font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;line-height:1;}"
+    + "body.vz-wind-band #vzZsdLegend{top:132px;}"
+    + ".vzzl-scale{display:flex;flex-direction:column;gap:5px;width:264px;}"
+    // Titre long : Inter en casse normale plutot que le mono capitales du vent,
+    // qui doublerait la largeur pour un libelle de cette taille.
+    + ".vzzl-cap{color:var(--vzi-ink);font-size:12px;font-weight:600;line-height:1.25;}"
+    + ".vzzl-bar{height:16px;border-radius:8px;border:1px solid rgba(10,21,32,0.3);}"
+    + ".vzzl-ticks{position:relative;height:14px;color:var(--vzi-ink);font-family:\'IBM Plex Mono\',monospace;font-size:12px;font-weight:600;line-height:1;}"
     + ".vzzl-ticks span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap;}"
     + ".vzzl-ticks span.vzzl-end{right:0;left:auto;transform:none;}"
-    // Pastille de fraicheur, calee sur .vzwl-unit du vent mais passive.
-    + ".vzzl-age{box-sizing:border-box;border:2px solid var(--vzi-line);background:var(--vzi-bg);color:var(--vzi-ink);font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;padding:0 8px;min-height:36px;display:flex;align-items:center;border-radius:9px;line-height:1;}"
+    // Pastille de date : nowrap obligatoire, elle se cassait en deux lignes.
+    + ".vzzl-age{flex:0 0 auto;box-sizing:border-box;border:2px solid var(--vzi-line);background:var(--vzi-bg);color:var(--vzi-ink);font-family:\'IBM Plex Mono\',monospace;font-size:14px;font-weight:700;padding:0 10px;min-height:40px;display:flex;align-items:center;border-radius:10px;line-height:1;white-space:nowrap;}"
     + "@media (max-width:768px){"
-    +   "#vzZsdLegend{top:58px;gap:7px;padding:5px 8px;border-radius:12px;}"
-    +   "body.vz-wind-band #vzZsdLegend{top:112px;}"
-    +   ".vzzl-cap{font-size:10px;letter-spacing:0.08em;}"
-    +   ".vzzl-scale{width:118px;gap:3px;}"
-    +   ".vzzl-bar{height:10px;border-radius:5px;}"
-    +   ".vzzl-ticks{height:12px;font-size:10px;}"
-    +   ".vzzl-ticks span.vzzl-sm{display:none;}"   // 5 m retire : 118px ne tient pas 5 reperes
-    +   ".vzzl-age{min-height:36px;font-size:12px;padding:0 6px;border-radius:8px;}"
+    +   "#vzZsdLegend{top:58px;gap:9px;padding:8px 10px;border-radius:13px;}"
+    +   "body.vz-wind-band #vzZsdLegend{top:118px;}"
+    +   ".vzzl-scale{width:196px;gap:4px;}"
+    +   ".vzzl-cap{font-size:11px;}"
+    +   ".vzzl-bar{height:14px;border-radius:7px;}"
+    +   ".vzzl-ticks{height:13px;font-size:11px;}"
+    +   ".vzzl-age{min-height:38px;font-size:13px;padding:0 8px;border-radius:9px;}"
+    +   ".vzzl-ticks span.vzzl-sm{display:none;}"
+    + "}"
+    // Tres petits ecrans : le titre passe en version courte pour ne pas forcer
+    // la boite au-dela de la largeur de la fenetre.
+    + "@media (max-width:400px){"
+    +   ".vzzl-scale{width:168px;}"
+    +   ".vzzl-cap{font-size:10px;}"
     + "}";
     (document.head || document.documentElement).appendChild(st);
   }
   leg = document.createElement('div');
   leg.id = 'vzZsdLegend';
   leg.innerHTML =
-    '<span class="vzzl-cap">Visi</span>'
-  + '<span class="vzzl-scale"><span class="vzzl-bar" id="vzZsdBar"></span>'
-  + '<span class="vzzl-ticks" id="vzZsdTicks"></span></span>'
-  + '<span class="vzzl-age" id="vzZsdAge">J-2</span>';
+    '<span class="vzzl-scale">'
+  +   '<span class="vzzl-cap">Visibilité mesurée par satellite</span>'
+  +   '<span class="vzzl-bar" id="vzZsdBar"></span>'
+  +   '<span class="vzzl-ticks" id="vzZsdTicks"></span></span>'
+  + '<span class="vzzl-age" id="vzZsdAge"></span>';
   document.body.appendChild(leg);
   vzZsdRefreshLegend_();
   vzZsdFetchLegend_().then(vzZsdRefreshLegend_);
   return leg;
 }
 
-// Redessine barre et repères. Appelée au montage puis quand GetLegend a
+// Redessine barre, repères et date. Appelée au montage puis quand GetLegend a
 // répondu. Repères en mètres de visi plongeur, pas en Secchi : c'est l'unité
 // que lit le chasseur. Le repère de droite porte le "+" de saturation, seule
 // mention honnête du fait que la couleur n'y distingue plus rien.
 function vzZsdRefreshLegend_() {
+  var age = document.getElementById('vzZsdAge');
+  if (age) age.textContent = VZ_ZSD_STATE.date || 'J-2';
   var bar = document.getElementById('vzZsdBar');
   if (bar) {
     var st = VZ_ZSD_CFG.stops, parts = [];
@@ -2984,7 +2994,7 @@ function vzZsdRefreshLegend_() {
   var marks = [1, 2, 3, 5], html = '';
   for (var m = 0; m < marks.length; m++) {
     var p = vzZsdPos_(marks[m]);
-    if (p === null || p <= 0.03 || p >= 0.94) continue;
+    if (p === null || p <= 0.03 || p >= 0.92) continue;
     var cls = marks[m] === 5 ? ' class="vzzl-sm"' : '';
     html += '<span' + cls + ' style="left:' + (p * 100).toFixed(1) + '%">' + marks[m] + '</span>';
   }
