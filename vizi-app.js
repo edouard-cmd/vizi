@@ -386,6 +386,7 @@ var WEBCAMS = [
   { id:'wc_criel', name:'Criel-sur-Mer', lat:50.0214, lon:1.3097, url:'https://www.vision-environnement.com/live/player/criel0.php' },
   { id:'wc_dieppe_ango', name:'Dieppe - Ango', lat:49.9300, lon:1.0833, url:'https://www.vision-environnement.com/live/player/dieppe-ango0.php' },
   { id:'wc_ste_marguerite', name:'Sainte-Marguerite-sur-Mer', lat:49.9075, lon:0.9539, url:'https://www.vision-environnement.com/live/player/sainte-marguerite-sur-mer0.php' },
+  { id:'wc_staubin', name:'Saint-Aubin-sur-Mer (76)', lat:49.8941, lon:0.8715, url:'https://www.vision-environnement.com/live/player/staubin0.php' },
   { id:'wc_veules', name:'Veules-les-Roses', lat:49.8742, lon:0.7986, url:'https://www.vision-environnement.com/live/player/veules-les-roses0.php' },
   { id:'wc_svec', name:'Saint-Valery-en-Caux', lat:49.8678, lon:0.7100, url:'https://www.vision-environnement.com/live/player/saint-valery-en-caux-casino0.php' },
   { id:'wc_veulettes', name:'Veulettes-sur-Mer', lat:49.8492, lon:0.5972, url:'https://www.vision-environnement.com/live/player/veulettes-sur-mer0.php' },
@@ -404,7 +405,6 @@ var WEBCAMS = [
   { id:'wc_ouistreham', name:'Ouistreham', lat:49.2836, lon:-0.2492, url:'https://www.vision-environnement.com/live/player/ouistreham0.php' },
   { id:'wc_langrune', name:'Langrune-sur-Mer', lat:49.3289, lon:-0.3717, url:'https://www.vision-environnement.com/live/player/langrune-sur-mer0.php' },
   { id:'wc_luc', name:'Luc-sur-Mer', lat:49.3194, lon:-0.3539, url:'https://www.vision-environnement.com/live/player/luc-sur-mer0.php' },
-  { id:'wc_staubin', name:'Saint-Aubin-sur-Mer', lat:49.3308, lon:-0.3936, url:'https://www.vision-environnement.com/live/player/staubin0.php' },
   // Bernieres : live YouTube du Club de Voile (diffuse via CamStreamer),
   // embarque par ID video. Domaine youtube-nocookie pour ne pas poser de
   // cookie Google avant consentement.
