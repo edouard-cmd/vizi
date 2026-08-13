@@ -405,6 +405,14 @@ var WEBCAMS = [
   { id:'wc_langrune', name:'Langrune-sur-Mer', lat:49.3289, lon:-0.3717, url:'https://www.vision-environnement.com/live/player/langrune-sur-mer0.php' },
   { id:'wc_luc', name:'Luc-sur-Mer', lat:49.3194, lon:-0.3539, url:'https://www.vision-environnement.com/live/player/luc-sur-mer0.php' },
   { id:'wc_staubin', name:'Saint-Aubin-sur-Mer', lat:49.3308, lon:-0.3936, url:'https://www.vision-environnement.com/live/player/staubin0.php' },
+  // Bernieres : flux YouTube live du Club de Voile (CamStreamer). Domaine
+  // youtube-nocookie pour ne pas poser de cookie Google avant consentement.
+  { id:'wc_bernieres', name:'Bernieres-sur-Mer - Club de Voile', lat:49.3352, lon:-0.4247, url:'https://www.youtube-nocookie.com/embed/live_stream?channel=UCx3m-YKYLBBNScvBZrY6UBw', pageUrl:'https://www.cvbernieres.fr/webcam.php' },
+  // Courseulles : 2 vues Viewsurf (Ports du Calvados), differe 15 min.
+  // La capitainerie a un player court pv.viewsurf ; l'entree du port n'en a
+  // pas, on embarque le player Joada que la page Viewsurf utilise elle-meme.
+  { id:'wc_courseulles_entree', name:'Courseulles - Entree du port', lat:49.3299, lon:-0.4567, url:'https://platforms5.joada.net/embeded/embeded.html?uuid=9b08f583-0f35-4ccc-3331-3730-6d61-63-9ec3-b38435143061d&type=vod&liveicon=0&vsheader=1&tz=Europe/Paris&titletext=', pageUrl:'https://viewsurf.com/univers/plage/vue/19414-france-basse-normandie-courseulles-sur-mer-entree-du-port-de-courseulles-sur-mer' },
+  { id:'wc_courseulles_capit', name:'Courseulles - Capitainerie', lat:49.3312, lon:-0.4550, url:'https://pv.viewsurf.com/2460/Port-de-Courseulles-sur-mer-Capitainerie', pageUrl:'https://viewsurf.com/univers/plage/vue/19412-france-basse-normandie-courseulles-sur-mer-port-de-courseulles-sur-mer-capitainerie' },
   // Cotentin (Manche)
   { id:'wc_stgermain', name:'Saint-Germain-sur-Ay', lat:49.2278, lon:-1.6181, url:'https://www.vision-environnement.com/live/player/stgermain0.php' },
   { id:'wc_pirou', name:'Pirou', lat:49.1717, lon:-1.5944, url:'https://www.vision-environnement.com/live/player/pirou0.php' },
@@ -648,11 +656,11 @@ function openWebcamPopup(wc) {
         '<iframe src="' + wc.url + '" id="webcamIframe" allowfullscreen></iframe>' +
         '<div class="webcam-popup-fallback" id="webcamFallback" style="display:none;">' +
           '<p>L affichage integre n est pas disponible pour cette webcam.</p>' +
-          '<a href="' + wc.url + '" target="_blank" rel="noopener" class="webcam-popup-btn">Voir le live HD →</a>' +
+          '<a href="' + (wc.pageUrl || wc.url) + '" target="_blank" rel="noopener" class="webcam-popup-btn">Voir le live HD →</a>' +
         '</div>' +
       '</div>' +
       '<div class="webcam-popup-footer">' +
-        '<a href="' + wc.url + '" target="_blank" rel="noopener">Plein ecran ↗</a>' +
+        '<a href="' + (wc.pageUrl || wc.url) + '" target="_blank" rel="noopener">Plein ecran ↗</a>' +
         '' +
       '</div>' +
     '</div>';
