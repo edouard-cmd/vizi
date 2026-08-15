@@ -2883,12 +2883,21 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
   .vz-stack-side { top: 50%; transform: translateY(-50%); }
   .vz-logo-pill { display: none; }
   #vzBtnLayers { display: none; }
+  /* Ligne d'ancrage unique de la zone bas-gauche mobile. Le FAB Couches est la
+     reference : #vzBtnLayers est masque sur mobile, donc c'est le SEUL point
+     d'entree du menu Couches. Toute autre surface flottante ancree en bas a
+     gauche se calcule au-dessus de cette ligne, jamais avec sa propre valeur
+     absolue. Un seul endroit a redefinir quand le bas d'ecran bouge. */
+  :root { --vz-fabline: calc(34px + env(safe-area-inset-bottom, 0px)); }
   .vz-layers-fab {
     display: flex;
-    bottom: calc(34px + env(safe-area-inset-bottom, 0px));
+    bottom: var(--vz-fabline);
     left: 12px;
     z-index: 1050;
   }
+  /* 56px de FAB + 8px de gouttiere. Sortir par le HAUT et pas seulement de
+     cote : robuste quelle que soit la largeur d'ecran. */
+  #vzHuntBar { bottom: calc(var(--vz-fabline) + 64px); }
   .vz-layers-popover {
     top: auto;
     bottom: calc(84px + env(safe-area-inset-bottom, 0px));
@@ -5527,6 +5536,18 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
   font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-2); min-width:64px; text-align:center;
 }
 #vzRainTime.vz-rain-future { color:var(--accent,#2DA888); }
+/* Mobile : la barre radar etait centree (left:50%) et ancree a 22px du bas,
+   donc sa moitie gauche passait sous le FAB Couches (168px de large, z 1050
+   contre 900) : bouton lecture inatteignable sous 500px de large. On la pose
+   sur la ligne d'ancrage commune, pleine largeur. */
+@media (max-width: 768px) {
+  #vzRainCtrl {
+    left: 12px; right: 12px;
+    transform: none;
+    bottom: calc(var(--vz-fabline) + 64px);
+  }
+  #vzRainSlider { width: auto; flex: 1 1 auto; min-width: 0; }
+}
 </style>
 
 <div id="forecastPanel">
