@@ -1414,10 +1414,55 @@ function vzHideSector() {
 var S_portCounts = null;
 var S_allFeedback = null;  // retours bruts geolocalises (<72h), pour le clic libre
 
+// Normalise une observation du canal sonar (get_observations) au format
+// attendu par la doctrine 1 : visibility_m -> real_m, timestamp -> age_hours.
+// Les deux canaux different par leurs champs, pas par leur nature : dans les
+// deux cas un chasseur a vu l'eau. Un seul format en sortie, un seul moteur.
+function _normalizeObservation_(o) {
+  if (!o || typeof o.lat !== 'number' || typeof o.lon !== 'number') return null;
+  if (!isFinite(o.lat) || !isFinite(o.lon)) return null;
+  var v = (typeof o.visibility_m === 'number') ? o.visibility_m : parseFloat(o.visibility_m);
+  if (!isFinite(v) || v <= 0) return null;          // 0 m non exploitable par le moteur
+  var ts = Date.parse(o.timestamp);
+  if (!isFinite(ts)) return null;
+  var ageH = (Date.now() - ts) / 3600000;
+  if (!isFinite(ageH) || ageH < 0) return null;
+  return {
+    lat: o.lat, lon: o.lon,
+    real_m: v,
+    predicted_m: null,                              // le canal sonar n'archive pas la prevision
+    age_hours: ageH,
+    pseudo: o.pseudo || 'Anonyme',
+    bottom_visible: (o.bottom_visible === true),    // borne physique, pas encore exploitee
+    source: 'observation'
+  };
+}
+
 function fetchPortCounts_() {
-  return gasGet('all_visi_feedback', {}).then(function(res) {
+  // DOCTRINE 1 - source unique des retours terrain.
+  // Il existe deux canaux de depot : l'ancien vote de secteur
+  // (submit_visi_feedback -> all_visi_feedback, champs real_m/predicted_m) et
+  // le bouton sonar (submit_observation -> get_observations, champ
+  // visibility_m), devenu le point d'entree principal. Le moteur ne lisait que
+  // le premier, reste vide depuis la bascule : tout retour depose via le sonar
+  // etait donc invisible pour computeVisibilityScore_V4, partout en France, en
+  // violation directe de la doctrine 1. On fusionne ici les deux canaux dans
+  // S_allFeedback. vzPointTerrainAt fusionnait deja les deux pour l'affichage ;
+  // le moteur s'aligne enfin sur la meme verite.
+  var pFeedback = gasGet('all_visi_feedback', {})
+    .then(function(res) { return (res && res.feedbacks) ? res.feedbacks : []; })
+    .catch(function() { return []; });
+  var pObs = (typeof vzEnsureObservations === 'function')
+    ? vzEnsureObservations().catch(function() { return []; })
+    : Promise.resolve([]);
+
+  return Promise.all([pFeedback, pObs]).then(function(res) {
     var counts = {};
-    var all = (res && res.feedbacks) ? res.feedbacks : [];
+    var all = res[0].slice();
+    (res[1] || []).forEach(function(o) {
+      var n = _normalizeObservation_(o);
+      if (n) all.push(n);
+    });
     all.forEach(function(f) {
       if (typeof findNearestPort !== 'function') return;
       var np = findNearestPort(f.lat, f.lon);
@@ -1433,6 +1478,10 @@ function fetchPortCounts_() {
     });
     S_portCounts = counts;
     S_allFeedback = all;
+    // Un resultat V4 mis en cache avant l'arrivee des retours ne porte aucune
+    // observation. Sans cette invalidation, le premier render de la session
+    // reste fige sur "?" alors que la donnee terrain est desormais chargee.
+    if (all.length && typeof invalidateChainCache === 'function') invalidateChainCache();
     return counts;
   });
 }
@@ -12152,6 +12201,11 @@ if (pseudo) {
     OBS_SUBMITTING = false;
     if (result && result.success) {
       S_obsCache = null;  // le prochain panneau / pastille reflete ce depot
+      // Meme donnee, deux consommateurs : S_allFeedback (moteur, doctrine 1) est
+      // derive de S_portCounts. Sans cette ligne le deposant voit son retour
+      // dans le panneau mais le calcul continue de l'ignorer jusqu'au rechargement.
+      S_portCounts = null;
+      if (typeof invalidateChainCache === 'function') invalidateChainCache();
       btn.style.display = 'none';
       document.getElementById('obsSheetSuccessMsg').textContent = 'Merci !';
       document.getElementById('obsSheetSuccessSub').textContent = 'Ton observation aide la communauté.';
