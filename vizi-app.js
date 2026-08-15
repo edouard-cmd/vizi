@@ -2540,20 +2540,24 @@ function vzWindEnsureCtrl_() {
     // env() recoit une valeur de repli, sinon toute la declaration est invalidee
     // sur un navigateur qui ne la connait pas.
     // RELEVE COMPLET des elements ancres en bas sur mobile, pour ne plus en
-    // oublier un : .vzm-sonar-fab, .vzm-sonar-menu, #vzRainCtrl,
+    // oublier un : .vzm-sonar-fab, .vzm-sonar-menu, #vzRainCtrl, #vzHuntBar,
     // .leaflet-control-attribution, .vz-layers-fab, .vz-layers-popover,
     // #mobileAnalyzeBtn, #mobileShareBtn. Hauteur du bandeau = 4 + 36 + 2 + 44
     // + 8 = 94px, plus la safe-area.
     // .vz-layers-fab est CRITIQUE : #vzBtnLayers de la barre laterale est
     // masque sur mobile, donc c'est le SEUL point d'entree du menu Couches et
     // donc le seul moyen de couper la couche vent.
-    +   "body.vz-wind-band .vz-layers-fab{bottom:calc(106px + env(safe-area-inset-bottom, 0px));}"
+    // La zone bas-gauche (.vz-layers-fab, #vzRainCtrl, #vzHuntBar) n'a plus
+    // qu'une seule valeur a redefinir : --vz-fabline, declaree dans la media
+    // query mobile d'index.html. Les deux autres se calculent au-dessus.
+    // Avant : trois valeurs absolues independantes qui deplacaient la
+    // collision au lieu de la resoudre (fab 106, rain 104, hunt jamais traite).
+    +   "body.vz-wind-band{--vz-fabline:calc(106px + env(safe-area-inset-bottom, 0px));}"
     +   "body.vz-wind-band .vz-layers-popover{bottom:calc(168px + env(safe-area-inset-bottom, 0px));max-height:56vh;}"
     +   "body.vz-wind-band #mobileAnalyzeBtn{bottom:calc(166px + env(safe-area-inset-bottom, 0px));}"
     +   "body.vz-wind-band #mobileShareBtn{bottom:calc(114px + env(safe-area-inset-bottom, 0px));}"
     +   "body.vz-wind-band .vzm-sonar-fab{bottom:calc(112px + env(safe-area-inset-bottom, 0px));}"
     +   "body.vz-wind-band .vzm-sonar-menu{bottom:calc(188px + env(safe-area-inset-bottom, 0px));}"
-    +   "body.vz-wind-band #vzRainCtrl{bottom:calc(104px + env(safe-area-inset-bottom, 0px));}"
     +   "body.vz-wind-band .leaflet-control-attribution{margin-bottom:calc(98px + env(safe-area-inset-bottom, 0px));}"
     // Bottom sheet ouvert : on efface le bandeau. Meme motif que celui deja en
     // place dans index.html pour les boutons mobiles. Le sheet est en z-index
