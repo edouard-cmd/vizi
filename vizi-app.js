@@ -1432,6 +1432,9 @@ function _normalizeObservation_(o) {
     real_m: v,
     predicted_m: null,                              // le canal sonar n'archive pas la prevision
     age_hours: ageH,
+    obs_ts: ts,                                     // horodatage absolu : l'age doit se calculer
+                                                    // contre le creneau evalue, pas contre maintenant
+
     pseudo: o.pseudo || 'Anonyme',
     bottom_visible: (o.bottom_visible === true),    // borne physique, pas encore exploitee
     source: 'observation'
@@ -7993,9 +7996,15 @@ var _satelliteV4Cache = {};
 // Sprint 3 : cache voie Coriolis propagée (même logique que satellite).
 var _coriolisV4Cache = {};
 
+// Voie observation propagée (ancre terrain). Cache DISTINCT de
+// _satelliteV4Cache : les deux voies partagent la meme cacheKey et se
+// telescoperaient sinon, la premiere calculee servant l'autre.
+var _observationV4Cache = {};
+
 function invalidateChainCache() {
   _chainCache = {};
   _satelliteV4Cache = {};
+  _observationV4Cache = {};
 }
 
 // ============================================================
@@ -8271,6 +8280,10 @@ var VZ_SATELLITE_ANCHORS = true;
 var VZ_OBS_TAU_AGE_H = 24;    // l'influence d'un retour est divisee par e toutes les 24 h
 var VZ_OBS_TAU_DIST_KM = 2;   // ... et par e tous les 2 km
 var VZ_OBS_MAX_KM = 5;        // rayon de recherche (identique a l'affichage UI)
+// Poids minimal pour qu'un retour terrain porte reellement le chiffre affiche.
+// 0.35 = la mesure pese au moins un tiers ; en dessous, le chiffre serait de
+// l'habillage de modele et ne doit pas lever le drapeau d'ignorance.
+var VZ_OBS_MIN_WEIGHT = 0.35;
 
 // Enveloppe publique : calcule la physique (coeur) puis applique la
 // doctrine 1. Le coeur est mis en cache ; on ne mute JAMAIS son objet,
@@ -8279,18 +8292,45 @@ function computeVisibilityScore_V4(h, idx, depth, lat, lon, opts) {
   var base = _computeVisibilityCore(h, idx, depth, lat, lon, opts);
   if (!base) return base;
 
+  // Si le coeur a deja utilise l'observation comme condition initiale, le
+  // melange pondere n'a plus lieu d'etre : il ecraserait une valeur propagee
+  // par la physique avec une moyenne conventionnelle. On rend tel quel.
+  if (base.engine === 'observation_propagated') return base;
+
   var fb = (typeof vzNearestFeedback === 'function')
     ? vzNearestFeedback(lat, lon, VZ_OBS_MAX_KM) : null;
   if (!fb || typeof fb.real_m !== 'number' || !isFinite(fb.real_m) || fb.real_m <= 0) return base;
   if (fb.age_hours === null || fb.age_hours === undefined
       || !isFinite(fb.age_hours) || fb.age_hours < 0) return base;
 
+  // ECART AU CRENEAU EVALUE (et non a l'instant present).
+  // L'age brut du retour mesure sa distance a maintenant ; or le moteur est
+  // interroge pour un creneau precis, y compris dans le futur. Sans cette
+  // correction, une observation de cet apres-midi s'appliquait avec le MEME
+  // poids a mardi prochain : la visi restait plate sur toute la fenetre du
+  // tableau, une mesure ponctuelle se propageant indefiniment. On mesure donc
+  // l'ecart entre l'observation et l'heure calculee. Sur le passe recent rien
+  // ne change ; sur le futur le poids s'effondre et le modele reprend la main.
+  var _slotMs = (h && h.time && h.time[idx]) ? Date.parse(h.time[idx]) : NaN;
+  var _obsMs = (typeof fb.obs_ts === 'number' && isFinite(fb.obs_ts))
+    ? fb.obs_ts
+    : (Date.now() - fb.age_hours * 3600000);   // canal historique : reconstruit depuis l'age
+  var gapH = (isFinite(_slotMs) && isFinite(_obsMs))
+    ? Math.abs(_slotMs - _obsMs) / 3600000
+    : fb.age_hours;
+  if (!isFinite(gapH) || gapH < 0) gapH = fb.age_hours;
+
   var distKm = 0;
   if (typeof haversineKm === 'function' && typeof fb.lat === 'number' && typeof fb.lon === 'number') {
     distKm = haversineKm(lat, lon, fb.lat, fb.lon);
   }
-  var w = Math.exp(-fb.age_hours / VZ_OBS_TAU_AGE_H) * Math.exp(-distKm / VZ_OBS_TAU_DIST_KM);
-  if (!isFinite(w) || w <= 0.02) return base;   // influence negligeable : on laisse le modele
+  var w = Math.exp(-gapH / VZ_OBS_TAU_AGE_H) * Math.exp(-distKm / VZ_OBS_TAU_DIST_KM);
+  // Le drapeau insufficient tombe des qu'une observation entre dans le calcul.
+  // Sous VZ_OBS_MIN_WEIGHT le chiffre affiche serait majoritairement porte par
+  // le modele - donc, sur fond rocheux, par la constante de table - et affiche
+  // comme une donnee. Un trou vaut mieux qu'une fausse precision : en dessous
+  // du seuil on rend la main au modele avec son propre drapeau.
+  if (!isFinite(w) || w < VZ_OBS_MIN_WEIGHT) return base;
   if (w > 1) w = 1;
 
   var vModel = (typeof base.visi_m === 'number' && isFinite(base.visi_m) && base.visi_m > 0)
@@ -8315,7 +8355,7 @@ function computeVisibilityScore_V4(h, idx, depth, lat, lon, opts) {
   out.engine = base.engine + '+obs';
   out.insufficient = false;   // une vraie mesure terrain a repris la main
   out.observation = {
-    real_m: vObs, age_hours: fb.age_hours, dist_km: distKm,
+    real_m: vObs, age_hours: fb.age_hours, gap_hours: gapH, dist_km: distKm,
     weight: Math.round(w * 1000) / 1000, model_m: vModel
   };
   return out;
@@ -8359,6 +8399,160 @@ function _computeVisibilityCore(h, idx, depth, lat, lon, opts) {
   var _src = opts.satellite ? 'sheet' : 'drawer';
   var cacheKey = lat.toFixed(4) + '|' + lon.toFixed(4) + '|' + idx + '|' + (depth || 0).toFixed(2) + '|' + _src;
   if (_chainCache[cacheKey]) return _chainCache[cacheKey];
+
+  // ============================================================
+  // VOIE OBSERVATION PROPAGÉE (ancre terrain, priorité 0)
+  // ------------------------------------------------------------
+  // Un chasseur qui a vu l'eau est la mesure la plus precise et la plus
+  // fraiche dont dispose le systeme. Jusqu'ici son retour n'etait qu'un
+  // correctif applique APRES coup au chiffre final, avec une decroissance
+  // exp(-age/24h) purement conventionnelle : le resultat ne variait donc
+  // ni avec la maree, ni avec le vent, ni avec la houle. Ce n'etait pas
+  // une prevision, c'etait un fondu vers la valeur du modele.
+  //
+  // On traite desormais l'observation comme ce qu'elle est : une CONDITION
+  // INITIALE. Elle entre par la meme tuyauterie que la mesure satellite
+  // (inversion Beer-Lambert -> propagation 0D de Krone -> confiance), et
+  // c'est la physique locale qui la fait evoluer heure par heure jusqu'au
+  // creneau demande. Aucune constante regionale, aucune coordonnee en dur :
+  // le meme code vaut a Banyuls, a Quiberon et dans le Raz Blanchard, et
+  // donne des resultats differents parce que les forcages y sont differents.
+  //
+  // Conversion visi plongeur -> ZSD : VZ_VISI_K = 0.7 x 1.7, donc la visi
+  // plongeur vaut 0.7 x ZSD (Preisendorfer 1986 + facteur plongeur). On
+  // reutilise inverseBeerLambert_ZSDtoConcentration plutot que de dupliquer
+  // la physique : un seul point d'entree pour l'inversion optique.
+  //
+  // Priorite 0 : place AVANT la voie satellite. L'arbitrage reste toutefois
+  // porte par la fraicheur reelle (cf. _vzAnchorIsFresherThanSat_), pas par
+  // l'ordre des if : si la photo satellite etait plus fraiche que le retour
+  // terrain, c'est elle qui prendrait la main.
+  // ============================================================
+  var _obsAnchor = (typeof vzNearestFeedback === 'function')
+    ? vzNearestFeedback(lat, lon, VZ_OBS_MAX_KM) : null;
+  if (_obsAnchor && typeof _obsAnchor.real_m === 'number' && isFinite(_obsAnchor.real_m)
+      && _obsAnchor.real_m > 0 && depth && depth > 0) {
+
+    if (_observationV4Cache[cacheKey]) return _observationV4Cache[cacheKey];
+
+    // Horodatage absolu de l'ancre : present sur le canal sonar, reconstruit
+    // depuis l'age pour le canal historique qui ne transporte pas de date.
+    var _anchorMs = (typeof _obsAnchor.obs_ts === 'number' && isFinite(_obsAnchor.obs_ts))
+      ? _obsAnchor.obs_ts
+      : (Date.now() - (_obsAnchor.age_hours || 0) * 3600000);
+
+    // La photo satellite ne prend la main que si elle est STRICTEMENT plus
+    // fraiche que le retour terrain. Hierarchie emergente, pas codee en dur.
+    var _satFresher = false;
+    if (_satCache && _satCache.data && typeof _satCache.data.age_hours === 'number'
+        && isFinite(_satCache.data.age_hours)
+        && (_satCache.data.status === 'ok' || _satCache.data.status === 'cloudy_J1'
+            || _satCache.data.status === 'cloudy_J2')) {
+      var _obsAgeH = (Date.now() - _anchorMs) / 3600000;
+      _satFresher = (_satCache.data.age_hours < _obsAgeH);
+    }
+
+    if (!_satFresher) {
+      var _zsdEquiv = _obsAnchor.real_m / 0.7;   // visi plongeur -> ZSD Secchi
+      var _invObs = inverseBeerLambert_ZSDtoConcentration(_zsdEquiv, lat, lon);
+      if (_invObs !== null) {
+        var _propObs = propagate0D(
+          _invObs.C_kg_m3,
+          new Date(_anchorMs).toISOString(),
+          h, idx, depth, lat, lon, _sediment
+        );
+
+        if (_propObs !== null && typeof _propObs.visi_propagated_m === 'number'
+            && isFinite(_propObs.visi_propagated_m) && _propObs.visi_propagated_m > 0) {
+
+          // Confiance : computeConfidence est ecrite pour un objet satellite.
+          // On lui passe un objet compatible plutot que de dupliquer F1-F5.
+          // ATTENTION : la fonction lit volontairement lon_pixel comme latitude
+          // et lat_pixel comme longitude (bug GAS sprint 1 compense en aval).
+          // On respecte donc ce swap pour que F2 mesure la vraie distance.
+          var _anchorAgeH = Math.abs(Date.parse(h.time[idx]) - _anchorMs) / 3600000;
+          if (!isFinite(_anchorAgeH)) _anchorAgeH = (Date.now() - _anchorMs) / 3600000;
+          var _pseudoSat = {
+            age_hours: _anchorAgeH,
+            lon_pixel: _obsAnchor.lat,   // swap volontaire (cf. computeConfidence)
+            lat_pixel: _obsAnchor.lon,
+            value_zsd_m: _zsdEquiv,
+            visi_plongeur_m: _obsAnchor.real_m,
+            date_observed: new Date(_anchorMs).toISOString(),
+            status: 'observation'
+          };
+          var _idxStartObs = 0, _bestD = Infinity;
+          for (var _io = 0; _io < h.time.length; _io++) {
+            var _d = Math.abs(Date.parse(h.time[_io]) - _anchorMs);
+            if (_d < _bestD) { _bestD = _d; _idxStartObs = _io; }
+          }
+          var _confObs = (_idxStartObs <= idx)
+            ? computeConfidence(_pseudoSat, _propObs, h, _idxStartObs, idx, lat, lon)
+            : null;
+
+          var _obsWarnings = (_propObs.warnings || []).slice();
+          // Honnetete : sur fond rocheux ou vaseux, propagate0D substitue un
+          // sable medium par defaut. Le chiffre repose alors sur une hypothese
+          // de sediment, pas sur une mesure du fond. Ca doit rester visible.
+          if (_sediment && (_sediment.regime === 'rock' || _sediment.regime === 'cohesive')) {
+            _obsWarnings.push('Fond ' + (_sediment.regime === 'rock' ? 'rocheux' : 'vaseux') +
+              ' : la propagation suppose un sediment sableux de reference. ' +
+              'La variation dans le temps est indicative, pas mesuree sur ce fond.');
+          }
+
+          var _visiObs = _propObs.visi_propagated_m;
+          var _scoreObs = mapVisiToScore(_visiObs);
+          var _distObsKm = (typeof haversineKm === 'function')
+            ? haversineKm(lat, lon, _obsAnchor.lat, _obsAnchor.lon) : 0;
+
+          var observationResult = {
+            score: _scoreObs,
+            visi_m: _visiObs,
+            label: _scoreToLabel(_scoreObs),
+            engine: 'observation_propagated',
+            insufficient: false,   // ancre mesuree, propagee par la physique locale
+            trace: {
+              fallback_reason: null,
+              spot: {
+                depth_lat: depth,
+                sediment_name: _sediment ? _sediment.nameFr : 'inconnu',
+                zone_optique: _invObs.zone
+              },
+              anchor_source: 'retour chasseur',
+              propagation: _propObs.trace
+            },
+            observation: {
+              real_m: _obsAnchor.real_m,
+              age_hours: _anchorAgeH,
+              gap_hours: _anchorAgeH,
+              dist_km: _distObsKm,
+              weight: 1,               // ancre, pas melange pondere
+              model_m: null,
+              pseudo: _obsAnchor.pseudo || null
+            },
+            propagated: {
+              visi_m: _visiObs,
+              C_propagated_kg_m3: _propObs.C_propagated_kg_m3,
+              n_steps_integrated: _propObs.n_steps_integrated,
+              dominant_phase: _propObs.dominant_phase
+            },
+            confidence: _confObs || { pct: null, label_color: 'caution' },
+            verdict: 'Ancre terrain ' + _obsAnchor.real_m + ' m'
+              + (_obsAnchor.pseudo && _obsAnchor.pseudo !== 'Anonyme' ? ' (' + _obsAnchor.pseudo + ')' : '')
+              + ' a ' + (Math.round(_distObsKm * 10) / 10) + ' km, propagee '
+              + Math.round(_anchorAgeH) + ' h avec le vent, la houle et la maree du secteur.',
+            warnings: _obsWarnings
+          };
+
+          _observationV4Cache[cacheKey] = observationResult;
+          return observationResult;
+        }
+      }
+    }
+    // Echec inversion ou propagation : fall-through. Le melange pondere
+    // applique par computeVisibilityScore_V4 reste le filet de securite.
+  }
+
 // ============================================================
   // SPRINT 2 — VOIE SATELLITE PROPAGÉE (priorité 1)
   // ------------------------------------------------------------
@@ -14816,6 +15010,10 @@ html += '<div style="overflow-x:auto;">';
             + Math.round(o.observation.age_hours) + ' h a '
             + (Math.round(o.observation.dist_km * 10) / 10) + ' km (poids '
             + Math.round(o.observation.weight * 100) + ' %) + modele';
+        } else if (o && o.engine === 'observation_propagated') {
+          srcTxt = 'retour chasseur ' + o.observation.real_m + ' m a '
+            + (Math.round(o.observation.dist_km * 10) / 10) + ' km, propage '
+            + Math.round(o.observation.gap_hours) + ' h (vent, mer, maree)';
         } else if (o && o.engine === 'satellite_propagated') {
           srcTxt = 'satellite propage (vent, mer, maree) depuis la photo';
         } else if (o && o.engine === 'coriolis_propagated') {
