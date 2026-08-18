@@ -19356,7 +19356,7 @@ function vzmInit() {
     + 'body.vzm-nav #vzSheet .vz-sheet-header{display:flex;align-items:center;padding:12px 64px 12px 16px;border-bottom:1px solid #C9D4DC;min-height:0;}'
     + 'body.vzm-nav #vzSheet .vz-sheet-title{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0;flex:1;}'
     + 'body.vzm-nav #vzSheetModeLabel{font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#6D7F8E;}'
-    + 'body.vzm-nav #vzSheetSpotLabel{font-size:18px;font-weight:800;letter-spacing:-.02em;color:#0A1520;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}'
+    + 'body.vzm-nav #vzSheetSpotLabel{font-family:Inter,sans-serif;font-size:18px;font-weight:800;letter-spacing:-.02em;color:#0A1520;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}'
     + 'body.vzm-nav #vzSheet .vz-sheet-close{position:absolute;top:0;right:0;width:56px;height:56px;display:flex;align-items:center;justify-content:center;background:transparent;border:none;color:#0A1520;z-index:3;}'
     + 'body.vzm-nav #vzSheet .vz-sheet-close svg{width:20px;height:20px;}'
     + 'body.vzm-nav #vzSheetBody{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 16px 18px;background:#FFFFFF;color:#0A1520;}'
@@ -19543,7 +19543,7 @@ function vzmInit() {
   // En-tete du panneau. Seuls Previsions et Affichage vivent dans #vzSheet :
   // Observations et Maree ont l'en-tete propre du panneau VZSP.
   function stampHeader(k){
-    if (k === 'cond')      navHeader('Point vis\u00e9', condTitle());
+    if (k === 'cond')      navHeader('Secteur', port || condTitle());
     else if (k === 'disp') navHeader('Carte', 'Affichage');
   }
 
