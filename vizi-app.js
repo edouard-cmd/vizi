@@ -2610,13 +2610,19 @@ function vzWindEnsureCtrl_() {
     // query mobile d'index.html. Les deux autres se calculent au-dessus.
     // Avant : trois valeurs absolues independantes qui deplacaient la
     // collision au lieu de la resoudre (fab 106, rain 104, hunt jamais traite).
-    +   "body.vz-wind-band{--vz-fabline:calc(106px + env(safe-area-inset-bottom, 0px));}"
-    +   "body.vz-wind-band .vz-layers-popover{bottom:calc(168px + env(safe-area-inset-bottom, 0px));max-height:56vh;}"
-    +   "body.vz-wind-band #mobileAnalyzeBtn{bottom:calc(166px + env(safe-area-inset-bottom, 0px));}"
-    +   "body.vz-wind-band #mobileShareBtn{bottom:calc(114px + env(safe-area-inset-bottom, 0px));}"
-    +   "body.vz-wind-band .vzm-sonar-fab{bottom:calc(112px + env(safe-area-inset-bottom, 0px));}"
-    +   "body.vz-wind-band .vzm-sonar-menu{bottom:calc(188px + env(safe-area-inset-bottom, 0px));}"
-    +   "body.vz-wind-band .leaflet-control-attribution{margin-bottom:calc(98px + env(safe-area-inset-bottom, 0px));}"
+    // REFONTE BARRE BASSE : --vz-fabline n'est plus une constante ecrite a la
+    // main. VZM_NAV mesure la hauteur reelle de la barre + ligne d'identite et
+    // ecrit --vzm-navline sur <html>. Le bandeau vent se contente d'ajouter sa
+    // propre hauteur (72px) par-dessus cette ligne. Une seule valeur a
+    // maintenir au lieu des sept valeurs absolues independantes d'avant, qui
+    // deplacaient la collision au lieu de la resoudre.
+    +   "body.vz-wind-band{--vz-fabline:calc(var(--vzm-navline, 34px) + 72px);}"
+    +   "body.vz-wind-band .vz-layers-popover{bottom:calc(var(--vz-fabline) + 62px);max-height:56vh;}"
+    +   "body.vz-wind-band #mobileAnalyzeBtn{bottom:calc(var(--vz-fabline) + 60px);}"
+    +   "body.vz-wind-band #mobileShareBtn{bottom:calc(var(--vz-fabline) + 8px);}"
+    +   "body.vz-wind-band .vzm-sonar-fab{bottom:calc(var(--vz-fabline) + 6px);}"
+    +   "body.vz-wind-band .vzm-sonar-menu{bottom:calc(var(--vz-fabline) + 82px);}"
+    +   "body.vz-wind-band .leaflet-control-attribution{margin-bottom:calc(var(--vz-fabline) - 8px);}"
     // Bottom sheet ouvert : on efface le bandeau. Meme motif que celui deja en
     // place dans index.html pour les boutons mobiles. Le sheet est en z-index
     // 1100 et le bandeau en 1200, donc sans ca le bandeau passerait dessus.
@@ -19249,4 +19255,457 @@ function vzmInit() {
   } else {
     build();
   }
+})();
+
+// ============================================================================
+// VZM_NAV - BARRE BASSE INSTRUMENT (mobile)
+// ============================================================================
+// Avant : quatre donnees reparties dans TROIS conteneurs ayant chacun sa
+// propre machine d'etat. #vzSheet (peek/half/full, VZ_SHEET.mode) portait
+// Previsions et Marees ; #spotDrawerMobile (vzm-peek/mid/full) portait les
+// Retours ; #vzLayersPopover (classe .open) portait l'Affichage. Aucun des
+// trois ne fermait les deux autres, donc aucun gabarit commun n'etait
+// possible et rien ne garantissait qu'un seul panneau soit ouvert.
+//
+// Ici : un seul point d'entree, VZM_NAV.open(key). Il ferme tout le reste,
+// remplit l'en-tete et injecte le corps. Les quatre CONTENUS ne sont pas
+// reecrits : Previsions delegue a openConditionsInSheet, Maree a
+// openTidesInSheet, Observations lit S_allFeedback via ensurePortCounts_,
+// Affichage deplace le noeud existant #vzLayersPopover. On change le
+// contenant, pas le contenu.
+//
+// Le panneau EST #vzSheet, restyle au gabarit de la maquette. C'est ce qui
+// permet a loadSheetConditions et au module marees d'ecrire dans
+// #vzSheetBody sans une seule modification.
+//
+// Doctrine instrument : surfaces blanches opaques (un ecran de telephone est
+// plus lisible en plein soleil en surfaces claires, la luminance emise
+// s'ajoute a la lumiere ambiante au lieu de lutter contre elle), bordures
+// noires nettes, aucun flou, cibles 56px minimum.
+//
+// Etat partage : VZ_SHEET.mode reste la source de verite du mode ('cond',
+// 'tides', 'obs', 'disp'). Il est lu par le toggle d'openCondDrawer et par
+// drawerOpenM. VZM_NAV le tient a jour, jamais en parallele.
+// ============================================================================
+(function vzmNavBoot(){
+  if (typeof S === 'undefined' || !S || !S.map) { setTimeout(vzmNavBoot, 300); return; }
+  if (document.getElementById('vzmNavBar')) return;               // idempotent
+  if (typeof isMobile === 'function' && !isMobile()) {
+    window.addEventListener('resize', function(){
+      if (isMobile() && !document.getElementById('vzmNavBar')) vzmNavBoot();
+    }, { once:true });
+    return;
+  }
+
+  // --- Icones : reprises telles quelles de la maquette validee ---
+  var ICONS = {
+    cond:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 12l4-3.5"/><path d="M12 3v2M21 12h-2M12 21v-2M3 12h2"/></svg>',
+    obs:'<svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H8.5L4 20.5V6a2 2 0 012-2h13a2 2 0 012 2z"/><path d="M8 9h9M8 12.5h5.5"/></svg>',
+    tides:'<svg viewBox="0 0 24 24"><path d="M7 3v18"/><path d="M7 6.5h4.5M7 10.5h3M7 14.5h4.5M7 18.5h3"/><path d="M17 7.5v9"/><path d="M14.5 10L17 7.5 19.5 10"/><path d="M14.5 14L17 16.5 19.5 14"/></svg>',
+    disp:'<svg viewBox="0 0 24 24"><path d="M12 3l9 4.5-9 4.5-9-4.5z"/><path d="M3 12l9 4.5 9-4.5"/><path d="M3 16.5L12 21l9-4.5"/></svg>'
+  };
+  var RETICLE = '<svg viewBox="0 0 72 72" fill="none">'
+    + '<circle cx="36" cy="36" r="19" stroke="#2DA888" stroke-width="5"/>'
+    + '<circle cx="36" cy="36" r="5" fill="#2DA888"/>'
+    + '<g stroke="#2DA888" stroke-width="5" stroke-linecap="round"><path d="M36 4v13M36 55v13M4 36h13M55 36h13"/></g></svg>';
+
+  var TABS = [
+    { k:'cond',  lb:'Prévisions',   ic:ICONS.cond  },
+    { k:'obs',   lb:'Observations', ic:ICONS.obs   },
+    { k:'tides', lb:'Marée',        ic:ICONS.tides },
+    { k:'disp',  lb:'Affichage',    ic:ICONS.disp  }
+  ];
+
+  // --- CSS injecte. Portee mobile stricte : le desktop garde son bandeau. ---
+  var st = document.createElement('style');
+  st.id = 'vzmNavStyle';
+  st.textContent = '@media (max-width:768px){'
+    + '#vzmIdent,#vzmNavBar{position:fixed;left:0;right:0;z-index:1210;background:#FFFFFF;border-top:2px solid #0A1520;font-family:Inter,sans-serif;}'
+    + '#vzmNavBar{bottom:0;height:calc(60px + env(safe-area-inset-bottom,0px));padding-bottom:env(safe-area-inset-bottom,0px);display:flex;}'
+    + '#vzmIdent{bottom:calc(60px + env(safe-area-inset-bottom,0px));padding:8px 12px;display:flex;align-items:center;gap:9px;white-space:nowrap;overflow:hidden;}'
+    // Un panneau ouvert pousse la ligne d'identite AU-DESSUS de lui : le point
+    // vise reste nomme pendant qu'on lit ses donnees. Sans ca elle passerait
+    // derriere le panneau et le sujet redeviendrait anonyme.
+    + 'body.vzm-open #vzmIdent{bottom:calc(60px + env(safe-area-inset-bottom,0px) + 62vh);border-bottom:1px solid #C9D4DC;}'
+    + '#vzmIdent .rt{flex-shrink:0;display:flex;}'
+    + '#vzmIdent .rt svg{width:20px;height:20px;display:block;}'
+    + '#vzmIdent .tx{display:flex;flex-direction:column;gap:2px;min-width:0;overflow:hidden;}'
+    + '#vzmIdent .nm{font-size:15px;font-weight:700;letter-spacing:-.01em;color:#0A1520;line-height:1.15;overflow:hidden;text-overflow:ellipsis;}'
+    + '#vzmIdent .rd{font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;color:#46586B;line-height:1.15;overflow:hidden;text-overflow:ellipsis;}'
+    + '#vzmNavBar button{flex:1;border:none;background:transparent;font-family:inherit;padding:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;position:relative;min-height:60px;-webkit-tap-highlight-color:transparent;}'
+    + '#vzmNavBar button+button{border-left:1px solid #C9D4DC;}'
+    + '#vzmNavBar button:active{transform:scale(0.96);}'
+    + '#vzmNavBar svg{width:24px;height:24px;stroke:#0A1520;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}'
+    + '#vzmNavBar .lb{font-size:12px;font-weight:700;letter-spacing:-.01em;color:#0A1520;}'
+    + '#vzmNavBar button[aria-selected="true"]{background:#DBF4EA;}'
+    + '#vzmNavBar button[aria-selected="true"] svg{stroke:#1A6B5D;stroke-width:2.2;}'
+    + '#vzmNavBar button[aria-selected="true"] .lb{color:#1A6B5D;font-weight:800;}'
+    + '#vzmNavBar .ico{position:relative;display:flex;}'
+    + '#vzmNavBar .cnt{position:absolute;top:-5px;right:-9px;min-width:19px;height:19px;padding:0 5px;border-radius:10px;background:#1A6B5D;color:#fff;font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:1.5px solid #fff;}'
+    // Gabarit unique du panneau. Hauteur fixe : passer d'un onglet a l'autre
+    // ne doit deplacer ni la ligne d'identite, ni la barre, ni l'en-tete.
+    + 'body.vzm-nav #vzSheet{position:fixed;left:0;right:0;top:auto;width:auto;max-width:none;'
+    +   'bottom:calc(60px + env(safe-area-inset-bottom,0px));'
+    +   'height:62vh;max-height:62vh;transform:none !important;background:#FFFFFF;color:#0A1520;'
+    +   'border:2px solid #0A1520;border-bottom:none;border-radius:16px 16px 0 0;'
+    +   'display:flex;flex-direction:column;overflow:hidden;z-index:1205;box-shadow:none;'
+    +   'backdrop-filter:none !important;-webkit-backdrop-filter:none !important;transition:none !important;}'
+    + 'body.vzm-nav #vzSheet.sheet-peek,body.vzm-nav #vzSheet.sheet-half,body.vzm-nav #vzSheet.sheet-full{height:62vh;}'
+    + 'body.vzm-nav #vzSheet .vz-sheet-handle-bar,body.vzm-nav #vzSheet .vz-sheet-chevron{display:none !important;}'
+    + 'body.vzm-nav #vzSheet .vz-sheet-handle{flex-shrink:0;padding:0;background:transparent;border:none;cursor:default;}'
+    + 'body.vzm-nav #vzSheet .vz-sheet-header{display:flex;align-items:center;padding:12px 64px 12px 16px;border-bottom:1px solid #C9D4DC;min-height:0;}'
+    + 'body.vzm-nav #vzSheet .vz-sheet-title{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0;flex:1;}'
+    + 'body.vzm-nav #vzSheetModeLabel{font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#6D7F8E;}'
+    + 'body.vzm-nav #vzSheetSpotLabel{font-size:18px;font-weight:800;letter-spacing:-.02em;color:#0A1520;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}'
+    + 'body.vzm-nav #vzSheet .vz-sheet-close{position:absolute;top:0;right:0;width:56px;height:56px;display:flex;align-items:center;justify-content:center;background:transparent;border:none;color:#0A1520;z-index:3;}'
+    + 'body.vzm-nav #vzSheet .vz-sheet-close svg{width:20px;height:20px;}'
+    + 'body.vzm-nav #vzSheetBody{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 16px 18px;background:#FFFFFF;color:#0A1520;}'
+    // Zone basse : plus rien ne flotte au-dessus de la barre sans passer par
+    // --vzm-navline. La ligne d'ancrage historique en derive.
+    // Le popover Couches est DEPLACE dans le panneau, pas duplique (cloner
+    // casserait les onclick inline et l'etat des couches). Il faut donc
+    // neutraliser son positionnement propre : sans ca il garde position:fixed,
+    // top:168px et sa largeur de 300px, et deborde du panneau.
+    + '#vzLayersPopover[data-vzm-host="1"]{position:static !important;top:auto !important;left:auto !important;'
+    +   'width:100% !important;max-width:none !important;max-height:none !important;overflow:visible !important;'
+    +   'border:none !important;border-radius:0 !important;box-shadow:none !important;padding:0 !important;z-index:auto !important;}'
+    + '#vzLayersPopover[data-vzm-host="1"] > div{margin:0 0 10px 0;}'
+    + 'body.vzm-nav .vz-layers-fab,body.vzm-nav #vzmVisiBadge,body.vzm-nav #vzmSedReadout,'
+    +   'body.vzm-nav #vzTabCond,body.vzm-nav #vzTabTides{display:none !important;}'
+    // LIGNE D'ANCRAGE UNIQUE. --vzm-navline est mesuree (barre + ligne
+    // d'identite). Tout ce qui flotte en bas s'en deduit, plus aucune valeur
+    // absolue. La regle .vz-wind-band est plus specifique (0,2,1 contre 0,1,1)
+    // donc elle l'emporte quand le bandeau vent est affiche.
+    + 'body.vzm-nav{--vz-fabline:var(--vzm-navline,94px);}'
+    + 'body.vzm-nav.vz-wind-band{--vz-fabline:calc(var(--vzm-navline,94px) + 72px);}'
+    + 'body.vzm-nav .vzm-sonar-fab{bottom:calc(var(--vz-fabline) + 8px);}'
+    + 'body.vzm-nav .vzm-sonar-menu{bottom:calc(var(--vz-fabline) + 84px);}'
+    + 'body.vzm-nav #mobileAnalyzeBtn{bottom:calc(var(--vz-fabline) + 62px);}'
+    + 'body.vzm-nav #mobileShareBtn{bottom:calc(var(--vz-fabline) + 10px);}'
+    + 'body.vzm-nav #vzRainCtrl{bottom:calc(var(--vz-fabline) + 8px);}'
+    + 'body.vzm-nav #vzHuntBar{bottom:calc(var(--vz-fabline) + 8px);}'
+    + 'body.vzm-nav .vz-layers-popover{bottom:calc(var(--vz-fabline) + 8px);}'
+    + 'body.vzm-nav .leaflet-control-attribution{margin-bottom:calc(var(--vzm-navline,94px) + 2px);}'
+    // Panneau ouvert : tout le flottant s'efface, un seul objet a la fois.
+    + 'body.vzm-open .vzm-sonar-fab,body.vzm-open .vzm-sonar-menu,body.vzm-open #vzRainCtrl,'
+    +   'body.vzm-open #vzHuntBar,body.vzm-open #vzWindCtrl,body.vzm-open #mobileAnalyzeBtn,'
+    +   'body.vzm-open #mobileShareBtn,body.vzm-open .leaflet-control-attribution{display:none !important;}'
+    + '}';
+  (document.head||document.documentElement).appendChild(st);
+
+  // --- DOM ---
+  var ident = document.createElement('div');
+  ident.id = 'vzmIdent';
+  ident.innerHTML = '<span class="rt">' + RETICLE + '</span>'
+    + '<span class="tx"><span class="nm" id="vzmIdentName">Point visé</span>'
+    + '<span class="rd" id="vzmIdentRead">déplace la carte</span></span>';
+
+  var bar = document.createElement('div');
+  bar.id = 'vzmNavBar';
+  bar.setAttribute('role','tablist');
+  var html = '';
+  TABS.forEach(function(t){
+    html += '<button role="tab" aria-selected="false" data-k="' + t.k + '">'
+      + '<span class="ico">' + t.ic
+      + (t.k === 'disp' ? '<span class="cnt" id="vzmNavCount">0</span>' : '')
+      + '</span><span class="lb">' + t.lb + '</span></button>';
+  });
+  bar.innerHTML = html;
+
+  document.body.appendChild(ident);
+  document.body.appendChild(bar);
+  document.body.classList.add('vzm-nav');
+
+  // --- Ligne d'ancrage : une seule valeur, mesuree, jamais ecrite a la main ---
+  function measure(){
+    var hi = ident.offsetHeight;
+    var hb = bar.offsetHeight;
+    var root = document.documentElement;
+    // On n'ecrit QUE --vzm-navline. --vz-fabline en derive par CSS : ecrit en
+    // inline sur <html>, il aurait priorite absolue et neutraliserait la
+    // redefinition du bandeau vent (body.vzm-nav.vz-wind-band).
+    root.style.setProperty('--vzm-identh', hi + 'px');
+    root.style.setProperty('--vzm-navline', (hi + hb + 8) + 'px');
+  }
+  if (window.ResizeObserver) {
+    var ro = new ResizeObserver(measure);
+    ro.observe(bar); ro.observe(ident);
+  }
+  window.addEventListener('resize', measure);
+  setTimeout(measure, 60);
+
+  // --- Contrôleur unique ---
+  function syncTabs(k){
+    Array.prototype.forEach.call(bar.querySelectorAll('button'), function(b){
+      b.setAttribute('aria-selected', b.getAttribute('data-k') === k ? 'true' : 'false');
+    });
+  }
+
+  function closeEverythingElse(){
+    // Drawer secteur : garde sa vie propre pour le clic sur un marqueur de
+    // port, mais ne coexiste jamais avec un panneau de la barre.
+    var d = document.getElementById('spotDrawerMobile');
+    if (d) d.classList.remove('vzm-peek','vzm-mid','vzm-full');
+    var pop = document.getElementById('vzLayersPopover');
+    if (pop && pop.parentNode === document.body) pop.classList.remove('open');
+    if (typeof closeSpotPopup === 'function') { try { closeSpotPopup(); } catch(e){} }
+  }
+
+  function showSheet(){
+    var sh = document.getElementById('vzSheet');
+    if (sh) { sh.style.display = ''; }
+    if (typeof setSheetState === 'function') setSheetState('half');
+  }
+
+  // En-tete du panneau : surtitre + titre, ecrits directement dans les deux
+  // noeuds existants. On ne passe PAS par updateSheetHeader, qui prefixe le
+  // libelle de spot d'un "\u00b7 " utile dans l'ancien bandeau une ligne mais
+  // parasite ici, ou le spot est le titre.
+  function navHeader(sur, ti){
+    var m = document.getElementById('vzSheetModeLabel');
+    var s2 = document.getElementById('vzSheetSpotLabel');
+    if (m) m.textContent = sur || '';
+    if (s2) s2.textContent = ti || '';
+  }
+
+  // Sujet du panneau Previsions : le point vise, jamais le port. La prevision
+  // est calculee sur les coordonnees sous la croix (openCondDrawer recale
+  // S.clickLatLng dessus), donc le titre doit dire les coordonnees.
+  function condTitle(){
+    var c = (S && S.clickLatLng) ? S.clickLatLng
+          : ((typeof vzmAimLatLng === 'function') ? vzmAimLatLng() : null);
+    if (!c) return 'Point visé';
+    var la = c.lat, lo = (c.lng != null) ? c.lng : c.lon;
+    return Math.abs(la).toFixed(4) + '\u00b0 ' + (la >= 0 ? 'N' : 'S')
+         + ' \u00b7 ' + Math.abs(lo).toFixed(4) + '\u00b0 ' + (lo >= 0 ? 'E' : 'W');
+  }
+
+  window.VZM_NAV = {
+    open: function(k){
+      if (typeof VZ_SHEET === 'undefined' || !VZ_SHEET) return;
+      if (VZ_SHEET.mode === k) { this.close(); return; }
+      closeEverythingElse();
+      syncTabs(k);
+      if (k === 'cond')       { showSheet(); openCondDrawer(); }
+      else if (k === 'tides') { showSheet(); openTidesInSheet(); }
+      else if (k === 'obs')   { showSheet(); vzmNavObs(); }
+      else if (k === 'disp')  { showSheet(); vzmNavDisp(); }
+      VZ_SHEET.mode = k;
+      document.body.classList.add('vzm-open');
+      syncTabs(k);
+      stampHeader(k);
+      identUpdate();
+      // loadSheetConditions et le module marees rappellent updateSheetHeader
+      // en asynchrone quand leur donnee arrive : on repose l'en-tete apres.
+      setTimeout(function(){ if (VZ_SHEET.mode === k) stampHeader(k); }, 900);
+      setTimeout(function(){ if (VZ_SHEET.mode === k) stampHeader(k); }, 2600);
+    },
+    close: function(){
+      if (typeof VZ_SHEET === 'undefined' || !VZ_SHEET) return;
+      var sh = document.getElementById('vzSheet');
+      var pop = document.getElementById('vzLayersPopover');
+      if (pop && pop.getAttribute('data-vzm-host') === '1') restorePopover();
+      if (typeof setSheetState === 'function') setSheetState('peek');
+      if (sh) sh.style.display = 'none';
+      document.body.classList.remove('vzm-open');
+      VZ_SHEET.mode = null;
+      syncTabs(null);
+      identUpdate();
+    },
+    refresh: identUpdate
+  };
+
+  bar.addEventListener('click', function(e){
+    var b = e.target.closest ? e.target.closest('button') : null;
+    if (!b) return;
+    e.preventDefault(); e.stopPropagation();
+    window.VZM_NAV.open(b.getAttribute('data-k'));
+  });
+
+  // La croix du panneau doit repasser par le contrôleur, sinon VZ_SHEET.mode
+  // et l'onglet actif divergent de l'etat reel du DOM.
+  window.closeSheetCompletely = function(){ window.VZM_NAV.close(); };
+
+  // --- Corps "Observations" : secteur du point vise ---
+  // Ne reecrit pas la donnee. Lit S_allFeedback, deja fusionne par
+  // fetchPortCounts_ (canal all_visi_feedback + canal get_observations), et
+  // le filtre sur le port rattache au point vise via findNearestPort.
+  function vzmNavObs(){
+    var body = document.getElementById('vzSheetBody');
+    if (!body) return;
+    var c = (typeof vzmAimLatLng === 'function') ? vzmAimLatLng() : null;
+    var np = (c && typeof findNearestPort === 'function') ? findNearestPort(c.lat, c.lng) : null;
+    body.innerHTML = '<div class="vz-sheet-loading">Chargement des retours...</div>';
+
+    var pending = (typeof ensurePortCounts_ === 'function') ? ensurePortCounts_() : Promise.resolve(null);
+    pending.then(function(){
+      if (!VZ_SHEET || VZ_SHEET.mode !== 'obs') return;
+      var all = (typeof S_allFeedback !== 'undefined' && S_allFeedback) ? S_allFeedback : [];
+      var mine = [];
+      all.forEach(function(f){
+        if (typeof findNearestPort !== 'function') return;
+        var n = findNearestPort(f.lat, f.lon);
+        if (!n || !n.spot || !np || !np.spot || n.spot.id !== np.spot.id) return;
+        mine.push(f);
+      });
+      mine.sort(function(a,b){ return (a.age_hours||0) - (b.age_hours||0); });
+
+      var week = mine.filter(function(f){ return (f.age_hours||0) <= 168; });
+      var vals = week.map(function(f){ return (f.real_m != null) ? f.real_m : f.predicted_m; })
+                     .filter(function(v){ return typeof v === 'number' && isFinite(v); });
+      var avg = vals.length ? (vals.reduce(function(a,b){ return a+b; },0) / vals.length) : null;
+      var who = {}; week.forEach(function(f){ who[f.pseudo || 'Anonyme'] = 1; });
+
+      var h = '<div class="vzm-slab">Ces 7 derniers jours</div><div class="vzm-tri">'
+        + '<div class="vzm-cell vzm-hero"><div class="v">' + (avg != null ? fmtM(avg) : '-') + '<small> m</small></div><div class="l">Visi moyenne</div></div>'
+        + '<div class="vzm-cell"><div class="v">' + Object.keys(who).length + '</div><div class="l">Chasseurs</div></div>'
+        + '<div class="vzm-cell"><div class="v">' + week.length + '</div><div class="l">Retours</div></div></div>';
+
+      if (!mine.length) {
+        h += '<div class="vzm-slab gap">Derniers retours</div>'
+          + '<div class="vzm-empty">Aucun retour sur ce secteur pour l\'instant.</div>';
+      } else {
+        h += '<div class="vzm-slab gap">Derniers retours</div><div class="vzm-fb">';
+        mine.slice(0,12).forEach(function(f){
+          var v = (f.real_m != null) ? f.real_m : f.predicted_m;
+          var txt = f.comment || f.commentaire || '';
+          h += '<div class="vzm-fbrow"><div class="tx">'
+            + '<div class="t' + (txt ? '' : ' quiet') + '">' + esc(txt || 'Sans commentaire') + '</div>'
+            + '<div class="s">' + (f.pseudo ? '<b>' + esc(f.pseudo) + '</b> &middot; ' : '') + ageTxt(f.age_hours) + '</div>'
+            + '</div><div class="rr"><div class="m">' + (v != null ? fmtM(v) : '-') + '<small> m</small></div>'
+            + tagFor(v) + '</div></div>';
+        });
+        h += '</div>';
+      }
+      body.innerHTML = h;
+    }).catch(function(){
+      if (!VZ_SHEET || VZ_SHEET.mode !== 'obs') return;
+      body.innerHTML = '<div class="vz-sheet-loading">Retours indisponibles</div>';
+    });
+  }
+
+  function stampHeader(k){
+    var c = (typeof vzmAimLatLng === 'function') ? vzmAimLatLng() : null;
+    var np = (c && typeof findNearestPort === 'function') ? findNearestPort(c.lat, c.lng) : null;
+    var port = (np && np.spot) ? np.spot.name : null;
+    var dist = (np && np.distanceKm != null) ? ' \u00b7 ' + fmtM(np.distanceKm) + ' km' : '';
+    if (k === 'cond')       navHeader('Point visé', condTitle());
+    else if (k === 'obs')   navHeader('Secteur', port || 'Secteur');
+    else if (k === 'tides') navHeader('Port le plus proche', (port || 'Port') + dist);
+    else if (k === 'disp')  navHeader('Carte', 'Affichage');
+  }
+
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function fmtM(v){ return (Math.round(v*10)/10).toString().replace('.', ','); }
+  function ageTxt(h){
+    if (h == null || !isFinite(h)) return '';
+    if (h < 1) return 'il y a moins d\'1 h';
+    if (h < 48) return 'il y a ' + Math.round(h) + ' h';
+    return 'il y a ' + Math.round(h/24) + ' j';
+  }
+  function tagFor(v){
+    if (v == null) return '';
+    if (v < 1.5) return '<span class="vzm-tag t-amber">chargée</span>';
+    if (v < 3)   return '<span class="vzm-tag t-yellow">voilée</span>';
+    return '<span class="vzm-tag t-teal">claire</span>';
+  }
+
+  // --- Corps "Affichage" : DEPLACE le noeud existant, ne le duplique pas ---
+  // Cloner le popover casserait les onclick inline et les etats de couches.
+  // On le deplace dans le panneau et on le remet a sa place a la fermeture.
+  var popHome = null;
+  function vzmNavDisp(){
+    var body = document.getElementById('vzSheetBody');
+    var pop = document.getElementById('vzLayersPopover');
+    if (!body || !pop) { if (body) body.innerHTML = '<div class="vz-sheet-loading">Menu indisponible</div>'; return; }
+    if (!popHome) popHome = { parent: pop.parentNode, next: pop.nextSibling };
+    body.innerHTML = '';
+    pop.setAttribute('data-vzm-host','1');
+    pop.classList.add('open');
+    body.appendChild(pop);
+  }
+  function restorePopover(){
+    var pop = document.getElementById('vzLayersPopover');
+    if (!pop || !popHome) return;
+    pop.classList.remove('open');
+    pop.removeAttribute('data-vzm-host');
+    if (popHome.next) popHome.parent.insertBefore(pop, popHome.next);
+    else popHome.parent.appendChild(pop);
+  }
+
+  // --- Ligne d'identite : fusionne le readout de fond et le badge visi ---
+  // Les deux modules existants tournent deja sur vzmAimLatLng et le meme
+  // moveend. On ne recalcule rien : on lit leur sortie et on l'agrege.
+  var identTok = 0, identTimer = 0;
+  function identUpdate(){
+    if (!document.body.classList.contains('vzm-nav')) return;
+    var c = (typeof vzmAimLatLng === 'function') ? vzmAimLatLng() : null;
+    var nm = document.getElementById('vzmIdentName');
+    var rd = document.getElementById('vzmIdentRead');
+    if (!c || !nm || !rd) return;
+    var np = (typeof findNearestPort === 'function') ? findNearestPort(c.lat, c.lng) : null;
+    nm.textContent = (np && np.spot)
+      ? np.spot.name + ' \u00b7 ' + (np.distanceKm != null ? fmtM(np.distanceKm) + ' km' : '')
+      : c.lat.toFixed(4) + ' \u00b7 ' + c.lng.toFixed(4);
+    var parts = [];
+    var sed = document.getElementById('vzmSedReadout');
+    if (sed && sed.textContent) parts.push(sed.textContent.replace(/^Fond\s*:\s*/,''));
+    var bg = document.getElementById('vzmVisiBadge');
+    if (bg && bg.textContent && bg.classList.contains('on')) parts.push('Visi ' + bg.textContent.trim());
+    rd.textContent = parts.length ? parts.join(' \u00b7 ') : 'déplace la carte';
+    measure();
+  }
+  S.map.on('moveend zoomend', function(){
+    clearTimeout(identTimer);
+    identTimer = setTimeout(identUpdate, 380);
+  });
+  setTimeout(identUpdate, 400);
+
+  // Compteur de couches actives sur l'onglet Affichage.
+  function countLayers(){
+    var el = document.getElementById('vzmNavCount');
+    if (!el) return;
+    var n = 0;
+    ['showWindFlow','showRain','showSed','showWrecks','showZsd','showLitto','showIso','showHeatmap']
+      .forEach(function(k){ if (S && S[k]) n++; });
+    el.textContent = n;
+    el.style.display = n ? '' : 'none';
+  }
+  setInterval(countLayers, 1500);
+  countLayers();
+
+  // Styles de contenu du panneau Observations.
+  var st2 = document.createElement('style');
+  st2.id = 'vzmNavObsStyle';
+  st2.textContent = '@media (max-width:768px){'
+    + '.vzm-slab{font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#6D7F8E;margin:0 0 8px;}'
+    + '.vzm-slab.gap{margin-top:16px;}'
+    + '.vzm-tri{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:8px;}'
+    + '.vzm-cell{border:1.5px solid #C9D4DC;border-radius:14px;padding:11px 10px;text-align:center;background:#F2F5F7;}'
+    + '.vzm-cell.vzm-hero{background:#0A1520;border-color:#0A1520;}'
+    + '.vzm-cell .v{font-family:"IBM Plex Mono",monospace;font-size:22px;font-weight:700;line-height:1;color:#0A1520;}'
+    + '.vzm-cell.vzm-hero .v{color:#4DD4A8;font-size:28px;}'
+    + '.vzm-cell .v small{font-size:14px;}'
+    + '.vzm-cell .l{font-size:10.5px;font-weight:700;color:#46586B;margin-top:6px;line-height:1.25;}'
+    + '.vzm-cell.vzm-hero .l{color:rgba(255,255,255,.78);}'
+    + '.vzm-fb{border:1.5px solid #C9D4DC;border-radius:14px;overflow:hidden;}'
+    + '.vzm-fbrow{display:flex;align-items:center;gap:11px;padding:11px 13px;min-height:64px;}'
+    + '.vzm-fbrow+.vzm-fbrow{border-top:1px solid #E7ECF0;}'
+    + '.vzm-fbrow .tx{flex:1;min-width:0;}'
+    + '.vzm-fbrow .t{font-size:14.5px;font-weight:700;color:#0A1520;line-height:1.2;}'
+    + '.vzm-fbrow .t.quiet{color:#6D7F8E;font-weight:500;}'
+    + '.vzm-fbrow .s{font-family:"IBM Plex Mono",monospace;font-size:11.5px;font-weight:600;color:#46586B;margin-top:3px;}'
+    + '.vzm-fbrow .s b{font-family:Inter,sans-serif;font-weight:700;}'
+    + '.vzm-fbrow .rr{text-align:right;flex-shrink:0;}'
+    + '.vzm-fbrow .m{font-family:"IBM Plex Mono",monospace;font-size:21px;font-weight:700;color:#1A6B5D;line-height:1;}'
+    + '.vzm-fbrow .m small{font-size:13px;}'
+    + '.vzm-tag{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;margin-top:5px;}'
+    + '.vzm-tag.t-amber{background:#F7E2C4;color:#7C4408;}'
+    + '.vzm-tag.t-yellow{background:#F4EEC2;color:#615709;}'
+    + '.vzm-tag.t-teal{background:#DBF4EA;color:#0F5044;}'
+    + '.vzm-empty{border:1.5px solid #C9D4DC;border-radius:14px;padding:18px 14px;text-align:center;font-size:14px;color:#46586B;}'
+    + '}';
+  (document.head||document.documentElement).appendChild(st2);
+
+  console.log('[vzm] nav bar ready');
 })();
