@@ -1110,7 +1110,17 @@ function vzInitSeaMask() {
    ============================================================ */
 var VZ_VIEW = (function() {
   var KEY = 'vizi_view';
-  var FRANCE = [[41.20, -5.60], [51.60, 9.80]];   // Corse incluse
+  // Desktop : fitBounds sur la France entiere, Corse comprise.
+  var FRANCE = [[41.20, -5.60], [51.60, 9.80]];
+  // Portrait : fitBounds est inutilisable. Il retient le zoom le plus faible
+  // des deux axes, donc faire tenir les 15,4 deg de longitude France-Corse
+  // dans 428 px impose z4, et a z4 les 830 px de hauteur affichent de la
+  // Norvege au Senegal. On fixe donc le zoom directement : a z5 on voit
+  // 18,8 deg de longitude (Ouessant -5,1 et la Corse 9,5 tiennent tous les
+  // deux) contre 9,4 deg a z6, qui couperait la Bretagne. z5 est le maximum
+  // possible, il divise par quatre la surface affichee par rapport a z4.
+  var FRANCE_PORTRAIT_CENTER = [46.60, 2.20];
+  var FRANCE_PORTRAIT_ZOOM = 5;
   var persistTimer = null;
 
   // Memorisation. Debounce 600 ms : un pincement de zoom emet une rafale de
@@ -1134,6 +1144,8 @@ var VZ_VIEW = (function() {
     try { st = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
     if (st && isFinite(st.lat) && isFinite(st.lon) && isFinite(st.z)) {
       S.map.setView([st.lat, st.lon], st.z, { animate: false });
+    } else if (typeof isMobile === 'function' && isMobile()) {
+      S.map.setView(FRANCE_PORTRAIT_CENTER, FRANCE_PORTRAIT_ZOOM, { animate: false });
     } else {
       S.map.fitBounds(FRANCE, { padding: [24, 24] });
     }
