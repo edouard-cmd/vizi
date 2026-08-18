@@ -1140,15 +1140,20 @@ var VZ_VIEW = (function() {
 
   function applyInitial() {
     if (!S.map) return;
-    var st = null;
-    try { st = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
-    if (st && isFinite(st.lat) && isFinite(st.lon) && isFinite(st.z)) {
-      S.map.setView([st.lat, st.lon], st.z, { animate: false });
-    } else if (typeof isMobile === 'function' && isMobile()) {
+    // Ouverture TOUJOURS sur la France entiere. La vue memorisee rouvrait
+    // l'application sur le dernier secteur consulte : un chasseur qui teste un
+    // autre coin de cote se retrouvait bloque dessus a chaque lancement, sans
+    // moyen visible de revenir, et vider le cache n'y changeait rien puisque la
+    // position vit dans localStorage. La memorisation (persist) est conservee
+    // pour d'eventuels usages ulterieurs, mais ne pilote plus l'ouverture.
+    if (typeof isMobile === 'function' && isMobile()) {
       S.map.setView(FRANCE_PORTRAIT_CENTER, FRANCE_PORTRAIT_ZOOM, { animate: false });
     } else {
       S.map.fitBounds(FRANCE, { padding: [24, 24] });
     }
+    // Purge de la cle historique : sans ca, une vue ecrite par une version
+    // anterieure resterait dans le navigateur des utilisateurs deja passes.
+    try { localStorage.removeItem(KEY); } catch (e) {}
     // Armement differe : sans delai, le moveend emis par le cadrage initial
     // lui-meme serait capture et figerait une vue non choisie.
     setTimeout(function() { S.map.on('moveend zoomend', persist); }, 800);
