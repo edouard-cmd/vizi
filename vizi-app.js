@@ -1093,21 +1093,127 @@ function vzInitSeaMask() {
     })
     .catch(function() {});
 }
+/* ============================================================
+   VZ_VIEW - point d'entree unique de la vue initiale de la carte
+   ------------------------------------------------------------
+   Trois etats seulement, tranches ici et nulle part ailleurs :
+     1. aucun etat memorise  -> France entiere + selecteur de facade
+     2. facade connue        -> cadrage de la facade (vol court)
+     3. vue memorisee        -> setView sec, sans animation
+   Aucune autre partie du code n'a le droit de fixer centre/zoom au
+   demarrage. Le lien profond ?p=lat,lon est la seule exception : il
+   court-circuite VZ_VIEW et ne memorise rien (le point partage par un
+   tiers n'est pas la vue d'accueil du destinataire).
+   Perf : la restauration se fait en setView sans animation. Une
+   animation France -> cote charge les tuiles de tous les niveaux
+   intermediaires, inacceptable en 4G bord de mer ; le vol n'a lieu
+   qu'une fois, au choix initial de la facade.
+   ============================================================ */
+var VZ_VIEW = (function() {
+  var KEY = 'vizi_view';
+  var FRANCE = [[41.20, -5.60], [51.60, 9.80]];   // Corse incluse
+  // Bornes calculees sur les SPOTS de chaque facade (champ region), avec une
+  // marge au large pour que la nappe satellite reste lisible autour du trait.
+  var FACADES = {
+    'Manche':       [[48.30, -2.40], [51.40,  2.75]],
+    'Bretagne':     [[46.99, -5.15], [49.25, -1.78]],
+    'Atlantique':   [[43.04, -2.90], [47.65, -0.23]],
+    'Mediterranee': [[41.57,  2.75], [44.05,  9.80]]
+  };
+  var armed = false;
+  var persistTimer = null;
+
+  function read() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (!raw) return null;
+      var o = JSON.parse(raw);
+      return (o && typeof o === 'object') ? o : null;
+    } catch (e) { return null; }
+  }
+  function write(o) {
+    try { localStorage.setItem(KEY, JSON.stringify(o)); } catch (e) {}
+  }
+  function merge(patch) {
+    var o = read() || {};
+    for (var k in patch) { if (Object.prototype.hasOwnProperty.call(patch, k)) o[k] = patch[k]; }
+    write(o);
+  }
+
+  // Memorisation. Debounce 600 ms : un pincement de zoom emet une rafale de
+  // moveend, on n'ecrit qu'une fois la carte reellement immobile.
+  function persist() {
+    if (persistTimer) clearTimeout(persistTimer);
+    persistTimer = setTimeout(function() {
+      if (!S.map) return;
+      var c = S.map.getCenter();
+      merge({ lat: +c.lat.toFixed(5), lon: +c.lng.toFixed(5), z: S.map.getZoom() });
+    }, 600);
+  }
+  // Armement differe : sans delai, le moveend emis par le cadrage initial
+  // lui-meme serait capture et figerait une vue que l'utilisateur n'a pas
+  // choisie.
+  function arm(delay) {
+    if (armed || !S.map) return;
+    armed = true;
+    setTimeout(function() { S.map.on('moveend zoomend', persist); }, delay || 0);
+  }
+
+  function picker(show) {
+    var el = document.getElementById('vzFacadePick');
+    if (!el) return;
+    el.classList.toggle('show', !!show);
+    el.setAttribute('aria-hidden', show ? 'false' : 'true');
+  }
+
+  function applyInitial() {
+    if (!S.map) return;
+    var st = read();
+    // 1. premiere venue : la France entiere est un argument (couverture
+    // nationale), pas un etat de travail. Elle ne se represente donc jamais.
+    if (!st) { S.map.fitBounds(FRANCE); picker(true); return; }
+    // 3. vue memorisee : prioritaire sur la facade, c'est la plus precise.
+    if (isFinite(st.lat) && isFinite(st.lon) && isFinite(st.z)) {
+      S.map.setView([st.lat, st.lon], st.z, { animate: false });
+      arm(0);
+      return;
+    }
+    // 2. facade seule (choix fait, pas encore de navigation memorisee).
+    var b = FACADES[st.f];
+    S.map.fitBounds(b || FRANCE, { padding: [24, 24] });
+    arm(0);
+    return;
+  }
+
+  // Resout le selecteur. f === null : l'utilisateur reste sur la France ;
+  // on memorise ce choix aussi, le selecteur ne doit jamais revenir.
+  function choose(f) {
+    picker(false);
+    var b = FACADES[f];
+    if (b) {
+      write({ f: f });
+      if (S.map.flyToBounds) S.map.flyToBounds(b, { padding: [24, 24], duration: 1.1 });
+      else S.map.fitBounds(b, { padding: [24, 24] });
+      arm(1500);
+    } else {
+      write({ f: null });
+      arm(0);
+    }
+  }
+
+  return { applyInitial: applyInitial, choose: choose };
+})();
+window.vzFacadeChoose = function(f) { VZ_VIEW.choose(f); };
+
 function initMap() {
   S.map = L.map('map', { center:[49.333, -0.424], zoom:9, zoomControl:false });
-  // Vue d'accueil : Cotentin + baie de Seine (relief Litto3D mis en valeur).
-  // Bornes distinctes desktop / mobile : en portrait l'ecran etroit forcerait
-  // un dezoom sur des bornes larges, donc on resserre pour garder le meme grain.
-  // Lien profond ?p=lat,lon : pas de vue d'accueil, le fitBounds s'applique
-  // en differe (des que Leaflet connait la taille du conteneur) et ecraserait
-  // le setView du deep-link. vzApplyDeepLink (boot) cadre alors le point.
-  if (/[?&]p=-?\d/.test(location.search)) {
-    // vue initiale posee par vzApplyDeepLink
-  } else if (typeof isMobile === 'function' && isMobile()) {
-    S.map.fitBounds([[49.05, -1.55], [49.78, 0.30]]);
-  } else {
-    S.map.fitBounds([[48.95, -2.10], [49.85, 0.75]]);
-  }
+  // Vue d'accueil : deleguee a VZ_VIEW, point d'entree unique (France au
+  // premier lancement, facade au choix, derniere vue ensuite). Plus aucun
+  // cadrage code en dur ici, ni de distinction desktop / mobile : la vue
+  // memorisee vient de l'ecran reel de l'utilisateur.
+  // Lien profond ?p=lat,lon : la vue est posee en differe par vzApplyDeepLink
+  // (boot), un cadrage ici l'ecraserait.
+  if (!/[?&]p=-?\d/.test(location.search)) VZ_VIEW.applyInitial();
   // Panes dedies. Litto3D dans son propre pane = un seul element a masquer
   // (le clip-path partage cassait l'affichage sous Safari iOS). Isobathes et
   // sediment au-dessus de Litto3D.
