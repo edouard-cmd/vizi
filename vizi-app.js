@@ -19399,6 +19399,27 @@ function vzmInit() {
     // avec un gabarit unique, et contraire a la lisibilite plein soleil.
     + 'body.vzm-nav .vzm-sonar-pscrim{display:none !important;}'
     + 'body.vzm-nav .vzm-sonar-panel[data-vzsp="1"] .vzsp-grab{display:none !important;}'
+    // Double navigation : la barre expose deja Observations et Maree, le
+    // panneau reaffichait Retours et Maree juste en dessous. Une seule
+    // commande, celle qu'on atteint avec des gants.
+    + 'body.vzm-nav .vzm-sonar-panel[data-vzsp="1"] .vzsp-tabs{display:none !important;}'
+    // Les deux en-tetes n'avaient rien en commun : #vzSheet en padding 12/16
+    // avec surtitre Inter 10px et titre 18px, le panneau secteur en padding
+    // 0 8 12 avec une pastille 38px, un surtitre mono 9.5px et un titre 20px.
+    // Passer d'un onglet a l'autre faisait sauter la ligne de titre. On aligne
+    // le panneau secteur sur les valeurs de #vzSheet, seule reference.
+    + 'body.vzm-nav .vzsp-wrap{display:flex;flex-direction:column;height:100%;min-height:0;}'
+    + 'body.vzm-nav .vzsp-shead{align-items:center;gap:0;padding:12px 64px 12px 16px;'
+    +   'border-bottom:1px solid #C9D4DC;position:relative;}'
+    + 'body.vzm-nav .vzsp-shead .vzsp-pin{display:none;}'
+    + 'body.vzm-nav .vzsp-shead .vzsp-idt .vzsp-kicker{font-family:Inter,sans-serif;font-size:10px;'
+    +   'font-weight:700;letter-spacing:.16em;color:#6D7F8E;}'
+    + 'body.vzm-nav .vzsp-shead .vzsp-idt .vzsp-nm{font-size:18px;font-weight:800;letter-spacing:-.02em;'
+    +   'margin-top:2px;color:#0A1520;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
+    + 'body.vzm-nav .vzsp-shead .vzsp-close{position:absolute;top:0;right:0;width:56px;height:56px;'
+    +   'border-radius:0;background:transparent;border:none;}'
+    + 'body.vzm-nav .vzsp-shead .vzsp-close svg{width:20px;height:20px;stroke-width:2.6;}'
+    + 'body.vzm-nav .vzsp-body{padding:14px 16px 18px;}'
     // Panneau ouvert : tout le flottant s'efface, un seul objet a la fois.
     + 'body.vzm-open .vzm-sonar-fab,body.vzm-open .vzm-sonar-menu,body.vzm-open #vzRainCtrl,'
     +   'body.vzm-open #vzHuntBar,body.vzm-open #vzWindCtrl,body.vzm-open #mobileAnalyzeBtn,'
@@ -19569,6 +19590,29 @@ function vzmInit() {
     },
     refresh: identUpdate
   };
+
+  // Le clic sur un marqueur de port appelle vzmSonarOpenSector directement.
+  // Sans ca, le panneau s'ouvre mais la barre reste eteinte et la ligne
+  // d'identite passe dessous : l'etat visuel ment sur l'etat reel.
+  (function wrapSectorEntry(){
+    var tries = 0;
+    var iv = setInterval(function(){
+      if (typeof window.vzmSonarOpenSector !== 'function') {
+        if (++tries > 40) clearInterval(iv);
+        return;
+      }
+      clearInterval(iv);
+      var orig = window.vzmSonarOpenSector;
+      window.vzmSonarOpenSector = function(lat, lon, name){
+        var r = orig.apply(this, arguments);
+        if (typeof VZ_SHEET !== 'undefined' && VZ_SHEET) VZ_SHEET.mode = 'obs';
+        document.body.classList.add('vzm-open');
+        syncTabs('obs');
+        identUpdate();
+        return r;
+      };
+    }, 120);
+  })();
 
   bar.addEventListener('click', function(e){
     var b = e.target.closest ? e.target.closest('button') : null;
