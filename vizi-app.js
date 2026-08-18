@@ -19326,7 +19326,7 @@ function vzmInit() {
     // Un panneau ouvert pousse la ligne d'identite AU-DESSUS de lui : le point
     // vise reste nomme pendant qu'on lit ses donnees. Sans ca elle passerait
     // derriere le panneau et le sujet redeviendrait anonyme.
-    + 'body.vzm-open #vzmIdent{bottom:calc(60px + env(safe-area-inset-bottom,0px) + 62vh);border-bottom:1px solid #C9D4DC;}'
+    + 'body.vzm-open #vzmIdent{display:none !important;}'
     + '#vzmIdent .rt{flex-shrink:0;display:flex;}'
     + '#vzmIdent .rt svg{width:20px;height:20px;display:block;}'
     + '#vzmIdent .tx{display:flex;flex-direction:column;gap:2px;min-width:0;overflow:hidden;}'
@@ -19386,6 +19386,19 @@ function vzmInit() {
     + 'body.vzm-nav #vzHuntBar{bottom:calc(var(--vz-fabline) + 8px);}'
     + 'body.vzm-nav .vz-layers-popover{bottom:calc(var(--vz-fabline) + 8px);}'
     + 'body.vzm-nav .leaflet-control-attribution{margin-bottom:calc(var(--vzm-navline,94px) + 2px);}'
+    // Le panneau secteur (VZSP) est un conteneur distinct de #vzSheet. Pour que
+    // passer d'un onglet a l'autre ne deplace rien, il recoit ici les MEMES
+    // valeurs : meme bottom, meme hauteur, memes coins, meme bordure.
+    + 'body.vzm-nav .vzm-sonar-panel[data-vzsp="1"]{position:fixed;left:0;right:0;top:auto;'
+    +   'bottom:calc(60px + env(safe-area-inset-bottom,0px));'
+    +   'height:62vh;max-height:62vh;width:auto;background:#FFFFFF;'
+    +   'border:2px solid #0A1520;border-bottom:none;border-radius:16px 16px 0 0;'
+    +   'padding:0;padding-bottom:0;box-shadow:none;z-index:1205;'
+    +   'display:flex;flex-direction:column;overflow:hidden;}'
+    // Le scrim assombrit la carte sur deux onglets sur quatre : incoherent
+    // avec un gabarit unique, et contraire a la lisibilite plein soleil.
+    + 'body.vzm-nav .vzm-sonar-pscrim{display:none !important;}'
+    + 'body.vzm-nav .vzm-sonar-panel[data-vzsp="1"] .vzsp-grab{display:none !important;}'
     // Panneau ouvert : tout le flottant s'efface, un seul objet a la fois.
     + 'body.vzm-open .vzm-sonar-fab,body.vzm-open .vzm-sonar-menu,body.vzm-open #vzRainCtrl,'
     +   'body.vzm-open #vzHuntBar,body.vzm-open #vzWindCtrl,body.vzm-open #mobileAnalyzeBtn,'
@@ -19448,6 +19461,10 @@ function vzmInit() {
     if (d) d.classList.remove('vzm-peek','vzm-mid','vzm-full');
     var pop = document.getElementById('vzLayersPopover');
     if (pop && pop.parentNode === document.body) pop.classList.remove('open');
+    var sp = document.querySelector('.vzm-sonar-panel');
+    if (sp) sp.classList.remove('open');
+    var sc = document.querySelector('.vzm-sonar-pscrim');
+    if (sc) sc.classList.remove('open');
     if (typeof closeSpotPopup === 'function') { try { closeSpotPopup(); } catch(e){} }
   }
 
@@ -19480,15 +19497,49 @@ function vzmInit() {
          + ' \u00b7 ' + Math.abs(lo).toFixed(4) + '\u00b0 ' + (lo >= 0 ? 'E' : 'W');
   }
 
+  function fmtM(v){ return (Math.round(v*10)/10).toString().replace('.', ','); }
+
+  // Ouvre le panneau secteur (module VZSP) sur le point vise et selectionne
+  // l'onglet demande. Le shell est rendu par actionSector de facon synchrone,
+  // mais ses listeners sont poses juste apres : on clique l'onglet au tick
+  // suivant, avec un plafond d'essais pour ne pas boucler si le DOM change.
+  function openSector(tab){
+    var c = (typeof vzmAimLatLng === 'function') ? vzmAimLatLng() : null;
+    var np = (c && typeof findNearestPort === 'function') ? findNearestPort(c.lat, c.lng) : null;
+    var nm = (np && np.spot) ? np.spot.name : null;
+    if (typeof window.vzmSonarOpenSector !== 'function') return;
+    if (c) window.vzmSonarOpenSector(c.lat, c.lng, nm);
+    else   window.vzmSonarOpenSector();
+    if (tab !== 'td') return;
+    var tries = 0;
+    var iv = setInterval(function(){
+      var b = document.querySelector('[data-vzsptab="td"]');
+      if (b) { clearInterval(iv); b.click(); }
+      else if (++tries > 25) clearInterval(iv);
+    }, 40);
+  }
+
+  // En-tete du panneau. Seuls Previsions et Affichage vivent dans #vzSheet :
+  // Observations et Maree ont l'en-tete propre du panneau VZSP.
+  function stampHeader(k){
+    if (k === 'cond')      navHeader('Point vis\u00e9', condTitle());
+    else if (k === 'disp') navHeader('Carte', 'Affichage');
+  }
+
   window.VZM_NAV = {
     open: function(k){
       if (typeof VZ_SHEET === 'undefined' || !VZ_SHEET) return;
       if (VZ_SHEET.mode === k) { this.close(); return; }
       closeEverythingElse();
       syncTabs(k);
+      // Observations et Maree sont les DEUX onglets d'un seul panneau, celui du
+      // module VZSP (window.vzmSonarOpenSector) : retours communautaires, courbe
+      // de maree interactive, navigation par jour, lever/coucher. C'est le
+      // panneau vivant. L'ancienne maree de vzSheet (openTidesInSheet) et un
+      // rendu Observations maison faisaient doublon : les deux sont retires.
       if (k === 'cond')       { showSheet(); openCondDrawer(); }
-      else if (k === 'tides') { showSheet(); openTidesInSheet(); }
-      else if (k === 'obs')   { showSheet(); vzmNavObs(); }
+      else if (k === 'obs')   { openSector('fb'); }
+      else if (k === 'tides') { openSector('td'); }
       else if (k === 'disp')  { showSheet(); vzmNavDisp(); }
       VZ_SHEET.mode = k;
       document.body.classList.add('vzm-open');
@@ -19507,6 +19558,10 @@ function vzmInit() {
       if (pop && pop.getAttribute('data-vzm-host') === '1') restorePopover();
       if (typeof setSheetState === 'function') setSheetState('peek');
       if (sh) sh.style.display = 'none';
+      var sp = document.querySelector('.vzm-sonar-panel');
+      if (sp) sp.classList.remove('open');
+      var sc = document.querySelector('.vzm-sonar-pscrim');
+      if (sc) sc.classList.remove('open');
       document.body.classList.remove('vzm-open');
       VZ_SHEET.mode = null;
       syncTabs(null);
@@ -19523,92 +19578,24 @@ function vzmInit() {
   });
 
   // La croix du panneau doit repasser par le contrôleur, sinon VZ_SHEET.mode
-  // et l'onglet actif divergent de l'etat reel du DOM.
+  // et l'onglet actif divergent de l'etat reel du DOM. Meme chose pour la croix
+  // du panneau secteur, qui vit dans le module VZSP : on ecoute en capture sur
+  // document plutot que de modifier VZSP, dont closePanel est appele par
+  // plusieurs chemins (scrim, echap, ouverture concurrente).
   window.closeSheetCompletely = function(){ window.VZM_NAV.close(); };
+  document.addEventListener('click', function(e){
+    if (!e.target || !e.target.closest) return;
+    if (e.target.closest('#vzspClose')) {
+      setTimeout(function(){
+        document.body.classList.remove('vzm-open');
+        if (typeof VZ_SHEET !== 'undefined' && VZ_SHEET) VZ_SHEET.mode = null;
+        syncTabs(null); identUpdate();
+      }, 0);
+    }
+  }, true);
 
-  // --- Corps "Observations" : secteur du point vise ---
-  // Ne reecrit pas la donnee. Lit S_allFeedback, deja fusionne par
-  // fetchPortCounts_ (canal all_visi_feedback + canal get_observations), et
-  // le filtre sur le port rattache au point vise via findNearestPort.
-  function vzmNavObs(){
-    var body = document.getElementById('vzSheetBody');
-    if (!body) return;
-    var c = (typeof vzmAimLatLng === 'function') ? vzmAimLatLng() : null;
-    var np = (c && typeof findNearestPort === 'function') ? findNearestPort(c.lat, c.lng) : null;
-    body.innerHTML = '<div class="vz-sheet-loading">Chargement des retours...</div>';
-
-    var pending = (typeof ensurePortCounts_ === 'function') ? ensurePortCounts_() : Promise.resolve(null);
-    pending.then(function(){
-      if (!VZ_SHEET || VZ_SHEET.mode !== 'obs') return;
-      var all = (typeof S_allFeedback !== 'undefined' && S_allFeedback) ? S_allFeedback : [];
-      var mine = [];
-      all.forEach(function(f){
-        if (typeof findNearestPort !== 'function') return;
-        var n = findNearestPort(f.lat, f.lon);
-        if (!n || !n.spot || !np || !np.spot || n.spot.id !== np.spot.id) return;
-        mine.push(f);
-      });
-      mine.sort(function(a,b){ return (a.age_hours||0) - (b.age_hours||0); });
-
-      var week = mine.filter(function(f){ return (f.age_hours||0) <= 168; });
-      var vals = week.map(function(f){ return (f.real_m != null) ? f.real_m : f.predicted_m; })
-                     .filter(function(v){ return typeof v === 'number' && isFinite(v); });
-      var avg = vals.length ? (vals.reduce(function(a,b){ return a+b; },0) / vals.length) : null;
-      var who = {}; week.forEach(function(f){ who[f.pseudo || 'Anonyme'] = 1; });
-
-      var h = '<div class="vzm-slab">Ces 7 derniers jours</div><div class="vzm-tri">'
-        + '<div class="vzm-cell vzm-hero"><div class="v">' + (avg != null ? fmtM(avg) : '-') + '<small> m</small></div><div class="l">Visi moyenne</div></div>'
-        + '<div class="vzm-cell"><div class="v">' + Object.keys(who).length + '</div><div class="l">Chasseurs</div></div>'
-        + '<div class="vzm-cell"><div class="v">' + week.length + '</div><div class="l">Retours</div></div></div>';
-
-      if (!mine.length) {
-        h += '<div class="vzm-slab gap">Derniers retours</div>'
-          + '<div class="vzm-empty">Aucun retour sur ce secteur pour l\'instant.</div>';
-      } else {
-        h += '<div class="vzm-slab gap">Derniers retours</div><div class="vzm-fb">';
-        mine.slice(0,12).forEach(function(f){
-          var v = (f.real_m != null) ? f.real_m : f.predicted_m;
-          var txt = f.comment || f.commentaire || '';
-          h += '<div class="vzm-fbrow"><div class="tx">'
-            + '<div class="t' + (txt ? '' : ' quiet') + '">' + esc(txt || 'Sans commentaire') + '</div>'
-            + '<div class="s">' + (f.pseudo ? '<b>' + esc(f.pseudo) + '</b> &middot; ' : '') + ageTxt(f.age_hours) + '</div>'
-            + '</div><div class="rr"><div class="m">' + (v != null ? fmtM(v) : '-') + '<small> m</small></div>'
-            + tagFor(v) + '</div></div>';
-        });
-        h += '</div>';
-      }
-      body.innerHTML = h;
-    }).catch(function(){
-      if (!VZ_SHEET || VZ_SHEET.mode !== 'obs') return;
-      body.innerHTML = '<div class="vz-sheet-loading">Retours indisponibles</div>';
-    });
-  }
-
-  function stampHeader(k){
-    var c = (typeof vzmAimLatLng === 'function') ? vzmAimLatLng() : null;
-    var np = (c && typeof findNearestPort === 'function') ? findNearestPort(c.lat, c.lng) : null;
-    var port = (np && np.spot) ? np.spot.name : null;
-    var dist = (np && np.distanceKm != null) ? ' \u00b7 ' + fmtM(np.distanceKm) + ' km' : '';
-    if (k === 'cond')       navHeader('Point visé', condTitle());
-    else if (k === 'obs')   navHeader('Secteur', port || 'Secteur');
-    else if (k === 'tides') navHeader('Port le plus proche', (port || 'Port') + dist);
-    else if (k === 'disp')  navHeader('Carte', 'Affichage');
-  }
-
-  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
-  function fmtM(v){ return (Math.round(v*10)/10).toString().replace('.', ','); }
-  function ageTxt(h){
-    if (h == null || !isFinite(h)) return '';
-    if (h < 1) return 'il y a moins d\'1 h';
-    if (h < 48) return 'il y a ' + Math.round(h) + ' h';
-    return 'il y a ' + Math.round(h/24) + ' j';
-  }
-  function tagFor(v){
-    if (v == null) return '';
-    if (v < 1.5) return '<span class="vzm-tag t-amber">chargée</span>';
-    if (v < 3)   return '<span class="vzm-tag t-yellow">voilée</span>';
-    return '<span class="vzm-tag t-teal">claire</span>';
-  }
+  // Le corps "Observations" a ete retire : il dupliquait vzspRenderFeedback
+  // du module VZSP, seule source de verite des retours de secteur.
 
   // --- Corps "Affichage" : DEPLACE le noeud existant, ne le duplique pas ---
   // Cloner le popover casserait les onclick inline et les etats de couches.
