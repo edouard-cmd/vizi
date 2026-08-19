@@ -5400,20 +5400,12 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
 </div>
   <div class="vz-layers-popover" id="vzLayersPopover" onclick="event.stopPropagation()">
   <div>
-    <div class="vz-layers-section-title">Fond de carte</div>
-    <div class="vz-layers-row" id="vzRowSat" onclick="selectBasemap('sat')">
-      <span class="vz-layers-ico"><svg viewBox="0 0 24 24"><path d="M3 7 L12 3 L21 7 L12 11 Z"></path><path d="M3 12 L12 16 L21 12"></path><path d="M3 17 L12 21 L21 17"></path></svg></span>
-      <span class="vz-layers-label"><span class="vz-layers-name">Satellite</span><span class="vz-layers-sub">imagerie satellite</span></span>
-      <div class="vz-layers-radio"></div>
-    </div>
-    <div class="vz-layers-row" id="vzRowIGN" onclick="selectBasemap('ign')">
-      <span class="vz-layers-ico"><svg viewBox="0 0 24 24"><path d="M4 6 L9 4 L15 6 L20 4 L20 18 L15 20 L9 18 L4 20 Z"></path><path d="M9 4 L9 18"></path><path d="M15 6 L15 20"></path></svg></span>
-      <span class="vz-layers-label"><span class="vz-layers-name">Plan</span><span class="vz-layers-sub">carte IGN</span></span>
-      <div class="vz-layers-radio"></div>
-    </div>
-  </div>
-  <div>
     <div class="vz-layers-section-title">Afficher</div>
+    <div class="vz-layers-row" id="vzRowZsd" onclick="toggleLayer('zsd')">
+      <span class="vz-layers-ico"><svg viewBox="0 0 24 24"><path d="M2 12 Q7 5 12 5 Q17 5 22 12 Q17 19 12 19 Q7 19 2 12 Z"></path><circle cx="12" cy="12" r="2.6"></circle></svg></span>
+      <span class="vz-layers-label"><span class="vz-layers-name">Visibilité</span><span class="vz-layers-sub">estimation par zone</span></span>
+      <div class="vz-layers-check"></div>
+    </div>
     <div class="vz-layers-row" id="vzRowWindFlow" onclick="toggleLayer('windflow')">
       <span class="vz-layers-ico"><svg viewBox="0 0 24 24"><path d="M3 8 Q11 8 16 7 Q21 6 19 3"></path><path d="M3 13 Q13 13 18 12 Q22 11 21 9"></path><path d="M3 18 Q9 18 13 17"></path></svg></span>
       <span class="vz-layers-label"><span class="vz-layers-name">Vent</span><span class="vz-layers-sub">prévision animée</span></span>
@@ -5444,10 +5436,18 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
       <span class="vz-layers-label"><span class="vz-layers-name">Pluie</span><span class="vz-layers-sub">radar animé</span></span>
       <div class="vz-layers-check"></div>
     </div>
-    <div class="vz-layers-row" id="vzRowZsd" onclick="toggleLayer('zsd')">
-      <span class="vz-layers-ico"><svg viewBox="0 0 24 24"><path d="M2 12 Q7 5 12 5 Q17 5 22 12 Q17 19 12 19 Q7 19 2 12 Z"></path><circle cx="12" cy="12" r="2.6"></circle></svg></span>
-      <span class="vz-layers-label"><span class="vz-layers-name">Visibilité</span><span class="vz-layers-sub">estimation par zone</span></span>
-      <div class="vz-layers-check"></div>
+  </div>
+  <div>
+    <div class="vz-layers-section-title">Fond de carte</div>
+    <div class="vz-layers-row" id="vzRowSat" onclick="selectBasemap('sat')">
+      <span class="vz-layers-ico"><svg viewBox="0 0 24 24"><path d="M3 7 L12 3 L21 7 L12 11 Z"></path><path d="M3 12 L12 16 L21 12"></path><path d="M3 17 L12 21 L21 17"></path></svg></span>
+      <span class="vz-layers-label"><span class="vz-layers-name">Satellite</span><span class="vz-layers-sub">imagerie satellite</span></span>
+      <div class="vz-layers-radio"></div>
+    </div>
+    <div class="vz-layers-row" id="vzRowIGN" onclick="selectBasemap('ign')">
+      <span class="vz-layers-ico"><svg viewBox="0 0 24 24"><path d="M4 6 L9 4 L15 6 L20 4 L20 18 L15 20 L9 18 L4 20 Z"></path><path d="M9 4 L9 18"></path><path d="M15 6 L15 20"></path></svg></span>
+      <span class="vz-layers-label"><span class="vz-layers-name">Plan</span><span class="vz-layers-sub">carte IGN</span></span>
+      <div class="vz-layers-radio"></div>
     </div>
   </div>
   <div>
