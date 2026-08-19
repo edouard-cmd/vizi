@@ -19364,7 +19364,7 @@ function vzmInit() {
     + 'body.vzm-nav #vzSheetSpotLabel{font-family:Inter,sans-serif;font-size:18px;font-weight:800;letter-spacing:-.02em;color:#0A1520;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}'
     + 'body.vzm-nav #vzSheet .vz-sheet-close{position:absolute;top:0;right:0;width:56px;height:56px;display:flex;align-items:center;justify-content:center;background:transparent;border:none;color:#0A1520;z-index:3;}'
     + 'body.vzm-nav #vzSheet .vz-sheet-close svg{width:20px;height:20px;}'
-    + 'body.vzm-nav #vzSheetBody{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 16px 18px;background:#FFFFFF;color:#0A1520;}'
+    + 'body.vzm-nav #vzSheetBody{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:18px 16px 18px;background:#FFFFFF;color:#0A1520;}'
     // Zone basse : plus rien ne flotte au-dessus de la barre sans passer par
     // --vzm-navline. La ligne d'ancrage historique en derive.
     // Le popover Couches est DEPLACE dans le panneau, pas duplique (cloner
@@ -19375,6 +19375,7 @@ function vzmInit() {
     +   'width:100% !important;max-width:none !important;max-height:none !important;overflow:visible !important;'
     +   'border:none !important;border-radius:0 !important;box-shadow:none !important;padding:0 !important;z-index:auto !important;}'
     + '#vzLayersPopover[data-vzm-host="1"] > div{margin:0 0 10px 0;}'
+    + '#vzLayersPopover[data-vzm-host="1"] > div:first-child{margin-top:4px;}'
     + 'body.vzm-nav .vz-layers-fab,body.vzm-nav #vzmVisiBadge,body.vzm-nav #vzmSedReadout,'
     +   'body.vzm-nav #vzTabCond,body.vzm-nav #vzTabTides{display:none !important;}'
     // LIGNE D'ANCRAGE UNIQUE. --vzm-navline est mesuree (barre + ligne
@@ -19424,7 +19425,7 @@ function vzmInit() {
     + 'body.vzm-nav .vzsp-shead .vzsp-close{position:absolute;top:0;right:0;width:56px;height:56px;'
     +   'border-radius:0;background:transparent;border:none;}'
     + 'body.vzm-nav .vzsp-shead .vzsp-close svg{width:20px;height:20px;stroke-width:2.6;}'
-    + 'body.vzm-nav .vzsp-body{padding:14px 16px 18px;}'
+    + 'body.vzm-nav .vzsp-body{padding:18px 16px 18px;}'
     // Panneau ouvert : tout le flottant s'efface, un seul objet a la fois.
     + 'body.vzm-open .vzm-sonar-fab,body.vzm-open .vzm-sonar-menu,body.vzm-open #vzRainCtrl,'
     +   'body.vzm-open #vzHuntBar,body.vzm-open #vzWindCtrl,body.vzm-open #mobileAnalyzeBtn,'
