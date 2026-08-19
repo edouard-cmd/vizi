@@ -13908,29 +13908,40 @@ function showGeolocError() {
 
 function handleUserPosition(lat, lon, source, recenter) {
   GEO_STATE.userLatLng = { lat: lat, lon: lon };
+  GEO_STATE.lastSource = source;
 
-  if (GEO_STATE.userMarker) S.map.removeLayer(GEO_STATE.userMarker);
-  var posIcon = L.divIcon({
-    className: '',
-    html: '<div class="user-position-marker">' +
-            headingConeSvg_() +
-            '<div class="user-position-pulse"></div>' +
-            '<div class="user-position-dot"></div>' +
-          '</div>',
-    iconSize: [24, 24], iconAnchor: [12, 12]
-  });
-  GEO_STATE.userMarker = L.marker([lat, lon], { icon: posIcon, interactive: false, zIndexOffset: 500 }).addTo(S.map);
+  // Marqueur INCREMENTAL. En mode "Aller au point" cette fonction est rappelee
+  // a chaque fix GPS (watchPosition, ~1 Hz). Detruire / recreer le divIcon a
+  // chaque tick produisait un thrash DOM et rompait le lien du cone boussole a
+  // chaque respawn. On ne cree le marqueur qu'une fois ; ensuite setLatLng.
+  if (GEO_STATE.userMarker) {
+    GEO_STATE.userMarker.setLatLng([lat, lon]);
+  } else {
+    var posIcon = L.divIcon({
+      className: '',
+      html: '<div class="user-position-marker">' +
+              headingConeSvg_() +
+              '<div class="user-position-pulse"></div>' +
+              '<div class="user-position-dot"></div>' +
+            '</div>',
+      iconSize: [24, 24], iconAnchor: [12, 12]
+    });
+    GEO_STATE.userMarker = L.marker([lat, lon], { icon: posIcon, interactive: false, zIndexOffset: 500 }).addTo(S.map);
 
-  // Le marqueur est detruit / recree a chaque appel : sans cette re-liaison,
-  // HEADING_STATE.coneEl pointerait sur un noeud orphelin et le cone se figerait.
-  var mkEl = GEO_STATE.userMarker.getElement ? GEO_STATE.userMarker.getElement() : null;
-  HEADING_STATE.coneEl = mkEl ? mkEl.querySelector('.user-position-cone') : null;
-  HEADING_STATE.pathEl = mkEl ? mkEl.querySelector('.user-position-cone-path') : null;
-  HEADING_STATE.drawnSpread = headingSpread_();
-  if (HEADING_STATE.coneEl && HEADING_STATE.raw !== null) {
-    HEADING_STATE.smooth = HEADING_STATE.raw;   // pas de rattrapage anime au respawn
-    headingSchedule_();
+    // Liaison du cone au noeud DOM reel du marqueur. Ne se fait plus qu'une
+    // seule fois puisque le marqueur n'est plus detruit.
+    var mkEl = GEO_STATE.userMarker.getElement ? GEO_STATE.userMarker.getElement() : null;
+    HEADING_STATE.coneEl = mkEl ? mkEl.querySelector('.user-position-cone') : null;
+    HEADING_STATE.pathEl = mkEl ? mkEl.querySelector('.user-position-cone-path') : null;
+    HEADING_STATE.drawnSpread = headingSpread_();
+    if (HEADING_STATE.coneEl && HEADING_STATE.raw !== null) {
+      HEADING_STATE.smooth = HEADING_STATE.raw;   // pas de rattrapage anime au premier spawn
+      headingSchedule_();
+    }
   }
+
+  // Seul point de branchement du mode "Aller au point" sur la geoloc.
+  if (typeof vzNavOnFix === 'function') vzNavOnFix();
 
   // Au demarrage (geoloc auto), on garde la vue d'accueil large : pas de recentrage.
   if (!recenter) return;
@@ -13957,6 +13968,498 @@ function handleUserPosition(lat, lon, source, recenter) {
   // La carte reste degagee ; l'utilisateur clique un point pour voir les conditions.
   // (centrage carte deja effectue en amont, toast "port le plus proche" conserve)
 }
+
+/* ============================================================
+   ALLER AU POINT - relevement et distance vers une cible
+   ------------------------------------------------------------
+   Ce module N'EST PAS de la navigation maritime. Il ne calcule
+   aucun itineraire, ne connait ni les hauts-fonds, ni les epaves,
+   ni la reglementation. Il affiche un trait direct et des mesures
+   brutes : relevement, distance, ecart de cap, ecart lateral. Le
+   chasseur fait la synthese. Le mot "route" est banni de l'UI.
+
+   Doctrine :
+   - Mobile / tactile uniquement (test pointer:coarse, pas
+     isMobile() qui bascule a faux en paysage sur telephone).
+   - Portrait first. Pas de variante paysage en V1.
+   - Aucune trace parcourue : rien n'est enregistre, rien n'est
+     envoye. On va a un point, on ne journalise pas un deplacement.
+   - Aucun acces aux caches S_spot*, ni au moteur de visibilite.
+   - Un seul point de branchement sur la geoloc : vzNavOnFix(),
+     appele depuis handleUserPosition().
+
+   Formules :
+   - Relevement initial (great-circle) : Williams, Aviation Formulary V1.46.
+   - Ecart lateral (cross-track distance) : dxt = asin(sin(d13/R) *
+     sin(t13 - t12)) * R, meme source. Positif = a droite de la ligne.
+   - Le cap courant vient du magnetometre (HEADING_STATE, deja cap
+     vrai : l'OS corrige la declinaison sur iOS comme sur Android).
+     Fallback sur le cap GPS de deplacement au-dessus du seuil de
+     vitesse, sinon aucun ecart affiche plutot qu'un ecart faux.
+   ============================================================ */
+
+var VZ_NAV_ARRIVE_M   = 50;    // en deca, le cap n'a plus de sens : ecran d'arrivee
+var VZ_NAV_ALIGN_DEG  = 5;     // en deca, on considere que le chasseur vise juste
+var VZ_NAV_MIN_SPD    = 0.5;   // m/s (~1 nd) sous lequel vitesse et ETA sont indefinis
+var VZ_NAV_BAD_ACC_M  = 50;    // precision GPS au-dela de laquelle on degrade l'affichage
+var VZ_NAV_XTE_FULL_M = 200;   // butee de l'aiguille d'ecart lateral
+var VZ_NAV_MS_TO_KT   = 1.94384;
+
+var VZ_NAV = {
+  on: false,
+  target: null,      // { lat, lon }
+  origin: null,      // premier fix recu, sert de reference a l'ecart lateral
+  watchId: 0,
+  tickId: 0,
+  wakeLock: null,
+  layer: null,
+  line: null,
+  tgtMarker: null,
+  detOpen: false,
+  el: {}
+};
+
+// Tactile uniquement. Volontairement different de isMobile() : celui-ci
+// repond "l'ecran est-il etroit" (mise en page), on veut "est-ce un appareil
+// qu'on emmene en mer" (capacite). Un telephone tourne en paysage reste
+// coarse, la fonction ne se coupe donc pas en pleine traversee.
+function vzNavIsTouch_() {
+  try { return window.matchMedia('(pointer: coarse)').matches; }
+  catch (e) { return 'ontouchstart' in window; }
+}
+
+// Relevement initial vrai, 0 a 360, 0 = nord geographique.
+function vzNavBearing_(lat1, lon1, lat2, lon2) {
+  var R = Math.PI / 180;
+  var p1 = lat1 * R, p2 = lat2 * R, dl = (lon2 - lon1) * R;
+  var y = Math.sin(dl) * Math.cos(p2);
+  var x = Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dl);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+
+// Ecart lateral signe a la ligne origine -> cible, en metres.
+// Positif = le chasseur est a DROITE de la ligne, il doit corriger a gauche.
+function vzNavXte_(oLat, oLon, pLat, pLon, tLat, tLon) {
+  var R = 6371000;
+  var d13 = haversineM(oLat, oLon, pLat, pLon) / R;
+  if (!(d13 > 0)) return 0;
+  var t13 = vzNavBearing_(oLat, oLon, pLat, pLon) * Math.PI / 180;
+  var t12 = vzNavBearing_(oLat, oLon, tLat, tLon) * Math.PI / 180;
+  return Math.asin(Math.sin(d13) * Math.sin(t13 - t12)) * R;
+}
+
+// Ecart signe entre deux caps, ramene dans [-180, 180].
+function vzNavDelta_(from, to) {
+  return ((to - from + 540) % 360) - 180;
+}
+
+// Cap courant. Ordre de confiance : magnetometre, puis cap GPS si on avance
+// assez vite pour qu'il ait un sens, sinon rien.
+function vzNavHeading_() {
+  if (HEADING_STATE.smooth !== null && isFinite(HEADING_STATE.smooth)) {
+    return { deg: HEADING_STATE.smooth, src: 'compas' };
+  }
+  var g = GEO_STATE.gpsHeading, s = GEO_STATE.speed;
+  if (g !== null && g !== undefined && isFinite(g) && s !== null && s > VZ_NAV_MIN_SPD) {
+    return { deg: g, src: 'gps' };
+  }
+  return null;
+}
+
+// Metres sous 1000, milles nautiques au-dela. VZ_NM_M vient du module Regle.
+function vzNavDist_(m) {
+  if (m < 1000) return { v: String(Math.round(m)), u: 'm' };
+  return { v: (m / VZ_NM_M).toFixed(2).replace('.', ','), u: 'M' };
+}
+
+// Latitude / longitude en degres-minutes decimales, convention marine.
+function vzNavDM_(lat, lon) {
+  function one(v, pos, neg) {
+    var h = v >= 0 ? pos : neg, a = Math.abs(v);
+    var d = Math.floor(a), mn = (a - d) * 60;
+    return d + '\u00B0 ' + mn.toFixed(1).replace('.', ',') + "' " + h;
+  }
+  return one(lat, 'N', 'S') + '  ' + one(lon, 'E', 'W');
+}
+
+function vzNavStyle_() {
+  if (document.getElementById('vzNavStyle')) return;
+  var st = document.createElement('style');
+  st.id = 'vzNavStyle';
+  st.textContent =
+    /* Le bouton n'existe que sur appareil tactile. */
+    "#vzBtnNav{display:none;}"
+  + "body.vz-touch #vzBtnNav{display:flex;}"
+  + "#vzBtnNav.active{color:#4DD4A8;background:rgba(77,212,168,0.15);}"
+
+    /* Panneau instrument : surface blanche opaque, bordure noire epaisse,
+       aucun flou. Doctrine de lisibilite exterieure, pas la charte sombre. */
+  + "#vzNavPanel{position:fixed;top:0;left:0;right:0;z-index:1400;display:none;"
+  +   "flex-direction:column;background:#FFFFFF;border-bottom:2px solid #0A1520;"
+  +   "padding-top:env(safe-area-inset-top,0px);font-family:'Inter',sans-serif;"
+  +   "box-shadow:0 6px 20px rgba(4,16,28,0.34);}"
+  + "#vzNavPanel.open{display:flex;}"
+  + "body.vz-goto .vzm-xhair,body.vz-goto .vzm-aimbar,body.vz-goto .vz-tab-segmented{display:none !important;}"
+
+  + ".vzn-top{display:flex;align-items:center;gap:10px;padding:9px 10px 9px 14px;border-bottom:1.5px solid #0A1520;}"
+  + ".vzn-tgt{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1;}"
+  + ".vzn-k{color:#1A6B5D;font-size:11px;font-weight:800;letter-spacing:0.09em;text-transform:uppercase;}"
+  + ".vzn-n{color:#0A1520;font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;"
+  +   "white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}"
+  + ".vzn-quit{width:48px;height:48px;flex-shrink:0;border:2px solid #0A1520;border-radius:11px;"
+  +   "background:#FFFFFF;color:#0A1520;display:flex;align-items:center;justify-content:center;"
+  +   "padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent;}"
+  + ".vzn-quit:active{transform:scale(0.96);}"
+  + ".vzn-quit svg{width:22px;height:22px;fill:none;stroke:#0A1520;stroke-width:2.6;stroke-linecap:round;}"
+
+  + ".vzn-degr{display:none;align-items:center;gap:8px;padding:7px 14px;background:#E89B3C;"
+  +   "border-bottom:1.5px solid #0A1520;color:#0A1520;font-size:12.5px;font-weight:700;line-height:1.25;}"
+  + ".vzn-degr.on{display:flex;}"
+  + ".vzn-degr svg{width:19px;height:19px;flex-shrink:0;fill:none;stroke:#0A1520;stroke-width:2.4;"
+  +   "stroke-linecap:round;stroke-linejoin:round;}"
+
+  + ".vzn-l1{display:flex;align-items:center;gap:14px;padding:12px 14px 10px;}"
+  + ".vzn-arrow{width:74px;height:74px;flex-shrink:0;}"
+  + ".vzn-arrow svg{width:100%;height:100%;display:block;}"
+  + ".vzn-arrow .vzn-ap{fill:#0A1520;stroke:#0A1520;stroke-width:2;stroke-linejoin:round;}"
+  + ".vzn-l1.aligned .vzn-ap{fill:#1A6B5D;stroke:#1A6B5D;}"
+  + ".vzn-dev{display:flex;flex-direction:column;gap:0;min-width:0;}"
+  + ".vzn-num{color:#0A1520;font-family:'IBM Plex Mono',monospace;font-size:52px;font-weight:700;"
+  +   "line-height:0.94;letter-spacing:-0.02em;}"
+  + ".vzn-side{color:#0A1520;font-size:19px;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;}"
+  + ".vzn-l1.aligned .vzn-num{font-size:27px;line-height:1.15;color:#1A6B5D;font-family:'Inter',sans-serif;font-weight:800;}"
+  + ".vzn-l1.aligned .vzn-side{font-size:14px;letter-spacing:0.02em;text-transform:none;color:#0A1520;font-weight:600;}"
+  + ".vzn-l1.nohead .vzn-num{font-size:20px;line-height:1.2;font-family:'Inter',sans-serif;font-weight:700;}"
+  + ".vzn-l1.nohead .vzn-side{font-size:13px;letter-spacing:0.02em;text-transform:none;font-weight:600;}"
+
+  + ".vzn-l2{display:flex;align-items:center;gap:14px;padding:0 14px 10px;}"
+  + ".vzn-dist{display:flex;align-items:baseline;gap:4px;flex-shrink:0;}"
+  + ".vzn-dist b{color:#0A1520;font-family:'IBM Plex Mono',monospace;font-size:28px;font-weight:700;}"
+  + ".vzn-dist i{color:#0A1520;font-style:normal;font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;}"
+  + ".vzn-cdi{flex:1;min-width:0;}"
+  + ".vzn-cdi svg{width:100%;height:44px;display:block;}"
+
+  + ".vzn-arrive{display:none;flex-direction:column;align-items:center;gap:9px;padding:16px 14px 18px;}"
+  + ".vzn-arrive.on{display:flex;}"
+  + ".vzn-arrive .vzn-ak{color:#1A6B5D;font-size:15px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;}"
+  + ".vzn-arrive .vzn-am{color:#0A1520;font-family:'IBM Plex Mono',monospace;font-size:46px;font-weight:700;line-height:1;}"
+  + ".vzn-arrive .vzn-am i{font-style:normal;font-size:20px;}"
+  + ".vzn-btn{min-height:48px;width:100%;border:2px solid #0A1520;border-radius:12px;background:#4DD4A8;"
+  +   "color:#0A1520;font-family:'Inter',sans-serif;font-size:16px;font-weight:800;cursor:pointer;"
+  +   "-webkit-tap-highlight-color:transparent;}"
+  + ".vzn-btn:active{transform:scale(0.96);}"
+
+  + ".vzn-disc{min-height:48px;width:100%;border:0;border-top:1.5px solid #0A1520;background:#FFFFFF;"
+  +   "color:#0A1520;font-family:'Inter',sans-serif;font-size:14px;font-weight:700;cursor:pointer;"
+  +   "display:flex;align-items:center;justify-content:center;gap:7px;-webkit-tap-highlight-color:transparent;}"
+  + ".vzn-disc svg{width:17px;height:17px;fill:none;stroke:#0A1520;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;}"
+  + ".vzn-det{display:none;grid-template-columns:1fr 1fr;gap:1.5px;background:#0A1520;border-top:1.5px solid #0A1520;}"
+  + ".vzn-det.on{display:grid;}"
+  + ".vzn-cell{background:#FFFFFF;padding:9px 14px;display:flex;flex-direction:column;gap:2px;}"
+  + ".vzn-cl{color:#1A6B5D;font-size:10.5px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;}"
+  + ".vzn-cv{color:#0A1520;font-family:'IBM Plex Mono',monospace;font-size:17px;font-weight:600;}"
+
+  + ".vzn-warn{display:flex;align-items:flex-start;gap:8px;padding:8px 14px 9px;background:#0A1520;"
+  +   "color:#FFFFFF;font-size:12px;font-weight:600;line-height:1.3;}"
+  + ".vzn-warn svg{width:17px;height:17px;flex-shrink:0;margin-top:1px;fill:none;stroke:#E89B3C;"
+  +   "stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;}";
+  (document.head || document.documentElement).appendChild(st);
+}
+
+function vzNavPanel_() {
+  if (document.getElementById('vzNavPanel')) return;
+  var warnIco = '<svg viewBox="0 0 24 24"><path d="M12 4l9 16H3z"/><path d="M12 10v4"/><path d="M12 17.2v.1"/></svg>';
+  var p = document.createElement('div');
+  p.id = 'vzNavPanel';
+  p.innerHTML =
+    '<div class="vzn-top">'
+    + '<span class="vzn-tgt"><span class="vzn-k">Aller au point</span>'
+    + '<span class="vzn-n" id="vzNavName">-</span></span>'
+    + '<button class="vzn-quit" id="vzNavQuit" aria-label="Quitter">'
+    +   '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>'
+    + '</div>'
+    + '<div class="vzn-degr" id="vzNavDegr">' + warnIco + '<span id="vzNavDegrTxt"></span></div>'
+    + '<div class="vzn-l1" id="vzNavL1">'
+    +   '<div class="vzn-arrow"><svg viewBox="0 0 100 100">'
+    +     '<path class="vzn-ap" id="vzNavArrow" d="M50 12 L74 78 L50 62 L26 78 Z"/>'
+    +   '</svg></div>'
+    +   '<div class="vzn-dev"><div class="vzn-num" id="vzNavDev">-</div>'
+    +   '<div class="vzn-side" id="vzNavSide">-</div></div>'
+    + '</div>'
+    + '<div class="vzn-l2" id="vzNavL2">'
+    +   '<div class="vzn-dist"><b id="vzNavDistV">-</b><i id="vzNavDistU"></i></div>'
+    +   '<div class="vzn-cdi"><svg viewBox="0 0 320 44" preserveAspectRatio="none">'
+    +     '<line x1="14" y1="22" x2="306" y2="22" stroke="#0A1520" stroke-width="3" stroke-linecap="round"/>'
+    +     '<circle cx="87" cy="22" r="3.6" fill="none" stroke="#0A1520" stroke-width="2.4"/>'
+    +     '<circle cx="123.5" cy="22" r="3.6" fill="none" stroke="#0A1520" stroke-width="2.4"/>'
+    +     '<circle cx="196.5" cy="22" r="3.6" fill="none" stroke="#0A1520" stroke-width="2.4"/>'
+    +     '<circle cx="233" cy="22" r="3.6" fill="none" stroke="#0A1520" stroke-width="2.4"/>'
+    +     '<rect x="156" y="9" width="8" height="26" fill="none" stroke="#0A1520" stroke-width="3"/>'
+    +     '<path id="vzNavCdi" d="M0 -15 L12 0 L0 15 L-12 0 Z" fill="#1A6B5D" stroke="#0A1520" '
+    +       'stroke-width="2.6" stroke-linejoin="round" transform="translate(160 22)"/>'
+    +   '</svg></div>'
+    + '</div>'
+    + '<div class="vzn-arrive" id="vzNavArrive">'
+    +   '<div class="vzn-ak">Vous etes sur le point</div>'
+    +   '<div class="vzn-am"><span id="vzNavArrM">-</span><i> m</i></div>'
+    +   '<button class="vzn-btn" id="vzNavDone">Terminer</button>'
+    + '</div>'
+    + '<button class="vzn-disc" id="vzNavDisc"><span id="vzNavDiscTxt">Details</span>'
+    +   '<svg viewBox="0 0 24 24" id="vzNavDiscIco"><path d="M6 9l6 6 6-6"/></svg></button>'
+    + '<div class="vzn-det" id="vzNavDet">'
+    +   '<div class="vzn-cell"><span class="vzn-cl">Cap direct</span><span class="vzn-cv" id="vzNavBrg">-</span></div>'
+    +   '<div class="vzn-cell"><span class="vzn-cl">Cap actuel</span><span class="vzn-cv" id="vzNavHdg">-</span></div>'
+    +   '<div class="vzn-cell"><span class="vzn-cl">Vitesse fond</span><span class="vzn-cv" id="vzNavSpd">-</span></div>'
+    +   '<div class="vzn-cell"><span class="vzn-cl">Arrivee dans</span><span class="vzn-cv" id="vzNavEta">-</span></div>'
+    +   '<div class="vzn-cell"><span class="vzn-cl">Ecart lateral</span><span class="vzn-cv" id="vzNavXte">-</span></div>'
+    +   '<div class="vzn-cell"><span class="vzn-cl">Precision GPS</span><span class="vzn-cv" id="vzNavAcc">-</span></div>'
+    + '</div>'
+    + '<div class="vzn-warn">' + warnIco
+    +   '<span>Trait direct. Ne tient pas compte des dangers, des hauts-fonds ni de la reglementation.</span></div>';
+  document.body.appendChild(p);
+
+  var ids = ['vzNavName','vzNavQuit','vzNavDegr','vzNavDegrTxt','vzNavL1','vzNavArrow','vzNavDev',
+             'vzNavSide','vzNavL2','vzNavDistV','vzNavDistU','vzNavCdi','vzNavArrive','vzNavArrM',
+             'vzNavDone','vzNavDisc','vzNavDiscTxt','vzNavDiscIco','vzNavDet','vzNavBrg','vzNavHdg',
+             'vzNavSpd','vzNavEta','vzNavXte','vzNavAcc'];
+  for (var i = 0; i < ids.length; i++) VZ_NAV.el[ids[i]] = document.getElementById(ids[i]);
+
+  VZ_NAV.el.vzNavQuit.addEventListener('click', vzNavStop);
+  VZ_NAV.el.vzNavDone.addEventListener('click', vzNavStop);
+  VZ_NAV.el.vzNavDisc.addEventListener('click', function() {
+    VZ_NAV.detOpen = !VZ_NAV.detOpen;
+    VZ_NAV.el.vzNavDet.classList.toggle('on', VZ_NAV.detOpen);
+    VZ_NAV.el.vzNavDiscTxt.textContent = VZ_NAV.detOpen ? 'Masquer' : 'Details';
+    VZ_NAV.el.vzNavDiscIco.innerHTML = VZ_NAV.detOpen ? '<path d="M6 15l6-6 6 6"/>' : '<path d="M6 9l6 6 6-6"/>';
+  });
+}
+
+// Ecran allume tant que le mode tourne. L'API relache le verrou quand l'onglet
+// passe en arriere-plan : on le reprend au retour. Aucun suivi n'est possible
+// ecran eteint en PWA, on ne le promet donc pas.
+function vzNavWake_(on) {
+  try {
+    if (on) {
+      if (!('wakeLock' in navigator)) return;
+      navigator.wakeLock.request('screen').then(function(s) {
+        VZ_NAV.wakeLock = s;
+        s.addEventListener('release', function() { VZ_NAV.wakeLock = null; });
+      }).catch(function() {});
+    } else if (VZ_NAV.wakeLock) {
+      try { VZ_NAV.wakeLock.release(); } catch (e) {}
+      VZ_NAV.wakeLock = null;
+    }
+  } catch (e) {}
+}
+
+function vzNavToggle() {
+  if (VZ_NAV.on) { vzNavStop(); return; }
+  vzNavStart();
+}
+
+function vzNavStart() {
+  if (VZ_NAV.on) return;
+  if (!vzNavIsTouch_()) return;
+  if (!navigator.geolocation) { vzNavToast_('GPS indisponible sur cet appareil.'); return; }
+
+  // La cible est le point deja designe par le viseur central. Aucun mode de
+  // saisie supplementaire : un tap suffit, la matrice d'exclusivite
+  // measureMode / spotMode / shareMode n'est pas approchee.
+  var aim = (typeof vzmAimLatLng === 'function') ? vzmAimLatLng() : null;
+  if (!aim) { vzNavToast_('Vise un point sur la carte, puis reessaie.'); return; }
+
+  vzNavStyle_();
+  vzNavPanel_();
+
+  VZ_NAV.target = { lat: aim.lat, lon: aim.lng };
+  VZ_NAV.origin = null;
+  VZ_NAV.on = true;
+
+  if (!VZ_NAV.layer) VZ_NAV.layer = L.layerGroup().addTo(S.map);
+  VZ_NAV.layer.clearLayers();
+  VZ_NAV.line = L.polyline([[aim.lat, aim.lng], [aim.lat, aim.lng]], {
+    color: '#4DD4A8', weight: 3.5, opacity: 0.95, dashArray: '9 6'
+  }).addTo(VZ_NAV.layer);
+  VZ_NAV.tgtMarker = L.circleMarker([aim.lat, aim.lng], {
+    radius: 8, fillColor: '#4DD4A8', color: '#0A1520', weight: 2.5, fillOpacity: 1
+  }).addTo(VZ_NAV.layer);
+
+  document.body.classList.add('vz-goto');
+  var pan = document.getElementById('vzNavPanel');
+  if (pan) pan.classList.add('open');
+  var btn = document.getElementById('vzBtnNav');
+  if (btn) btn.classList.add('active');
+  VZ_NAV.el.vzNavName.textContent = vzNavDM_(aim.lat, aim.lng);
+
+  if (typeof closeSheetCompletely === 'function') {
+    var sheet = document.getElementById('vzSheet');
+    if (sheet && (sheet.classList.contains('sheet-half') || sheet.classList.contains('sheet-full'))) {
+      closeSheetCompletely();
+    }
+  }
+
+  // Amorce boussole : doit rester dans la pile du geste utilisateur (iOS 13+).
+  if (typeof startHeadingTracking === 'function') startHeadingTracking(true);
+
+  VZ_NAV.watchId = navigator.geolocation.watchPosition(function(pos) {
+    var c = pos.coords;
+    GEO_STATE.accuracy   = (typeof c.accuracy === 'number' && isFinite(c.accuracy)) ? c.accuracy : null;
+    GEO_STATE.speed      = (typeof c.speed === 'number' && isFinite(c.speed) && c.speed >= 0) ? c.speed : null;
+    GEO_STATE.gpsHeading = (typeof c.heading === 'number' && isFinite(c.heading)) ? c.heading : null;
+    if (!VZ_NAV.origin) VZ_NAV.origin = { lat: c.latitude, lon: c.longitude };
+    handleUserPosition(c.latitude, c.longitude, 'gps', false);
+  }, function(err) {
+    console.log('[vznav] GPS perdu:', err && err.message);
+  }, { enableHighAccuracy: true, maximumAge: 1000, timeout: 20000 });
+
+  // Le cap boussole evolue sans nouveau fix GPS : un rafraichissement propre a
+  // 5 Hz suffit a suivre le magnetometre sans reconstruire le DOM.
+  VZ_NAV.tickId = setInterval(vzNavRender, 200);
+
+  vzNavWake_(true);
+  document.addEventListener('visibilitychange', vzNavVisibility_);
+
+  if (GEO_STATE.userLatLng) {
+    S.map.fitBounds(L.latLngBounds(
+      [[GEO_STATE.userLatLng.lat, GEO_STATE.userLatLng.lon], [aim.lat, aim.lng]]
+    ), { padding: [70, 70], maxZoom: 15 });
+  }
+  vzNavRender();
+}
+
+function vzNavStop() {
+  if (!VZ_NAV.on) return;
+  VZ_NAV.on = false;
+
+  if (VZ_NAV.watchId) { try { navigator.geolocation.clearWatch(VZ_NAV.watchId); } catch (e) {} VZ_NAV.watchId = 0; }
+  if (VZ_NAV.tickId) { clearInterval(VZ_NAV.tickId); VZ_NAV.tickId = 0; }
+  document.removeEventListener('visibilitychange', vzNavVisibility_);
+  vzNavWake_(false);
+
+  if (VZ_NAV.layer) VZ_NAV.layer.clearLayers();
+  VZ_NAV.line = null; VZ_NAV.tgtMarker = null;
+  VZ_NAV.target = null; VZ_NAV.origin = null;
+
+  document.body.classList.remove('vz-goto');
+  var pan = document.getElementById('vzNavPanel');
+  if (pan) pan.classList.remove('open');
+  var btn = document.getElementById('vzBtnNav');
+  if (btn) btn.classList.remove('active');
+}
+
+function vzNavVisibility_() {
+  if (VZ_NAV.on && document.visibilityState === 'visible') vzNavWake_(true);
+}
+
+// Branchement unique depuis handleUserPosition().
+function vzNavOnFix() {
+  if (!VZ_NAV.on || !VZ_NAV.target || !GEO_STATE.userLatLng) return;
+  var u = GEO_STATE.userLatLng, t = VZ_NAV.target;
+  if (VZ_NAV.line) VZ_NAV.line.setLatLngs([[u.lat, u.lon], [t.lat, t.lon]]);
+  vzNavRender();
+}
+
+function vzNavToast_(msg) {
+  var toast = document.getElementById('landToast');
+  if (!toast) return;
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(function() { toast.classList.remove('show'); }, 3500);
+}
+
+function vzNavRender() {
+  if (!VZ_NAV.on || !VZ_NAV.target) return;
+  var E = VZ_NAV.el;
+  if (!E.vzNavDev) return;
+  var u = GEO_STATE.userLatLng, t = VZ_NAV.target;
+  if (!u) return;
+
+  var dist = haversineM(u.lat, u.lon, t.lat, t.lon);
+  var brg  = vzNavBearing_(u.lat, u.lon, t.lat, t.lon);
+  var acc  = GEO_STATE.accuracy;
+  var spd  = GEO_STATE.speed;
+
+  // Precision degradee : on le dit, on ne masque pas.
+  var bad = (acc !== null && acc > VZ_NAV_BAD_ACC_M);
+  E.vzNavDegr.classList.toggle('on', bad);
+  if (bad) E.vzNavDegrTxt.textContent = 'Signal GPS degrade, precision ' + Math.round(acc)
+    + ' m. Ecart et ecart lateral peu fiables.';
+
+  // Arrivee : sous 50 m le cap n'a plus de sens, on bascule d'ecran.
+  var arrived = dist < VZ_NAV_ARRIVE_M;
+  E.vzNavArrive.classList.toggle('on', arrived);
+  E.vzNavL1.style.display = arrived ? 'none' : '';
+  E.vzNavL2.style.display = arrived ? 'none' : '';
+  if (arrived) {
+    E.vzNavArrM.textContent = String(Math.round(dist));
+    return;
+  }
+
+  var d = vzNavDist_(dist);
+  E.vzNavDistV.textContent = d.v;
+  E.vzNavDistU.textContent = d.u;
+
+  // Niveau 1 : ecart entre le cap courant et le cap direct.
+  var h = vzNavHeading_();
+  E.vzNavL1.classList.remove('aligned', 'nohead');
+  if (!h) {
+    // Aucun cap fiable : on refuse d'afficher un ecart faux.
+    E.vzNavL1.classList.add('nohead');
+    E.vzNavDev.textContent = 'Cap indisponible';
+    E.vzNavSide.textContent = 'Oriente le telephone, ou avance pour que le GPS donne un cap.';
+    E.vzNavArrow.setAttribute('transform', 'rotate(0 50 50)');
+  } else {
+    var dev = vzNavDelta_(h.deg, brg);
+    var mag = Math.abs(Math.round(dev));
+    E.vzNavArrow.setAttribute('transform', 'rotate(' + dev.toFixed(1) + ' 50 50)');
+    if (mag <= VZ_NAV_ALIGN_DEG) {
+      E.vzNavL1.classList.add('aligned');
+      E.vzNavDev.textContent = 'Vous visez juste';
+      E.vzNavSide.textContent = 'ecart ' + mag + '\u00B0';
+    } else {
+      E.vzNavDev.textContent = mag + '\u00B0';
+      E.vzNavSide.textContent = dev > 0 ? 'Droite' : 'Gauche';
+    }
+  }
+
+  // Niveau 2 : ecart lateral. On ne le lit pas, on ramene l'aiguille au centre.
+  var xte = 0;
+  if (VZ_NAV.origin) xte = vzNavXte_(VZ_NAV.origin.lat, VZ_NAV.origin.lon, u.lat, u.lon, t.lat, t.lon);
+  var frac = Math.max(-1, Math.min(1, xte / VZ_NAV_XTE_FULL_M));
+  // Aiguille a droite quand le chasseur a derive a droite : elle montre ou il est,
+  // il la ramene au centre. Convention CDI "aiguille = position", pas "aiguille = correction".
+  E.vzNavCdi.setAttribute('transform', 'translate(' + (160 + frac * 146).toFixed(1) + ' 22)');
+  E.vzNavCdi.setAttribute('fill', Math.abs(xte) <= 20 ? '#1A6B5D' : '#0A1520');
+
+  if (!VZ_NAV.detOpen) return;   // le detail replie ne se recalcule pas
+
+  E.vzNavBrg.textContent = ('00' + Math.round(brg)).slice(-3) + '\u00B0';
+  E.vzNavHdg.textContent = h ? (('00' + Math.round(h.deg)).slice(-3) + '\u00B0 (' + h.src + ')') : 'indisponible';
+  E.vzNavXte.textContent = Math.round(Math.abs(xte)) + ' m ' + (xte >= 0 ? 'droite' : 'gauche');
+  E.vzNavAcc.textContent = acc !== null ? (Math.round(acc) + ' m') : 'inconnue';
+
+  // Vitesse et ETA n'ont aucun sens a l'arret : on n'affiche rien plutot qu'un zero.
+  if (spd !== null && spd > VZ_NAV_MIN_SPD) {
+    E.vzNavSpd.textContent = (spd * VZ_NAV_MS_TO_KT).toFixed(1).replace('.', ',') + ' nds';
+    var mn = Math.round(dist / spd / 60);
+    E.vzNavEta.textContent = mn < 1 ? '< 1 min' : (mn < 60 ? mn + ' min'
+      : Math.floor(mn / 60) + ' h ' + ('0' + (mn % 60)).slice(-2));
+  } else {
+    E.vzNavSpd.textContent = 'a l arret';
+    E.vzNavEta.textContent = 'indisponible';
+  }
+}
+
+// Marquage tactile une fois pour toutes : c'est lui qui revele le bouton.
+(function vzNavBoot() {
+  if (!document.body) { setTimeout(vzNavBoot, 60); return; }
+  vzNavStyle_();
+  if (vzNavIsTouch_()) document.body.classList.add('vz-touch');
+})();
+
+window.vzNavToggle = vzNavToggle;
+window.vzNavStop = vzNavStop;
+window.vzNavOnFix = vzNavOnFix;
 
 function findNearestPort(lat, lon) {
   if (!SPOTS || SPOTS.length === 0) return null;
