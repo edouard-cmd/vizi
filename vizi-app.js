@@ -14920,7 +14920,12 @@ function visLabel(score) {
   // flottant (module VZM SONAR en fin de fichier) -> openObsSheet.
   // vzFbBarHtml / vzFbCountHtml restent definis pour la popup secteur (vzSectorVote).
 
-html += '<div style="overflow-x:auto;">';
+html += '<div class="vz-cond-daybar" id="vzCondDaybar">'
+    + dayGroups.map(function(g, i){
+        return '<button type="button" class="vz-cdb" data-vzgo="' + i + '">' + g.label + '</button>';
+      }).join('')
+    + '</div>';
+  html += '<div style="overflow-x:auto;" id="vzCondScroll">';
   html += '<table class="vz-cond-table">';
 
   // Header jours
@@ -14998,7 +15003,7 @@ html += '<div style="overflow-x:auto;">';
       }
     }
     var _rngTxt = _fmtRange(_dayRange[gIdx]);
-    html += '<th class="' + cls + '" colspan="' + g.count + '">'
+    html += '<th class="' + cls + '" colspan="' + g.count + '" data-vzday="' + gIdx + '">'
       + '<span class="vz-cond-dayname">' + g.label + '</span>'
       + '<span class="vz-cond-daycoef ' + coefCls(dayCoef) + '">coef ' + dayCoef + '</span>'
       + (_rngTxt ? '<span class="vz-cond-dayvisi">visi ' + _rngTxt + '</span>' : '')
@@ -15193,6 +15198,66 @@ html += buildTideBandRow(slots, VZ_SHEET.data.tides);
 
   html += '</div>';
   body.innerHTML = html;
+
+  // --- Barre de jours : synchronisation bidirectionnelle avec le tableau ---
+  (function vzCondDaybarWire(){
+    var barEl = document.getElementById('vzCondDaybar');
+    var sc    = document.getElementById('vzCondScroll');
+    if (!barEl || !sc) return;
+    var btns = barEl.querySelectorAll('.vz-cdb');
+    if (!btns.length) return;
+
+    // Position de depart de chaque jour, lue sur les en-tetes du tableau une
+    // fois la mise en page faite. Recalculee au resize : la largeur de colonne
+    // change avec la fonte et l'orientation.
+    var offs = [];
+    function computeOffsets(){
+      offs = [];
+      var ths = sc.querySelectorAll('th[data-vzday]');
+      for (var i = 0; i < ths.length; i++) offs.push(ths[i].offsetLeft);
+    }
+
+    function markActive(i){
+      for (var k = 0; k < btns.length; k++) {
+        btns[k].setAttribute('aria-current', k === i ? 'true' : 'false');
+      }
+    }
+
+    // Le jour actif est celui dont la colonne occupe le bord gauche du champ
+    // de vision, avec une tolerance : sinon le libelle bascule trop tot quand
+    // on effleure la frontiere entre deux jours.
+    function currentDay(){
+      if (!offs.length) return 0;
+      var x = sc.scrollLeft + 24;
+      var best = 0;
+      for (var i = 0; i < offs.length; i++) { if (offs[i] <= x) best = i; }
+      return best;
+    }
+
+    var raf = 0;
+    sc.addEventListener('scroll', function(){
+      if (raf) return;
+      raf = requestAnimationFrame(function(){ raf = 0; markActive(currentDay()); });
+    }, { passive: true });
+
+    barEl.addEventListener('click', function(e){
+      var b = e.target.closest ? e.target.closest('.vz-cdb') : null;
+      if (!b) return;
+      e.preventDefault();
+      if (!offs.length) computeOffsets();
+      var i = parseInt(b.getAttribute('data-vzgo'), 10);
+      if (!isFinite(i) || offs[i] == null) return;
+      // Le premier jour se cale a zero : sans ca on laisse une marge morte a
+      // gauche et la colonne d'intitules se decolle du bord.
+      sc.scrollTo({ left: i === 0 ? 0 : offs[i], behavior: 'smooth' });
+      markActive(i);
+    });
+
+    setTimeout(function(){ computeOffsets(); markActive(currentDay()); }, 60);
+    window.addEventListener('resize', function(){
+      computeOffsets(); markActive(currentDay());
+    });
+  })();
 
   // Temperature de l'eau : remplie apres coup, sans bloquer le rendu.
   (function() {
@@ -19376,6 +19441,15 @@ function vzmInit() {
     +   'border:none !important;border-radius:0 !important;box-shadow:none !important;padding:0 !important;z-index:auto !important;}'
     + '#vzLayersPopover[data-vzm-host="1"] > div{margin:0 0 10px 0;}'
     + '#vzLayersPopover[data-vzm-host="1"] > div:first-child{margin-top:4px;}'
+    + '.vz-cond-daybar{position:sticky;top:0;z-index:4;display:flex;gap:6px;overflow-x:auto;'
+    +   'background:#FFFFFF;padding:0 0 10px;margin:0 0 4px;-webkit-overflow-scrolling:touch;'
+    +   'scrollbar-width:none;}'
+    + '.vz-cond-daybar::-webkit-scrollbar{display:none;}'
+    + '.vz-cdb{flex:0 0 auto;min-height:44px;padding:0 14px;border:1.5px solid #C9D4DC;'
+    +   'border-radius:10px;background:#F2F5F7;color:#46586B;font-family:Inter,sans-serif;'
+    +   'font-size:13px;font-weight:700;white-space:nowrap;-webkit-tap-highlight-color:transparent;}'
+    + '.vz-cdb:active{transform:scale(0.96);}'
+    + '.vz-cdb[aria-current="true"]{background:#0A1520;border-color:#0A1520;color:#FFFFFF;}'
     + 'body.vzm-nav .vz-layers-fab,body.vzm-nav #vzmVisiBadge,body.vzm-nav #vzmSedReadout,'
     +   'body.vzm-nav #vzTabCond,body.vzm-nav #vzTabTides{display:none !important;}'
     // LIGNE D'ANCRAGE UNIQUE. --vzm-navline est mesuree (barre + ligne
