@@ -14094,12 +14094,15 @@ function vzNavStyle_() {
 
     /* Panneau instrument : surface blanche opaque, bordure noire epaisse,
        aucun flou. Doctrine de lisibilite exterieure, pas la charte sombre. */
-  + "#vzNavPanel{position:fixed;top:0;left:0;right:0;z-index:1400;display:none;"
-  +   "flex-direction:column;background:#FFFFFF;border-bottom:2px solid #0A1520;"
-  +   "padding-top:env(safe-area-inset-top,0px);font-family:'Inter',sans-serif;"
-  +   "box-shadow:0 6px 20px rgba(4,16,28,0.34);}"
+  + "#vzNavPanel{position:fixed;bottom:0;left:0;right:0;z-index:1400;display:none;"
+  +   "flex-direction:column;background:#FFFFFF;border-top:2px solid #0A1520;"
+  +   "padding-bottom:env(safe-area-inset-bottom,0px);font-family:'Inter',sans-serif;"
+  +   "box-shadow:0 -6px 22px rgba(4,16,28,0.38);}"
   + "#vzNavPanel.open{display:flex;}"
-  + "body.vz-goto .vzm-xhair,body.vz-goto .vzm-aimbar,body.vz-goto .vz-tab-segmented{display:none !important;}"
+  + "body.vz-goto #vzmXhair,body.vz-goto .vzm-sonar-fab,body.vz-goto .vzm-sonar-menu,"
+  +   "body.vz-goto .vz-layers-fab,body.vz-goto .vz-tab-segmented,body.vz-goto #vzTabCond,"
+  +   "body.vz-goto #vzTabTides,body.vz-goto #mobileAnalyzeBtn{display:none !important;}"
+  + "body.vz-goto #vzmNavBar,body.vz-goto #vzmIdent{visibility:hidden;pointer-events:none;}"
 
   + ".vzn-top{display:flex;align-items:center;gap:10px;padding:9px 10px 9px 14px;border-bottom:1.5px solid #0A1520;}"
   + ".vzn-tgt{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1;}"
@@ -14159,9 +14162,9 @@ function vzNavStyle_() {
   + ".vzn-cl{color:#1A6B5D;font-size:10.5px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;}"
   + ".vzn-cv{color:#0A1520;font-family:'IBM Plex Mono',monospace;font-size:17px;font-weight:600;}"
 
-  + ".vzn-warn{display:flex;align-items:flex-start;gap:8px;padding:8px 14px 9px;background:#0A1520;"
-  +   "color:#FFFFFF;font-size:12px;font-weight:600;line-height:1.3;}"
-  + ".vzn-warn svg{width:17px;height:17px;flex-shrink:0;margin-top:1px;fill:none;stroke:#E89B3C;"
+  + ".vzn-note{grid-column:1/-1;flex-direction:row;align-items:flex-start;gap:8px;background:#0A1520;}"
+  + ".vzn-note span{color:#FFFFFF;font-size:12px;font-weight:600;line-height:1.3;}"
+  + ".vzn-note svg{width:17px;height:17px;flex-shrink:0;margin-top:1px;fill:none;stroke:#E89B3C;"
   +   "stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;}";
   (document.head || document.documentElement).appendChild(st);
 }
@@ -14204,8 +14207,6 @@ function vzNavPanel_() {
     +   '<div class="vzn-am"><span id="vzNavArrM">-</span><i> m</i></div>'
     +   '<button class="vzn-btn" id="vzNavDone">Terminer</button>'
     + '</div>'
-    + '<button class="vzn-disc" id="vzNavDisc"><span id="vzNavDiscTxt">Details</span>'
-    +   '<svg viewBox="0 0 24 24" id="vzNavDiscIco"><path d="M6 9l6 6 6-6"/></svg></button>'
     + '<div class="vzn-det" id="vzNavDet">'
     +   '<div class="vzn-cell"><span class="vzn-cl">Cap direct</span><span class="vzn-cv" id="vzNavBrg">-</span></div>'
     +   '<div class="vzn-cell"><span class="vzn-cl">Cap actuel</span><span class="vzn-cv" id="vzNavHdg">-</span></div>'
@@ -14213,9 +14214,11 @@ function vzNavPanel_() {
     +   '<div class="vzn-cell"><span class="vzn-cl">Arrivee dans</span><span class="vzn-cv" id="vzNavEta">-</span></div>'
     +   '<div class="vzn-cell"><span class="vzn-cl">Ecart lateral</span><span class="vzn-cv" id="vzNavXte">-</span></div>'
     +   '<div class="vzn-cell"><span class="vzn-cl">Precision GPS</span><span class="vzn-cv" id="vzNavAcc">-</span></div>'
+    +   '<div class="vzn-cell vzn-note">' + warnIco
+    +     '<span>Trait direct. Ne tient pas compte des dangers, des hauts-fonds ni de la reglementation.</span></div>'
     + '</div>'
-    + '<div class="vzn-warn">' + warnIco
-    +   '<span>Trait direct. Ne tient pas compte des dangers, des hauts-fonds ni de la reglementation.</span></div>';
+    + '<button class="vzn-disc" id="vzNavDisc"><span id="vzNavDiscTxt">Details</span>'
+    +   '<svg viewBox="0 0 24 24" id="vzNavDiscIco"><path d="M6 15l6-6 6 6"/></svg></button>';
   document.body.appendChild(p);
 
   var ids = ['vzNavName','vzNavQuit','vzNavDegr','vzNavDegrTxt','vzNavL1','vzNavArrow','vzNavDev',
@@ -14230,7 +14233,7 @@ function vzNavPanel_() {
     VZ_NAV.detOpen = !VZ_NAV.detOpen;
     VZ_NAV.el.vzNavDet.classList.toggle('on', VZ_NAV.detOpen);
     VZ_NAV.el.vzNavDiscTxt.textContent = VZ_NAV.detOpen ? 'Masquer' : 'Details';
-    VZ_NAV.el.vzNavDiscIco.innerHTML = VZ_NAV.detOpen ? '<path d="M6 15l6-6 6 6"/>' : '<path d="M6 9l6 6 6-6"/>';
+    VZ_NAV.el.vzNavDiscIco.innerHTML = VZ_NAV.detOpen ? '<path d="M6 9l6 6 6-6"/>' : '<path d="M6 15l6-6 6 6"/>';
   });
 }
 
@@ -14297,6 +14300,8 @@ function vzNavStart() {
       closeSheetCompletely();
     }
   }
+
+  vzNavToast_('Trait direct : ne tient pas compte des dangers ni des hauts-fonds.');
 
   // Amorce boussole : doit rester dans la pile du geste utilisateur (iOS 13+).
   if (typeof startHeadingTracking === 'function') startHeadingTracking(true);
