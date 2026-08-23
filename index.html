@@ -2307,32 +2307,73 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
   z-index: 1100;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 4px;
-  background: var(--vz-bg-glass);
-  backdrop-filter: blur(var(--vz-blur));
-  -webkit-backdrop-filter: blur(var(--vz-blur));
-  border: 0.5px solid var(--vz-border-glass);
-  border-radius: 12px;
+  width: 70px;
+  background: #FFFFFF;
+  border: 2px solid #0A1520;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 4px 14px rgba(8,17,27,0.28);
 }
 .vz-side-btn {
-  width: 36px;
-  height: 36px;
+  width: 100%;
+  height: 56px;
   background: transparent;
   border: none;
-  border-radius: 8px;
-  color: var(--vz-text-on-dark-muted);
+  border-bottom: 1px solid #0A1520;
+  border-radius: 0;
+  color: #0A1520;
   cursor: pointer;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  transition: all 0.15s;
+  gap: 2px;
+  transition: background 0.15s;
   padding: 0;
   position: relative;
+  -webkit-tap-highlight-color: transparent;
 }
-.vz-side-btn:hover { background: rgba(255,255,255,0.08); color: var(--vz-text-on-dark); }
-.vz-side-btn.active { color: var(--vz-accent); background: var(--vz-accent-glow); }
-.vz-side-btn svg { width: 18px; height: 18px; }
+.vz-side-btn:last-child { border-bottom: none; }
+.vz-side-btn:hover { background: rgba(10,21,32,0.06); }
+.vz-side-btn.active { background: #4DD4A8; color: #072018; }
+.vz-side-btn svg { width: 20px; height: 20px; }
+.vz-side-lbl {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  color: inherit;
+}
+/* Geolocalisation : sortie du rail, posee sous le pouce, juste au-dessus du
+   FAB sonar. Meme ligne d'ancrage --vz-fabline que tout le flottant bas. */
+.vz-locate-fab {
+  position: fixed;
+  right: 18px;
+  bottom: 104px;
+  z-index: 1100;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  border-radius: 50%;
+  background: #FFFFFF;
+  border: 2px solid #0A1520;
+  color: #0A1520;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  box-shadow: 0 4px 14px rgba(8,17,27,0.32);
+  transition: transform 0.16s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.vz-locate-fab:active { transform: scale(0.96); }
+.vz-locate-fab.active { background: #4DD4A8; color: #072018; }
+.vz-locate-fab svg { width: 22px; height: 22px; }
+.vz-locate-fab .vz-side-lbl { font-size: 10px; }
+@media (min-width: 769px) { .vz-locate-fab { right: 26px; bottom: 190px; } }
 .vz-layers-count {
   position: absolute;
   top: -8px; right: -8px;
@@ -2372,16 +2413,6 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
 .vz-layers-fab-text { font-size: 16px; font-weight: 800; color: #0A1520; }
 .vz-layers-fab-chevron { width: 16px !important; height: 16px !important; stroke-width: 2.6 !important; transition: transform 0.25s cubic-bezier(.4,0,.2,1); }
 .vz-layers-fab.open .vz-layers-fab-chevron { transform: rotate(180deg); }
-.vz-side-btn + .vz-side-btn::before {
-  content: '';
-  position: absolute;
-  top: -2px;
-  left: 6px;
-  right: 6px;
-  height: 0.5px;
-  background: rgba(255,255,255,0.1);
-}
-
 #locateBtn, #btnBasemapIGN, #authBtn {
   display: none !important;
 }
@@ -2880,7 +2911,9 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
   }
   .vz-tab-btn { padding: 6px 12px; font-size: 12px; gap: 6px; }
   .vz-tab-btn svg { width: 13px; height: 13px; }
-  .vz-stack-side { top: 50%; transform: translateY(-50%); }
+  /* 12px de marge + 52px de champ de recherche + 12px de gouttiere. Le rail
+     n'est plus centre : centre, il masquait exactement la bande de cote. */
+  .vz-stack-side { top: 76px; transform: none; }
   .vz-logo-pill { display: none; }
   #vzBtnLayers { display: none; }
   /* Ligne d'ancrage unique de la zone bas-gauche mobile. Le FAB Couches est la
@@ -5348,6 +5381,7 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
       <polygon points="23 7 16 12 23 17 23 7"/>
       <rect x="1" y="5" width="15" height="14" rx="2"/>
     </svg>
+    <span class="vz-side-lbl">Webcam</span>
   </button>
   <button class="vz-side-btn" id="vzBtnLayers" onclick="toggleLayersPopover(event)" title="Couches">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -5356,6 +5390,7 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
       <polyline points="2 12 12 17 22 12"></polyline>
     </svg>
     <span class="vz-layers-count" id="vzLayersCount"></span>
+    <span class="vz-side-lbl">Couches</span>
   </button>
   <button class="vz-side-btn" id="vzBtnMeasure" onclick="toggleLayer('measure')" title="Mesurer une distance">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -5365,21 +5400,13 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
       <path d="m8.5 6.5 2-2"></path>
       <path d="m17.5 15.5 2-2"></path>
     </svg>
-  </button>
-  <button class="vz-side-btn" id="vzBtnLocate" onclick="geolocateUser(true)" title="Me localiser">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <circle cx="12" cy="12" r="10"></circle>
-      <circle cx="12" cy="12" r="3" fill="currentColor"></circle>
-      <line x1="12" y1="2" x2="12" y2="5"></line>
-      <line x1="12" y1="19" x2="12" y2="22"></line>
-      <line x1="2" y1="12" x2="5" y2="12"></line>
-      <line x1="19" y1="12" x2="22" y2="12"></line>
-    </svg>
+    <span class="vz-side-lbl">Mesure</span>
   </button>
   <button class="vz-side-btn" id="vzBtnNav" onclick="vzNavToggle()" title="Aller au point">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M12 3l8 18-8-5-8 5z"></path>
     </svg>
+    <span class="vz-side-lbl">Cap</span>
   </button>
   <button class="vz-side-btn" id="vzBtnShare" onclick="vzSharePoint()" title="Partager ce point">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -5387,12 +5414,14 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
       <polyline points="16 6 12 2 8 6"></polyline>
       <line x1="12" y1="2" x2="12" y2="15"></line>
     </svg>
+    <span class="vz-side-lbl">Partage</span>
   </button>
   <button class="vz-side-btn" id="vzBtnSpots" onclick="toggleLayer('spots')" title="Marquer des spots">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path>
-      <line x1="4" y1="22" x2="4" y2="15"></line>
+      <path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"></path>
+      <circle cx="12" cy="10" r="2.6"></circle>
     </svg>
+    <span class="vz-side-lbl">Spot</span>
   </button>
   <!-- Carnet de chasse - conserve pour reactivation future
   <button class="vz-side-btn" id="vzBtnCarnet" onclick="handleAuthClick()" title="Mon carnet">
@@ -5403,6 +5432,19 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
   </button>
   -->
 </div>
+<!-- Geolocalisation : action la plus frequente, sortie du rail pour tomber
+     sous le pouce. Meme id et meme handler qu'avant, seul le parent change. -->
+<button class="vz-locate-fab" id="vzBtnLocate" onclick="geolocateUser(true)" title="Me localiser" aria-label="Me localiser">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="8"></circle>
+    <circle cx="12" cy="12" r="2.6" fill="currentColor"></circle>
+    <line x1="12" y1="1.5" x2="12" y2="4.5"></line>
+    <line x1="12" y1="19.5" x2="12" y2="22.5"></line>
+    <line x1="1.5" y1="12" x2="4.5" y2="12"></line>
+    <line x1="19.5" y1="12" x2="22.5" y2="12"></line>
+  </svg>
+  <span class="vz-side-lbl">Moi</span>
+</button>
   <div class="vz-layers-popover" id="vzLayersPopover" onclick="event.stopPropagation()">
   <div>
     <div class="vz-layers-section-title">Afficher</div>
