@@ -594,6 +594,12 @@ function toggleWebcams() {
   if (S_webcamsActive) closeSpotPopup();
   var btn = document.getElementById('btnWebcams');
   if (btn) btn.classList.toggle('active', S_webcamsActive);
+  // Webcams est desormais une ligne du panneau Affichage : elle doit se
+  // cocher comme les autres calques et entrer dans le compteur. Le sync
+  // V1 -> V2 d'index.html continue par ailleurs de refleter btnWebcams.
+  var row = document.getElementById('vzTabWebcams');
+  if (row) row.classList.toggle('active', S_webcamsActive);
+  try { vzUpdateLayersBadge(); } catch (e) {}
   if (S_webcamsActive) {
     showWebcamsLayer();
   } else {
@@ -2675,7 +2681,6 @@ function vzWindEnsureCtrl_() {
     +   "body.vz-wind-band #mobileAnalyzeBtn{bottom:calc(var(--vz-fabline) + 60px);}"
     +   "body.vz-wind-band #mobileShareBtn{bottom:calc(var(--vz-fabline) + 8px);}"
     +   "body.vz-wind-band .vzm-sonar-fab{bottom:calc(var(--vz-fabline) + 6px);}"
-    +   "body.vz-wind-band .vz-locate-fab{bottom:calc(var(--vz-fabline) + 86px);}"
     +   "body.vz-wind-band .vzm-sonar-menu{bottom:calc(var(--vz-fabline) + 82px);}"
     +   "body.vz-wind-band .leaflet-control-attribution{margin-bottom:calc(var(--vz-fabline) - 8px);}"
     // Bottom sheet ouvert : on efface le bandeau. Meme motif que celui deja en
@@ -3213,9 +3218,13 @@ function vzRefreshSedLegendVisibility() {
 function vzUpdateLayersBadge() {
   var els = document.querySelectorAll('.vz-layers-count');
   if (!els.length) return;
+  // Webcams a rejoint le panneau Affichage : sans elle le badge annoncerait
+  // moins de calques qu'il n'y en a d'allumes. S_webcamsActive est une globale
+  // du module webcams, pas une cle de S.
   var n = (S.showSed ? 1 : 0) + (S.showIso ? 1 : 0) + (S.showLitto3d ? 1 : 0)
         + (S.showRain ? 1 : 0) + (S.showWindFlow ? 1 : 0) + (S.showZsd ? 1 : 0)
-        + (S.showWrecks ? 1 : 0);
+        + (S.showWrecks ? 1 : 0)
+        + ((typeof S_webcamsActive !== 'undefined' && S_webcamsActive) ? 1 : 0);
   for (var i = 0; i < els.length; i++) {
     if (n > 0) { els[i].textContent = n; els[i].classList.add('on'); }
     else { els[i].classList.remove('on'); }
@@ -19819,7 +19828,10 @@ function vzmInit() {
     // reprend son role de vidage et ne tente plus de replier un champ qui n'a
     // plus d'etat replie.
     + "@media (max-width:768px){"
-    +   "#vzSearch{top:12px;left:12px;right:12px;width:auto;--vz-search-collapsed:0;}"
+    +   "#vzSearch{top:12px;left:12px;right:72px;width:auto;--vz-search-collapsed:0;}"
+         // Liste deroulante : elle reprend toute la largeur, le bouton
+         // Position ne la borne pas puisqu'il est au-dessus d'elle.
+    +   "#vzSearch .vz-search-list{margin-right:-60px;}"
     +   "#vzSearch .vz-search-toggle{display:none;}"
     +   "#vzSearch .vz-search-box,#vzSearch.vzm-open .vz-search-box{display:flex;height:52px;padding:0 12px 0 14px;gap:10px;background:#FFFFFF;-webkit-backdrop-filter:none;backdrop-filter:none;border:2px solid #0A1520;border-radius:14px;box-shadow:0 4px 14px rgba(8,17,27,0.28);}"
     +   "#vzSearch .vz-search-box:focus-within{border-color:#0A1520;}"
@@ -20039,7 +20051,6 @@ function vzmInit() {
     + 'body.vzm-nav{--vz-fabline:var(--vzm-navline,94px);}'
     + 'body.vzm-nav.vz-wind-band{--vz-fabline:calc(var(--vzm-navline,94px) + 72px);}'
     + 'body.vzm-nav .vzm-sonar-fab{bottom:calc(var(--vz-fabline) + 8px);}'
-    + 'body.vzm-nav .vz-locate-fab{bottom:calc(var(--vz-fabline) + 88px);}'
     + 'body.vzm-nav .vzm-sonar-menu{bottom:calc(var(--vz-fabline) + 84px);}'
     + 'body.vzm-nav #mobileAnalyzeBtn{bottom:calc(var(--vz-fabline) + 62px);}'
     + 'body.vzm-nav #mobileShareBtn{bottom:calc(var(--vz-fabline) + 10px);}'
@@ -20084,7 +20095,7 @@ function vzmInit() {
     // Panneau ouvert : tout le flottant s'efface, un seul objet a la fois.
     + 'body.vzm-open .vzm-sonar-fab,body.vzm-open .vzm-sonar-menu,body.vzm-open #vzRainCtrl,'
     +   'body.vzm-open #vzHuntBar,body.vzm-open #vzWindCtrl,body.vzm-open #mobileAnalyzeBtn,'
-    +   'body.vzm-open #mobileShareBtn,body.vzm-open .vz-locate-fab,body.vzm-open .leaflet-control-attribution{display:none !important;}'
+    +   'body.vzm-open #mobileShareBtn,body.vzm-open .leaflet-control-attribution{display:none !important;}'
     + '}';
   (document.head||document.documentElement).appendChild(st);
 
