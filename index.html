@@ -2345,35 +2345,34 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
   letter-spacing: -0.01em;
   color: inherit;
 }
-/* Geolocalisation : sortie du rail, posee sous le pouce, juste au-dessus du
-   FAB sonar. Meme ligne d'ancrage --vz-fabline que tout le flottant bas. */
+/* Geolocalisation : voisine de la recherche, parce que les deux repondent a
+   la meme question - ou je regarde. Soit je nomme un lieu, soit je vais la ou
+   je suis. Seul bouton sans label : le viseur est le pictogramme le plus
+   universel de la cartographie mobile, et l'exception achete la place. */
 .vz-locate-fab {
   position: fixed;
-  right: 18px;
-  bottom: 104px;
-  z-index: 1100;
-  width: 56px;
-  height: 56px;
+  top: 12px;
+  right: 12px;
+  z-index: 1260;
+  width: 52px;
+  height: 52px;
   padding: 0;
-  border-radius: 50%;
+  box-sizing: border-box;
+  border-radius: 14px;
   background: #FFFFFF;
   border: 2px solid #0A1520;
   color: #0A1520;
   cursor: pointer;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1px;
-  box-shadow: 0 4px 14px rgba(8,17,27,0.32);
+  box-shadow: 0 4px 14px rgba(8,17,27,0.28);
   transition: transform 0.16s ease;
   -webkit-tap-highlight-color: transparent;
 }
 .vz-locate-fab:active { transform: scale(0.96); }
 .vz-locate-fab.active { background: #4DD4A8; color: #072018; }
-.vz-locate-fab svg { width: 22px; height: 22px; }
-.vz-locate-fab .vz-side-lbl { font-size: 10px; }
-@media (min-width: 769px) { .vz-locate-fab { right: 26px; bottom: 190px; } }
+.vz-locate-fab svg { width: 24px; height: 24px; }
 .vz-layers-count {
   position: absolute;
   top: -8px; right: -8px;
@@ -2912,8 +2911,9 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
   .vz-tab-btn { padding: 6px 12px; font-size: 12px; gap: 6px; }
   .vz-tab-btn svg { width: 13px; height: 13px; }
   /* 12px de marge + 52px de champ de recherche + 12px de gouttiere. Le rail
-     n'est plus centre : centre, il masquait exactement la bande de cote. */
-  .vz-stack-side { top: 76px; transform: none; }
+     n'est plus centre : centre, il masquait exactement la bande de cote.
+     Quatre commandes de 56px, soit 224px : la cote reste degagee. */
+  .vz-stack-side { top: 76px; left: 12px; width: 64px; transform: none; }
   .vz-logo-pill { display: none; }
   #vzBtnLayers { display: none; }
   /* Ligne d'ancrage unique de la zone bas-gauche mobile. Le FAB Couches est la
@@ -5376,14 +5376,7 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
   </button>
 </div>
   <div class="vz-stack-side">
-    <button class="vz-side-btn" id="vzTabWebcams" onclick="toggleWebcams()" title="Webcams">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <polygon points="23 7 16 12 23 17 23 7"/>
-      <rect x="1" y="5" width="15" height="14" rx="2"/>
-    </svg>
-    <span class="vz-side-lbl">Webcam</span>
-  </button>
-  <button class="vz-side-btn" id="vzBtnLayers" onclick="toggleLayersPopover(event)" title="Couches">
+    <button class="vz-side-btn" id="vzBtnLayers" onclick="toggleLayersPopover(event)" title="Couches">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
       <polyline points="2 17 12 22 22 17"></polyline>
@@ -5432,10 +5425,10 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
   </button>
   -->
 </div>
-<!-- Geolocalisation : action la plus frequente, sortie du rail pour tomber
-     sous le pouce. Meme id et meme handler qu'avant, seul le parent change. -->
+<!-- Geolocalisation : meme id et meme handler qu'a l'origine, seul le parent
+     change. Aucun appelant JS ne la reference hors de son propre onclick. -->
 <button class="vz-locate-fab" id="vzBtnLocate" onclick="geolocateUser(true)" title="Me localiser" aria-label="Me localiser">
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
     <circle cx="12" cy="12" r="8"></circle>
     <circle cx="12" cy="12" r="2.6" fill="currentColor"></circle>
     <line x1="12" y1="1.5" x2="12" y2="4.5"></line>
@@ -5443,7 +5436,6 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
     <line x1="1.5" y1="12" x2="4.5" y2="12"></line>
     <line x1="19.5" y1="12" x2="22.5" y2="12"></line>
   </svg>
-  <span class="vz-side-lbl">Moi</span>
 </button>
   <div class="vz-layers-popover" id="vzLayersPopover" onclick="event.stopPropagation()">
   <div>
@@ -5481,6 +5473,11 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
     <div class="vz-layers-row" id="vzRowRain" onclick="toggleLayer('rain')">
       <span class="vz-layers-ico"><svg viewBox="0 0 24 24"><path d="M6 12 Q4 7 9 6 Q10 3 14 4 Q19 4 19 9 Q22 9 21 13 L6 13 Z"></path><path d="M9 17 L8 20"></path><path d="M13 17 L12 20"></path><path d="M17 17 L16 20"></path></svg></span>
       <span class="vz-layers-label"><span class="vz-layers-name">Pluie</span><span class="vz-layers-sub">radar animé</span></span>
+      <div class="vz-layers-check"></div>
+    </div>
+    <div class="vz-layers-row" id="vzTabWebcams" onclick="toggleWebcams()">
+      <span class="vz-layers-ico"><svg viewBox="0 0 24 24"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2"></rect></svg></span>
+      <span class="vz-layers-label"><span class="vz-layers-name">Webcams</span><span class="vz-layers-sub">vues en direct</span></span>
       <div class="vz-layers-check"></div>
     </div>
   </div>
