@@ -2910,10 +2910,11 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
   }
   .vz-tab-btn { padding: 6px 12px; font-size: 12px; gap: 6px; }
   .vz-tab-btn svg { width: 13px; height: 13px; }
-  /* 12px de marge + 52px de champ de recherche + 12px de gouttiere. Le rail
-     n'est plus centre : centre, il masquait exactement la bande de cote.
-     Quatre commandes de 56px, soit 224px : la cote reste degagee. */
-  .vz-stack-side { top: 76px; left: 12px; width: 64px; transform: none; }
+  /* Le rail reste centre verticalement : colle sous la recherche il formait
+     un bloc de 300px dans le meme coin, et se retrouvait dans le voisinage
+     immediat de la croix d'effacement du champ. Quatre commandes de 56px,
+     soit 224px centres, laissent respirer le haut comme le bas. */
+  .vz-stack-side { top: 50%; left: 12px; width: 64px; transform: translateY(-50%); }
   .vz-logo-pill { display: none; }
   #vzBtnLayers { display: none; }
   /* Ligne d'ancrage unique de la zone bas-gauche mobile. Le FAB Couches est la
@@ -5409,12 +5410,13 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
     </svg>
     <span class="vz-side-lbl">Partage</span>
   </button>
-  <button class="vz-side-btn" id="vzBtnSpots" onclick="toggleLayer('spots')" title="Marquer des spots">
+  <button class="vz-side-btn" id="vzBtnSpots" onclick="toggleLayer('spots')" title="Points et export GPX">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"></path>
-      <circle cx="12" cy="10" r="2.6"></circle>
+      <path d="M20 15v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-4"></path>
+      <polyline points="8 11 12 15 16 11"></polyline>
+      <line x1="12" y1="3" x2="12" y2="15"></line>
     </svg>
-    <span class="vz-side-lbl">Spot</span>
+    <span class="vz-side-lbl">Export</span>
   </button>
   <!-- Carnet de chasse - conserve pour reactivation future
   <button class="vz-side-btn" id="vzBtnCarnet" onclick="handleAuthClick()" title="Mon carnet">
