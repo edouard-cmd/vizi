@@ -1113,9 +1113,10 @@ var VZ_VIEW = (function() {
   // Desktop : fitBounds sur la France entiere, Corse comprise.
   var FRANCE = [[41.20, -5.60], [51.60, 9.80]];
   // Plus de centre ni de zoom portrait codes en dur : ils n'existaient que
-  // pour contourner le plancher entier de Leaflet. Avec zoomSnap 0.25 (pose
-  // dans initMap), fitBounds calcule le bon cadrage sur n'importe quelle
-  // taille d'ecran, du 360 px Android au 430 px iPhone, sans table.
+  // pour contourner le plancher entier de Leaflet. Avec zoomSnap relache le
+  // temps du cadrage (voir applyInitial), fitBounds calcule le bon cadrage sur
+  // n'importe quelle taille d'ecran, du 360 px Android au 430 px iPhone, sans
+  // table codee en dur.
   var persistTimer = null;
 
   // Memorisation. Debounce 600 ms : un pincement de zoom emet une rafale de
@@ -1154,19 +1155,31 @@ var VZ_VIEW = (function() {
     // Le padding vertical ne coute pas de zoom : en portrait la latitude
     // n'est pas l'axe contraignant (408 px suffisent pour 41,2 - 51,6 a
     // z5,25, sur ~590 px reellement visibles).
-    if (typeof isMobile === 'function' && isMobile()) {
-      // --vzm-navline est mesuree par le module de navigation, qui se construit
-      // apres initMap : au premier cadrage la variable peut ne pas exister
-      // encore. Le repli 150 est l'ordre de grandeur reel (ident + barre + 8) ;
-      // l'ecart eventuel ne decale le centre que de quelques pixels.
-      var nav = 150;
-      try {
-        var v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--vzm-navline'));
-        if (isFinite(v) && v > 0) nav = v;
-      } catch (e) {}
-      S.map.fitBounds(FRANCE, { paddingTopLeft: [2, 10], paddingBottomRight: [2, Math.round(nav)] });
-    } else {
-      S.map.fitBounds(FRANCE, { padding: [24, 24] });
+    // zoomSnap est relache a 0,25 pour ce seul appel, puis remis a sa valeur
+    // d'origine. Il ne regle pas que la finesse du cadrage : Leaflet s'en sert
+    // aussi pour arrondir le pas de la molette, donc le laisser a 0,25 en
+    // permanence divisait par quatre la vitesse de zoom sur desktop. Ici le
+    // calcul de getBoundsZoom et le setView qui suit sont synchrones, la
+    // restauration ne peut pas les prendre en cours de route.
+    var snapWas = S.map.options.zoomSnap;
+    S.map.options.zoomSnap = 0.25;
+    try {
+      if (typeof isMobile === 'function' && isMobile()) {
+        // --vzm-navline est mesuree par le module de navigation, qui se construit
+        // apres initMap : au premier cadrage la variable peut ne pas exister
+        // encore. Le repli 150 est l'ordre de grandeur reel (ident + barre + 8) ;
+        // l'ecart eventuel ne decale le centre que de quelques pixels.
+        var nav = 150;
+        try {
+          var v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--vzm-navline'));
+          if (isFinite(v) && v > 0) nav = v;
+        } catch (e) {}
+        S.map.fitBounds(FRANCE, { paddingTopLeft: [2, 10], paddingBottomRight: [2, Math.round(nav)] });
+      } else {
+        S.map.fitBounds(FRANCE, { padding: [24, 24] });
+      }
+    } finally {
+      S.map.options.zoomSnap = snapWas;
     }
     // Purge de la cle historique : sans ca, une vue ecrite par une version
     // anterieure resterait dans le navigateur des utilisateurs deja passes.
@@ -1180,14 +1193,13 @@ var VZ_VIEW = (function() {
 })();
 
 function initMap() {
-  // zoomSnap 0.25 : Leaflet plafonne par defaut le zoom a l'entier inferieur
-  // (zoomSnap 1). En portrait, faire tenir les 14,7 deg de longitude entre
-  // Ouessant (-5,15) et la Corse (9,56) dans ~420 px demande z5,26 ; arrondi
-  // a l'entier, ca tombait a z5, soit 18,8 deg affiches et 41 % de surface
-  // inutile. Avec un pas de 0,25 le cadrage retenu est z5,25.
-  // zoomDelta reste a 1 : les boutons et le double-tap continuent de bouger
-  // d'un cran entier, seul le cadrage automatique gagne le fractionnaire.
-  S.map = L.map('map', { center:[49.333, -0.424], zoom:9, zoomControl:false, zoomSnap: 0.25, zoomDelta: 1 });
+  // zoomSnap reste a 1 (defaut) : il ne regle pas seulement la finesse du
+  // cadrage, il regle aussi le pas de la molette, que Leaflet arrondit au
+  // multiple superieur de zoomSnap. Le passer a 0,25 en permanence divisait
+  // par quatre la vitesse de zoom molette sur desktop. Le fractionnaire n'est
+  // necessaire qu'a un seul endroit, le fitBounds d'accueil, ou VZ_VIEW le
+  // relache puis le remet.
+  S.map = L.map('map', { center:[49.333, -0.424], zoom:9, zoomControl:false });
   // Vue d'accueil : deleguee a VZ_VIEW, point d'entree unique (France au
   // premier lancement, facade au choix, derniere vue ensuite). Plus aucun
   // cadrage code en dur ici, ni de distinction desktop / mobile : la vue
