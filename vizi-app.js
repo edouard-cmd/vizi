@@ -1112,15 +1112,10 @@ var VZ_VIEW = (function() {
   var KEY = 'vizi_view';
   // Desktop : fitBounds sur la France entiere, Corse comprise.
   var FRANCE = [[41.20, -5.60], [51.60, 9.80]];
-  // Portrait : fitBounds est inutilisable. Il retient le zoom le plus faible
-  // des deux axes, donc faire tenir les 15,4 deg de longitude France-Corse
-  // dans 428 px impose z4, et a z4 les 830 px de hauteur affichent de la
-  // Norvege au Senegal. On fixe donc le zoom directement : a z5 on voit
-  // 18,8 deg de longitude (Ouessant -5,1 et la Corse 9,5 tiennent tous les
-  // deux) contre 9,4 deg a z6, qui couperait la Bretagne. z5 est le maximum
-  // possible, il divise par quatre la surface affichee par rapport a z4.
-  var FRANCE_PORTRAIT_CENTER = [46.60, 2.20];
-  var FRANCE_PORTRAIT_ZOOM = 5;
+  // Plus de centre ni de zoom portrait codes en dur : ils n'existaient que
+  // pour contourner le plancher entier de Leaflet. Avec zoomSnap 0.25 (pose
+  // dans initMap), fitBounds calcule le bon cadrage sur n'importe quelle
+  // taille d'ecran, du 360 px Android au 430 px iPhone, sans table.
   var persistTimer = null;
 
   // Memorisation. Debounce 600 ms : un pincement de zoom emet une rafale de
@@ -1146,8 +1141,30 @@ var VZ_VIEW = (function() {
     // moyen visible de revenir, et vider le cache n'y changeait rien puisque la
     // position vit dans localStorage. La memorisation (persist) est conservee
     // pour d'eventuels usages ulterieurs, mais ne pilote plus l'ouverture.
+    // Cadrage unique, mobile comme desktop : fitBounds sur les bornes France.
+    // Sur mobile le padding est asymetrique et non plus [24,24] :
+    //  - horizontal quasi nul (2 px), parce que c'est la longitude qui
+    //    contraint le zoom en portrait et que chaque pixel de marge laterale
+    //    se paie directement en cadrage ;
+    //  - bas egal a la ligne d'ancrage --vzm-navline (barre d'identification
+    //    + barre de navigation), parce que #map est en inset:0 et que ces
+    //    barres opaques recouvrent le bas du conteneur : sans ce padding la
+    //    France est centree sur une zone dont les ~150 px inferieurs sont
+    //    masques, et l'ecran se remplit d'Algerie.
+    // Le padding vertical ne coute pas de zoom : en portrait la latitude
+    // n'est pas l'axe contraignant (408 px suffisent pour 41,2 - 51,6 a
+    // z5,25, sur ~590 px reellement visibles).
     if (typeof isMobile === 'function' && isMobile()) {
-      S.map.setView(FRANCE_PORTRAIT_CENTER, FRANCE_PORTRAIT_ZOOM, { animate: false });
+      // --vzm-navline est mesuree par le module de navigation, qui se construit
+      // apres initMap : au premier cadrage la variable peut ne pas exister
+      // encore. Le repli 150 est l'ordre de grandeur reel (ident + barre + 8) ;
+      // l'ecart eventuel ne decale le centre que de quelques pixels.
+      var nav = 150;
+      try {
+        var v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--vzm-navline'));
+        if (isFinite(v) && v > 0) nav = v;
+      } catch (e) {}
+      S.map.fitBounds(FRANCE, { paddingTopLeft: [2, 10], paddingBottomRight: [2, Math.round(nav)] });
     } else {
       S.map.fitBounds(FRANCE, { padding: [24, 24] });
     }
@@ -1163,7 +1180,14 @@ var VZ_VIEW = (function() {
 })();
 
 function initMap() {
-  S.map = L.map('map', { center:[49.333, -0.424], zoom:9, zoomControl:false });
+  // zoomSnap 0.25 : Leaflet plafonne par defaut le zoom a l'entier inferieur
+  // (zoomSnap 1). En portrait, faire tenir les 14,7 deg de longitude entre
+  // Ouessant (-5,15) et la Corse (9,56) dans ~420 px demande z5,26 ; arrondi
+  // a l'entier, ca tombait a z5, soit 18,8 deg affiches et 41 % de surface
+  // inutile. Avec un pas de 0,25 le cadrage retenu est z5,25.
+  // zoomDelta reste a 1 : les boutons et le double-tap continuent de bouger
+  // d'un cran entier, seul le cadrage automatique gagne le fractionnaire.
+  S.map = L.map('map', { center:[49.333, -0.424], zoom:9, zoomControl:false, zoomSnap: 0.25, zoomDelta: 1 });
   // Vue d'accueil : deleguee a VZ_VIEW, point d'entree unique (France au
   // premier lancement, facade au choix, derniere vue ensuite). Plus aucun
   // cadrage code en dur ici, ni de distinction desktop / mobile : la vue
@@ -1240,27 +1264,40 @@ initLitto3dLayer();
   S.litto3d.eachLayer(function(l) { if (l.bringToBack) l.bringToBack(); });
   vzInitSeaMask();
   if (S.basemapSat) S.basemapSat.eachLayer(function(l) { if (l.bringToBack) l.bringToBack(); });
-  S.isoDeep.addTo(S.map);
-
-  S.map.on('zoomend', function() {
-    var zoom = S.map.getZoom();
+  // Echelle isobathes / balisage, remise dans le sens de l'usage.
+  // L'ancienne echelle etait inversee : opacite maximale (0,9) sous z9 et
+  // minimale (0,3) au-dela de z11. Or a l'echelle nationale la couche
+  // emodnet:contours ne trace que le talus continental (-1000, -2000 m),
+  // sans aucune information pour un chasseur qui travaille entre 0 et 40 m :
+  // c'est le maillage blanc qui recouvrait toute la Manche et le Gascogne a
+  // l'ouverture. Les isobathes ne deviennent lisibles et utiles qu'au zoom
+  // spot, ou elles dessinent le tombant. On les retire donc sous z10, et on
+  // monte l'opacite au lieu de la baisser quand on approche.
+  // Le balisage OpenSeaMap suit la meme regle : illisible et inutilement
+  // lourd en tuiles a l'echelle nationale.
+  function vzApplyIsoForZoom() {
     if (!S.showIso) return;
-    if (zoom <= 9) {
-      if (!S.map.hasLayer(S.isoDeep)) S.isoDeep.addTo(S.map);
+    var zoom = S.map.getZoom();
+    if (zoom < 10) {
+      if (S.map.hasLayer(S.isoDeep)) S.map.removeLayer(S.isoDeep);
       if (S.map.hasLayer(S.isoShom)) S.map.removeLayer(S.isoShom);
-      S.isoDeep.setOpacity(0.9);
-    } else if (zoom <= 11) {
+    } else if (zoom < 12) {
       if (!S.map.hasLayer(S.isoDeep)) S.isoDeep.addTo(S.map);
       if (!S.map.hasLayer(S.isoShom)) S.isoShom.addTo(S.map);
-      S.isoDeep.setOpacity(0.7);
+      S.isoDeep.setOpacity(0.4);
       S.isoShom.setOpacity(0.9);
     } else {
       if (!S.map.hasLayer(S.isoDeep)) S.isoDeep.addTo(S.map);
       if (!S.map.hasLayer(S.isoShom)) S.isoShom.addTo(S.map);
-      S.isoDeep.setOpacity(0.3);
+      S.isoDeep.setOpacity(0.75);
       S.isoShom.setOpacity(1.0);
     }
-  });
+  }
+  // Application immediate : la vue d'accueil est deja posee (VZ_VIEW plus
+  // haut dans initMap), donc getZoom() renvoie le zoom reel. L'ancien
+  // addTo() inconditionnel affichait les isobathes jusqu'au premier zoomend.
+  S.map.on('zoomend', vzApplyIsoForZoom);
+  vzApplyIsoForZoom();
 
   var regionColors = { 'Manche':'#0BA888', 'Bretagne':'#16A34A', 'Atlantique':'#E8A838', 'Mediterranee':'#DC2626' };
 
@@ -3185,8 +3222,11 @@ function toggleLayer(type) {
     S.showIso = !S.showIso;
     document.getElementById('btnIso').classList.toggle('active', S.showIso);
     if (S.showIso) {
-      S.isoDeep.addTo(S.map);
-      S.isoShom.addTo(S.map);
+      // On n'ajoute plus les calques ici : l'echelle de zoom est seule juge
+      // de ce qui doit etre visible. L'ancien addTo() inconditionnel les
+      // affichait un instant a pleine opacite avant que le fire('zoomend')
+      // ne les retire sous z10, ce qui produisait un flash de maillage blanc
+      // a chaque activation depuis la vue France.
       S.map.fire('zoomend');
     } else {
       if (S.map.hasLayer(S.isoDeep)) S.map.removeLayer(S.isoDeep);
