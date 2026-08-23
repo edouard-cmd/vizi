@@ -2675,6 +2675,7 @@ function vzWindEnsureCtrl_() {
     +   "body.vz-wind-band #mobileAnalyzeBtn{bottom:calc(var(--vz-fabline) + 60px);}"
     +   "body.vz-wind-band #mobileShareBtn{bottom:calc(var(--vz-fabline) + 8px);}"
     +   "body.vz-wind-band .vzm-sonar-fab{bottom:calc(var(--vz-fabline) + 6px);}"
+    +   "body.vz-wind-band .vz-locate-fab{bottom:calc(var(--vz-fabline) + 86px);}"
     +   "body.vz-wind-band .vzm-sonar-menu{bottom:calc(var(--vz-fabline) + 82px);}"
     +   "body.vz-wind-band .leaflet-control-attribution{margin-bottom:calc(var(--vz-fabline) - 8px);}"
     // Bottom sheet ouvert : on efface le bandeau. Meme motif que celui deja en
@@ -3536,7 +3537,7 @@ function vzWrecksEnsure_() {
     st.id = 'vzEditModeStyle';
     st.textContent =
       "body.vz-edit-mode::after{content:'';position:fixed;inset:0;border:3px solid #4DD4A8;pointer-events:none;z-index:1250;box-shadow:inset 0 0 22px rgba(77,212,168,0.28);}"
-    + "body.vz-edit-mode .vz-logo-pill,body.vz-edit-mode .vz-tab-segmented,body.vz-edit-mode .vz-stack-side,body.vz-edit-mode #zoomControls,body.vz-edit-mode .vzm-aimbar,body.vz-edit-mode .vzm-xhair,body.vz-edit-mode #mobileAnalyzeBtn,body.vz-edit-mode #turbBadge,body.vz-edit-mode #sedLegend{display:none !important;}"
+    + "body.vz-edit-mode .vz-logo-pill,body.vz-edit-mode .vz-tab-segmented,body.vz-edit-mode .vz-stack-side,body.vz-edit-mode .vz-locate-fab,body.vz-edit-mode #zoomControls,body.vz-edit-mode .vzm-aimbar,body.vz-edit-mode .vzm-xhair,body.vz-edit-mode #mobileAnalyzeBtn,body.vz-edit-mode #turbBadge,body.vz-edit-mode #sedLegend{display:none !important;}"
     + "#vzEditTopbar{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:1350;display:none;align-items:center;gap:14px;max-width:calc(100vw - 24px);padding:9px 9px 9px 18px;background:rgba(10,21,32,0.92);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(77,212,168,0.42);border-radius:14px;box-shadow:0 8px 28px rgba(4,16,28,0.45);font-family:'Inter',sans-serif;}"
     + "body.vz-edit-mode #vzEditTopbar{display:flex;}"
     + "#vzEditTopbar .vz-edit-title{color:#E8F0F4;font-size:13px;font-weight:600;line-height:1.3;}"
@@ -3809,7 +3810,7 @@ function vzShareEnsureCSS_() {
   if (document.getElementById('vzShareStyle')) return;
   var st = document.createElement('style'); st.id = 'vzShareStyle';
   st.textContent =
-    "#vzBtnShare.active{color:#4DD4A8;background:rgba(77,212,168,0.15);}"
+    "#vzBtnShare.active{background:#4DD4A8;color:#072018;}"
   + "#vzSharePanel{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:1360;display:flex;align-items:stretch;gap:4px;max-width:calc(100vw - 20px);padding:8px;background:rgba(10,21,32,0.94);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(77,212,168,0.42);border-radius:14px;box-shadow:0 8px 28px rgba(4,16,28,0.45);font-family:'Inter',sans-serif;}"
   + "@media (max-width:768px){#vzSharePanel{bottom:96px;}}"
   + "#vzSharePanel .vz-share-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-width:60px;padding:9px 6px;border:0;border-radius:10px;background:transparent;color:#D8E1EB;cursor:pointer;text-decoration:none;font-family:'Inter',sans-serif;font-size:10.5px;font-weight:600;-webkit-tap-highlight-color:transparent;}"
@@ -14142,7 +14143,7 @@ function vzNavStyle_() {
     /* Le bouton n'existe que sur appareil tactile. */
     "#vzBtnNav{display:none;}"
   + "body.vz-touch #vzBtnNav{display:flex;}"
-  + "#vzBtnNav.active{color:#4DD4A8;background:rgba(77,212,168,0.15);}"
+  + "#vzBtnNav.active{background:#4DD4A8;color:#072018;}"
 
     /* Panneau instrument : surface blanche opaque, bordure noire epaisse,
        aucun flou. Doctrine de lisibilite exterieure, pas la charte sombre. */
@@ -19810,19 +19811,38 @@ function vzmInit() {
          // vide, sinon il n'y a plus aucune sortie explicite du mode deploye.
     +   "#vzSearch.vzm-open .vz-search-clear{display:flex;}"
     + "}"
+    // Sous 768px la recherche cesse d'etre une loupe repliee : c'est la porte
+    // d'entree principale du produit et une pastille sombre sur mer sombre est
+    // illisible en plein soleil. Champ permanent, charte instrument (surface
+    // blanche opaque, bordure noire 2px, aucun flou). On remet explicitement
+    // --vz-search-collapsed a 0 : isCollapsed() redevient faux, donc la croix
+    // reprend son role de vidage et ne tente plus de replier un champ qui n'a
+    // plus d'etat replie.
     + "@media (max-width:768px){"
-    +   "#vzSearch{top:12px;right:12px;left:auto;}"
-    +   "#vzSearch.vzm-open{left:12px;right:12px;width:auto;}"
-    +   "#vzSearch.vzm-open .vz-search-box{height:44px;}"
+    +   "#vzSearch{top:12px;left:12px;right:12px;width:auto;--vz-search-collapsed:0;}"
+    +   "#vzSearch .vz-search-toggle{display:none;}"
+    +   "#vzSearch .vz-search-box,#vzSearch.vzm-open .vz-search-box{display:flex;height:52px;padding:0 12px 0 14px;gap:10px;background:#FFFFFF;-webkit-backdrop-filter:none;backdrop-filter:none;border:2px solid #0A1520;border-radius:14px;box-shadow:0 4px 14px rgba(8,17,27,0.28);}"
+    +   "#vzSearch .vz-search-box:focus-within{border-color:#0A1520;}"
+    +   "#vzSearch .vz-search-glass,#vzSearch .vz-search-box:focus-within .vz-search-glass{color:#0A1520;}"
+    +   "#vzSearch .vz-search-glass svg{width:20px;height:20px;}"
          // 16px imperatif : sous ce seuil Safari iOS zoome le viewport au focus
          // et decale tous les position:fixed. Aucun contournement par le meta
          // viewport n'est acceptable, il tuerait le pinch-zoom de la carte.
-    +   "#vzSearch .vz-search-in{font-size:16px;}"
-         // La croix est desormais la sortie principale du champ sur mobile :
-         // 22px etait sous le seuil de confort tactile.
-    +   "#vzSearch .vz-search-clear{width:32px;height:32px;background:rgba(255,255,255,0.07);color:rgba(230,238,244,0.75);}"
-    +   "#vzSearch .vz-search-clear svg{width:15px;height:15px;}"
-    +   "#vzSearch .vz-search-list{max-height:min(34vh,270px);}"
+    +   "#vzSearch .vz-search-in{font-size:16px;color:#0A1520;}"
+    +   "#vzSearch .vz-search-in::placeholder{color:#5F6B73;}"
+         // La croix ne ferme plus rien, elle vide. 40px pour rester au-dessus
+         // du seuil de confort tactile avec des mains mouillees.
+    +   "#vzSearch .vz-search-clear{width:40px;height:40px;background:transparent;color:#0A1520;}"
+    +   "#vzSearch .vz-search-clear svg{width:17px;height:17px;}"
+    +   "#vzSearch .vz-search-clear:hover{background:rgba(10,21,32,0.06);color:#0A1520;}"
+         // La liste suit la meme charte : elle se lit sous le champ comme un
+         // prolongement du meme instrument, pas comme une surface flottante.
+    +   "#vzSearch .vz-search-list{margin-top:8px;padding:5px;max-height:min(34vh,270px);background:#FFFFFF;-webkit-backdrop-filter:none;backdrop-filter:none;border:2px solid #0A1520;border-radius:14px;box-shadow:0 6px 20px rgba(8,17,27,0.3);}"
+    +   "#vzSearch .vz-search-item{padding:11px 10px;}"
+    +   "#vzSearch .vz-search-item:hover,#vzSearch .vz-search-item.sel{background:rgba(10,21,32,0.07);}"
+    +   "#vzSearch .vz-search-ico{color:#1A6B5D;opacity:1;}"
+    +   "#vzSearch .vz-search-name{font-size:15px;color:#0A1520;}"
+    +   "#vzSearch .vz-search-sub{font-size:11.5px;color:#5F6B73;}"
     + "}";
     (document.head || document.documentElement).appendChild(st);
   }
@@ -20019,6 +20039,7 @@ function vzmInit() {
     + 'body.vzm-nav{--vz-fabline:var(--vzm-navline,94px);}'
     + 'body.vzm-nav.vz-wind-band{--vz-fabline:calc(var(--vzm-navline,94px) + 72px);}'
     + 'body.vzm-nav .vzm-sonar-fab{bottom:calc(var(--vz-fabline) + 8px);}'
+    + 'body.vzm-nav .vz-locate-fab{bottom:calc(var(--vz-fabline) + 88px);}'
     + 'body.vzm-nav .vzm-sonar-menu{bottom:calc(var(--vz-fabline) + 84px);}'
     + 'body.vzm-nav #mobileAnalyzeBtn{bottom:calc(var(--vz-fabline) + 62px);}'
     + 'body.vzm-nav #mobileShareBtn{bottom:calc(var(--vz-fabline) + 10px);}'
@@ -20063,7 +20084,7 @@ function vzmInit() {
     // Panneau ouvert : tout le flottant s'efface, un seul objet a la fois.
     + 'body.vzm-open .vzm-sonar-fab,body.vzm-open .vzm-sonar-menu,body.vzm-open #vzRainCtrl,'
     +   'body.vzm-open #vzHuntBar,body.vzm-open #vzWindCtrl,body.vzm-open #mobileAnalyzeBtn,'
-    +   'body.vzm-open #mobileShareBtn,body.vzm-open .leaflet-control-attribution{display:none !important;}'
+    +   'body.vzm-open #mobileShareBtn,body.vzm-open .vz-locate-fab,body.vzm-open .leaflet-control-attribution{display:none !important;}'
     + '}';
   (document.head||document.documentElement).appendChild(st);
 
