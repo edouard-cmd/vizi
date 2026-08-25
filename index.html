@@ -2674,6 +2674,9 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
     /* ============================================================
    WEBCAMS - Marker camera + popup integree
    ============================================================ */
+/* Echelle pilotee par une seule variable posee sur :root. Parcourir les 140
+   marqueurs a chaque zoom pour leur ecrire un transform coutait un balayage
+   DOM complet ; ici le navigateur recalcule tout seul. */
 .webcam-marker {
   width: 32px; height: 32px;
   background: #8B5CF6;
@@ -2682,10 +2685,11 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 3px 10px rgba(139, 92, 246, 0.5);
   cursor: pointer;
+  transform: scale(var(--vz-wc-scale, 1));
   transition: transform 0.15s ease;
 }
 .webcam-marker:hover {
-  transform: scale(1.15);
+  transform: scale(calc(var(--vz-wc-scale, 1) * 1.15));
   box-shadow: 0 4px 14px rgba(139, 92, 246, 0.7);
 }
 
