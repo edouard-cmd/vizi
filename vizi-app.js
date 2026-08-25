@@ -20027,7 +20027,7 @@ function vzmInit() {
     // Sous 1150px le champ deployé entrerait en collision avec les onglets
     // Conditions / Maree centres. On reutilise le mecanisme de repli mobile
     // plutot que d'ecraser la largeur jusqu'a l'illisible.
-    + "@media (max-width:1300px){"
+    + "@media (max-width:1500px){"
     +   "#vzSearch{width:44px;--vz-search-collapsed:1;}"
     +   "#vzSearch .vz-search-toggle{display:flex;}"
     +   "#vzSearch .vz-search-box{display:none;}"
