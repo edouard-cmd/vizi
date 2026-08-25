@@ -2058,6 +2058,7 @@ function vzDesktopPointSelect(latlng) {
   if (typeof vzShareClose === 'function') vzShareClose();  // et le panneau de partage
   S.clickLatLng = latlng;
   S._spotDepth = null;
+  if (typeof vzSyncPointLabel === 'function') vzSyncPointLabel();
 
   if (S.clickMarker) S.map.removeLayer(S.clickMarker);
   var pulseIcon = L.divIcon({
@@ -2099,6 +2100,7 @@ function vzDesktopPointSelect(latlng) {
     if (S.clickLabel) { S.map.removeLayer(S.clickLabel); S.clickLabel = null; }
     if (S.clickMarker) { S.map.removeLayer(S.clickMarker); S.clickMarker = null; }
     S.clickLatLng = null; S._spotDepth = null;
+    if (typeof vzSyncPointLabel === 'function') vzSyncPointLabel();
   }
   S.clickLabel.on('click', function(e) {
     var oe = e && e.originalEvent;
@@ -4766,6 +4768,7 @@ function openSpotPopup(latlng, name) {
   
   // ----- Setup spot context -----
   S.clickLatLng = latlng;
+  if (typeof vzSyncPointLabel === 'function') vzSyncPointLabel();
   
   // Marées drawer ouvert : bascule sur port le plus proche
   if (typeof TIDES_DRAWER !== 'undefined' && TIDES_DRAWER.isOpen && VZ_SHEET.mode === 'tides') {
@@ -5067,7 +5070,9 @@ function openSpotPopup(latlng, name) {
 
 function closeSpotPopup() {
   document.getElementById('spotDrawer').classList.remove('open');
-  if (S.clickMarker) { S.map.removeLayer(S.clickMarker); S.clickMarker = null; }
+  // Le marqueur n'est plus retire ici : il represente S.clickLatLng, pas
+  // l'ouverture du drawer. Il n'est efface que la ou le point lui-meme est
+  // annule - la croix du label et la reprise par la geoloc.
 }
 
 function fetchSpotWeather(lat, lon) {
@@ -14056,6 +14061,8 @@ function acceptGeolocation() {
 function geolocateUser(userInitiated) {
   // Force le GPS frais : on oublie le dernier clic carte pour que la geoloc reprenne la priorite
   S.clickLatLng = null;
+  if (S.clickMarker) { S.map.removeLayer(S.clickMarker); S.clickMarker = null; }
+  if (typeof vzSyncPointLabel === 'function') vzSyncPointLabel();
   var btn = document.getElementById('locateBtn');
   if (btn) btn.classList.add('locating');
 
@@ -14107,6 +14114,7 @@ function showGeolocError() {
 
 function handleUserPosition(lat, lon, source, recenter) {
   GEO_STATE.userLatLng = { lat: lat, lon: lon };
+  if (typeof vzSyncPointLabel === 'function') vzSyncPointLabel();
   GEO_STATE.lastSource = source;
 
   // Marqueur INCREMENTAL. En mode "Aller au point" cette fonction est rappelee
@@ -15167,6 +15175,59 @@ window.closeCondDrawer = function() {
   if (sheet) sheet.style.display = 'none';
 };
 
+
+// Etiquette dynamique du bouton Previsions (desktop). Un instrument affiche
+// toujours son point de mesure : sans ca l'utilisateur lit une visibilite sans
+// savoir de quel endroit elle parle, et peut croire lire son spot alors que la
+// cascade est retombee sur le centre de la carte. C'est le seul endroit qui
+// ecrit ce libelle, pour qu'aucun autre ne puisse afficher un lieu different
+// de celui reellement analyse.
+function vzNearestPortLabel(lat, lng) {
+  if (typeof findNearestPort === 'function') {
+    try {
+      var np = findNearestPort(lat, lng);
+      if (np && np.spot && np.spot.name) {
+        if (np.distanceKm == null) return np.spot.name;
+        var d = (Math.round(np.distanceKm * 10) / 10).toString().replace('.', ',');
+        return np.spot.name + ' \u00b7 ' + d + ' km';
+      }
+    } catch (e) {}
+  }
+  return lat.toFixed(4) + ' \u00b7 ' + lng.toFixed(4);
+}
+window.vzNearestPortLabel = vzNearestPortLabel;
+
+function vzSyncPointLabel() {
+  var el = document.getElementById('vzTabCondPt');
+  if (!el) return;
+  var name = '';
+  try {
+    var sp = resolveSheetSpot();
+    // On reprend les coordonnees, pas le nom deja formate par
+    // resolveSheetSpot : c'est le port le plus proche qui doit apparaitre,
+    // toujours, comme sur mobile.
+    if (sp && sp.lat != null && sp.lng != null) name = vzNearestPortLabel(sp.lat, sp.lng);
+  } catch (e) {}
+  el.textContent = name || '';
+  el.title = name || '';
+}
+window.vzSyncPointLabel = vzSyncPointLabel;
+
+// Amorcage. Le bouton doit porter un nom des l ouverture, sans attendre un
+// clic : c est justement ce qui apprend a l utilisateur que l app est braquee
+// sur un lieu precis. On attend que la carte et la liste des ports soient la,
+// sinon resolveSheetSpot tomberait sur des coordonnees brutes.
+(function vzPointLabelBoot(){
+  var ready = document.getElementById('vzTabCondPt')
+           && typeof S !== 'undefined' && S && S.map
+           && typeof findNearestPort === 'function';
+  if (ready) { try { vzSyncPointLabel(); } catch(e){} }
+  else { setTimeout(vzPointLabelBoot, 300); return; }
+  // La cascade peut changer d avis apres coup : la carte se recadre sur la vue
+  // memorisee, la geoloc arrive. Un rappel a l arret de la carte suffit, les
+  // autres transitions ayant deja leur appel explicite.
+  try { S.map.on('moveend', vzSyncPointLabel); } catch(e){}
+})();
 
 // ----- Récupère le spot courant -----
 function resolveSheetSpot() {
@@ -20481,9 +20542,8 @@ function vzmInit() {
     var nm = document.getElementById('vzmIdentName');
     var rd = document.getElementById('vzmIdentRead');
     if (!c || !nm || !rd) return;
-    var np = (typeof findNearestPort === 'function') ? findNearestPort(c.lat, c.lng) : null;
-    nm.textContent = (np && np.spot)
-      ? np.spot.name + ' \u00b7 ' + (np.distanceKm != null ? fmtM(np.distanceKm) + ' km' : '')
+    nm.textContent = (typeof vzNearestPortLabel === 'function')
+      ? vzNearestPortLabel(c.lat, c.lng)
       : c.lat.toFixed(4) + ' \u00b7 ' + c.lng.toFixed(4);
     var parts = [];
     var sed = document.getElementById('vzmSedReadout');
