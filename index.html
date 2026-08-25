@@ -249,7 +249,10 @@
        aux modes de visee (Pointer en mer, mesure), poses en style inline par
        vizi-app.js, qui prime sur ce CSS. L'ancien crosshair !important
        ecrasait aussi le cursor:pointer des marqueurs cliquables. */
-    .leaflet-container { background:#C8D8E8; cursor:grab; }
+        /* Fond du conteneur : ce qu'on voit quand une tuile manque encore. Le bleu
+       pale d'origine se lisait comme du blanc, donc comme un defaut. En navy
+       Talisker, un trou residuel se lit comme de l'eau profonde. */
+.leaflet-container { background:#0F2438; cursor:grab; }
     .leaflet-dragging .leaflet-container { cursor:grabbing; }
     .leaflet-control-zoom { border:none !important; box-shadow:0 2px 8px rgba(0,0,0,0.12) !important; }
     .leaflet-control-zoom a { background:white !important; color:var(--accent) !important; border:1px solid var(--border) !important; margin-bottom:2px !important; border-radius:6px !important; font-weight:600 !important; }
