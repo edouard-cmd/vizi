@@ -15255,7 +15255,12 @@ function vzNearestPortLabel(lat, lng, withDist) {
       var np = findNearestPort(lat, lng);
       if (np && np.spot && np.spot.name) {
         if (np.distanceKm == null) return np.spot.name;
-        if (withDist) {
+        // Sous 100 m on EST sur le port : l'arrondi au dixieme renvoyait 0,
+        // puis toString() renvoyait "0" et non "0,0", donc un "0 km" colle au
+        // nom du lieu. Une distance nulle n'est pas une mesure, c'est
+        // l'absence d'ecart - on ne l'affiche pas. Doctrine : on ne montre
+        // que des faits qui apprennent quelque chose.
+        if (withDist && np.distanceKm >= 0.1) {
           var d = (Math.round(np.distanceKm * 10) / 10).toString().replace('.', ',');
           return np.spot.name + ' \u00b7 ' + d + ' km';
         }
@@ -19674,7 +19679,10 @@ function vzmInit() {
 
       var a = document.getElementById('vzspToAlerts');
       var s = document.getElementById('vzspToShare');
-      if (a) a.addEventListener('click', function () { closePanel(); setTimeout(actionAlerts, 260); });
+      // Passage direct : openPanel reecrit le contenu du MEME conteneur, donc
+      // fermer puis rouvrir 260 ms plus tard ne servait qu'a produire un
+      // clignotement. Le secteur clique est transmis explicitement.
+      if (a) a.addEventListener('click', function () { actionAlerts(VZSP.lat, VZSP.lon, VZSP.name); });
       if (s) s.addEventListener('click', function () { closePanel(); setTimeout(actionShare, 260); });
 
       _satP.then(function (sat) {
@@ -19694,9 +19702,20 @@ function vzmInit() {
     if (typeof openObsSheet === 'function') openObsSheet();
   }
 
-  function actionAlerts() {
+  // Le secteur peut etre impose par l'appelant. Le CTA du panneau Retours
+  // connait deja le port sur lequel l'utilisateur a clique (VZSP.lat/lon/name) ;
+  // sans arguments cette fonction le rederivait depuis le centre de la carte et
+  // proposait donc potentiellement un AUTRE secteur que celui affiche a l'ecran.
+  // Sans arguments (menu du FAB), le comportement d'origine est conserve.
+  function actionAlerts(optLat, optLon, optName) {
     setMenu(false);
-    var name = currentSectorName();
+    // Annule les fetchs du panneau precedent encore en vol : ils ecrivaient
+    // dans des noeuds que openPanel vient de remplacer.
+    VZSP.token++;
+    var hasCtx = isFinite(optLat) && isFinite(optLon);
+    var alat = hasCtx ? optLat : (S && S.map ? S.map.getCenter().lat : null);
+    var alon = hasCtx ? optLon : (S && S.map ? S.map.getCenter().lng : null);
+    var name = optName || currentSectorName();
     var chip = '<span class="vzm-sonar-chip"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1A6B5D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.4-7-11a7 7 0 0 1 14 0c0 4.6-7 11-7 11Z"/><circle cx="12" cy="10" r="2.4"/></svg>Secteur ' + escapeH(name || '') + '</span>';
     var saved = '';
     try { saved = localStorage.getItem(ALERT_EMAIL_KEY) || ''; } catch (e) {}
@@ -19713,13 +19732,15 @@ function vzmInit() {
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { alert('Adresse email invalide.'); return; }
       if (!consent) { alert('Merci de cocher le consentement pour recevoir les alertes.'); return; }
       try { localStorage.setItem(ALERT_EMAIL_KEY, email); } catch (e) {}
-      var c = S.map.getCenter();
-      var params = { email: email, lat: c.lat.toFixed(5), lon: c.lng.toFixed(5), sector: currentSectorName(), consent: '1' };
+      // Les coordonnees envoyees au GAS sont celles du secteur RETENU, pas du
+      // centre de la carte : le routage d'alerte se fait par haversine, une
+      // erreur ici abonne le chasseur au mauvais secteur.
+      var params = { email: email, lat: Number(alat).toFixed(5), lon: Number(alon).toFixed(5), sector: name, consent: '1' };
       if (typeof gasGet === 'function') gasGet('submit_sector_alert', params); // endpoint chantier 2 (no-op tant que GAS pas deploye)
       panel.innerHTML = '<div class="vzm-sonar-grab"></div><button class="vzm-sonar-x" type="button" aria-label="Fermer" data-close="1">&#10005;</button>'
         + '<div class="vzm-sonar-ok"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1A6B5D" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>'
         + '<div class="vzm-sonar-h" style="text-align:center;">C\u2019est note</div>'
-        + '<div class="vzm-sonar-sub" style="text-align:center;">Dès qu\u2019un chasseur poste une visi vers ' + escapeH(currentSectorName() || 'ton secteur') + ', tu reçois un email. Jamais plus d\u2019un par jour.</div>';
+        + '<div class="vzm-sonar-sub" style="text-align:center;">Dès qu\u2019un chasseur poste une visi vers ' + escapeH(name || 'ton secteur') + ', tu reçois un email. Jamais plus d\u2019un par jour.</div>';
       panel.querySelector('[data-close]').addEventListener('click', closePanel);
       if (typeof gtag === 'function') { try { gtag('event', 'sector_alert_optin'); } catch (e) {} }
     });
@@ -19813,6 +19834,14 @@ function vzmInit() {
   window.vzmSonarOpenSector = function (lat, lon, name) {
     build();
     actionSector(lat, lon, name);
+  };
+
+  // Meme contrat pour le formulaire d'alertes : ouvre directement l'opt-in du
+  // secteur passe en argument. Sans arguments, secteur le plus proche du
+  // centre de la carte.
+  window.vzmSonarOpenAlerts = function (lat, lon, name) {
+    build();
+    actionAlerts(lat, lon, name);
   };
 
   // Demarrage robuste : montage des que le DOM est pret. build() ne depend que
