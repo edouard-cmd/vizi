@@ -2058,6 +2058,7 @@ function vzDesktopPointSelect(latlng) {
   if (typeof vzShareClose === 'function') vzShareClose();  // et le panneau de partage
   S.clickLatLng = latlng;
   S._spotDepth = null;
+  S._clickAt = Date.now();
   if (typeof vzSyncPointLabel === 'function') vzSyncPointLabel();
 
   if (S.clickMarker) S.map.removeLayer(S.clickMarker);
@@ -4768,6 +4769,7 @@ function openSpotPopup(latlng, name) {
   
   // ----- Setup spot context -----
   S.clickLatLng = latlng;
+  S._clickAt = Date.now();
   if (typeof vzSyncPointLabel === 'function') vzSyncPointLabel();
   
   // Marées drawer ouvert : bascule sur port le plus proche
@@ -15223,10 +15225,24 @@ window.vzSyncPointLabel = vzSyncPointLabel;
            && typeof findNearestPort === 'function';
   if (ready) { try { vzSyncPointLabel(); } catch(e){} }
   else { setTimeout(vzPointLabelBoot, 300); return; }
-  // La cascade peut changer d avis apres coup : la carte se recadre sur la vue
-  // memorisee, la geoloc arrive. Un rappel a l arret de la carte suffit, les
-  // autres transitions ayant deja leur appel explicite.
-  try { S.map.on('moveend', vzSyncPointLabel); } catch(e){}
+  // Deplacer ou zoomer rend la visee au centre de l ecran : le point choisi
+  // au clic ne survit pas au mouvement, pas plus que la croix du mobile ne
+  // reste sur un lieu qu on a quitte. Le ping et l etiquette d analyse partent
+  // avec lui, sinon un repere resterait pose hors ecran.
+  // La garde de 600 ms protege le lien profond ?p=lat,lon, qui recentre la
+  // carte puis pose son point : sans elle le recadrage annulerait le point
+  // que le lien vient d ouvrir.
+  try {
+    S.map.on('moveend', function () {
+      if (S.clickLatLng && (Date.now() - (S._clickAt || 0)) > 600) {
+        S.clickLatLng = null;
+        S._spotDepth = null;
+        if (S.clickMarker) { S.map.removeLayer(S.clickMarker); S.clickMarker = null; }
+        if (S.clickLabel) { S.map.removeLayer(S.clickLabel); S.clickLabel = null; }
+      }
+      vzSyncPointLabel();
+    });
+  } catch(e){}
 })();
 
 // ----- Récupère le spot courant -----
@@ -15246,6 +15262,12 @@ function resolveSheetSpot() {
   if (typeof TIDES_DRAWER !== 'undefined' && TIDES_DRAWER.isOpen && TIDES_DRAWER.currentPort) {
     var p = TIDES_DRAWER.currentPort;
     return { lat: p.lat, lng: p.lon, name: p.name, depth: null };
+  }
+
+  // 2 bis) Desktop sans point choisi : la visee est le centre de l'ecran.
+  if (!(typeof isMobile === 'function' && isMobile()) && S && S.map && S.map.getCenter) {
+    var cc = S.map.getCenter();
+    return { lat: cc.lat, lng: cc.lng, name: getSpotDisplayName(cc.lat, cc.lng), depth: null };
   }
 
   // 3) Géoloc utilisateur si dispo
