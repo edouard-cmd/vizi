@@ -192,40 +192,49 @@
 .vz-tab-btn {
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 0 18px;
-  background: transparent;
+  gap: 8px;
+  padding: 0 14px 0 18px;
+  background: #0A1520;
   border: none;
-  border-right: 1px solid #0A1520;
   border-radius: 0;
-  color: #0A1520;
+  color: #FFFFFF;
   font-family: 'Inter', sans-serif;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   transition: background 0.18s ease;
   white-space: nowrap;
 }
-.vz-tab-btn:last-child { border-right: none; }
+/* Chevron : dit que la surface s'ouvre. Sans lui le bloc se lit comme un
+   afficheur passif, ce qu'il n'est pas - c'est la porte d'entree des
+   previsions, et rien d'autre ne la designe. */
+.vz-tab-go {
+  display: flex;
+  align-items: center;
+  margin-left: 2px;
+  opacity: 0.55;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.vz-tab-go svg { width: 15px; height: 15px; }
+.vz-tab-btn:hover .vz-tab-go { opacity: 1; transform: translateX(2px); }
 .vz-tab-lbl { flex-shrink: 0; }
 .vz-tab-pt {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 11.5px;
   font-weight: 500;
-  color: #1A6B5D;
-  max-width: 190px;
+  color: #4DD4A8;
+  max-width: 210px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.vz-tab-pt:not(:empty)::before { content: '\00b7'; margin-right: 6px; color: #5F6B73; }
+.vz-tab-pt:not(:empty)::before { content: '\00b7'; margin-right: 6px; color: rgba(255,255,255,0.45); }
 .vz-tab-btn.active .vz-tab-pt { color: #072018; }
 .vz-tab-btn.active .vz-tab-pt:not(:empty)::before { color: #072018; }
-.vz-tab-btn:hover { background: rgba(10,21,32,0.06); }
+.vz-tab-btn:hover { background: #16293B; }
 .vz-tab-btn.active {
   background: #4DD4A8;
   color: #072018;
-  font-weight: 600;
 }
 .vz-tab-btn svg {
   width: 14px;
@@ -5383,13 +5392,7 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
   <path d="M17.73 7.73A2.5 2.5 0 1119.5 12H2"/>
 </svg>
     <span class="vz-tab-lbl">Prévisions</span><span class="vz-tab-pt" id="vzTabCondPt"></span>
-  </button>
-  <button class="vz-tab-btn" id="vzTabTides" onclick="openTidesInSheet()">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M2 12c2-2 4-2 6 0s4 2 6 0 4-2 6 0 4 2 6 0"/>
-      <path d="M2 18c2-2 4-2 6 0s4 2 6 0 4-2 6 0 4 2 6 0"/>
-    </svg>
-    Marée
+    <span class="vz-tab-go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg></span>
   </button>
 </div>
 <div id="zoomControls">
