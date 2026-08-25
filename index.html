@@ -260,11 +260,17 @@
 .vz-tab-lbl { flex-shrink: 0; }
 .vz-tab-pt {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 500;
   color: #1A6B5D;
-  font-size: 12px;
-  max-width: 210px;
+  /* Largeur calee sur la place reellement disponible, pas sur un nombre
+     choisi a la main. La pastille est centree : a 1500px de viewport (seuil
+     au-dela duquel le champ de recherche reste deploye et occupe jusqu'a
+     496px), 280px laissent la pastille demarrer vers 530px sans jamais
+     toucher la recherche. Si la largeur du champ change un jour, cette
+     valeur doit etre reevaluee - elle en depend. L'ellipsis reste le filet,
+     et vzSyncPointLabel pose le nom complet en title. */
+  max-width: 280px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
