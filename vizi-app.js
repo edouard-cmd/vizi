@@ -1495,6 +1495,10 @@ initLitto3dLayer();
   });
 
   function vzSpotScaleForZoom(z) {
+    // Arrondi obligatoire depuis le zoom continu (zoomSnap a 0) : sans lui un
+    // zoom de 10,87 tombe sur le palier des 9, et les marqueurs retrecissent
+    // alors que l'echelle affichee est celle du palier 11.
+    z = Math.round(z);
     if (z >= 11) return 1;
     if (z >= 9)  return 0.82;
     if (z >= 7)  return 0.64;
@@ -15184,14 +15188,20 @@ window.closeCondDrawer = function() {
 // cascade est retombee sur le centre de la carte. C'est le seul endroit qui
 // ecrit ce libelle, pour qu'aucun autre ne puisse afficher un lieu different
 // de celui reellement analyse.
-function vzNearestPortLabel(lat, lng) {
+function vzNearestPortLabel(lat, lng, withDist) {
   if (typeof findNearestPort === 'function') {
     try {
       var np = findNearestPort(lat, lng);
       if (np && np.spot && np.spot.name) {
         if (np.distanceKm == null) return np.spot.name;
-        var d = (Math.round(np.distanceKm * 10) / 10).toString().replace('.', ',');
-        return np.spot.name + ' \u00b7 ' + d + ' km';
+        if (withDist) {
+          var d = (Math.round(np.distanceKm * 10) / 10).toString().replace('.', ',');
+          return np.spot.name + ' \u00b7 ' + d + ' km';
+        }
+        // Sans chiffre, le nom seul mentirait au-dela de quelques kilometres :
+        // il promettrait la visibilite du port alors que le point vise est au
+        // large. "Au large de" garde l'avertissement sans le chiffre.
+        return (np.distanceKm > 3 ? 'Au large de ' : '') + np.spot.name;
       }
     } catch (e) {}
   }
@@ -20565,7 +20575,7 @@ function vzmInit() {
     var rd = document.getElementById('vzmIdentRead');
     if (!c || !nm || !rd) return;
     nm.textContent = (typeof vzNearestPortLabel === 'function')
-      ? vzNearestPortLabel(c.lat, c.lng)
+      ? vzNearestPortLabel(c.lat, c.lng, true)
       : c.lat.toFixed(4) + ' \u00b7 ' + c.lng.toFixed(4);
     var parts = [];
     var sed = document.getElementById('vzmSedReadout');
