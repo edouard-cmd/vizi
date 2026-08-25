@@ -19783,7 +19783,7 @@ function vzmInit() {
     var st = document.createElement('style');
     st.id = 'vzSearchCss';
     st.textContent = ''
-    + "#vzSearch{position:fixed;top:16px;left:172px;width:280px;z-index:1250;font-family:'Inter',sans-serif;--vz-search-collapsed:0;}"
+    + "#vzSearch{position:fixed;top:16px;left:236px;width:264px;z-index:1250;font-family:'Inter',sans-serif;--vz-search-collapsed:0;}"
     + "#vzSearch .vz-search-toggle{display:none;align-items:center;justify-content:center;width:44px;height:44px;padding:0;box-sizing:border-box;background:#FFFFFF;border:2px solid #0A1520;border-radius:14px;color:#0A1520;cursor:pointer;box-shadow:0 4px 14px rgba(8,17,27,0.28);}"
     + "#vzSearch .vz-search-toggle svg{width:20px;height:20px;}"
     + "#vzSearch .vz-search-box{display:flex;align-items:center;gap:9px;height:44px;padding:0 10px 0 13px;box-sizing:border-box;background:#FFFFFF;border:2px solid #0A1520;border-radius:14px;box-shadow:0 4px 14px rgba(8,17,27,0.28);}"
@@ -19807,7 +19807,7 @@ function vzmInit() {
     // Sous 1150px le champ deployé entrerait en collision avec les onglets
     // Conditions / Maree centres. On reutilise le mecanisme de repli mobile
     // plutot que d'ecraser la largeur jusqu'a l'illisible.
-    + "@media (max-width:1150px){"
+    + "@media (max-width:1300px){"
     +   "#vzSearch{width:44px;--vz-search-collapsed:1;}"
     +   "#vzSearch .vz-search-toggle{display:flex;}"
     +   "#vzSearch .vz-search-box{display:none;}"
