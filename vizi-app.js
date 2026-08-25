@@ -640,8 +640,45 @@ function showWebcamsLayer() {
       markers.push(m);
     });
     S_webcamsLayer = L.featureGroup(markers).addTo(S.map);
+    if (typeof vzUpdateWebcamScale === 'function') vzUpdateWebcamScale();
   });
 }
+
+// Echelle des marqueurs webcam. Ils etaient crees en 32 px fixes : sur la vue
+// France entiere les 140 pastilles se recouvraient au point de masquer la
+// cote. Memes paliers que les marqueurs de spots, pour que les deux familles
+// grandissent au meme rythme.
+// Math.round obligatoire : depuis le zoom continu (zoomSnap a 0) un zoom de
+// 10,87 tomberait sur le palier des 9.
+function vzWebcamScaleForZoom(z) {
+  z = Math.round(z);
+  if (z >= 11) return 1;
+  if (z >= 9)  return 0.78;
+  if (z >= 7)  return 0.58;
+  return 0.42;
+}
+
+function vzUpdateWebcamScale() {
+  if (!(S && S.map)) return;
+  try {
+    document.documentElement.style.setProperty(
+      '--vz-wc-scale', vzWebcamScaleForZoom(S.map.getZoom())
+    );
+  } catch (e) {}
+}
+
+// Un seul abonnement, pose une fois. Le debounce est large parce que rien ne
+// presse : pendant un geste de zoom _move(pinch) n'emet pas zoomend, donc ce
+// callback ne se declenche qu'a l'arret, une seule fois.
+(function vzWebcamScaleBoot(){
+  if (!(typeof S !== 'undefined' && S && S.map)) { setTimeout(vzWebcamScaleBoot, 300); return; }
+  var t = null;
+  S.map.on('zoomend', function(){
+    clearTimeout(t);
+    t = setTimeout(vzUpdateWebcamScale, 120);
+  });
+  vzUpdateWebcamScale();
+})();
 
 function hideWebcamsLayer() {
   if (S_webcamsLayer) {
