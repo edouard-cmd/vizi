@@ -570,6 +570,10 @@ var WEBCAMS = [
 
 var S_webcamsLayer = null;
 var S_webcamsActive = false;
+// Cle de preference webcams. Absente = premier lancement : la couche est
+// allumee pour que les vues en direct se decouvrent d'elles-memes. Presente =
+// l'utilisateur a tranche, son choix est respecte a chaque ouverture.
+var VZ_WEBCAM_KEY = 'vizi_webcams';
 
 // Liste des webcams mortes, calculee chaque nuit cote serveur (Google Apps
 // Script, sans limite CORS) et servie en JSON. L'app n'affiche que les
@@ -591,6 +595,7 @@ function vzLoadDeadWebcams() {
 
 function toggleWebcams() {
   S_webcamsActive = !S_webcamsActive;
+  try { localStorage.setItem(VZ_WEBCAM_KEY, S_webcamsActive ? '1' : '0'); } catch (e) {}
   if (S_webcamsActive) closeSpotPopup();
   var btn = document.getElementById('btnWebcams');
   if (btn) btn.classList.toggle('active', S_webcamsActive);
@@ -3374,6 +3379,25 @@ function vzUpdateLayersBadge() {
     else { els[i].classList.remove('on'); }
   }
 }
+// Allumage initial des webcams. Attend WEBCAMS et la carte, puis rejoue un
+// toggle : la ligne du panneau Affichage et le compteur se mettent a jour par
+// le meme chemin qu'un clic, sans etat parallele a maintenir.
+(function vzWebcamsBoot(){
+  if (!(typeof S !== 'undefined' && S && S.map) || typeof toggleWebcams !== 'function'
+      || typeof WEBCAMS === 'undefined') { setTimeout(vzWebcamsBoot, 300); return; }
+  var pref = null;
+  try { pref = localStorage.getItem(VZ_WEBCAM_KEY); } catch (e) {}
+  if (pref === '0') return;                       // choix explicite de l'utilisateur
+  if (S_webcamsActive) return;                    // deja allumees
+  try {
+    toggleWebcams();
+    // toggleWebcams vient d'ecrire '1'. Au premier lancement on efface la cle
+    // pour ne pas transformer un defaut en choix : si le defaut change un
+    // jour, ces utilisateurs le suivront au lieu d'etre figes.
+    if (pref === null) { try { localStorage.removeItem(VZ_WEBCAM_KEY); } catch (e) {} }
+  } catch (e) {}
+})();
+
 (function vzLayersBadgeBoot(){
   if (document.getElementById('vzLayersCount')) { try { vzUpdateLayersBadge(); } catch(e){} }
   else setTimeout(vzLayersBadgeBoot, 300);
@@ -15198,10 +15222,7 @@ function vzNearestPortLabel(lat, lng, withDist) {
           var d = (Math.round(np.distanceKm * 10) / 10).toString().replace('.', ',');
           return np.spot.name + ' \u00b7 ' + d + ' km';
         }
-        // Sans chiffre, le nom seul mentirait au-dela de quelques kilometres :
-        // il promettrait la visibilite du port alors que le point vise est au
-        // large. "Au large de" garde l'avertissement sans le chiffre.
-        return (np.distanceKm > 3 ? 'Au large de ' : '') + np.spot.name;
+        return np.spot.name;
       }
     } catch (e) {}
   }
@@ -15209,8 +15230,51 @@ function vzNearestPortLabel(lat, lng, withDist) {
 }
 window.vzNearestPortLabel = vzNearestPortLabel;
 
+// Croix de visee desktop. Injectee une fois, purement CSS ensuite : elle n'a
+// aucune logique de position puisqu'elle est fixee au centre de l'ecran.
+function vzInitDeskXhair() {
+  if (document.getElementById('vzDeskXhair')) return;
+  if (typeof isMobile === 'function' && isMobile()) return;
+
+  var st = document.createElement('style');
+  st.id = 'vzDeskXhairStyle';
+  st.textContent =
+    '.vz-xhair-desk{position:fixed;left:50%;top:50%;width:44px;height:44px;'
+  +   'margin:-22px 0 0 -22px;z-index:1150;pointer-events:none;opacity:0.85;'
+  +   'transition:opacity .2s ease;}'
+  + '.vz-xhair-desk svg{width:100%;height:100%;display:block;overflow:visible;}'
+    // Un point a ete choisi au clic : son ping devient le repere, la croix
+    // s'efface. Deux vises a l'ecran se disputeraient la lecture.
+  + 'body.vz-has-point .vz-xhair-desk{opacity:0;}'
+    // Modes ou la carte sert a autre chose qu'a viser.
+  + 'body.vz-edit-mode .vz-xhair-desk,body.vz-measure-mode .vz-xhair-desk,'
+  +   'body.vz-goto .vz-xhair-desk{display:none !important;}'
+  + '@media (max-width:768px){.vz-xhair-desk{display:none !important;}}';
+  document.head.appendChild(st);
+
+  var xh = document.createElement('div');
+  xh.className = 'vz-xhair-desk';
+  xh.id = 'vzDeskXhair';
+  var sh = 'filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6));';
+  xh.innerHTML = '<svg viewBox="0 0 44 44">'
+    + '<circle cx="22" cy="22" r="9" fill="none" stroke="#FFFFFF" stroke-width="2.2" style="' + sh + '"/>'
+    + '<line x1="22" y1="4" x2="22" y2="13" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" style="' + sh + '"/>'
+    + '<line x1="22" y1="31" x2="22" y2="40" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" style="' + sh + '"/>'
+    + '<line x1="4" y1="22" x2="13" y2="22" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" style="' + sh + '"/>'
+    + '<line x1="31" y1="22" x2="40" y2="22" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" style="' + sh + '"/>'
+    + '<circle cx="22" cy="22" r="2" fill="#FFFFFF"/>'
+    + '</svg>';
+  document.body.appendChild(xh);
+}
+
 function vzSyncPointLabel() {
   var el = document.getElementById('vzTabCondPt');
+  // La classe porte l'etat "un point est choisi" : c'est elle qui arbitre
+  // entre la croix et le ping. Un seul endroit la pose, celui qui sait deja
+  // quand le point change.
+  try {
+    document.body.classList.toggle('vz-has-point', !!(S && S.clickLatLng));
+  } catch (e) {}
   if (!el) return;
   var name = '';
   try {
@@ -15218,7 +15282,7 @@ function vzSyncPointLabel() {
     // On reprend les coordonnees, pas le nom deja formate par
     // resolveSheetSpot : c'est le port le plus proche qui doit apparaitre,
     // toujours, comme sur mobile.
-    if (sp && sp.lat != null && sp.lng != null) name = vzNearestPortLabel(sp.lat, sp.lng);
+    if (sp && sp.lat != null && sp.lng != null) name = vzNearestPortLabel(sp.lat, sp.lng, true);
   } catch (e) {}
   el.textContent = name || '';
   el.title = name || '';
@@ -15233,7 +15297,10 @@ window.vzSyncPointLabel = vzSyncPointLabel;
   var ready = document.getElementById('vzTabCondPt')
            && typeof S !== 'undefined' && S && S.map
            && typeof findNearestPort === 'function';
-  if (ready) { try { vzSyncPointLabel(); } catch(e){} }
+  if (ready) {
+    try { vzInitDeskXhair(); } catch(e){}
+    try { vzSyncPointLabel(); } catch(e){}
+  }
   else { setTimeout(vzPointLabelBoot, 300); return; }
   // Deplacer ou zoomer rend la visee au centre de l ecran : le point choisi
   // au clic ne survit pas au mouvement, pas plus que la croix du mobile ne
