@@ -1232,38 +1232,106 @@ function initMap() {
     var cont = S.map.getContainer();
     if (!cont) return;
 
-    // macOS distingue deux gestes sur le meme evenement wheel : le pincement
-    // trackpad arrive avec ctrlKey a true et de petits deltas, le defilement a
-    // deux doigts sans. Les traiter avec la meme sensibilite rend l'un mou et
-    // l'autre nerveux, d'ou deux diviseurs separes.
-    var PINCH_DIV  = 90;    // pincement : delta fin, reponse ample
-    var SCROLL_DIV = 260;   // defilement : delta gros, reponse posee
-    var STEP_MAX   = 0.6;   // garde-fou : aucun evenement ne saute plus d'un demi-niveau
+    // Trois periphriques, trois regimes. Les confondre casse toujours l'un des
+    // trois : le trackpad envoie des rafales de petits deltas continus, la
+    // molette de souris envoie un cran isole et gros (100 a 150 d'un coup).
+    // Calibrer sur la rafale rend la souris inutilisable - il faudrait trois
+    // crans pour un niveau - et calibrer sur le cran rend le trackpad nerveux.
+    var PINCH_DIV   = 90;    // pincement trackpad : delta fin, reponse ample
+    var SCROLL_DIV  = 260;   // defilement trackpad : delta gros, reponse posee
+    var MOUSE_STEP  = 0.5;   // molette : pas fixe par cran, deux crans par niveau
+    var MOUSE_MIN   = 100;   // au-dela, un delta unique trahit un cran de molette
+    var STEP_MAX    = 0.6;   // garde-fou : aucun evenement ne saute plus d'un demi-niveau
+
+    // Accumulateur : le zoom ne s'applique qu'une fois par image rendue.
+    var pendDz = 0;      // deltas cumules depuis la derniere frame
+    var pendPt = null;   // dernier point survole : c'est lui qui fait pivot
+    var rafId  = 0;
+    var live   = false;  // un geste est en cours, la carte est en transformation
+    var settleTimer = null;
+    var SETTLE_MS = 140; // silence apres lequel on considere le geste fini
+
+    // Pendant le geste on ne reconstruit rien : on deplace l'origine et on
+    // laisse Leaflet etirer en CSS les tuiles deja chargees. C'est exactement
+    // ce que fait le pincement tactile mobile, dont la continuite sert de
+    // reference ici. setZoomAround faisait l'inverse - un _resetView complet
+    // par frame, donc une grille jetee et reconstruite soixante fois par
+    // seconde, d'ou le fond visible entre deux etats.
+    //
+    // _move / _resetView sont de l'API interne Leaflet. C'est assume : c'est
+    // la seule voie vers un zoom molette continu, c'est celle qu'emploie le
+    // handler tactile officiel, et la version est figee a 1.9.4 par le CDN.
+    function flush() {
+      rafId = 0;
+      var dz = pendDz, pt = pendPt;
+      pendDz = 0;
+      if (!dz || !pt || !S.map) return;
+
+      var cur = S.map.getZoom();
+      var z = cur + dz;
+      var lo = S.map.getMinZoom(), hi = S.map.getMaxZoom();
+      if (z < lo) z = lo;
+      else if (z > hi) z = hi;
+      if (z === cur) return;
+
+      // Meme calcul que setZoomAround : on decale le centre de facon que le
+      // pixel sous le curseur reste sur son point geographique.
+      var scale  = S.map.getZoomScale(z, cur);
+      var half   = S.map.getSize().divideBy(2);
+      var offset = pt.subtract(half).multiplyBy(1 - 1 / scale);
+      var center = S.map.containerPointToLatLng(half.add(offset));
+
+      if (!live) { S.map._stop(); live = true; }
+      S.map._move(center, z, { pinch: true, round: false });
+
+      if (settleTimer) clearTimeout(settleTimer);
+      settleTimer = setTimeout(settle, SETTLE_MS);
+    }
+
+    // Fin de geste : une seule reconstruction, qui recharge les tuiles au
+    // niveau atteint et emet moveend - que _move en mode pinch n'emet pas.
+    // Les cinq abonnes a 'moveend zoomend' du fichier sont donc reveilles une
+    // fois, a l'arret, au lieu d'a chaque frame.
+    function settle() {
+      settleTimer = null;
+      if (!live || !S.map) return;
+      live = false;
+      S.map._resetView(S.map.getCenter(), S.map.getZoom());
+    }
 
     cont.addEventListener('wheel', function (e) {
       e.preventDefault();
 
       var dy = e.deltaY;
-      // deltaMode 1 = lignes (Firefox), 2 = pages. Ramene en pixels, sinon un
-      // cran de molette Firefox vaudrait trois fois moins qu'ailleurs.
+      // deltaMode 1 = lignes, 2 = pages. Les trackpads emettent toujours du
+      // mode 0 (pixels) : un mode different trahit donc une molette, et sert
+      // aussi a la reconnaitre. Firefox envoie 1 pour les souris.
+      var byLine = (e.deltaMode !== 0);
       if (e.deltaMode === 1) dy *= 16;
       else if (e.deltaMode === 2) dy *= 400;
 
-      var dz = -dy / (e.ctrlKey ? PINCH_DIV : SCROLL_DIV);
+      var dz;
+      if (e.ctrlKey) {
+        // Pincement trackpad (macOS et precision Windows).
+        dz = -dy / PINCH_DIV;
+      } else if (byLine || Math.abs(dy) >= MOUSE_MIN) {
+        // Molette de souris : periphrique discret par nature. Un pas fixe par
+        // cran, independant de l'amplitude que le pilote a decide d'envoyer -
+        // c'est ce qui rend le comportement identique sur Chrome, Firefox et
+        // Edge, dont les deltas par cran different.
+        dz = (dy < 0 ? MOUSE_STEP : -MOUSE_STEP);
+      } else {
+        // Defilement trackpad a deux doigts.
+        dz = -dy / SCROLL_DIV;
+      }
+
       if (dz > STEP_MAX) dz = STEP_MAX;
       else if (dz < -STEP_MAX) dz = -STEP_MAX;
       if (!dz) return;
 
-      var z = S.map.getZoom() + dz;
-      var lo = S.map.getMinZoom(), hi = S.map.getMaxZoom();
-      if (z < lo) z = lo;
-      else if (z > hi) z = hi;
-      if (z === S.map.getZoom()) return;
-
-      // setZoomAround accepte un point conteneur : le pixel sous le curseur
-      // reste sur le meme point geographique pendant tout le geste.
-      var pt = S.map.mouseEventToContainerPoint(e);
-      S.map.setZoomAround(pt, z, { animate: false });
+      pendDz += dz;
+      pendPt = S.map.mouseEventToContainerPoint(e);
+      if (!rafId) rafId = requestAnimationFrame(flush);
     }, { passive: false });
   })();
   // Vue d'accueil : deleguee a VZ_VIEW, point d'entree unique (France au
@@ -1297,14 +1365,23 @@ function initMap() {
 
 S.basemapSat = L.layerGroup([
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      attribution: 'Imagery Esri | SHOM | EMODnet', maxZoom: 19
+      attribution: 'Imagery Esri | SHOM | EMODnet', maxZoom: 19,
+      // Pendant le geste, Leaflet redimensionne les tuiles deja chargees au
+      // lieu d'en redemander au serveur, et ne recharge qu'a l'arret. C'est ce
+      // qui donne la continuite : sans ca chaque cran de zoom vidait la grille.
+      updateWhenZooming: false,
+      // Une couronne de tuiles de plus conservee hors ecran : un dezoom rapide
+      // trouve deja de quoi couvrir la surface qu'il decouvre.
+      keepBuffer: 4
     }),
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
-      attribution: '', maxZoom: 19, maxNativeZoom: 16, opacity: 1, pane: 'vzLabelsPane'
+      attribution: '', maxZoom: 19, maxNativeZoom: 16, opacity: 1, pane: 'vzLabelsPane',
+      updateWhenZooming: false, keepBuffer: 4
     })
   ]);
   S.basemapIGN = L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&FORMAT=image/png', {
-    attribution: 'IGN-F/Geoportail', maxZoom: 18
+    attribution: 'IGN-F/Geoportail', maxZoom: 18,
+    updateWhenZooming: false, keepBuffer: 4
   });
   var savedBasemap = null;
   try { savedBasemap = localStorage.getItem('vizi_basemap'); } catch(e) {}
