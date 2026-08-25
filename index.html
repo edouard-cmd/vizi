@@ -153,7 +153,7 @@
   transition: background 0.18s ease;
 }
 .vz-logo-pill:hover { background: #F0F4F6; }
-.vz-logo-pill svg g { stroke: #0A1520; }
+.vz-logo-pill svg g, .vz-logo-pill svg path { stroke: #0A1520 !important; }
 .vz-logo-pill-mark {
   width: 26px;
   height: 26px;
@@ -2373,6 +2373,16 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
   -webkit-tap-highlight-color: transparent;
 }
 .vz-locate-fab:active { transform: scale(0.96); }
+@media (min-width: 769px) {
+  .vz-locate-fab {
+    top: 16px;
+    left: 176px;
+    right: auto;
+    width: 44px;
+    height: 44px;
+  }
+  .vz-locate-fab svg { width: 22px; height: 22px; }
+}
 .vz-locate-fab.active { background: #4DD4A8; color: #072018; }
 .vz-locate-fab svg { width: 24px; height: 24px; }
 .vz-layers-count {
