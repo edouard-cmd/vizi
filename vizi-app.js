@@ -20117,7 +20117,7 @@ function vzmInit() {
     var st = document.createElement('style');
     st.id = 'vzSearchCss';
     st.textContent = ''
-    + "#vzSearch{position:fixed;top:16px;left:236px;width:264px;z-index:1250;font-family:'Inter',sans-serif;--vz-search-collapsed:0;}"
+    + "#vzSearch{position:fixed;top:var(--vz-gut);left:var(--vz-col3);width:264px;z-index:1250;font-family:'Inter',sans-serif;--vz-search-collapsed:0;}"
     + "#vzSearch .vz-search-toggle{display:none;align-items:center;justify-content:center;width:44px;height:44px;padding:0;box-sizing:border-box;background:#FFFFFF;border:2px solid #0A1520;border-radius:14px;color:#0A1520;cursor:pointer;box-shadow:0 4px 14px rgba(8,17,27,0.28);}"
     + "#vzSearch .vz-search-toggle svg{width:20px;height:20px;}"
     + "#vzSearch .vz-search-box{display:flex;align-items:center;gap:9px;height:44px;padding:0 10px 0 13px;box-sizing:border-box;background:#FFFFFF;border:2px solid #0A1520;border-radius:14px;box-shadow:0 4px 14px rgba(8,17,27,0.28);}"
