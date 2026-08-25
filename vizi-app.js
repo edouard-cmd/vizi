@@ -1201,10 +1201,8 @@ function initMap() {
   //
   // 0,25 etait le mauvais compromis parce qu'il liait finesse et vitesse dans
   // un seul reglage : Leaflet s'en sert aussi pour arrondir le pas de la
-  // molette. A 0 les deux se decouplent, et la vitesse se regle proprement par
-  // wheelPxPerZoomLevel (pixels de defilement pour un niveau) : 100 au lieu de
-  // 60, donc plus lent sous les doigts, donc plus precis. wheelDebounceTime
-  // descend de 40 a 20 ms pour que le geste reponde sans latence percue.
+  // molette. A 0 les deux se decouplent, et la vitesse se regle separement
+  // dans VZ_WHEEL ci-dessous.
   //
   // zoomDelta reste a 1 : il ne pilote que les boutons + / - et le clavier,
   // ou un palier entier est le comportement attendu. Le fractionnaire est un
@@ -1215,9 +1213,59 @@ function initMap() {
     zoomControl: false,
     zoomSnap: 0,
     zoomDelta: 1,
-    wheelPxPerZoomLevel: 100,
-    wheelDebounceTime: 20
+    // Le handler molette natif de Leaflet est coupe : il accumule le delta
+    // pendant wheelDebounceTime puis applique un saut anime, donc il est
+    // discret par construction. Aucun reglage de wheelPxPerZoomLevel ne le
+    // rend continu, il ne fait qu'espacer ou rapprocher les paliers. Il est
+    // remplace juste apres par VZ_WHEEL.
+    scrollWheelZoom: false
   });
+  // Zoom molette continu. A chaque evenement wheel on applique directement un
+  // zoom fractionnaire, sans animation et sans accumulation : le niveau colle
+  // au geste image par image. Le zoom se fait autour du curseur et non du
+  // centre, ce qui est l'autre moitie de la sensation recherchee - on grossit
+  // ce qu'on regarde, pas le milieu de l'ecran.
+  //
+  // Le pincement tactile mobile passe par touchZoom, un handler distinct deja
+  // continu : il n'est pas concerne.
+  (function VZ_WHEEL() {
+    var cont = S.map.getContainer();
+    if (!cont) return;
+
+    // macOS distingue deux gestes sur le meme evenement wheel : le pincement
+    // trackpad arrive avec ctrlKey a true et de petits deltas, le defilement a
+    // deux doigts sans. Les traiter avec la meme sensibilite rend l'un mou et
+    // l'autre nerveux, d'ou deux diviseurs separes.
+    var PINCH_DIV  = 90;    // pincement : delta fin, reponse ample
+    var SCROLL_DIV = 260;   // defilement : delta gros, reponse posee
+    var STEP_MAX   = 0.6;   // garde-fou : aucun evenement ne saute plus d'un demi-niveau
+
+    cont.addEventListener('wheel', function (e) {
+      e.preventDefault();
+
+      var dy = e.deltaY;
+      // deltaMode 1 = lignes (Firefox), 2 = pages. Ramene en pixels, sinon un
+      // cran de molette Firefox vaudrait trois fois moins qu'ailleurs.
+      if (e.deltaMode === 1) dy *= 16;
+      else if (e.deltaMode === 2) dy *= 400;
+
+      var dz = -dy / (e.ctrlKey ? PINCH_DIV : SCROLL_DIV);
+      if (dz > STEP_MAX) dz = STEP_MAX;
+      else if (dz < -STEP_MAX) dz = -STEP_MAX;
+      if (!dz) return;
+
+      var z = S.map.getZoom() + dz;
+      var lo = S.map.getMinZoom(), hi = S.map.getMaxZoom();
+      if (z < lo) z = lo;
+      else if (z > hi) z = hi;
+      if (z === S.map.getZoom()) return;
+
+      // setZoomAround accepte un point conteneur : le pixel sous le curseur
+      // reste sur le meme point geographique pendant tout le geste.
+      var pt = S.map.mouseEventToContainerPoint(e);
+      S.map.setZoomAround(pt, z, { animate: false });
+    }, { passive: false });
+  })();
   // Vue d'accueil : deleguee a VZ_VIEW, point d'entree unique (France au
   // premier lancement, facade au choix, derniere vue ensuite). Plus aucun
   // cadrage code en dur ici, ni de distinction desktop / mobile : la vue
