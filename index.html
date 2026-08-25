@@ -176,43 +176,61 @@
 }
 .vz-tab-segmented {
   position: fixed;
-  top: 16px;
+  top: 14px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 1200;
   display: flex;
-  height: 44px;
+  height: 48px;
   background: #FFFFFF;
   border: 2px solid #0A1520;
-  border-radius: 14px;
+  border-radius: 15px;
   overflow: hidden;
-  box-shadow: 0 4px 14px rgba(8,17,27,0.28);
+  box-shadow: 0 6px 18px rgba(8,17,27,0.34);
   pointer-events: all;
 }
 .vz-tab-btn {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 14px 0 18px;
-  background: #0A1520;
+  gap: 10px;
+  padding: 0 14px 0 6px;
+  background: #FFFFFF;
   border: none;
   border-radius: 0;
-  color: #FFFFFF;
+  color: #0A1520;
   font-family: 'Inter', sans-serif;
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   cursor: pointer;
   transition: background 0.18s ease;
   white-space: nowrap;
 }
+/* Pastille d'icone : le voyant. C'est elle qui donne au bloc son poids
+   visuel, sans sortir du vocabulaire noir et blanc de la doctrine. */
+.vz-tab-ico {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: 9px;
+  background: #0A1520;
+  color: #FFFFFF;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+.vz-tab-ico svg { width: 18px; height: 18px; }
+.vz-tab-btn.active .vz-tab-ico { background: #0A1520; color: #4DD4A8; }
 /* Chevron : dit que la surface s'ouvre. Sans lui le bloc se lit comme un
    afficheur passif, ce qu'il n'est pas - c'est la porte d'entree des
    previsions, et rien d'autre ne la designe. */
 .vz-tab-go {
   display: flex;
   align-items: center;
-  margin-left: 2px;
-  opacity: 0.55;
+  margin-left: 4px;
+  color: #0A1520;
+  opacity: 0.45;
   transition: opacity 0.18s ease, transform 0.18s ease;
 }
 .vz-tab-go svg { width: 15px; height: 15px; }
@@ -222,16 +240,17 @@
   font-family: 'IBM Plex Mono', monospace;
   font-size: 11.5px;
   font-weight: 500;
-  color: #4DD4A8;
+  color: #1A6B5D;
+  font-size: 12px;
   max-width: 210px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.vz-tab-pt:not(:empty)::before { content: '\00b7'; margin-right: 6px; color: rgba(255,255,255,0.45); }
+.vz-tab-pt:not(:empty)::before { content: '\00b7'; margin-right: 7px; color: rgba(10,21,32,0.35); }
 .vz-tab-btn.active .vz-tab-pt { color: #072018; }
 .vz-tab-btn.active .vz-tab-pt:not(:empty)::before { color: #072018; }
-.vz-tab-btn:hover { background: #16293B; }
+.vz-tab-btn:hover { background: #F0F4F6; }
 .vz-tab-btn.active {
   background: #4DD4A8;
   color: #072018;
@@ -5386,11 +5405,7 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
 </div>
 <div class="vz-tab-segmented">
   <button class="vz-tab-btn" id="vzTabCond" onclick="openCondDrawer()">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-  <path d="M9.59 4.59A2 2 0 1111 8H2"/>
-  <path d="M12.59 19.41A2 2 0 1014 16H2"/>
-  <path d="M17.73 7.73A2.5 2.5 0 1119.5 12H2"/>
-</svg>
+    <span class="vz-tab-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.59 4.59A2 2 0 1111 8H2"/><path d="M12.59 19.41A2 2 0 1014 16H2"/><path d="M17.73 7.73A2.5 2.5 0 1119.5 12H2"/></svg></span>
     <span class="vz-tab-lbl">Prévisions</span><span class="vz-tab-pt" id="vzTabCondPt"></span>
     <span class="vz-tab-go"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg></span>
   </button>
