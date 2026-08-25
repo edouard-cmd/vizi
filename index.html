@@ -207,6 +207,20 @@
   white-space: nowrap;
 }
 .vz-tab-btn:last-child { border-right: none; }
+.vz-tab-lbl { flex-shrink: 0; }
+.vz-tab-pt {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #1A6B5D;
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.vz-tab-pt:not(:empty)::before { content: '\00b7'; margin-right: 6px; color: #5F6B73; }
+.vz-tab-btn.active .vz-tab-pt { color: #072018; }
+.vz-tab-btn.active .vz-tab-pt:not(:empty)::before { color: #072018; }
 .vz-tab-btn:hover { background: rgba(10,21,32,0.06); }
 .vz-tab-btn.active {
   background: #4DD4A8;
@@ -5368,7 +5382,7 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
   <path d="M12.59 19.41A2 2 0 1014 16H2"/>
   <path d="M17.73 7.73A2.5 2.5 0 1119.5 12H2"/>
 </svg>
-    Conditions
+    <span class="vz-tab-lbl">Prévisions</span><span class="vz-tab-pt" id="vzTabCondPt"></span>
   </button>
   <button class="vz-tab-btn" id="vzTabTides" onclick="openTidesInSheet()">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
