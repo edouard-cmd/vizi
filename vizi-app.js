@@ -12766,24 +12766,167 @@ function analyzeCenterPoint() {
   });
 }
 
+// ============================================================================
+// VZ_AUTH - SOCLE D'IDENTITE (espace chasseur, commit 1)
+// ============================================================================
+// Ce bloc portait l'authentification de l'ancien carnet. Trois defauts le
+// rendaient inexploitable pour l'espace chasseur :
+//
+// 1. signInWithPopup etait le SEUL chemin Google. En PWA installee
+//    (display-mode: standalone), la popup s'ouvre hors du contexte de l'app
+//    et la session ne revient jamais. Un chasseur qui a mis Visimer sur son
+//    ecran d'accueil ne pouvait pas creer de compte. C'est le bug principal.
+// 2. Aucune reinitialisation de mot de passe. Mot de passe perdu = compte
+//    perdu definitivement, sans aucun recours dans l'interface.
+// 3. Aucun document users/{uid} n'etait cree. Le CDC v2 (pseudo, unites,
+//    lastSeenVersion, sous-collections retours et secteurs) s'appuie dessus
+//    entierement.
+//
+// Doctrine des chemins de connexion, par ordre de fiabilite decroissante :
+//   Google popup   - le cas majoritaire, un seul geste, aucune saisie
+//   Lien magique   - aucun mot de passe, survit a la popup bloquee, marche
+//                    partout ou l'email arrive. C'est le VRAI secours.
+//   Email + mot de passe - conserve pour les comptes deja crees ainsi
+//   Google redirect - filet. Depend du stockage tiers, bloque par defaut sur
+//                    Safari et Chrome recents tant que authDomain n'est pas
+//                    sur visimer.fr, ce que GitHub Pages ne permet pas.
+//
+// Aucun provider tiers supplementaire (Microsoft, Apple, Facebook) n'est
+// branche : chacun ajoute un cas account-exists-with-different-credential qui
+// met un chasseur dehors sans qu'il comprenne pourquoi. vzAuthTrack instrumente
+// le choix reel avant d'en payer la maintenance.
+//
+// Etat partage : S_currentUser reste la source de verite de la session, lu
+// par openSessionModal, saveSession, loadSessions. S_userProfile est neuf et
+// porte le document Firestore, il ne remplace jamais S_currentUser.
+// ============================================================================
+
 var S_currentUser = null;
+var S_userProfile = null;          // document users/{uid}, null si non charge
 var S_loginMode = 'signin';
 var S_currentMood = 3;
 var S_sessionContext = null;
 
+// --- Contexte d'execution -------------------------------------------------
+
+// Une PWA installee ne peut pas ouvrir de popup exploitable. Les deux tests
+// sont necessaires : matchMedia couvre Android et iOS 16.4+, navigator.standalone
+// couvre les iOS plus anciens ou l'app a ete ajoutee a l'ecran d'accueil.
+function vzAuthIsStandalone() {
+  try {
+    if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) return true;
+    if (window.navigator && window.navigator.standalone === true) return true;
+  } catch (e) {}
+  return false;
+}
+
+function vzAuthTrack(method, ok) {
+  try {
+    if (typeof gtag === 'function') {
+      gtag('event', ok === false ? 'login_failed' : 'login', { method: method });
+    }
+  } catch (e) {}
+}
+
+// Traduction des codes Firebase. Un code brut affiche a l'ecran fait fuir.
+function vzAuthMessage(err) {
+  var c = (err && err.code) || '';
+  if (c === 'auth/invalid-email') return 'Adresse email invalide.';
+  if (c === 'auth/email-already-in-use') return 'Cet email a deja un compte. Connecte-toi.';
+  if (c === 'auth/weak-password') return 'Mot de passe trop court : 6 caracteres minimum.';
+  if (c === 'auth/wrong-password' || c === 'auth/invalid-credential') return 'Email ou mot de passe incorrect.';
+  if (c === 'auth/user-not-found') return 'Aucun compte avec cet email.';
+  if (c === 'auth/too-many-requests') return 'Trop de tentatives. Reessaie dans quelques minutes.';
+  if (c === 'auth/network-request-failed') return 'Pas de reseau. Reessaie une fois connecte.';
+  if (c === 'auth/popup-blocked') return 'La fenetre Google a ete bloquee. Utilise le lien de connexion par email.';
+  if (c === 'auth/account-exists-with-different-credential') return 'Cet email a deja un compte cree autrement. Utilise le lien de connexion par email.';
+  if (c === 'auth/unauthorized-domain') return 'Domaine non autorise cote Firebase.';
+  return (err && err.message) ? err.message : 'Connexion impossible.';
+}
+
+// --- Document utilisateur -------------------------------------------------
+
+// Pseudo derive, jamais demande a l'inscription : un formulaire qui reclame un
+// pseudo unique perd la moitie des gens sur un parking a six heures du matin.
+// Il reste modifiable dans le profil (commit ulterieur).
+function vzAuthPseudoFrom(user) {
+  var base = '';
+  if (user && user.displayName) base = user.displayName;
+  else if (user && user.email) base = user.email.split('@')[0];
+  base = base.toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  if (!base) base = 'chasseur';
+  return base.slice(0, 24);
+}
+
+// Cree users/{uid} au premier passage, y compris pour les comptes deja
+// existants. merge:true : ne detruit jamais un champ deja pose par un ecran
+// ulterieur (pseudo modifie, unites changees).
+function vzAuthEnsureUserDoc(user) {
+  if (!user || !window.fbDb || !window.fbDoc || !window.fbGetDoc) return Promise.resolve(null);
+  var ref = window.fbDoc(window.fbDb, 'users', user.uid);
+  return window.fbGetDoc(ref).then(function(snap) {
+    if (snap && snap.exists()) {
+      S_userProfile = snap.data() || null;
+      return S_userProfile;
+    }
+    var dn = ((user.displayName || '')).trim();
+    var parts = dn ? dn.split(/\s+/) : [];
+    var profile = {
+      prenom: parts[0] || '',
+      nom: parts.length > 1 ? parts.slice(1).join(' ') : '',
+      email: user.email || '',
+      photoURL: user.photoURL || '',
+      pseudo: vzAuthPseudoFrom(user),
+      unites: { vent: 'kmh' },
+      createdAt: window.fbServerTimestamp(),
+      lastSeenVersion: ''
+    };
+    return window.fbSetDoc(ref, profile, { merge: true }).then(function() {
+      S_userProfile = profile;
+      return profile;
+    });
+  }).catch(function(err) {
+    // Une regle Firestore trop stricte ne doit pas empecher la session
+    // d'exister. On degrade sans bloquer, et on le dit en console.
+    console.warn('[auth] users/{uid} indisponible', err);
+    return null;
+  });
+}
+
+// --- Etat de session ------------------------------------------------------
+
+// Tolerant a l'absence de #authBtn et #carnetUser : ces elements disparaissent
+// avec l'ancien carnet au commit suivant. Sans cette tolerance, tout le bloc
+// leverait et l'etat d'auth cesserait de se propager, silencieusement.
 window.handleAuthStateChange = function(user) {
   S_currentUser = user;
+  if (!user) S_userProfile = null;
+
   var btn = document.getElementById('authBtn');
   var btnText = document.getElementById('authBtnText');
-  if (!btn) return;
-  if (user) {
-    btn.classList.add('logged');
-    btnText.textContent = 'Mon carnet';
-    document.getElementById('carnetUser').textContent = user.email || user.displayName || 'Connecte';
-  } else {
-    btn.classList.remove('logged');
-    btnText.textContent = 'Se connecter';
+  if (btn && btnText) {
+    if (user) {
+      btn.classList.add('logged');
+      btnText.textContent = 'Mon carnet';
+    } else {
+      btn.classList.remove('logged');
+      btnText.textContent = 'Se connecter';
+    }
   }
+  var cu = document.getElementById('carnetUser');
+  if (cu && user) cu.textContent = user.email || user.displayName || 'Connecte';
+
+  if (user) vzAuthEnsureUserDoc(user);
+  if (typeof VZ_ACCOUNT !== 'undefined' && VZ_ACCOUNT && VZ_ACCOUNT.sync) VZ_ACCOUNT.sync(user);
+};
+
+// Appele par le socle quand la session revient d'une redirection Google.
+window.vzAuthOnRedirectBack = function() {
+  closeLogin();
+  vzAuthTrack('google_redirect');
 };
 
 function handleAuthClick() {
@@ -12791,73 +12934,197 @@ function handleAuthClick() {
   else openLogin();
 }
 
+// --- Modale -------------------------------------------------------------
+
 function openLogin() {
-  document.getElementById('loginOverlay').classList.add('open');
-  document.getElementById('loginError').style.display = 'none';
-  document.getElementById('loginEmail').value = '';
-  document.getElementById('loginPwd').value = '';
+  var ov = document.getElementById('loginOverlay');
+  if (!ov) return;
+  ov.classList.add('open');
+  var err = document.getElementById('loginError'); if (err) err.style.display = 'none';
+  var ok = document.getElementById('loginOk');      if (ok)  ok.style.display  = 'none';
+  var em = document.getElementById('loginEmail');   if (em)  em.value = '';
+  var pw = document.getElementById('loginPwd');     if (pw)  pw.value = '';
 }
 
 function closeLogin() {
-  document.getElementById('loginOverlay').classList.remove('open');
+  var ov = document.getElementById('loginOverlay');
+  if (ov) ov.classList.remove('open');
 }
 
 function toggleLoginMode() {
   S_loginMode = S_loginMode === 'signin' ? 'signup' : 'signin';
+  var sub = document.getElementById('loginSubmit');
+  var tog = document.getElementById('loginToggle');
   if (S_loginMode === 'signup') {
-    document.getElementById('loginSubmit').textContent = 'Creer mon compte';
-    document.getElementById('loginToggle').innerHTML = 'Deja un compte ? <span>Se connecter</span>';
+    if (sub) sub.textContent = 'Creer mon compte';
+    if (tog) tog.innerHTML = 'Deja un compte ? <span>Se connecter</span>';
   } else {
-    document.getElementById('loginSubmit').textContent = 'Se connecter';
-    document.getElementById('loginToggle').innerHTML = 'Pas encore de compte ? <span>Cree un compte</span>';
+    if (sub) sub.textContent = 'Se connecter';
+    if (tog) tog.innerHTML = 'Pas encore de compte ? <span>Cree un compte</span>';
   }
 }
 
 function showLoginError(msg) {
+  var ok = document.getElementById('loginOk'); if (ok) ok.style.display = 'none';
   var el = document.getElementById('loginError');
+  if (!el) { console.warn('[auth]', msg); return; }
   el.textContent = msg;
   el.style.display = 'block';
 }
 
-function loginGoogle() {
-  if (!window.fbAuth) { alert('Firebase pas encore charge, attends 1 sec'); return; }
-  window.fbSignInWithPopup(window.fbAuth, window.fbGoogleProvider).then(function() {
-    closeLogin();
-    checkAndOpenCarnet();
-  }).catch(function(err) { showLoginError('Echec Google : ' + err.message); });
+function showLoginOk(msg) {
+  var err = document.getElementById('loginError'); if (err) err.style.display = 'none';
+  var el = document.getElementById('loginOk');
+  if (!el) { console.log('[auth]', msg); return; }
+  el.textContent = msg;
+  el.style.display = 'block';
 }
 
-function loginEmail() {
-  var email = document.getElementById('loginEmail').value.trim();
-  var pwd = document.getElementById('loginPwd').value;
-  if (!email || !pwd) { showLoginError('Email et mot de passe requis'); return; }
-  if (pwd.length < 6) { showLoginError('Mot de passe : 6 caracteres minimum'); return; }
-  if (!window.fbAuth) { alert('Firebase pas charge'); return; }
-  var fn = S_loginMode === 'signup' ? window.fbCreateUser : window.fbSignInEmail;
-  fn(window.fbAuth, email, pwd).then(function() {
+// --- Google ---------------------------------------------------------------
+
+function vzAuthGoogleRedirect() {
+  if (!window.fbSignInWithRedirect) { showLoginError('Connexion Google indisponible ici. Utilise le lien par email.'); return; }
+  window.fbSignInWithRedirect(window.fbAuth, window.fbGoogleProvider)
+    .catch(function(err) { showLoginError(vzAuthMessage(err)); });
+}
+
+function loginGoogle() {
+  if (!window.fbAuth) { showLoginError('Connexion pas encore prete, reessaie dans une seconde.'); return; }
+  vzAuthTrack('google');
+
+  // PWA installee : la popup est inexploitable, on part directement en
+  // redirection sans faire perdre un aller-retour au chasseur.
+  if (vzAuthIsStandalone()) { vzAuthGoogleRedirect(); return; }
+
+  window.fbSignInWithPopup(window.fbAuth, window.fbGoogleProvider).then(function() {
     closeLogin();
-    checkAndOpenCarnet();
   }).catch(function(err) {
-    var msg = err.message;
-    if (msg.indexOf('email-already-in-use') !== -1) msg = 'Cet email est deja utilise';
-    else if (msg.indexOf('wrong-password') !== -1 || msg.indexOf('invalid-credential') !== -1) msg = 'Email ou mot de passe incorrect';
-    else if (msg.indexOf('user-not-found') !== -1) msg = 'Aucun compte avec cet email';
-    showLoginError(msg);
+    var c = (err && err.code) || '';
+    // Fermeture volontaire de la popup : ce n'est pas un echec, on se tait.
+    if (c === 'auth/popup-closed-by-user' || c === 'auth/cancelled-popup-request') return;
+    // Popup bloquee ou environnement qui ne la supporte pas : on bascule.
+    if (c === 'auth/popup-blocked' || c === 'auth/operation-not-supported-in-this-environment') {
+      vzAuthGoogleRedirect(); return;
+    }
+    vzAuthTrack('google', false);
+    showLoginError(vzAuthMessage(err));
   });
 }
 
-function logout() {
-  if (!window.fbAuth) return;
-  window.fbSignOut(window.fbAuth).then(function() { closeCarnet(); });
+// --- Email et mot de passe ------------------------------------------------
+
+function loginEmail() {
+  var emEl = document.getElementById('loginEmail');
+  var pwEl = document.getElementById('loginPwd');
+  var email = emEl ? emEl.value.trim() : '';
+  var pwd = pwEl ? pwEl.value : '';
+  if (!email || !pwd) { showLoginError('Email et mot de passe requis.'); return; }
+  if (pwd.length < 6) { showLoginError('Mot de passe : 6 caracteres minimum.'); return; }
+  if (!window.fbAuth) { showLoginError('Connexion pas encore prete, reessaie dans une seconde.'); return; }
+  var signup = S_loginMode === 'signup';
+  vzAuthTrack(signup ? 'email_signup' : 'email');
+  var fn = signup ? window.fbCreateUser : window.fbSignInEmail;
+  fn(window.fbAuth, email, pwd).then(function() {
+    closeLogin();
+  }).catch(function(err) {
+    vzAuthTrack(signup ? 'email_signup' : 'email', false);
+    showLoginError(vzAuthMessage(err));
+  });
 }
 
+// Reinitialisation. Firebase ne dit jamais si l'email existe (enumeration de
+// comptes) : on affiche donc le meme message dans tous les cas.
+function vzAuthResetPassword() {
+  var emEl = document.getElementById('loginEmail');
+  var email = emEl ? emEl.value.trim() : '';
+  if (!email) { showLoginError('Entre ton email au-dessus, puis reclique.'); return; }
+  if (!window.fbSendPasswordReset) { showLoginError('Connexion pas encore prete.'); return; }
+  vzAuthTrack('password_reset');
+  window.fbSendPasswordReset(window.fbAuth, email).then(function() {
+    showLoginOk('Si un compte existe avec cet email, un lien de reinitialisation vient de partir.');
+  }).catch(function(err) {
+    showLoginError(vzAuthMessage(err));
+  });
+}
+
+// --- Lien magique ---------------------------------------------------------
+// Aucun mot de passe a retenir, aucune popup a ouvrir. C'est le chemin qui
+// survit a tout : PWA installee, popup bloquee, mot de passe oublie.
+// L'email est memorise localement pour eviter de le redemander au retour.
+
+var VZ_AUTH_EMAIL_KEY = 'vizi_auth_email';
+
+function vzAuthSendMagicLink() {
+  var emEl = document.getElementById('loginEmail');
+  var email = emEl ? emEl.value.trim() : '';
+  if (!email) { showLoginError('Entre ton email au-dessus, puis reclique.'); return; }
+  if (!window.fbSendSignInLink) { showLoginError('Connexion pas encore prete.'); return; }
+  vzAuthTrack('magic_link');
+  var settings = {
+    url: window.location.origin + window.location.pathname,
+    handleCodeInApp: true
+  };
+  window.fbSendSignInLink(window.fbAuth, email, settings).then(function() {
+    try { localStorage.setItem(VZ_AUTH_EMAIL_KEY, email); } catch (e) {}
+    showLoginOk('Lien envoye a ' + email + '. Ouvre-le depuis ce telephone, tu seras connecte sans mot de passe.');
+  }).catch(function(err) {
+    vzAuthTrack('magic_link', false);
+    showLoginError(vzAuthMessage(err));
+  });
+}
+
+// Appele au demarrage par window.fbReady. Ne fait rien si l'URL courante n'est
+// pas un lien de connexion, ce qui est le cas de tous les chargements normaux.
+window.vzAuthCompleteEmailLink = function() {
+  if (!window.fbIsSignInWithEmailLink) return Promise.resolve(false);
+  var href = window.location.href;
+  if (!window.fbIsSignInWithEmailLink(window.fbAuth, href)) return Promise.resolve(false);
+  var email = '';
+  try { email = localStorage.getItem(VZ_AUTH_EMAIL_KEY) || ''; } catch (e) {}
+  // Lien ouvert sur un autre appareil : le localStorage est vide, Firebase
+  // exige l'email d'origine pour verifier que le lien n'a pas ete intercepte.
+  if (!email) {
+    email = window.prompt('Confirme ton email pour terminer la connexion');
+    if (!email) return Promise.resolve(false);
+  }
+  return window.fbSignInWithEmailLink(window.fbAuth, email.trim(), href).then(function() {
+    try { localStorage.removeItem(VZ_AUTH_EMAIL_KEY); } catch (e) {}
+    // Nettoie l'URL : le jeton ne doit pas rester dans la barre d'adresse,
+    // ni partir dans un partage de lien. On preserve ?p=lat,lon.
+    try {
+      var u = new URL(window.location.href);
+      ['apiKey', 'oobCode', 'mode', 'lang', 'continueUrl', 'tenantId'].forEach(function(k) {
+        u.searchParams.delete(k);
+      });
+      window.history.replaceState({}, '', u.pathname + (u.search || '') + (u.hash || ''));
+    } catch (e) {}
+    closeLogin();
+    vzAuthTrack('magic_link_complete');
+    return true;
+  }).catch(function(err) {
+    showLoginError(vzAuthMessage(err));
+    return false;
+  });
+};
+
+// --- Sortie ---------------------------------------------------------------
+
+function logout() {
+  if (!window.fbAuth) return;
+  window.fbSignOut(window.fbAuth).then(function() {
+    S_userProfile = null;
+    if (typeof closeCarnet === 'function') closeCarnet();
+  });
+}
+
+// NEUTRALISE au commit 1. Cette fonction ouvrait l'ancien carnet juste apres
+// la connexion, ou affichait un toast de bienvenue si la collection 'sessions'
+// etait vide. Elle interrogeait la collection racine 'sessions', que le CDC v2
+// abandonne au profit de users/{uid}/retours. La laisser active ferait ouvrir
+// un carnet qui sort du code au commit suivant. Conservee en coquille pour ne
+// casser aucun appelant, et retiree avec le reste de l'ancien carnet.
 function checkAndOpenCarnet() {
-  if (!window.fbDb || !S_currentUser) return;
-  var q = window.fbQuery(window.fbCollection(window.fbDb, 'sessions'), window.fbWhere('userId', '==', S_currentUser.uid));
-  window.fbGetDocs(q).then(function(snapshot) {
-    if (snapshot.empty) showWelcomeToast();
-    else openCarnet();
-  }).catch(function() { openCarnet(); });
+  return;
 }
 
 function showWelcomeToast() {
@@ -20278,6 +20545,154 @@ function vzmInit() {
   } else {
     build();
   }
+})();
+
+// ============================================================================
+// VZ_ACCOUNT - TROMBINE (mobile)
+// ============================================================================
+// En mobile il n'existait AUCUNE entree vers la connexion : #vzBtnCarnet est
+// commente dans index.html, et #authBtn vit dans l'en-tete desktop, masque
+// sous 768px. Le socle d'identite etait donc invisible et intestable la ou se
+// trouve precisement le bug corrige par ce commit : la PWA installee.
+//
+// Placement : en haut a droite, entre la recherche et Me localiser. Le CDC dit
+// "a cote du logo", mais .vz-logo-pill est en display:none sous 768px et le
+// coin extreme est occupe par Me localiser (52px, top:12 right:12), geste
+// utilise en permanence qu'on ne deplace pas. La recherche recule donc de
+// right:72 a right:132 pour ouvrir 52px, et la trombine s'y loge.
+//
+// Portee strictement mobile. Le desktop garde #authBtn jusqu'a ce que le
+// panneau lateral droit le remplace.
+//
+// Provisoire et assume : tant que l'espace chasseur n'existe pas, un clic sur
+// la trombine connectee ouvre un menu a un seul item, Se deconnecter. Il rend
+// le cycle connexion / deconnexion verifiable de bout en bout. Au commit
+// suivant, ce menu est remplace par l'ouverture de l'espace.
+// ============================================================================
+var VZ_ACCOUNT = (function () {
+
+  var _btn = null, _menu = null, _built = false;
+
+  var ICO_USER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+    + '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>'
+    + '<circle cx="12" cy="7" r="4"></circle></svg>';
+
+  function css() {
+    if (document.getElementById('vzAccountStyle')) return;
+    var st = document.createElement('style');
+    st.id = 'vzAccountStyle';
+    st.textContent = '@media (max-width:768px){'
+      // La recherche libere 60px a sa droite. Valeur unique : si la trombine
+      // change de largeur, c'est ici et nulle part ailleurs.
+      + '#vzSearch{right:132px !important;}'
+      // La liste deroulante reprend la largeur que le champ vient de perdre.
+      // Elle passe SOUS les deux boutons (ils s'arretent a 64px, elle commence
+      // a 72px) : aucun recouvrement, aucune cible masquee.
+      + '#vzSearch .vz-search-list{margin-right:-120px !important;}'
+      + '#vzAccountBtn{position:fixed;top:12px;right:72px;z-index:1260;width:52px;height:52px;padding:0;'
+      +   'box-sizing:border-box;display:flex;align-items:center;justify-content:center;'
+      +   'background:#FFFFFF;border:2px solid #0A1520;border-radius:14px;color:#0A1520;'
+      +   'box-shadow:0 4px 14px rgba(8,17,27,0.28);cursor:pointer;overflow:hidden;'
+      +   'transition:transform 0.16s ease;-webkit-tap-highlight-color:transparent;}'
+      + '#vzAccountBtn:active{transform:scale(0.96);}'
+      + '#vzAccountBtn svg{width:22px;height:22px;}'
+      + '#vzAccountBtn img{width:100%;height:100%;object-fit:cover;display:block;}'
+      // Connecte sans photo : monogramme sur fond teal, meme grammaire que le
+      // reste de l'instrument (surface opaque, bordure noire, aucun flou).
+      + '#vzAccountBtn.is-in{background:#4DD4A8;}'
+      + '#vzAccountBtn .ini{font-family:Inter,sans-serif;font-size:20px;font-weight:800;color:#0A1520;line-height:1;}'
+      + '#vzAccountMenu{position:fixed;top:70px;right:12px;z-index:1261;display:none;min-width:200px;'
+      +   'background:#FFFFFF;border:2px solid #0A1520;border-radius:14px;overflow:hidden;'
+      +   'box-shadow:0 6px 20px rgba(8,17,27,0.3);}'
+      + '#vzAccountMenu.open{display:block;}'
+      + '#vzAccountMenu .em{display:block;padding:10px 14px;border-bottom:1px solid #C9D4DC;'
+      +   'font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;color:#46586B;'
+      +   'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
+      + '#vzAccountMenu button{display:block;width:100%;min-height:48px;padding:0 14px;border:none;'
+      +   'background:transparent;text-align:left;font-family:Inter,sans-serif;font-size:14px;'
+      +   'font-weight:700;color:#0A1520;cursor:pointer;-webkit-tap-highlight-color:transparent;}'
+      + '#vzAccountMenu button:active{background:#DBF4EA;}'
+      // Un panneau ouvert prend tout l'ecran utile : la trombine s'efface avec
+      // le reste du flottant, comme le veut la doctrine un seul objet a la fois.
+      + 'body.vzm-open #vzAccountBtn,body.vzm-open #vzAccountMenu{display:none !important;}'
+      + 'body.vz-goto #vzAccountBtn,body.vz-goto #vzAccountMenu{visibility:hidden;pointer-events:none;}'
+      + '}'
+      + '@media (min-width:769px){#vzAccountBtn,#vzAccountMenu{display:none !important;}}';
+    (document.head || document.documentElement).appendChild(st);
+  }
+
+  function closeMenu() { if (_menu) _menu.classList.remove('open'); }
+
+  function onClick() {
+    if (!S_currentUser) { closeMenu(); openLogin(); return; }
+    if (_menu) _menu.classList.toggle('open');
+  }
+
+  // Rend l'etat de session visible. Appelee par handleAuthStateChange, donc a
+  // chaque changement, y compris au retour d'une redirection Google.
+  function sync(user) {
+    if (!_btn) return;
+    if (!user) {
+      _btn.classList.remove('is-in');
+      _btn.innerHTML = ICO_USER;
+      _btn.setAttribute('aria-label', 'Se connecter');
+      closeMenu();
+      return;
+    }
+    _btn.classList.add('is-in');
+    _btn.setAttribute('aria-label', 'Mon compte');
+    if (user.photoURL) {
+      _btn.innerHTML = '<img src="' + user.photoURL + '" alt="" referrerpolicy="no-referrer">';
+    } else {
+      var src = user.displayName || user.email || '?';
+      _btn.innerHTML = '<span class="ini">' + src.trim().charAt(0).toUpperCase() + '</span>';
+    }
+    var em = _menu ? _menu.querySelector('.em') : null;
+    if (em) em.textContent = user.email || user.displayName || 'Connecte';
+  }
+
+  function build() {
+    if (_built || !document.body) return;
+    css();
+
+    _btn = document.createElement('button');
+    _btn.id = 'vzAccountBtn';
+    _btn.type = 'button';
+    _btn.setAttribute('aria-label', 'Se connecter');
+    _btn.innerHTML = ICO_USER;
+
+    _menu = document.createElement('div');
+    _menu.id = 'vzAccountMenu';
+    _menu.innerHTML = '<span class="em"></span>'
+      + '<button type="button" id="vzAccountOut">Se deconnecter</button>';
+
+    document.body.appendChild(_btn);
+    document.body.appendChild(_menu);
+
+    _btn.addEventListener('click', function (e) { e.stopPropagation(); onClick(); });
+    _menu.querySelector('#vzAccountOut').addEventListener('click', function () {
+      closeMenu();
+      logout();
+    });
+    document.addEventListener('pointerdown', function (e) {
+      if (!_menu || !_menu.classList.contains('open')) return;
+      if (_menu.contains(e.target) || (_btn && _btn.contains(e.target))) return;
+      closeMenu();
+    });
+
+    _built = true;
+    // La session peut deja etre restauree quand ce module se monte : le
+    // premier handleAuthStateChange part avant que le bouton existe.
+    sync(S_currentUser);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', build);
+  } else {
+    build();
+  }
+
+  return { sync: sync, close: closeMenu };
 })();
 
 // ============================================================================
