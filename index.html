@@ -761,16 +761,7 @@
 #spotDrawer .drawer-body > div > button[onclick*="openObsSheet"]:hover {
   background: var(--vz-accent-strong) !important;
 }
-#spotDrawer .drawer-body > div > button[onclick*="openSessionModal"] {
-  background: transparent !important;
-  border: 0.5px solid var(--vz-border-glass) !important;
-  color: var(--vz-text-on-dark-muted) !important;
-  border-radius: var(--vz-radius-btn) !important;
-}
-#spotDrawer .drawer-body > div > button[onclick*="openSessionModal"]:hover {
-  border-color: var(--vz-accent-border) !important;
-  color: var(--vz-accent) !important;
-}
+/* regle retiree avec le bouton Enregistrer ma session */
 
 /* Drawer marées intégré (#drawerTides) */
 #spotDrawer #drawerTides {
@@ -1822,107 +1813,14 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
       .leaflet-container { cursor:default !important; }
       .leaflet-control-zoom { margin-bottom:80px !important; }
     }
-    #authBtn { flex-shrink:0; padding:7px 14px; background:rgba(255,255,255,0.07); border:1px solid rgba(168,230,61,0.4); border-radius:8px; color:#A8E63D; font-family:'Inter', sans-serif; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap; pointer-events:all; display:flex; align-items:center; gap:6px; }
-    #authBtn:hover { background:rgba(168,230,61,0.15); }
-    #authBtn.logged { background:#A8E63D; color:#1A2535; border-color:#A8E63D; }
-    #loginOverlay { display:none; position:fixed; inset:0; z-index:2000; background:rgba(0,0,0,0.55); backdrop-filter:blur(4px); align-items:center; justify-content:center; }
-    #loginOverlay.open { display:flex; }
-    #loginModal { background:var(--surface); border-radius:16px; padding:28px; width:90%; max-width:380px; position:relative; box-shadow:0 20px 60px rgba(0,0,0,0.3); }
-    .login-title { font-family:'Inter', sans-serif; font-size:20px; font-weight:700; color:var(--text); margin-bottom:6px; text-align:center; }
-    .login-sub { font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--text-3); text-align:center; margin-bottom:20px; line-height:1.5; }
-    .login-google-btn { width:100%; padding:12px; background:white; border:1px solid var(--border2); border-radius:10px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:10px; font-family:'Inter', sans-serif; font-size:14px; font-weight:600; color:#1A2535; margin-bottom:14px; }
-    .login-divider { display:flex; align-items:center; gap:10px; margin:14px 0; font-family:'IBM Plex Mono', monospace; font-size:10px; color:var(--text-3); text-transform:uppercase; }
-    .login-divider::before, .login-divider::after { content:''; flex:1; height:1px; background:var(--border); }
-    .login-input { width:100%; padding:10px 12px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; font-family:'IBM Plex Mono', monospace; font-size:13px; color:var(--text); outline:none; margin-bottom:10px; }
-    .login-submit { width:100%; padding:12px; background:var(--accent); border:none; border-radius:10px; color:white; font-family:'Inter', sans-serif; font-size:14px; font-weight:600; cursor:pointer; margin-top:6px; }
-    .login-alt { display:flex; flex-direction:column; gap:8px; margin-top:14px; }
-    .login-alt-btn { width:100%; min-height:44px; padding:11px 12px; background:transparent; border:1px solid var(--border2); border-radius:10px; color:var(--text-2); font-family:'Inter', sans-serif; font-size:13px; font-weight:600; cursor:pointer; text-align:center; }
-    .login-alt-btn:hover { border-color:var(--accent); color:var(--accent); }
-    .login-ok { display:none; background:#DCEFE7; border:1px solid #2DA888; color:#1A6B5D; padding:8px 12px; border-radius:8px; margin-bottom:10px; font-family:'IBM Plex Mono', monospace; font-size:11px; text-align:center; line-height:1.5; }
-    .login-toggle { text-align:center; margin-top:14px; font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--text-3); cursor:pointer; }
-    .login-toggle span { color:var(--accent); text-decoration:underline; }
-    .login-error { display:none; background:#FEE2E2; border:1px solid #FCA5A5; color:#991B1B; padding:8px 12px; border-radius:8px; margin-bottom:10px; font-family:'IBM Plex Mono', monospace; font-size:11px; text-align:center; }
-    .login-close { position:absolute; top:14px; right:14px; background:none; border:none; cursor:pointer; color:var(--text-3); font-size:20px; }
-    #carnetDrawer { position:fixed; top:73px; right:0; bottom:0; z-index:1100; width:560px; background:var(--surface); border-left:1px solid var(--border); box-shadow:-8px 0 40px rgba(0,0,0,0.12); display:flex; flex-direction:column; transform:translateX(100%); transition:transform 0.28s cubic-bezier(.4,0,.2,1); overflow:hidden; }
-    #carnetDrawer.open { transform:translateX(0); }
-    .carnet-head { padding:18px 20px; background:var(--surface2); border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-shrink:0; }
-    .carnet-title { font-family:'Inter', sans-serif; font-size:20px; font-weight:700; color:var(--text); }
-    .carnet-user { font-family:'IBM Plex Mono', monospace; font-size:13px; color:var(--text-3); margin-top:3px; }
-    .carnet-body { overflow-y:auto; flex:1; }
-    .carnet-empty { text-align:center; padding:40px 24px; color:var(--text-3); font-family:'Inter', sans-serif; font-size:15px; line-height:1.7; }
-    .carnet-stats-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:1px; background:var(--border); border-bottom:1px solid var(--border); }
-    .carnet-stat { background:#1A2535; padding:20px 10px; display:flex; flex-direction:column; align-items:center; gap:6px; }
-    .carnet-stat-val { font-family:'IBM Plex Mono', monospace; font-size:34px; font-weight:700; color:#A8E63D; line-height:1; }
-    .carnet-stat-lbl { font-family:'IBM Plex Mono', monospace; font-size:12px; font-weight:600; color:rgba(255,255,255,0.7); text-transform:uppercase; letter-spacing:0.08em; text-align:center; }
-    .carnet-map-btn { display:flex; align-items:center; justify-content:center; gap:8px; padding:14px; background:var(--surface2); border-bottom:1px solid var(--border); cursor:pointer; font-family:'IBM Plex Mono', monospace; font-size:14px; font-weight:600; color:var(--accent); text-transform:uppercase; letter-spacing:0.06em; transition:background 0.15s; }
-    .carnet-map-btn:hover { background:var(--accent-bg); }
-    .carnet-map-btn.active { background:var(--accent); color:white; }
-    .carnet-new-btn { display:flex; align-items:center; justify-content:center; gap:10px; padding:16px; background:#A8E63D; border:none; border-bottom:1px solid var(--border); cursor:pointer; font-family:'Inter', sans-serif; font-size:16px; font-weight:700; color:#1A2535; letter-spacing:0.02em; width:100%; transition:background 0.15s; }
-    .carnet-new-btn:hover { background:#7AB828; }
-    .carnet-sessions-wrap { padding:16px; }
-    .carnet-sessions-title { font-family:'IBM Plex Mono', monospace; font-size:13px; font-weight:600; color:var(--text-3); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:12px; }
-    .carnet-filters { display:flex; gap:8px; padding:12px 16px; border-bottom:1px solid var(--border); background:var(--surface); }
-    .carnet-search { flex:1; padding:10px 14px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; font-family:'Inter', sans-serif; font-size:14px; color:var(--text); outline:none; }
-    .carnet-search:focus { border-color:var(--accent); }
-    .carnet-year-select { padding:10px 12px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; font-family:'IBM Plex Mono', monospace; font-size:14px; color:var(--text); outline:none; cursor:pointer; min-width:110px; }
-    .carnet-year-select:focus { border-color:var(--accent); }
-    .month-group-header { font-family:'Inter', sans-serif; font-size:16px; font-weight:700; color:var(--accent); text-transform:capitalize; margin:18px 0 10px; padding-bottom:8px; border-bottom:1px solid var(--border); letter-spacing:0.02em; display:flex; justify-content:space-between; align-items:baseline; }
-    .month-group-count { font-family:'IBM Plex Mono', monospace; font-size:12px; font-weight:500; color:var(--text-3); text-transform:none; letter-spacing:0.05em; }
-    .month-group-header:first-of-type { margin-top:0; }
-    .session-card { background:var(--surface); border:1px solid var(--border); border-left:4px solid var(--border2); border-radius:10px; padding:14px 16px; margin-bottom:12px; transition:all 0.15s; cursor:pointer; }
-    .session-card:hover { border-color:var(--accent); box-shadow:0 2px 8px rgba(0,0,0,0.05); }
-    .session-card.mood-1 { border-left-color:#DC2626; }
-    .session-card.mood-2 { border-left-color:#EA580C; }
-    .session-card.mood-3 { border-left-color:#CA8A04; }
-    .session-card.mood-4 { border-left-color:#16A34A; }
-    .session-card.mood-5 { border-left-color:#0BA888; }
-    .session-card-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px; gap:10px; }
-    .session-date { font-family:'IBM Plex Mono', monospace; font-size:13px; font-weight:600; color:var(--accent); margin-bottom:3px; }
-    .session-spot { font-family:'Inter', sans-serif; font-size:17px; font-weight:700; color:var(--text); }
-    .session-mood-badge { font-family:'IBM Plex Mono', monospace; font-size:11px; font-weight:700; padding:5px 10px; border-radius:12px; text-transform:uppercase; letter-spacing:0.05em; white-space:nowrap; }
-    .session-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px 16px; margin-top:10px; }
-    .session-field-mini { display:flex; flex-direction:column; gap:2px; }
-    .session-field-lbl { font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--text-3); text-transform:uppercase; letter-spacing:0.08em; }
-    .session-field-val { font-family:'IBM Plex Mono', monospace; font-size:15px; color:var(--text); font-weight:600; }
-    .session-notes { margin-top:10px; padding-top:10px; border-top:1px dashed var(--border); font-family:'Inter', sans-serif; font-size:14px; color:var(--text-2); font-style:italic; line-height:1.5; }
-    .carnet-logout { padding:16px 20px; border-top:1px solid var(--border); background:var(--surface2); flex-shrink:0; }
-    .carnet-logout button { width:100%; padding:12px; background:none; border:1px solid var(--border2); border-radius:8px; color:var(--text-2); font-family:'IBM Plex Mono', monospace; font-size:14px; cursor:pointer; }
-    #sessionOverlay { display:none; position:fixed; inset:0; z-index:2000; background:rgba(0,0,0,0.55); backdrop-filter:blur(4px); align-items:center; justify-content:center; padding:16px; }
-    #sessionOverlay.open { display:flex; }
-    #sessionModal { background:var(--surface); border-radius:16px; padding:24px; width:100%; max-width:420px; max-height:90vh; overflow-y:auto; }
-    .session-modal-title { font-family:'Inter', sans-serif; font-size:22px; font-weight:700; color:var(--text); margin-bottom:6px; }
-    .session-modal-sub { font-family:'IBM Plex Mono', monospace; font-size:14px; color:var(--text-3); margin-bottom:20px; }
-    .session-field { margin-bottom:16px; }
-    .session-label { display:block; font-family:'IBM Plex Mono', monospace; font-size:13px; font-weight:600; color:var(--text-3); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:8px; }
-    .session-input { width:100%; padding:11px 14px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; font-family:'Inter', sans-serif; font-size:15px; color:var(--text); outline:none; }
-    .session-textarea { width:100%; padding:11px 14px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; font-family:'Inter', sans-serif; font-size:15px; color:var(--text); outline:none; resize:none; height:75px; }
-    .mood-row { display:flex; justify-content:space-between; gap:6px; }
-    .mood-btn { flex:1; padding:12px 4px; background:var(--surface2); border:1.5px solid var(--border); border-radius:10px; cursor:pointer; font-size:22px; display:flex; flex-direction:column; align-items:center; gap:5px; }
-    .mood-btn .mood-lbl { font-family:'IBM Plex Mono', monospace; font-size:10px; color:var(--text-3); text-transform:uppercase; font-weight:600; }
-    .mood-btn.on { background:var(--accent-bg); border-color:var(--accent); }
-    .mood-btn.on .mood-lbl { color:var(--accent); }
-    .session-submit { width:100%; padding:16px; background:var(--accent); border:none; border-radius:10px; color:white; font-family:'Inter', sans-serif; font-size:17px; font-weight:700; cursor:pointer; margin-top:10px; letter-spacing:0.02em; }
-    .session-conditions { background:var(--accent-bg); border:1px solid var(--accent-mid); border-radius:8px; padding:12px 14px; margin-bottom:16px; }
-    .session-cond-lbl { font-family:'IBM Plex Mono', monospace; font-size:12px; font-weight:600; color:var(--accent); text-transform:uppercase; margin-bottom:5px; }
-    .session-cond-val { font-family:'IBM Plex Mono', monospace; font-size:13px; color:var(--text-2); line-height:1.6; }
-    .lead-row { display:flex; align-items:center; gap:10px; }
-    .lead-btn { width:44px; height:44px; border:1.5px solid var(--border2); background:var(--surface); color:var(--text-2); border-radius:10px; font-size:22px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; }
-    .lead-btn:hover { border-color:var(--accent); color:var(--accent); }
-    .lead-val { flex:1; text-align:center; font-family:'IBM Plex Mono', monospace; font-size:22px; font-weight:700; color:var(--text); padding:10px; background:var(--surface2); border:1px solid var(--border); border-radius:10px; }
-    .feedback-slider-wrap { margin-bottom:14px; }
-    .feedback-slider-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; }
-    .feedback-slider-lbl { font-family:'IBM Plex Mono', monospace; font-size:12px; font-weight:600; color:var(--text-3); text-transform:uppercase; letter-spacing:0.06em; }
-    .feedback-slider-val { font-family:'IBM Plex Mono', monospace; font-size:14px; font-weight:700; color:var(--accent); }
-    input[type=range].feedback-slider { width:100%; height:6px; border-radius:3px; outline:none; cursor:pointer; background:linear-gradient(to right, #DC2626, #CA8A04, #0BA888, #CA8A04, #DC2626); -webkit-appearance:none; appearance:none; }
-    input[type=range].feedback-slider::-webkit-slider-thumb { -webkit-appearance:none; width:24px; height:24px; border-radius:50%; background:white; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,0.2); border:2px solid var(--accent); }
-    .feedback-slider-ticks { display:flex; justify-content:space-between; margin-top:4px; font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--text-3); font-weight:500; }
-    input[type=range].vis-slider { width:100%; height:5px; border-radius:3px; outline:none; cursor:pointer; background:linear-gradient(to right, #DC2626, #EA580C, #CA8A04, #16A34A, #0BA888); -webkit-appearance:none; appearance:none; }
-    input[type=range].vis-slider::-webkit-slider-thumb { -webkit-appearance:none; width:20px; height:20px; border-radius:50%; background:white; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.2); border:2px solid var(--accent); }
-    @media (max-width: 768px) {
-      #carnetDrawer { width:100% !important; top:auto !important; bottom:0; left:0; right:0; height:85vh; border-left:none; border-top:1px solid var(--border); border-radius:16px 16px 0 0; transform:translateY(100%); }
-      #carnetDrawer.open { transform:translateY(0); }
-      #authBtn { font-size:11px; padding:6px 10px; }
-    }
+    /* L'ancien carnet et sa modale de connexion vivaient ici. Leur CSS sort
+       avec leurs conteneurs : #authBtn, #loginOverlay, #loginModal, .login-*,
+       #carnetDrawer, .carnet-*, .month-group-*, #sessionOverlay, .session-*,
+       .mood-*, .lead-*, .feedback-slider*, .vis-slider.
+       Le nouvel ecran de connexion reprend l'identifiant #loginOverlay et est
+       style par vizi-espace.js, en charte instrument : surface blanche opaque,
+       bordure noire de 2px, aucun flou. Garder l'ancienne regle lui aurait
+       reapplique son backdrop-filter. */
 
     /* ============================================================
        MAREES MULTI-JOURS : boutons raccourcis et navigation
@@ -2500,7 +2398,7 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
 .vz-layers-fab-text { font-size: 16px; font-weight: 800; color: #0A1520; }
 .vz-layers-fab-chevron { width: 16px !important; height: 16px !important; stroke-width: 2.6 !important; transition: transform 0.25s cubic-bezier(.4,0,.2,1); }
 .vz-layers-fab.open .vz-layers-fab-chevron { transform: rotate(180deg); }
-#locateBtn, #btnBasemapIGN, #authBtn {
+#locateBtn, #btnBasemapIGN {
   display: none !important;
 }
 #header { display: none !important; }
@@ -5500,14 +5398,6 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
     </svg>
     <span class="vz-side-lbl">Export</span>
   </button>
-  <!-- Carnet de chasse - conserve pour reactivation future
-  <button class="vz-side-btn" id="vzBtnCarnet" onclick="handleAuthClick()" title="Mon carnet">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M4 19.5A2.5 2.5 0 016.5 17H20"/>
-      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/>
-    </svg>
-  </button>
-  -->
 </div>
 <!-- Geolocalisation : meme id et meme handler qu'a l'origine, seul le parent
      change. Aucun appelant JS ne la reference hors de son propre onclick. -->
@@ -5728,7 +5618,6 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
     </button>
     <button id="windUnitToggle" onclick="toggleWindUnit()" style="flex-shrink:0;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.18);border-radius:8px;padding:7px 14px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;color:rgba(255,255,255,0.75);cursor:pointer;letter-spacing:0.04em;">km/h</button>
     <button onclick="openObsSheet()" style="flex-shrink:0;padding:7px 14px;background:#A8E63D;border:none;border-radius:8px;color:#1A2535;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;">+ Ameliorer les previsions</button>
-    <button id="authBtn" onclick="handleAuthClick()"><span id="authBtnText">Se connecter</span></button>
   </div>
 </div>
 <button id="vzFabImprove" onclick="openObsSheet()" title="Partager la visibilité">
@@ -6171,128 +6060,18 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
 
       <div class="vzm-actions">
         <button class="vzm-btn vzm-btn-primary" onclick="openObsSheet()">Partager la visibilité</button>
-        <button class="vzm-btn vzm-btn-secondary" onclick="openSessionModal()">Enregistrer ma session</button>
       </div>
     </div>
 
   </div>
 </div>
-<div id="loginOverlay" onclick="if(event.target===this) closeLogin()">
-  <div id="loginModal">
-    <button class="login-close" onclick="closeLogin()">x</button>
-    <div class="login-title">Mon carnet de chasse</div>
-    <div class="login-sub">Connecte-toi pour garder ton historique.<br><strong style="color:#0BA888">Tes donnees restent privees.</strong></div>
-    <div class="login-error" id="loginError"></div>
-    <div class="login-ok" id="loginOk"></div>
-    <button class="login-google-btn" onclick="loginGoogle()">Continuer avec Google</button>
-    <div class="login-divider">ou avec un email</div>
-    <input type="email" class="login-input" id="loginEmail" placeholder="ton@email.fr">
-    <input type="password" class="login-input" id="loginPwd" placeholder="Mot de passe (min 6 car.)">
-    <button class="login-submit" id="loginSubmit" onclick="loginEmail()">Se connecter</button>
-    <!-- Deux sorties qui n'existaient pas. Sans elles, un mot de passe perdu
-         est un compte perdu, et un chasseur dont la popup Google est bloquee
-         en PWA n'a aucun autre chemin. Le lien magique ne demande aucun mot
-         de passe : c'est le vrai secours, pas la redirection. -->
-    <div class="login-alt">
-      <button type="button" class="login-alt-btn" id="loginMagicBtn" onclick="vzAuthSendMagicLink()">Recevoir un lien de connexion</button>
-      <button type="button" class="login-alt-btn" id="loginResetBtn" onclick="vzAuthResetPassword()">Mot de passe oublié</button>
-    </div>
-    <div class="login-toggle" id="loginToggle" onclick="toggleLoginMode()">Pas encore de compte ? <span>Cree un compte</span></div>
-  </div>
-</div>
-
-<div id="carnetDrawer">
-  <div class="carnet-head">
-    <div>
-      <div class="carnet-title">Mon carnet de chasse</div>
-      <div class="carnet-user" id="carnetUser">-</div>
-    </div>
-    <button class="spot-close" onclick="closeCarnet()">x</button>
-  </div>
-  <div class="carnet-body" id="carnetBody">
-    <div class="carnet-empty">Chargement...</div>
-  </div>
-  <div class="carnet-logout">
-    <button onclick="logout()">Se deconnecter</button>
-  </div>
-</div>
-
-<div id="sessionOverlay" onclick="if(event.target===this) closeSessionModal()">
-  <div id="sessionModal">
-    <div class="session-modal-title">Enregistrer ma session</div>
-    <div class="session-modal-sub" id="sessionModalCoords">-</div>
-    <div class="session-conditions">
-      <div class="session-cond-lbl">Conditions capturees</div>
-      <div class="session-cond-val" id="sessionCondVal">-</div>
-    </div>
-    <div class="session-field">
-      <label class="session-label">Date / Heure</label>
-      <div style="display:flex; gap:8px;">
-        <input type="date" class="session-input" id="sessionDate">
-        <input type="time" class="session-input" id="sessionTime">
-      </div>
-    </div>
-    <div class="session-field">
-      <label class="session-label">Visibilite observee</label>
-      <input type="range" class="vis-slider" id="sessionVisSlider" min="0" max="8" step="1" value="8" oninput="updateSessionVis(this.value)">
-      <div style="text-align:right; font-family:'IBM Plex Mono', monospace; font-size:13px; font-weight:700; margin-top:4px;" id="sessionVisVal">+10m</div>
-    </div>
-    <div class="session-field">
-      <label class="session-label">Prises</label>
-      <input type="text" class="session-input" id="sessionCatch" placeholder="2 bars 45cm, 1 daurade...">
-    </div>
-    <div class="session-field">
-      <label class="session-label">Plomb utilise (kg)</label>
-      <div class="lead-row">
-        <button class="lead-btn" onclick="adjustLead(-0.5)">-</button>
-        <div class="lead-val" id="sessionLeadVal">7.0</div>
-        <button class="lead-btn" onclick="adjustLead(0.5)">+</button>
-      </div>
-    </div>
-    <div class="session-field">
-      <label class="session-label">Feedback conditions</label>
-      <div class="feedback-slider-wrap">
-        <div class="feedback-slider-top">
-          <span class="feedback-slider-lbl">Visi reelle vs prevue</span>
-          <span class="feedback-slider-val" id="fbVisVal">Conforme</span>
-        </div>
-        <input type="range" class="feedback-slider" id="fbVisSlider" min="-2" max="2" step="1" value="0" oninput="updateFbVis(this.value)">
-        <div class="feedback-slider-ticks"><span>Bien pire</span><span>Pire</span><span>OK</span><span>Mieux</span><span>Bien mieux</span></div>
-      </div>
-      <div class="feedback-slider-wrap">
-        <div class="feedback-slider-top">
-          <span class="feedback-slider-lbl">Courant ressenti</span>
-          <span class="feedback-slider-val" id="fbCurrentVal">Moyen</span>
-        </div>
-        <input type="range" class="feedback-slider" id="fbCurrentSlider" min="0" max="4" step="1" value="2" oninput="updateFbCurrent(this.value)">
-        <div class="feedback-slider-ticks"><span>Nul</span><span>Faible</span><span>Moyen</span><span>Fort</span><span>Tres fort</span></div>
-      </div>
-      <div class="feedback-slider-wrap">
-        <div class="feedback-slider-top">
-          <span class="feedback-slider-lbl">Temperature eau</span>
-          <span class="feedback-slider-val" id="fbTempVal">Normale</span>
-        </div>
-        <input type="range" class="feedback-slider" id="fbTempSlider" min="-2" max="2" step="1" value="0" oninput="updateFbTemp(this.value)">
-        <div class="feedback-slider-ticks"><span>Glaciale</span><span>Froide</span><span>Normale</span><span>Tiede</span><span>Chaude</span></div>
-      </div>
-    </div>
-    <div class="session-field">
-      <label class="session-label">Ressenti general</label>
-      <div class="mood-row">
-        <button class="mood-btn" data-mood="1" onclick="setMood(1)">:(<span class="mood-lbl">Chiante</span></button>
-        <button class="mood-btn" data-mood="2" onclick="setMood(2)">:/<span class="mood-lbl">Bof</span></button>
-        <button class="mood-btn on" data-mood="3" onclick="setMood(3)">:|<span class="mood-lbl">Normale</span></button>
-        <button class="mood-btn" data-mood="4" onclick="setMood(4)">:)<span class="mood-lbl">Bien</span></button>
-        <button class="mood-btn" data-mood="5" onclick="setMood(5)">:D<span class="mood-lbl">Top</span></button>
-      </div>
-    </div>
-    <div class="session-field">
-      <label class="session-label">Notes (optionnel)</label>
-      <textarea class="session-textarea" id="sessionNotes" placeholder="courant fort, eau froide..."></textarea>
-    </div>
-    <button class="session-submit" id="sessionSubmitBtn" onclick="saveSession()">Enregistrer dans mon carnet</button>
-  </div>
-</div>
+<!-- L'ancien carnet vivait ici : #loginOverlay, #carnetDrawer et
+     #sessionOverlay. Les trois sont remplaces par vizi-espace.js, jamais
+     doubles. L'ecran de connexion y est reconstruit avec LES MEMES
+     identifiants (loginOverlay, loginError, loginOk, loginEmail, loginPwd,
+     loginSubmit, loginToggle) : le bloc VZ_AUTH de vizi-app.js continue de le
+     piloter sans une ligne de changement. On remplace le contenant, pas le
+     contenu. -->
 
 <!-- ============================================================
      NOUVEAU DRAWER MAREES (refonte) - 60% a droite
@@ -6366,6 +6145,9 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
 
     
 <script src="vizi-app.js?v=16"></script>
+<!-- Espace chasseur. Charge APRES vizi-app.js : il lit S_currentUser,
+     S_userProfile, S_windUnit et les helpers Firebase poses sur window. -->
+<script src="vizi-espace.js?v=250"></script>
   <script>
 function setLayersPopover(open) {
   var pop = document.getElementById('vzLayersPopover');
@@ -6411,13 +6193,17 @@ function syncLayersPopover() {
   if (pop && pop.classList.contains('open')) syncLayersPopover();
 }, 200);
     setInterval(function() {
+  function isOpen(id) {
+    var el = document.getElementById(id);
+    return !!(el && el.classList.contains('open'));
+  }
   var fab = document.getElementById('vzFabImprove');
-  var spotOpen = document.getElementById('spotDrawer').classList.contains('open');
-  var tidesOpen = document.getElementById('tidesDrawer').classList.contains('open');
-  var carnetOpen = document.getElementById('carnetDrawer').classList.contains('open');
-  var condEl = document.getElementById('vzCondDrawer');
-  var condOpen = condEl ? condEl.classList.contains('open') : false;
-  if (fab) fab.style.display = (spotOpen || tidesOpen || carnetOpen || condOpen) ? 'none' : 'flex';
+  // #carnetDrawer est sorti du code : l'espace le remplace. Les trois lectures
+  // etaient nues, une seule disparition suffisait a faire lever la boucle
+  // toutes les 200ms et a figer le bouton dans son dernier etat.
+  var masque = isOpen('spotDrawer') || isOpen('tidesDrawer')
+            || isOpen('vzEspace')   || isOpen('vzCondDrawer');
+  if (fab) fab.style.display = masque ? 'none' : 'flex';
 }, 200);
 document.addEventListener('click', function(e) {
   var pop = document.getElementById('vzLayersPopover');
