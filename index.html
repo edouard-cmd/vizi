@@ -1835,6 +1835,10 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
     .login-divider::before, .login-divider::after { content:''; flex:1; height:1px; background:var(--border); }
     .login-input { width:100%; padding:10px 12px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; font-family:'IBM Plex Mono', monospace; font-size:13px; color:var(--text); outline:none; margin-bottom:10px; }
     .login-submit { width:100%; padding:12px; background:var(--accent); border:none; border-radius:10px; color:white; font-family:'Inter', sans-serif; font-size:14px; font-weight:600; cursor:pointer; margin-top:6px; }
+    .login-alt { display:flex; flex-direction:column; gap:8px; margin-top:14px; }
+    .login-alt-btn { width:100%; min-height:44px; padding:11px 12px; background:transparent; border:1px solid var(--border2); border-radius:10px; color:var(--text-2); font-family:'Inter', sans-serif; font-size:13px; font-weight:600; cursor:pointer; text-align:center; }
+    .login-alt-btn:hover { border-color:var(--accent); color:var(--accent); }
+    .login-ok { display:none; background:#DCEFE7; border:1px solid #2DA888; color:#1A6B5D; padding:8px 12px; border-radius:8px; margin-bottom:10px; font-family:'IBM Plex Mono', monospace; font-size:11px; text-align:center; line-height:1.5; }
     .login-toggle { text-align:center; margin-top:14px; font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--text-3); cursor:pointer; }
     .login-toggle span { color:var(--accent); text-decoration:underline; }
     .login-error { display:none; background:#FEE2E2; border:1px solid #FCA5A5; color:#991B1B; padding:8px 12px; border-radius:8px; margin-bottom:10px; font-family:'IBM Plex Mono', monospace; font-size:11px; text-align:center; }
@@ -6179,11 +6183,20 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
     <div class="login-title">Mon carnet de chasse</div>
     <div class="login-sub">Connecte-toi pour garder ton historique.<br><strong style="color:#0BA888">Tes donnees restent privees.</strong></div>
     <div class="login-error" id="loginError"></div>
+    <div class="login-ok" id="loginOk"></div>
     <button class="login-google-btn" onclick="loginGoogle()">Continuer avec Google</button>
     <div class="login-divider">ou avec un email</div>
     <input type="email" class="login-input" id="loginEmail" placeholder="ton@email.fr">
     <input type="password" class="login-input" id="loginPwd" placeholder="Mot de passe (min 6 car.)">
     <button class="login-submit" id="loginSubmit" onclick="loginEmail()">Se connecter</button>
+    <!-- Deux sorties qui n'existaient pas. Sans elles, un mot de passe perdu
+         est un compte perdu, et un chasseur dont la popup Google est bloquee
+         en PWA n'a aucun autre chemin. Le lien magique ne demande aucun mot
+         de passe : c'est le vrai secours, pas la redirection. -->
+    <div class="login-alt">
+      <button type="button" class="login-alt-btn" id="loginMagicBtn" onclick="vzAuthSendMagicLink()">Recevoir un lien de connexion</button>
+      <button type="button" class="login-alt-btn" id="loginResetBtn" onclick="vzAuthResetPassword()">Mot de passe oublié</button>
+    </div>
     <div class="login-toggle" id="loginToggle" onclick="toggleLoginMode()">Pas encore de compte ? <span>Cree un compte</span></div>
   </div>
 </div>
@@ -6442,9 +6455,48 @@ document.addEventListener('click', function(e) {
 
 
 <script type="module">
+/* ==========================================================================
+   SOCLE FIREBASE - espace chasseur, commit 1
+   --------------------------------------------------------------------------
+   Ce bloc avait ete dimensionne pour l'ancien carnet : une seule collection
+   plate 'sessions' avec un champ userId, ecrite par addDoc et relue par
+   getDocs. Il n'exposait ni doc, ni setDoc, ni updateDoc, ni deleteDoc, ni
+   Storage. Rien du CDC v2 (users/{uid}, sous-collections retours et secteurs,
+   pseudo, unites, photos) n'etait donc ecrivable.
+
+   Trois ajouts structurants :
+   1. Firestore documentaire complet + Firebase Storage pour les photos.
+   2. Persistance locale EXPLICITE. C'est le defaut du SDK, mais l'ecrire
+      protege d'un changement de defaut et rend l'intention lisible.
+   3. Chemin de secours par redirection. signInWithPopup seul ne fonctionne
+      pas quand l'app tourne en PWA installee (display-mode: standalone) :
+      la fenetre s'ouvre hors du contexte et la session ne revient jamais.
+      getRedirectResult recupere ce retour au demarrage.
+
+   Limite connue et assumee : authDomain vaut visimer.firebaseapp.com alors
+   que le site est servi depuis visimer.fr. GitHub Pages ne permet pas
+   d'heberger /__/auth/handler sur le domaine propre, donc la redirection
+   depend du stockage tiers, bloque par defaut sur Safari et Chrome recents.
+   Elle reste un filet, jamais le chemin principal : le lien magique par
+   email est le vrai secours quand Google echoue.
+
+   window.fbReady : promesse resolue quand tout est expose. Le reste de
+   l'application peut l'attendre au lieu de sonder window.fbAuth en boucle.
+   ========================================================================== */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, collection, addDoc, query, where, orderBy, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {
+  getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult,
+  createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged,
+  sendPasswordResetEmail, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink,
+  updateProfile, setPersistence, browserLocalPersistence, deleteUser
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {
+  getFirestore, collection, doc, addDoc, setDoc, getDoc, updateDoc, deleteDoc,
+  query, where, orderBy, limit, getDocs, serverTimestamp, writeBatch
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {
+  getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBHWn_aG3HKOqUVmq_E6dk_BJ9-CsbXR5M",
@@ -6459,25 +6511,75 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app);
 
+/* --- Auth --- */
 window.fbAuth = auth;
-window.fbDb = db;
 window.fbGoogleProvider = new GoogleAuthProvider();
 window.fbSignInWithPopup = signInWithPopup;
+window.fbSignInWithRedirect = signInWithRedirect;
+window.fbGetRedirectResult = getRedirectResult;
 window.fbCreateUser = createUserWithEmailAndPassword;
 window.fbSignInEmail = signInWithEmailAndPassword;
 window.fbSignOut = signOut;
+window.fbSendPasswordReset = sendPasswordResetEmail;
+window.fbSendSignInLink = sendSignInLinkToEmail;
+window.fbIsSignInWithEmailLink = isSignInWithEmailLink;
+window.fbSignInWithEmailLink = signInWithEmailLink;
+window.fbUpdateProfile = updateProfile;
+window.fbDeleteUser = deleteUser;
+
+/* --- Firestore --- */
+window.fbDb = db;
 window.fbCollection = collection;
+window.fbDoc = doc;
 window.fbAddDoc = addDoc;
+window.fbSetDoc = setDoc;
+window.fbGetDoc = getDoc;
+window.fbUpdateDoc = updateDoc;
+window.fbDeleteDoc = deleteDoc;
 window.fbQuery = query;
 window.fbWhere = where;
 window.fbOrderBy = orderBy;
+window.fbLimit = limit;
 window.fbGetDocs = getDocs;
 window.fbServerTimestamp = serverTimestamp;
+window.fbWriteBatch = writeBatch;
+
+/* --- Storage (photos des retours, commit ulterieur) --- */
+window.fbStorage = storage;
+window.fbStorageRef = storageRef;
+window.fbUploadBytes = uploadBytes;
+window.fbGetDownloadURL = getDownloadURL;
+window.fbDeleteObject = deleteObject;
 
 onAuthStateChanged(auth, (user) => {
   if (window.handleAuthStateChange) window.handleAuthStateChange(user);
 });
+
+/* La persistance doit etre posee AVANT toute tentative de connexion, sinon
+   une session ouverte entre-temps ne serait pas ecrite au bon endroit. */
+window.fbReady = setPersistence(auth, browserLocalPersistence)
+  .catch((err) => { console.warn('[fb] persistance locale refusee', err); })
+  .then(() => getRedirectResult(auth))
+  .then((res) => {
+    /* Retour de redirection Google. handleAuthStateChange a deja ete appele
+       par onAuthStateChanged : on ne fait que signaler le chemin emprunte. */
+    if (res && res.user) {
+      window.VZ_AUTH_LAST_METHOD = 'google_redirect';
+      if (window.vzAuthOnRedirectBack) window.vzAuthOnRedirectBack(res.user);
+    }
+  })
+  .catch((err) => { console.warn('[fb] getRedirectResult', err); })
+  .then(() => {
+    /* Retour de lien magique. L'URL porte le jeton, l'email a ete memorise
+       localement au moment de l'envoi. Si l'utilisateur ouvre le lien sur un
+       AUTRE appareil, le localStorage est vide et Firebase exige l'email :
+       vzAuthCompleteEmailLink le redemande. */
+    if (window.vzAuthCompleteEmailLink) return window.vzAuthCompleteEmailLink();
+  })
+  .catch((err) => { console.warn('[fb] lien magique', err); })
+  .then(() => { window.VZ_FB_READY = true; return true; });
 </script>
 <div class="vz-explain-overlay" id="vzExplainOverlay" onclick="if(event.target===this) closeVisExplain()">
   <div class="vz-explain-modal">
