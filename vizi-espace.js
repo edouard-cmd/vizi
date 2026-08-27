@@ -332,7 +332,68 @@
     + '#loginModal .login-error{background:#FBE4E1;border:var(--vz-bd-ctl) solid var(--vz-danger);'
     +   'color:#8C2F25;}'
     + '#loginModal .login-ok{background:var(--vz-selected);'
-    +   'border:var(--vz-bd-ctl) solid var(--vz-accent-mid);color:var(--vz-accent-deep);}';
+    +   'border:var(--vz-bd-ctl) solid var(--vz-accent-mid);color:var(--vz-accent-deep);}'
+    // Champ mot de passe avec revelation. Sans compte, un mot de passe tape a
+    // l'aveugle sur un parking mouille est refuse deux fois sur trois, et le
+    // chasseur abandonne avant d'avoir compris qu'il ne s'etait pas trompe.
+    + '#loginModal .login-pwd-wrap{position:relative;display:flex;}'
+    + '#loginModal .login-pwd-wrap .login-input{padding-right:52px;}'
+    + '#loginModal .login-eye{position:absolute;top:0;right:0;width:48px;height:100%;'
+    +   'min-height:var(--vz-tap-min);padding:0;border:none;background:transparent;cursor:pointer;'
+    +   'display:flex;align-items:center;justify-content:center;color:var(--vz-text-2);'
+    +   '-webkit-tap-highlight-color:transparent;}'
+    + '#loginModal .login-eye svg{width:20px;height:20px;}'
+
+    /* ----------------------------------------------------------------------
+       ETOILE DE SUIVI
+       ----------------------------------------------------------------------
+       Elle vit dans le panneau secteur, sur la carte, PAS derriere un onglet.
+       C'est le point le plus important de la conception et le plus facile a
+       rater : un chasseur ouvre Langrune, il veut le retrouver demain matin, il
+       tape l'etoile. C'est a cet instant precis, et pas avant, qu'on lui propose
+       un compte. Il comprend immediatement pourquoi.
+       ---------------------------------------------------------------------- */
+    + '.vz-follow{position:absolute;top:0;right:56px;width:56px;height:56px;padding:0;'
+    +   'border:none;background:transparent;cursor:pointer;display:flex;align-items:center;'
+    +   'justify-content:center;z-index:4;-webkit-tap-highlight-color:transparent;'
+    +   'transition:transform var(--vz-t-press);}'
+    + '.vz-follow:active{transform:var(--vz-press);}'
+    + '.vz-follow svg{width:24px;height:24px;fill:none;stroke:#0A1520;stroke-width:1.9;'
+    +   'stroke-linejoin:round;transition:fill var(--vz-t-state),stroke var(--vz-t-state);}'
+    + '.vz-follow[aria-pressed="true"] svg{fill:var(--vz-accent);stroke:var(--vz-accent-deep);'
+    +   'stroke-width:1.6;}'
+    + '.vz-follow[disabled]{opacity:.45;pointer-events:none;}'
+
+    /* Demande de compte contextuelle. Une ligne dans le panneau, fermable, qui
+       nait du geste et meurt avec lui. Jamais une modale bloquante, jamais une
+       banniere d'accueil : le compte ne debloque rien, il memorise. */
+    + '.vz-follow-ask{position:fixed;left:12px;right:12px;z-index:1420;'
+    +   'bottom:calc(var(--vzm-navline,94px) + 12px);'
+    +   'background:var(--vz-surface);border:var(--vz-bd) solid var(--vz-ink);'
+    +   'border-radius:var(--vz-r-card);padding:var(--vz-pad-block);'
+    +   'box-shadow:0 6px 20px rgba(8,17,27,.3);display:grid;gap:var(--vz-gap-5);'
+    +   'font-family:var(--vz-font-ui);}'
+    + '@media (min-width:769px){.vz-follow-ask{left:auto;right:16px;bottom:16px;width:360px;}}'
+    + '.vz-follow-ask .t{font-size:var(--vz-fs-label);font-weight:800;color:var(--vz-ink);'
+    +   'line-height:1.25;}'
+    + '.vz-follow-ask .g{font-size:var(--vz-fs-meta);font-weight:500;line-height:1.4;'
+    +   'color:var(--vz-text-2);}'
+    + '.vz-follow-ask .r{display:flex;gap:var(--vz-gap-4);}'
+    + '.vz-follow-ask button{flex:1;min-height:var(--vz-tap-min);border-radius:var(--vz-r-row);'
+    +   'cursor:pointer;font-family:inherit;font-size:var(--vz-fs-body);font-weight:800;'
+    +   '-webkit-tap-highlight-color:transparent;}'
+    + '.vz-follow-ask .go{background:var(--vz-accent);border:var(--vz-bd) solid var(--vz-ink);'
+    +   'color:var(--vz-ink);}'
+    + '.vz-follow-ask .no{background:transparent;border:var(--vz-bd) solid var(--vz-line);'
+    +   'color:var(--vz-text-2);}'
+
+    /* Avatar editable dans le profil */
+    + '#vzEspace .vze-av.edit{cursor:pointer;}'
+    + '#vzEspace .vze-av .badge{position:absolute;right:-2px;bottom:-2px;width:26px;height:26px;'
+    +   'border-radius:50%;background:var(--vz-ink);border:2px solid var(--vz-surface);'
+    +   'display:flex;align-items:center;justify-content:center;}'
+    + '#vzEspace .vze-av .badge svg{width:13px;height:13px;stroke:var(--vz-surface);fill:none;'
+    +   'stroke-width:2.2;}';
 
   /* ------------------------------------------------------------------------
      ICONES - SVG uniquement, jamais d'emoji
@@ -341,7 +402,14 @@
     x:     '<svg viewBox="0 0 24 24"><path d="M6 6 L18 18"/><path d="M18 6 L6 18"/></svg>',
     back:  '<svg viewBox="0 0 24 24"><path d="M15 5 l-7 7 7 7"/></svg>',
     chev:  '<svg class="vze-chev" viewBox="0 0 24 24"><path d="M9 6 l6 6 -6 6"/></svg>',
-    plus:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 6 V18"/><path d="M6 12 H18"/></svg>'
+    plus:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 6 V18"/><path d="M6 12 H18"/></svg>',
+    // Etoile : le meme trace en creux et en plein. Le passage de l'un a l'autre
+    // est le seul retour visuel du suivi, il doit donc etre lisible au premier
+    // coup d'oeil, en plein soleil, sans lire de texte.
+    star:  '<svg viewBox="0 0 24 24"><path d="M12 3.2 l2.7 5.6 6.1.9 -4.4 4.3 1 6.1 -5.4-2.9 -5.4 2.9 1-6.1 -4.4-4.3 6.1-.9 Z"/></svg>',
+    eye:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7 -3.6 7-10 7 -10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>',
+    eyeOff:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7c2 0 3.7.5 5.2 1.3"/><path d="M21.4 9.3c.4.5.6 1 .6 1.2 0 0-3.6 7-10 7-1.3 0-2.5-.2-3.5-.6"/><path d="M4 3 L20 21"/></svg>',
+    cam:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5A2 2 0 0 1 5 6.5h2.2l1.2-2h7.2l1.2 2H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.6"/></svg>'
   };
 
   /* ------------------------------------------------------------------------
@@ -400,12 +468,102 @@
     return src.trim().charAt(0).toUpperCase();
   }
 
-  function avatarHtml(cls) {
+  function avatarHtml(cls, editable) {
     var u = user();
     var inner = u && u.photoURL
       ? '<img src="' + esc(u.photoURL) + '" alt="" referrerpolicy="no-referrer">'
       : esc(initiale());
-    return '<span class="vze-av' + (cls ? ' ' + cls : '') + '">' + inner + '</span>';
+    var badge = editable ? '<span class="badge">' + ICO.cam + '</span>' : '';
+    var id = editable ? ' id="vzeAvatar" role="button" tabindex="0"' : '';
+    return '<span class="vze-av' + (cls ? ' ' + cls : '') + '"' + id + '>' + inner + badge + '</span>';
+  }
+
+  /* ------------------------------------------------------------------------
+     PHOTO DE PROFIL
+     ------------------------------------------------------------------------
+     Compression cote client OBLIGATOIRE avant envoi. Une photo de telephone
+     pese 3 a 8 Mo : la televerser telle quelle depuis un parking en 4G prend
+     une minute et sature le quota Storage pour une image affichee en 44px.
+     Canvas, 512px sur le grand cote pour un avatar, qualite 0.82.
+
+     La meme mecanique servira aux photos de retours, avec 1600px et 0.8 : seuls
+     les deux nombres changent, d'ou le parametrage plutot que le codage en dur.
+     ------------------------------------------------------------------------ */
+  function compressImage(file, maxSide, quality) {
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () {
+        URL.revokeObjectURL(url);
+        var w = img.naturalWidth, hgt = img.naturalHeight;
+        if (!w || !hgt) { reject(new Error('image illisible')); return; }
+        var r = Math.min(1, maxSide / Math.max(w, hgt));
+        var cw = Math.round(w * r), ch = Math.round(hgt * r);
+        var cv = document.createElement('canvas');
+        cv.width = cw; cv.height = ch;
+        var ctx = cv.getContext('2d');
+        if (!ctx) { reject(new Error('canvas indisponible')); return; }
+        ctx.drawImage(img, 0, 0, cw, ch);
+        // Le passage par canvas retire l'EXIF au passage, donc la position GPS
+        // du cliche ne part pas dans le fichier stocke. Pour les photos de
+        // retours il faudra la LIRE avant, l'ecrire en champ Firestore, puis
+        // laisser cette compression la supprimer du fichier.
+        cv.toBlob(function (blob) {
+          if (blob) resolve(blob); else reject(new Error('compression echouee'));
+        }, 'image/jpeg', quality);
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('image illisible')); };
+      img.src = url;
+    });
+  }
+
+  function pickPhoto() {
+    var u = user();
+    if (!u || !window.fbStorage) { alert('Envoi indisponible pour le moment.'); return; }
+    var inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = 'image/*';
+    inp.style.display = 'none';
+    document.body.appendChild(inp);
+    inp.addEventListener('change', function () {
+      var f = inp.files && inp.files[0];
+      inp.remove();
+      if (!f) return;
+      uploadPhoto(f);
+    });
+    inp.click();
+  }
+
+  function uploadPhoto(file) {
+    var u = user();
+    var av = document.getElementById('vzeAvatar');
+    if (av) av.style.opacity = '.5';
+
+    compressImage(file, 512, 0.82).then(function (blob) {
+      // Chemin fixe : une seule photo de profil par compte, ecrasee a chaque
+      // changement. Pas d'accumulation de fichiers orphelins dans Storage.
+      var ref = window.fbStorageRef(window.fbStorage, 'users/' + u.uid + '/profil.jpg');
+      return window.fbUploadBytes(ref, blob, { contentType: 'image/jpeg' })
+        .then(function () { return window.fbGetDownloadURL(ref); });
+    }).then(function (url) {
+      // Deux ecritures : le profil Auth porte photoURL pour la trombine, le
+      // document Firestore le porte pour l'espace. Les deux doivent rester
+      // alignes, sinon la trombine et le profil montrent des images differentes.
+      return window.fbUpdateProfile(u, { photoURL: url }).then(function () {
+        return window.fbSetDoc(window.fbDoc(window.fbDb, 'users', u.uid),
+                               { photoURL: url }, { merge: true });
+      }).then(function () {
+        if (S_userProfile) S_userProfile.photoURL = url;
+        if (typeof VZ_ACCOUNT !== 'undefined' && VZ_ACCOUNT && VZ_ACCOUNT.sync) {
+          VZ_ACCOUNT.sync(user());
+        }
+        render();
+      });
+    }).catch(function (err) {
+      if (av) av.style.opacity = '';
+      console.warn('[espace] photo', err);
+      alert('Envoi de la photo impossible : ' + (err && err.message ? err.message : 'erreur'));
+    });
   }
 
   // Une valeur absente s'ecrit avec un point d'interrogation lisible, jamais
@@ -615,7 +773,7 @@
     var h = '';
 
     h += '<div style="display:flex;align-items:center;gap:var(--vz-gap-6);padding:4px;">'
-      +    avatarHtml('lg')
+      +    avatarHtml('lg edit', true)
       +    '<span style="flex:1;min-width:0;display:grid;gap:3px;">'
       +      '<span style="font-size:22px;font-weight:800;line-height:1.05;">' + esc(nomComplet) + '</span>'
       +      '<span style="font-family:var(--vz-font-num);font-size:var(--vz-fs-provenance);font-weight:500;color:var(--vz-text-2);overflow:hidden;text-overflow:ellipsis;">' + esc(u ? u.email : '') + '</span>'
@@ -885,6 +1043,8 @@
       b.addEventListener('click', function () { setUnit(b.getAttribute('data-unit')); });
     });
 
+    var av = document.getElementById('vzeAvatar');
+    if (av) av.addEventListener('click', pickPhoto);
     var ps = document.getElementById('vzePseudoSave');
     if (ps) ps.addEventListener('click', savePseudo);
     var ex = document.getElementById('vzeExport');
@@ -945,7 +1105,10 @@
       + '<button type="button" class="login-google-btn">Continuer avec Google</button>'
       + '<div class="login-divider">ou avec un email</div>'
       + '<input type="email" class="login-input" id="loginEmail" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="ton@email.fr">'
-      + '<input type="password" class="login-input" id="loginPwd" autocomplete="current-password" placeholder="Mot de passe">'
+      + '<div class="login-pwd-wrap">'
+      +   '<input type="password" class="login-input" id="loginPwd" autocomplete="current-password" placeholder="Mot de passe">'
+      +   '<button type="button" class="login-eye" id="loginEye" aria-label="Afficher le mot de passe">' + ICO.eye + '</button>'
+      + '</div>'
       + '<button type="button" class="login-submit" id="loginSubmit">Se connecter</button>'
       + '<div class="login-alt">'
       +   '<button type="button" class="login-alt-btn" id="loginMagicBtn">Recevoir un lien de connexion</button>'
@@ -980,6 +1143,16 @@
     // refermer avant d'atteindre le bouton.
     ov.querySelector('#loginPwd').addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && typeof loginEmail === 'function') loginEmail();
+    });
+    ov.querySelector('#loginEye').addEventListener('click', function () {
+      var inp = document.getElementById('loginPwd');
+      var btn = this;
+      if (!inp) return;
+      var shown = inp.type === 'text';
+      inp.type = shown ? 'password' : 'text';
+      btn.innerHTML = shown ? ICO.eye : ICO.eyeOff;
+      btn.setAttribute('aria-label', shown ? 'Afficher le mot de passe' : 'Masquer le mot de passe');
+      inp.focus();
     });
   }
 
@@ -1027,10 +1200,169 @@
   window.vzEspaceOnAuth = function () {
     _retours = null;
     _secteurs = null;
+    _follows = null;
+    if (user()) followResume();
     if (_el && _el.classList.contains('open')) {
       if (!user()) close();
       else { render(); loadData(); }
     }
+  };
+
+  /* ------------------------------------------------------------------------
+     VZ_FOLLOW - SUIVRE UN SECTEUR
+     ------------------------------------------------------------------------
+     L'accroche vit sur la carte, jamais derriere un onglet. Pas d'ecran
+     d'accueil qui vend un espace personnel, pas de banniere d'invitation, pas
+     de mur a l'entree : le chasseur tape l'etoile parce qu'il veut retrouver ce
+     secteur demain, et c'est a cet instant seulement qu'on lui parle de compte.
+
+     Identifiant du secteur : les coordonnees arrondies a 3 decimales, soit
+     environ 111 metres. Deux appuis sur le meme port produisent donc le meme
+     document et non deux doublons, alors que le centre de carte ne tombe jamais
+     deux fois sur les memes decimales. Le nom seul serait un mauvais choix : il
+     vient de findNearestPort et deux points distants de plusieurs kilometres
+     peuvent partager le meme port le plus proche.
+     ------------------------------------------------------------------------ */
+  var _follows = null;     // { id: true }, null tant que non lu
+  var _pending = null;     // secteur mis de cote pendant la connexion
+
+  function followId(lat, lon) {
+    return lat.toFixed(3).replace('.', 'd').replace('-', 'm')
+      + '_' + lon.toFixed(3).replace('.', 'd').replace('-', 'm');
+  }
+
+  function followLoad() {
+    var u = user();
+    if (!u || !window.fbDb) { _follows = {}; return Promise.resolve(_follows); }
+    if (_follows) return Promise.resolve(_follows);
+    return window.fbGetDocs(window.fbCollection(window.fbDb, 'users', u.uid, 'secteurs'))
+      .then(function (snap) {
+        var m = {};
+        snap.forEach(function (d) { m[d.id] = true; });
+        _follows = m;
+        return m;
+      }).catch(function (err) {
+        console.warn('[suivi] lecture', err);
+        _follows = {};
+        return _follows;
+      });
+  }
+
+  function askAccount(ctx) {
+    var old = document.getElementById('vzFollowAsk');
+    if (old) old.remove();
+    var box = document.createElement('div');
+    box.id = 'vzFollowAsk';
+    box.className = 'vz-follow-ask';
+    box.innerHTML = '<span class="t">Retrouver ' + esc(ctx.name || 'ce secteur') + ' demain</span>'
+      + '<span class="g">Les secteurs suivis se gardent sur ton compte. La carte, elle, '
+      + 'fonctionne pareil avec ou sans compte.</span>'
+      + '<span class="r">'
+      +   '<button type="button" class="no">Plus tard</button>'
+      +   '<button type="button" class="go">Creer mon compte</button>'
+      + '</span>';
+    document.body.appendChild(box);
+    box.querySelector('.no').addEventListener('click', function () { box.remove(); });
+    box.querySelector('.go').addEventListener('click', function () {
+      box.remove();
+      // Le secteur est mis de cote : apres connexion, le suivi s'applique tout
+      // seul et le chasseur revient exactement ou il etait, l'etoile allumee.
+      // Jamais un ecran de bienvenue.
+      _pending = ctx;
+      if (typeof openLogin === 'function') openLogin();
+    });
+  }
+
+  function followToggle(btn, ctx) {
+    var u = user();
+    if (!u) { askAccount(ctx); return; }
+    var id = followId(ctx.lat, ctx.lon);
+    var on = !!(_follows && _follows[id]);
+    btn.disabled = true;
+
+    var ref = window.fbDoc(window.fbDb, 'users', u.uid, 'secteurs', id);
+    var job = on
+      ? window.fbDeleteDoc(ref)
+      : window.fbSetDoc(ref, {
+          nom: ctx.name || 'Secteur',
+          lat: ctx.lat, lon: ctx.lon,
+          addedAt: window.fbServerTimestamp()
+        });
+
+    job.then(function () {
+      if (!_follows) _follows = {};
+      if (on) delete _follows[id]; else _follows[id] = true;
+      btn.setAttribute('aria-pressed', String(!on));
+      btn.setAttribute('aria-label', on ? 'Suivre ce secteur' : 'Ne plus suivre ce secteur');
+      // La liste de l'espace est invalidee : sans ca, le secteur qu'on vient de
+      // suivre n'apparaitrait qu'au prochain rechargement complet.
+      _secteurs = null;
+      btn.disabled = false;
+    }).catch(function (err) {
+      console.warn('[suivi] ecriture', err);
+      btn.disabled = false;
+      alert('Enregistrement impossible : ' + (err && err.message ? err.message : 'erreur'));
+    });
+  }
+
+  // Monte l'etoile dans un conteneur fourni par l'appelant. C'est vizi-app.js
+  // qui decide OU elle vit, ce module decide seulement ce qu'elle fait : le
+  // panneau secteur reste proprietaire de son gabarit.
+  function followMount(host, ctx) {
+    if (!host || !ctx || !isFinite(ctx.lat) || !isFinite(ctx.lon)) return;
+    var old = host.querySelector('.vz-follow');
+    if (old) old.remove();
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'vz-follow';
+    btn.innerHTML = ICO.star;
+    btn.setAttribute('aria-pressed', 'false');
+    btn.setAttribute('aria-label', 'Suivre ce secteur');
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      followToggle(btn, ctx);
+    });
+    host.appendChild(btn);
+
+    // Sans compte, l'etoile reste visible et eteinte : elle est l'invitation.
+    // La masquer reviendrait a cacher la seule porte d'entree vers le compte.
+    if (user()) {
+      followLoad().then(function (m) {
+        if (!btn.isConnected) return;
+        var on = !!m[followId(ctx.lat, ctx.lon)];
+        btn.setAttribute('aria-pressed', String(on));
+        btn.setAttribute('aria-label', on ? 'Ne plus suivre ce secteur' : 'Suivre ce secteur');
+      });
+    }
+  }
+
+  // Reprise du geste interrompu par la connexion.
+  function followResume() {
+    if (!_pending || !user()) return;
+    var ctx = _pending;
+    _pending = null;
+    var id = followId(ctx.lat, ctx.lon);
+    followLoad().then(function (m) {
+      if (m[id]) return;
+      return window.fbSetDoc(window.fbDoc(window.fbDb, 'users', user().uid, 'secteurs', id), {
+        nom: ctx.name || 'Secteur', lat: ctx.lat, lon: ctx.lon,
+        addedAt: window.fbServerTimestamp()
+      }).then(function () {
+        _follows[id] = true;
+        _secteurs = null;
+        var btn = document.querySelector('.vz-follow');
+        if (btn) {
+          btn.setAttribute('aria-pressed', 'true');
+          btn.setAttribute('aria-label', 'Ne plus suivre ce secteur');
+        }
+      });
+    }).catch(function (err) { console.warn('[suivi] reprise', err); });
+  }
+
+  window.VZ_FOLLOW = {
+    mount: followMount,
+    reset: function () { _follows = null; }
   };
 
   window.VZ_ESPACE = {
