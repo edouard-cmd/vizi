@@ -13082,7 +13082,9 @@ function vzAuthResetPassword() {
   if (!email) { showLoginError('Entre ton email au-dessus, puis reclique.'); return; }
   if (!window.fbSendPasswordReset) { showLoginError('Connexion pas encore prete.'); return; }
   vzAuthTrack('password_reset');
-  window.fbSendPasswordReset(window.fbAuth, email).then(function() {
+  // continueUrl : sans elle, l'ecran Firebase de changement de mot de passe se
+  // termine sur lui-meme et le chasseur doit retrouver Visimer a la main.
+  window.fbSendPasswordReset(window.fbAuth, email, vzAuthActionSettings()).then(function() {
     showLoginOk('Si un compte existe avec cet email, un lien de reinitialisation vient de partir.');
   }).catch(function(err) {
     showLoginError(vzAuthMessage(err));
@@ -13096,17 +13098,24 @@ function vzAuthResetPassword() {
 
 var VZ_AUTH_EMAIL_KEY = 'vizi_auth_email';
 
+// Destination de retour commune aux deux emails d'action. handleCodeInApp doit
+// valoir true pour le lien magique (l'application traite le jeton elle-meme) et
+// false pour la reinitialisation (Firebase affiche son formulaire de mot de
+// passe, puis renvoie ici grace a l'url).
+function vzAuthActionSettings(inApp) {
+  return {
+    url: window.location.origin + window.location.pathname,
+    handleCodeInApp: inApp === true
+  };
+}
+
 function vzAuthSendMagicLink() {
   var emEl = document.getElementById('loginEmail');
   var email = emEl ? emEl.value.trim() : '';
   if (!email) { showLoginError('Entre ton email au-dessus, puis reclique.'); return; }
   if (!window.fbSendSignInLink) { showLoginError('Connexion pas encore prete.'); return; }
   vzAuthTrack('magic_link');
-  var settings = {
-    url: window.location.origin + window.location.pathname,
-    handleCodeInApp: true
-  };
-  window.fbSendSignInLink(window.fbAuth, email, settings).then(function() {
+  window.fbSendSignInLink(window.fbAuth, email, vzAuthActionSettings(true)).then(function() {
     try { localStorage.setItem(VZ_AUTH_EMAIL_KEY, email); } catch (e) {}
     showLoginOk('Lien envoye a ' + email + '. Ouvre-le depuis ce telephone, tu seras connecte sans mot de passe.');
   }).catch(function(err) {
@@ -18923,7 +18932,7 @@ function vzmInit() {
     + '.vzsp-wrap *,.vzsp-wrap *::before,.vzsp-wrap *::after{box-sizing:border-box;}'
     + '.vzsp-mono{font-family:\'IBM Plex Mono\',monospace;}'
     + '.vzsp-grab{width:42px;height:5px;border-radius:3px;background:#C6D0D8;margin:2px auto 12px;flex-shrink:0;}'
-    + '.vzsp-shead{display:flex;align-items:flex-start;gap:10px;padding:0 8px 12px;flex-shrink:0;}'
+    + '.vzsp-shead{display:flex;align-items:flex-start;gap:10px;padding:0 8px 12px;flex-shrink:0;position:relative;}'
     + '.vzsp-shead .vzsp-pin{width:38px;height:38px;border-radius:11px;background:var(--vzsp-ink);display:flex;align-items:center;justify-content:center;flex-shrink:0;}'
     + '.vzsp-shead .vzsp-pin svg{width:21px;height:25px;overflow:visible;}'
     + '.vzsp-shead .vzsp-idt{flex:1;min-width:0;}'
@@ -19613,6 +19622,14 @@ function vzmInit() {
     var closeBtn = document.getElementById('vzspClose');
     if (closeBtn) closeBtn.addEventListener('click', closePanel);
 
+    // Etoile "suivre ce secteur". C'est le geste qui conditionne tout l'espace
+    // personnel : le chasseur ouvre un secteur, veut le retrouver demain, tape
+    // l'etoile, et c'est seulement la qu'on lui propose un compte.
+    var shead = panel ? panel.querySelector('.vzsp-shead') : null;
+    if (shead && typeof VZ_FOLLOW !== 'undefined' && VZ_FOLLOW && VZ_FOLLOW.mount) {
+      VZ_FOLLOW.mount(shead, { lat: VZSP.lat, lon: VZSP.lon, name: VZSP.name });
+    }
+
     panel.querySelectorAll('[data-vzsptab]').forEach(function (b) {
       b.addEventListener('click', function () {
         var t = b.getAttribute('data-vzsptab');
@@ -20301,7 +20318,10 @@ var VZ_ACCOUNT = (function () {
       // Elle passe SOUS les deux boutons (ils s'arretent a 64px, elle commence
       // a 72px) : aucun recouvrement, aucune cible masquee.
       + '#vzSearch .vz-search-list{margin-right:-120px !important;}'
-      + '#vzAccountBtn{position:fixed;top:12px;right:72px;z-index:1260;width:52px;height:52px;padding:0;'
+      // Coin extreme pour le compte, Me localiser recule de 60px. La recherche
+      // s'arrete au meme endroit qu'avant : seuls les deux boutons permutent.
+      + '#vzBtnLocate{right:72px !important;}'
+      + '#vzAccountBtn{position:fixed;top:12px;right:12px;z-index:1260;width:52px;height:52px;padding:0;'
       +   'box-sizing:border-box;display:flex;align-items:center;justify-content:center;'
       +   'background:#FFFFFF;border:2px solid #0A1520;border-radius:14px;color:#0A1520;'
       +   'box-shadow:0 4px 14px rgba(8,17,27,0.28);cursor:pointer;overflow:hidden;'
@@ -20333,7 +20353,7 @@ var VZ_ACCOUNT = (function () {
       // trombine devient la seule entree vers le compte sur les deux tailles.
       // Elle se pose dans la colonne de droite, au-dessus du reste du flottant.
       + '@media (min-width:769px){'
-      + '#vzAccountBtn{position:fixed;top:var(--vz-gut,12px);right:var(--vz-gut,12px);z-index:1260;'
+      + '#vzAccountBtn{position:fixed;top:var(--vz-gut,12px);right:var(--vz-gut,12px);z-index:1261;'
       +   'width:44px;height:44px;padding:0;box-sizing:border-box;display:flex;align-items:center;'
       +   'justify-content:center;background:#FFFFFF;border:2px solid #0A1520;border-radius:14px;'
       +   'color:#0A1520;box-shadow:0 4px 14px rgba(8,17,27,0.28);cursor:pointer;overflow:hidden;'
@@ -20567,7 +20587,9 @@ var VZ_ACCOUNT = (function () {
     // Passer d'un onglet a l'autre faisait sauter la ligne de titre. On aligne
     // le panneau secteur sur les valeurs de #vzSheet, seule reference.
     + 'body.vzm-nav .vzsp-wrap{display:flex;flex-direction:column;height:100%;min-height:0;}'
-    + 'body.vzm-nav .vzsp-shead{align-items:center;gap:0;padding:12px 64px 12px 16px;'
+    // 120px a droite : 56 pour la croix, 56 pour l'etoile, 8 de garde. Sans
+    // cela un nom de secteur long passerait sous les deux boutons.
+    + 'body.vzm-nav .vzsp-shead{align-items:center;gap:0;padding:12px 120px 12px 16px;'
     +   'border-bottom:1px solid #C9D4DC;position:relative;}'
     + 'body.vzm-nav .vzsp-shead .vzsp-pin{display:none;}'
     + 'body.vzm-nav .vzsp-shead .vzsp-idt .vzsp-kicker{font-family:Inter,sans-serif;font-size:10px;'
