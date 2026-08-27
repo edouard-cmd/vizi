@@ -812,6 +812,13 @@ showLitto3d: true, litto3d: null,
 
 var S_forecastOpen = false;
 var S_windUnit = 'kmh';
+// Lecture immediate du reglage local : declaree ici plutot que dans un hook de
+// demarrage, pour que la toute premiere table de previsions soit deja dans la
+// bonne unite au lieu de basculer sous les yeux du chasseur.
+try {
+  var _vzWU = localStorage.getItem('vizi_wind_unit');
+  if (_vzWU === 'kt' || _vzWU === 'kmh') S_windUnit = _vzWU;
+} catch (e) {}
 var S_lastForecastData = null;
 var S_gridScores = [];
 var S_gridUpdatedAt = null;
@@ -986,15 +993,59 @@ function toggleSedLegend() {
 
 function toggleWindUnit() {
   S_windUnit = S_windUnit === 'kmh' ? 'kt' : 'kmh';
+  vzPersistWindUnit(S_windUnit);
+  vzRefreshWindUnitUI();
+}
+
+// Redessine tout ce qui affiche du vent. Extrait de toggleWindUnit pour etre
+// appelable a la restauration, sans faire basculer la valeur au passage.
+function vzRefreshWindUnitUI() {
   var btn = document.getElementById('windUnitToggle');
   if (btn) {
     btn.textContent = S_windUnit === 'kmh' ? 'km/h' : 'noeuds';
     btn.style.color = S_windUnit === 'kt' ? '#A8E63D' : 'rgba(255,255,255,0.7)';
     btn.style.borderColor = S_windUnit === 'kt' ? '#A8E63D' : 'rgba(255,255,255,0.15)';
   }
+  if (typeof syncLayersPopover === 'function') {
+    try { syncLayersPopover(); } catch (e) {}
+  }
   if (S_lastForecastData) renderForecastTable(S_lastForecastData.h, S_lastForecastData.now);
   if (S_spotWeatherCache) renderSpotPopup();
   if (typeof vzWindRenderLegendTicks_ === 'function') vzWindRenderLegendTicks_();
+}
+
+var VZ_WIND_UNIT_KEY = 'vizi_wind_unit';
+
+// localStorage d'abord : le reglage tient sans compte et survit au
+// rechargement. Firestore ensuite, seulement si une session existe, pour que
+// le chasseur retrouve son unite sur un autre appareil.
+function vzPersistWindUnit(u) {
+  try { localStorage.setItem(VZ_WIND_UNIT_KEY, u); } catch (e) {}
+  if (S_currentUser && window.fbSetDoc && window.fbDb) {
+    window.fbSetDoc(window.fbDoc(window.fbDb, 'users', S_currentUser.uid),
+                    { unites: { vent: u === 'kt' ? 'noeuds' : 'kmh' } }, { merge: true })
+      .then(function() {
+        if (S_userProfile) S_userProfile.unites = { vent: u === 'kt' ? 'noeuds' : 'kmh' };
+      })
+      .catch(function(err) { console.warn('[unites] ecriture compte', err); });
+  }
+}
+
+// Restauration. Le compte prime sur le local : c'est le reglage que le chasseur
+// a pose explicitement dans son profil, et il doit gagner quand il arrive sur
+// un appareil neuf dont le localStorage dit encore km/h.
+function vzApplyStoredWindUnit() {
+  var want = null;
+  if (S_userProfile && S_userProfile.unites && S_userProfile.unites.vent) {
+    want = S_userProfile.unites.vent === 'noeuds' ? 'kt' : 'kmh';
+  }
+  if (!want) {
+    try { want = localStorage.getItem(VZ_WIND_UNIT_KEY); } catch (e) {}
+  }
+  if (want !== 'kt' && want !== 'kmh') return;
+  if (want === S_windUnit) return;
+  S_windUnit = want;
+  vzRefreshWindUnitUI();
 }
 
 function initCanvas() {
@@ -12796,9 +12847,10 @@ function analyzeCenterPoint() {
 // met un chasseur dehors sans qu'il comprenne pourquoi. vzAuthTrack instrumente
 // le choix reel avant d'en payer la maintenance.
 //
-// Etat partage : S_currentUser reste la source de verite de la session, lu
-// par openSessionModal, saveSession, loadSessions. S_userProfile est neuf et
-// porte le document Firestore, il ne remplace jamais S_currentUser.
+// Etat partage : S_currentUser reste la source de verite de la session, lu par
+// VZ_ACCOUNT et par vizi-espace.js. S_userProfile porte le document Firestore
+// users/{uid} (pseudo, unites, lastSeenVersion), il ne remplace jamais
+// S_currentUser : l'un est la session, l'autre le profil.
 // ============================================================================
 
 var S_currentUser = null;
@@ -12905,21 +12957,16 @@ window.handleAuthStateChange = function(user) {
   S_currentUser = user;
   if (!user) S_userProfile = null;
 
-  var btn = document.getElementById('authBtn');
-  var btnText = document.getElementById('authBtnText');
-  if (btn && btnText) {
-    if (user) {
-      btn.classList.add('logged');
-      btnText.textContent = 'Mon carnet';
-    } else {
-      btn.classList.remove('logged');
-      btnText.textContent = 'Se connecter';
-    }
+  // Le document utilisateur porte les unites : on le lit AVANT de prevenir
+  // l'espace, sinon le profil s'afficherait une fois avec l'ancienne valeur.
+  if (user) {
+    vzAuthEnsureUserDoc(user).then(function() {
+      vzApplyStoredWindUnit();
+      if (typeof window.vzEspaceOnAuth === 'function') window.vzEspaceOnAuth();
+    });
+  } else {
+    if (typeof window.vzEspaceOnAuth === 'function') window.vzEspaceOnAuth();
   }
-  var cu = document.getElementById('carnetUser');
-  if (cu && user) cu.textContent = user.email || user.displayName || 'Connecte';
-
-  if (user) vzAuthEnsureUserDoc(user);
   if (typeof VZ_ACCOUNT !== 'undefined' && VZ_ACCOUNT && VZ_ACCOUNT.sync) VZ_ACCOUNT.sync(user);
 };
 
@@ -12928,11 +12975,6 @@ window.vzAuthOnRedirectBack = function() {
   closeLogin();
   vzAuthTrack('google_redirect');
 };
-
-function handleAuthClick() {
-  if (S_currentUser) openCarnet();
-  else openLogin();
-}
 
 // --- Modale -------------------------------------------------------------
 
@@ -13113,361 +13155,44 @@ function logout() {
   if (!window.fbAuth) return;
   window.fbSignOut(window.fbAuth).then(function() {
     S_userProfile = null;
-    if (typeof closeCarnet === 'function') closeCarnet();
+    if (typeof VZ_ESPACE !== 'undefined' && VZ_ESPACE) VZ_ESPACE.close();
   });
 }
 
-// NEUTRALISE au commit 1. Cette fonction ouvrait l'ancien carnet juste apres
-// la connexion, ou affichait un toast de bienvenue si la collection 'sessions'
-// etait vide. Elle interrogeait la collection racine 'sessions', que le CDC v2
-// abandonne au profit de users/{uid}/retours. La laisser active ferait ouvrir
-// un carnet qui sort du code au commit suivant. Conservee en coquille pour ne
-// casser aucun appelant, et retiree avec le reste de l'ancien carnet.
-function checkAndOpenCarnet() {
-  return;
-}
+// ============================================================================
+// ANCIEN CARNET - DEPOSE (commit 2)
+// ============================================================================
+// Sont sortis d'ici, remplaces par vizi-espace.js et non doubles :
+//   checkAndOpenCarnet, showWelcomeToast, openCarnet, closeCarnet,
+//   loadSessions, renderCarnetDashboard, buildCarnetUI, filterCarnet,
+//   renderSessionsList, toggleCarnetSessionsOnMap, focusSessionOnMap,
+//   openSessionModal, closeSessionModal, setMood, adjustLead, setFbVis,
+//   setFbCurrent, setFbTemp, saveSession
+//   et les etats S_carnetMapLayer, S_leadKg, S_fbVis, S_fbCurrent, S_fbTemp.
+//
+// Toutes etaient confinees a ce bloc : aucune n'etait appelee ailleurs dans le
+// fichier, verifie fonction par fonction avant la depose. Leurs conteneurs DOM
+// (#carnetDrawer, #sessionOverlay) et leur CSS sortent d'index.html dans le
+// meme commit, ainsi que #authBtn et le bouton Enregistrer ma session.
+//
+// La collection racine 'sessions' n'est PAS migree : verification faite en
+// console, elle ne contenait qu'un unique document de test portant l'uid du
+// proprietaire, sans visibilite observee exploitable. Sa regle Firestore sort
+// avec elle.
+//
+// handleAuthClick et logout sont repointes vers VZ_ESPACE, seul point d'entree
+// desormais. Les deux gardent leur nom : ils restent appeles depuis le HTML.
+// ============================================================================
 
-function showWelcomeToast() {
-  var toast = document.getElementById('landToast');
-  toast.innerHTML = 'Bienvenue ! Clique sur ton spot de chasse pour enregistrer ta premiere session.';
-  toast.style.fontSize = '15px';
-  toast.style.maxWidth = '400px';
-  toast.style.whiteSpace = 'normal';
-  toast.style.lineHeight = '1.5';
-  toast.classList.add('show');
-  setTimeout(function() {
-    toast.classList.remove('show');
-    toast.style.fontSize = '';
-    toast.style.maxWidth = '';
-    toast.style.whiteSpace = '';
-    toast.style.lineHeight = '';
-  }, 5500);
-}
-
-function openCarnet() {
-  if (!S_currentUser) { openLogin(); return; }
-  document.getElementById('carnetDrawer').classList.add('open');
-  loadSessions();
-}
-
-function closeCarnet() {
-  document.getElementById('carnetDrawer').classList.remove('open');
-  if (S_carnetMapLayer) { S.map.removeLayer(S_carnetMapLayer); S_carnetMapLayer = null; }
-}
-
-function loadSessions() {
-  var body = document.getElementById('carnetBody');
-  body.innerHTML = '<div class="carnet-empty">Chargement...</div>';
-  if (!window.fbDb || !S_currentUser) return;
-  var q = window.fbQuery(window.fbCollection(window.fbDb, 'sessions'), window.fbWhere('userId', '==', S_currentUser.uid), window.fbOrderBy('date', 'desc'));
-  window.fbGetDocs(q).then(function(snapshot) {
-    if (snapshot.empty) {
-      body.innerHTML = '<div class="carnet-empty">Aucune session enregistree.<br><br>Clique sur ton spot sur la carte, puis sur "Enregistrer ma session".</div>';
-      return;
-    }
-    var sessions = [];
-    snapshot.forEach(function(d) { sessions.push(d.data()); });
-    renderCarnetDashboard(sessions);
-  }).catch(function(err) {
-    body.innerHTML = '<div class="carnet-empty" style="color:var(--bad)">Erreur : ' + err.message + '</div>';
-  });
-}
-
-function renderCarnetDashboard(sessions) {
-  window.S_carnetAllSessions = sessions;
-  window.S_carnetFilter = { search: '', year: 'all' };
-  buildCarnetUI();
-}
-
-function buildCarnetUI() {
-  var body = document.getElementById('carnetBody');
-  var sessions = window.S_carnetAllSessions || [];
-  var now = new Date();
-  var yearStart = new Date(now.getFullYear(), 0, 1);
-  var sessionsYear = sessions.filter(function(s) {
-    if (!s.date) return false;
-    return new Date(s.date) >= yearStart;
-  }).length;
-  var lastSession = sessions[0];
-  var daysSince = '-';
-  if (lastSession && lastSession.date) {
-    var diffMs = now - new Date(lastSession.date);
-    var d = Math.floor(diffMs / 86400000);
-    if (d === 0) daysSince = "Aujourd'hui";
-    else if (d === 1) daysSince = 'Hier';
-    else daysSince = 'il y a ' + d + 'j';
-  }
-  var years = {};
-  sessions.forEach(function(s) {
-    if (s.date) years[new Date(s.date).getFullYear()] = true;
-  });
-  var yearList = Object.keys(years).sort(function(a, b) { return b - a; });
-  var html = '';
-  html += '<div class="carnet-stats-row">';
-  html += '<div class="carnet-stat"><div class="carnet-stat-val">' + sessionsYear + '</div><div class="carnet-stat-lbl">En ' + now.getFullYear() + '</div></div>';
-  html += '<div class="carnet-stat"><div class="carnet-stat-val">' + sessions.length + '</div><div class="carnet-stat-lbl">Total</div></div>';
-  html += '<div class="carnet-stat"><div class="carnet-stat-val" style="font-size:16px;line-height:1.2">' + daysSince + '</div><div class="carnet-stat-lbl">Derniere</div></div>';
-  html += '</div>';
-  html += '<div class="carnet-map-btn" id="carnetMapToggle" onclick="toggleCarnetSessionsOnMap()">Afficher mes sessions sur la carte</div>';
-  html += '<div class="carnet-filters">';
-  html += '<input type="text" class="carnet-search" id="carnetSearch" placeholder="Rechercher un spot, une prise..." oninput="filterCarnet()">';
-  html += '<select class="carnet-year-select" id="carnetYear" onchange="filterCarnet()">';
-  html += '<option value="all">Toutes annees</option>';
-  yearList.forEach(function(y) { html += '<option value="' + y + '">' + y + '</option>'; });
-  html += '</select></div>';
-  html += '<div class="carnet-sessions-wrap" id="carnetSessionsWrap"></div>';
-  body.innerHTML = html;
-  renderSessionsList();
-}
-
-function filterCarnet() {
-  window.S_carnetFilter = {
-    search: document.getElementById('carnetSearch').value.trim().toLowerCase(),
-    year: document.getElementById('carnetYear').value
-  };
-  renderSessionsList();
-}
-
-function renderSessionsList() {
-  var wrap = document.getElementById('carnetSessionsWrap');
-  if (!wrap) return;
-  var sessions = window.S_carnetAllSessions || [];
-  var filter = window.S_carnetFilter || { search: '', year: 'all' };
-  var filtered = sessions.filter(function(s) {
-    if (filter.year !== 'all' && s.date) {
-      if (new Date(s.date).getFullYear().toString() !== filter.year) return false;
-    }
-    if (filter.search) {
-      var haystack = [s.spotName || '', s.catch_ || '', s.notes || ''].join(' ').toLowerCase();
-      if (haystack.indexOf(filter.search) === -1) return false;
-    }
-    return true;
-  });
-  if (filtered.length === 0) {
-    wrap.innerHTML = '<div class="carnet-empty" style="padding:30px 10px">Aucune session ne correspond a ta recherche.</div>';
-    return;
-  }
-  var groups = {};
-  var groupOrder = [];
-  filtered.forEach(function(s) {
-    if (!s.date) return;
-    var d = new Date(s.date);
-    var key = d.getFullYear() + '-' + (d.getMonth() + 1).toString().padStart(2, '0');
-    if (!groups[key]) {
-      groups[key] = { label: d.toLocaleDateString('fr', { month: 'long', year: 'numeric' }), sessions: [] };
-      groupOrder.push(key);
-    }
-    groups[key].sessions.push(s);
-  });
-  var moodLabels = ['', 'Chiante', 'Bof', 'Normale', 'Bien', 'Top'];
-  var moodBgColors = ['', '#FEE2E2', '#FED7AA', '#FEF3C7', '#DCFCE7', '#D1FAE5'];
-  var moodTxtColors = ['', '#991B1B', '#9A3412', '#854D0E', '#166534', '#065F46'];
-  var html = '<div class="carnet-sessions-title">' + filtered.length + ' session' + (filtered.length > 1 ? 's' : '') + '</div>';
-  groupOrder.forEach(function(key) {
-    var group = groups[key];
-    html += '<div class="month-group-header"><span>' + group.label + '</span><span class="month-group-count">' + group.sessions.length + ' sortie' + (group.sessions.length > 1 ? 's' : '') + '</span></div>';
-    group.sessions.forEach(function(s) {
-      var mood = s.mood || 3;
-      var dateObj = s.date ? new Date(s.date) : null;
-      var dateStr = dateObj ? dateObj.toLocaleDateString('fr', { weekday: 'short', day: 'numeric', month: 'short' }) : '-';
-      if (s.time) dateStr += ' - ' + s.time;
-      var spotName = s.spotName || (s.lat ? s.lat.toFixed(3) + 'N ' + Math.abs(s.lon).toFixed(3) + 'O' : 'Spot inconnu');
-      html += '<div class="session-card mood-' + mood + '" onclick="focusSessionOnMap(' + (s.lat || 0) + ',' + (s.lon || 0) + ')">';
-      html += '<div class="session-card-top">';
-      html += '<div><div class="session-date">' + dateStr + '</div><div class="session-spot">' + spotName + '</div></div>';
-      html += '<div class="session-mood-badge" style="background:' + moodBgColors[mood] + ';color:' + moodTxtColors[mood] + '">' + moodLabels[mood] + '</div>';
-      html += '</div>';
-      html += '<div class="session-grid">';
-      html += '<div class="session-field-mini"><span class="session-field-lbl">Visibilite</span><span class="session-field-val">' + (s.visibilityLabel || '-') + '</span></div>';
-      if (s.leadKg !== undefined && s.leadKg !== null) {
-        html += '<div class="session-field-mini"><span class="session-field-lbl">Plomb</span><span class="session-field-val">' + s.leadKg + ' kg</span></div>';
-      }
-      if (s.windKmh !== undefined) {
-        html += '<div class="session-field-mini"><span class="session-field-lbl">Vent</span><span class="session-field-val">' + s.windKmh + ' km/h ' + (s.windDirName || '') + '</span></div>';
-      }
-      if (s.tideCoef) {
-        html += '<div class="session-field-mini"><span class="session-field-lbl">Coef maree</span><span class="session-field-val">' + s.tideCoef + '</span></div>';
-      }
-      if (s.catch_) {
-        html += '<div class="session-field-mini" style="grid-column:span 2"><span class="session-field-lbl">Prises</span><span class="session-field-val">' + s.catch_ + '</span></div>';
-      }
-      html += '</div>';
-      if (s.notes) {
-        html += '<div class="session-notes">' + s.notes + '</div>';
-      }
-      html += '</div>';
-    });
-  });
-  wrap.innerHTML = html;
-  window.S_carnetSessions = filtered;
-}
-
-var S_carnetMapLayer = null;
-function toggleCarnetSessionsOnMap() {
-  var btn = document.getElementById('carnetMapToggle');
-  if (S_carnetMapLayer) {
-    S.map.removeLayer(S_carnetMapLayer);
-    S_carnetMapLayer = null;
-    btn.classList.remove('active');
-    btn.textContent = 'Afficher mes sessions sur la carte';
-    return;
-  }
-  var sessions = window.S_carnetSessions || [];
-  if (sessions.length === 0) return;
-  var markers = [];
-  var moodColors = ['', '#DC2626', '#EA580C', '#CA8A04', '#16A34A', '#0BA888'];
-  sessions.forEach(function(s) {
-    if (!s.lat || !s.lon) return;
-    var mood = s.mood || 3;
-    var color = moodColors[mood];
-    var dateStr = s.date ? new Date(s.date).toLocaleDateString('fr', { day: 'numeric', month: 'short', year: 'numeric' }) : '-';
-    var m = L.circleMarker([s.lat, s.lon], { radius: 8, fillColor: color, color: '#fff', weight: 2, fillOpacity: 0.9 });
-    var popup = '<div style="font-family:IBM Plex Mono,monospace;font-size:11px;line-height:1.6;"><strong>' + dateStr + '</strong><br>' + (s.spotName || '-') + '<br>Visi : ' + (s.visibilityLabel || '-');
-    if (s.catch_) popup += '<br>Prises : ' + s.catch_;
-    popup += '</div>';
-    m.bindPopup(popup);
-    markers.push(m);
-  });
-  S_carnetMapLayer = L.featureGroup(markers).addTo(S.map);
-  btn.classList.add('active');
-  btn.textContent = 'Masquer mes sessions';
-  if (markers.length > 0) S.map.fitBounds(S_carnetMapLayer.getBounds(), { padding: [80, 80], maxZoom: 13 });
-}
-
-function focusSessionOnMap(lat, lon) {
-  if (!lat || !lon) return;
-  S.map.setView([lat, lon], 13);
-}
-
-var S_leadKg = 7.0;
-var S_fbVis = 0;
-var S_fbCurrent = 2;
-var S_fbTemp = 0;
-
-function adjustLead(delta) {
-  S_leadKg = Math.max(0, Math.min(20, S_leadKg + delta));
-  document.getElementById('sessionLeadVal').textContent = S_leadKg.toFixed(1);
-}
-
-function updateFbVis(val) {
-  S_fbVis = parseInt(val);
-  var labels = { '-2': 'Bien pire', '-1': 'Pire', '0': 'Conforme', '1': 'Mieux', '2': 'Bien mieux' };
-  document.getElementById('fbVisVal').textContent = labels[val];
-}
-
-function updateFbCurrent(val) {
-  S_fbCurrent = parseInt(val);
-  var labels = { '0': 'Nul', '1': 'Faible', '2': 'Moyen', '3': 'Fort', '4': 'Tres fort' };
-  document.getElementById('fbCurrentVal').textContent = labels[val];
-}
-
-function updateFbTemp(val) {
-  S_fbTemp = parseInt(val);
-  var labels = { '-2': 'Glaciale', '-1': 'Froide', '0': 'Normale', '1': 'Tiede', '2': 'Chaude' };
-  document.getElementById('fbTempVal').textContent = labels[val];
-}
-
-function openSessionModal() {
-  if (!S_currentUser) { openLogin(); return; }
-  if (!S.clickLatLng) { alert('Clique d abord sur la carte sur ton spot.'); return; }
-  var lat = S.clickLatLng.lat;
-  var lon = S.clickLatLng.lng;
-  S_sessionContext = { lat: lat, lon: lon, depth: S._spotDepth };
-  document.getElementById('sessionModalCoords').textContent = lat.toFixed(4) + 'N ' + Math.abs(lon).toFixed(4) + 'O';
-  var now = new Date();
-  document.getElementById('sessionDate').value = now.toISOString().split('T')[0];
-  document.getElementById('sessionTime').value = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
-  document.getElementById('sessionVisSlider').value = 8;
-  updateSessionVis(8);
-  document.getElementById('sessionCatch').value = '';
-  document.getElementById('sessionNotes').value = '';
-  setMood(3);
-  S_leadKg = 7.0;
-  document.getElementById('sessionLeadVal').textContent = S_leadKg.toFixed(1);
-  document.getElementById('fbVisSlider').value = 0; updateFbVis(0);
-  document.getElementById('fbCurrentSlider').value = 2; updateFbCurrent(2);
-  document.getElementById('fbTempSlider').value = 0; updateFbTemp(0);
-  var condText = '-';
-  if (S_spotWeatherCache && S_spotWeatherCache.time) {
-    var w = Math.round(S_spotWeatherCache.windspeed_10m[0] || 0);
-    var g = Math.round(S_spotWeatherCache.windgusts_10m[0] || 0);
-    condText = 'Vent : ' + w + ' km/h / Rafales : ' + g + ' km/h';
-  }
-  document.getElementById('sessionCondVal').textContent = condText;
-  document.getElementById('sessionOverlay').classList.add('open');
-}
-
-function closeSessionModal() {
-  document.getElementById('sessionOverlay').classList.remove('open');
-}
-
-function updateSessionVis(idx) {
-  idx = parseInt(idx);
-  var v = VIS[idx];
-  var el = document.getElementById('sessionVisVal');
-  el.textContent = v.l;
-  el.style.color = v.c;
-}
-
-function setMood(n) {
-  S_currentMood = n;
-  document.querySelectorAll('.mood-btn').forEach(function(b) {
-    b.classList.toggle('on', parseInt(b.dataset.mood) === n);
-  });
-}
-
-function saveSession() {
-  if (!S_currentUser || !S_sessionContext) return;
-  var btn = document.getElementById('sessionSubmitBtn');
-  btn.disabled = true;
-  btn.textContent = 'Enregistrement...';
-  var idx = parseInt(document.getElementById('sessionVisSlider').value);
-  var visLevel = VIS[idx];
-  var w = 0, g = 0, dir = null;
-  if (S_spotWeatherCache && S_spotWeatherCache.time) {
-    w = Math.round(S_spotWeatherCache.windspeed_10m[0] || 0);
-    g = Math.round(S_spotWeatherCache.windgusts_10m[0] || 0);
-    dir = S_spotWeatherCache.winddirection_10m[0];
-  }
-  var fromNames = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
-  var dirName = (dir !== null && dir !== undefined) ? fromNames[Math.round(dir / 45) % 8] : '';
-  var session = {
-    userId: S_currentUser.uid,
-    date: document.getElementById('sessionDate').value,
-    time: document.getElementById('sessionTime').value,
-    lat: S_sessionContext.lat,
-    lon: S_sessionContext.lon,
-    spotName: null,
-    visibilityM: visLevel.v,
-    visibilityLabel: visLevel.l,
-    catch_: document.getElementById('sessionCatch').value.trim() || null,
-    mood: S_currentMood,
-    notes: document.getElementById('sessionNotes').value.trim() || null,
-    leadKg: S_leadKg,
-    fbVis: S_fbVis,
-    fbCurrent: S_fbCurrent,
-    fbTemp: S_fbTemp,
-    windKmh: w,
-    gustsKmh: g,
-    windDirName: dirName,
-    depth: S_sessionContext.depth || null,
-    createdAt: window.fbServerTimestamp()
-  };
-  window.fbAddDoc(window.fbCollection(window.fbDb, 'sessions'), session).then(function() {
-    btn.textContent = 'Enregistre !';
-    setTimeout(function() {
-      closeSessionModal();
-      btn.disabled = false;
-      btn.textContent = 'Enregistrer dans mon carnet';
-    }, 1200);
-  }).catch(function(err) {
-    btn.disabled = false;
-    btn.textContent = 'Enregistrer dans mon carnet';
-    alert('Erreur : ' + err.message);
-  });
+function handleAuthClick() {
+  if (typeof VZ_ESPACE !== 'undefined' && VZ_ESPACE) { VZ_ESPACE.open(); return; }
+  // vizi-espace.js pas encore charge : on degrade sur la connexion plutot que
+  // de ne rien faire du tout.
+  if (!S_currentUser) openLogin();
 }
 
 // ============================================================
+// VISIMER - Page Marees plein ecran (V2 : jour unique + coef)// ============================================================
 // VISIMER - Page Marees plein ecran (V2 : jour unique + coef)
 // Overlay avec mini carte ports + jour selectionne en detail
 // ============================================================
@@ -18694,29 +18419,18 @@ function vzmInit() {
       }
     });
 
-    // === 4. AJOUTE les 2 boutons EMPILÉS (pleine largeur) ===
+    // === 4. Rangee d'actions du drawer mobile ===
+    // Elle ne portait plus qu'un bouton, "Enregistrer ma session", dernier
+    // appelant vivant de l'ancien carnet. Le partage de visibilite en avait
+    // deja ete retire comme doublon du bouton sonar. La rangee entiere sort
+    // donc plutot que de laisser un conteneur vide dans le drawer.
+    // Le depot d'un retour reprendra cette place avec la feuille du commit 4.
     if (drawer.querySelector('#vzmActionRow')) return;
 
     var actionRow = document.createElement('div');
     actionRow.id = 'vzmActionRow';
     actionRow.className = 'vzm-action-row';
-    // Le bouton "Partager la visibilite" est retire de la rangee : doublon direct
-    // de l'action "Partager la visibilite" du bouton sonar (point d'entree unique).
-    actionRow.innerHTML =
-      '<button id="vzmSaveSessionBtn" class="vzm-action-btn vzm-action-secondary">' +
-        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">' +
-          '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>' +
-          '<polyline points="17 21 17 13 7 13 7 21"/>' +
-          '<polyline points="7 3 7 8 15 8"/>' +
-        '</svg>' +
-        '<span>Enregistrer ma session</span>' +
-      '</button>';
-
-    actionRow.querySelector('#vzmSaveSessionBtn').onclick = function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      if (typeof openSessionModal === 'function') openSessionModal();
-    };
+    actionRow.style.display = 'none';
 
     // Style charte Talisker - empilés
     if (!document.getElementById('vzmActionRowStyle')) {
@@ -18821,9 +18535,8 @@ function vzmInit() {
       if (btn.closest('#tidesDrawer')) return;
       if (btn.closest('#vzSheet')) return;
       if (btn.closest('#obsSheet')) return;
-      if (btn.closest('#sessionOverlay')) return;
       if (btn.closest('#loginOverlay')) return;
-      if (btn.closest('#carnetDrawer')) return;
+      if (btn.closest('#vzEspace')) return;
       if (btn.closest('#vzExplainOverlay')) return;
       if (btn.closest('.leaflet-control-container')) return;
 
@@ -18940,9 +18653,8 @@ function vzmInit() {
     function updateHintVisibility() {
       var spotMobile = document.getElementById('spotDrawerMobile');
       var sheet = document.getElementById('vzSheet');
-      var carnet = document.getElementById('carnetDrawer');
+      var espace = document.getElementById('vzEspace');
       var login = document.getElementById('loginOverlay');
-      var session = document.getElementById('sessionOverlay');
       var obs = document.getElementById('obsSheet');
       var explain = document.getElementById('vzExplainOverlay');
 
@@ -18953,9 +18665,8 @@ function vzmInit() {
            spotMobile.classList.contains('vzm-full'))) ||
         (sheet && sheet.style.display !== 'none' &&
           (sheet.classList.contains('sheet-half') || sheet.classList.contains('sheet-full'))) ||
-        (carnet && carnet.classList.contains('open')) ||
+        (espace && espace.classList.contains('open')) ||
         (login && login.classList.contains('open')) ||
-        (session && session.classList.contains('open')) ||
         (obs && obs.classList.contains('open')) ||
         (explain && explain.classList.contains('open'));
 
@@ -18964,8 +18675,8 @@ function vzmInit() {
 
     // Observe les changements de classe sur les drawers principaux
     var observer = new MutationObserver(updateHintVisibility);
-    var targets = ['spotDrawerMobile', 'vzSheet', 'carnetDrawer', 'loginOverlay',
-                   'sessionOverlay', 'obsSheet', 'vzExplainOverlay'];
+    var targets = ['spotDrawerMobile', 'vzSheet', 'vzEspace', 'loginOverlay',
+                   'obsSheet', 'vzExplainOverlay'];
     targets.forEach(function(id) {
       var el = document.getElementById(id);
       if (el) {
@@ -20561,8 +20272,9 @@ function vzmInit() {
 // utilise en permanence qu'on ne deplace pas. La recherche recule donc de
 // right:72 a right:132 pour ouvrir 52px, et la trombine s'y loge.
 //
-// Portee strictement mobile. Le desktop garde #authBtn jusqu'a ce que le
-// panneau lateral droit le remplace.
+// Portee des deux tailles depuis le commit 2 : #authBtn est sorti du bandeau
+// desktop avec l'ancien carnet, la trombine est desormais la seule entree vers
+// le compte, en mobile comme sur ordinateur.
 //
 // Provisoire et assume : tant que l'espace chasseur n'existe pas, un clic sur
 // la trombine connectee ouvre un menu a un seul item, Se deconnecter. Il rend
@@ -20617,15 +20329,31 @@ var VZ_ACCOUNT = (function () {
       + 'body.vzm-open #vzAccountBtn,body.vzm-open #vzAccountMenu{display:none !important;}'
       + 'body.vz-goto #vzAccountBtn,body.vz-goto #vzAccountMenu{visibility:hidden;pointer-events:none;}'
       + '}'
-      + '@media (min-width:769px){#vzAccountBtn,#vzAccountMenu{display:none !important;}}';
+      // Desktop : #authBtn est sorti du bandeau avec l'ancien carnet, la
+      // trombine devient la seule entree vers le compte sur les deux tailles.
+      // Elle se pose dans la colonne de droite, au-dessus du reste du flottant.
+      + '@media (min-width:769px){'
+      + '#vzAccountBtn{position:fixed;top:var(--vz-gut,12px);right:var(--vz-gut,12px);z-index:1260;'
+      +   'width:44px;height:44px;padding:0;box-sizing:border-box;display:flex;align-items:center;'
+      +   'justify-content:center;background:#FFFFFF;border:2px solid #0A1520;border-radius:14px;'
+      +   'color:#0A1520;box-shadow:0 4px 14px rgba(8,17,27,0.28);cursor:pointer;overflow:hidden;'
+      +   'transition:transform 0.16s ease;}'
+      + '#vzAccountBtn:active{transform:scale(0.96);}'
+      + '#vzAccountBtn svg{width:20px;height:20px;}'
+      + '#vzAccountBtn img{width:100%;height:100%;object-fit:cover;display:block;}'
+      + '#vzAccountBtn.is-in{background:#4DD4A8;}'
+      + '#vzAccountBtn .ini{font-family:Inter,sans-serif;font-size:18px;font-weight:800;color:#0A1520;line-height:1;}'
+      + '#vzAccountMenu{display:none !important;}'
+      + '}';
     (document.head || document.documentElement).appendChild(st);
   }
 
-  function closeMenu() { if (_menu) _menu.classList.remove('open'); }
+  function closeMenu() { if (_menu) _menu.classList.remove('open'); }   // menu retire, garde en no-op pour les appelants
 
   function onClick() {
-    if (!S_currentUser) { closeMenu(); openLogin(); return; }
-    if (_menu) _menu.classList.toggle('open');
+    closeMenu();
+    if (!S_currentUser) { openLogin(); return; }
+    if (typeof VZ_ESPACE !== 'undefined' && VZ_ESPACE) VZ_ESPACE.open();
   }
 
   // Rend l'etat de session visible. Appelee par handleAuthStateChange, donc a
@@ -20647,8 +20375,6 @@ var VZ_ACCOUNT = (function () {
       var src = user.displayName || user.email || '?';
       _btn.innerHTML = '<span class="ini">' + src.trim().charAt(0).toUpperCase() + '</span>';
     }
-    var em = _menu ? _menu.querySelector('.em') : null;
-    if (em) em.textContent = user.email || user.displayName || 'Connecte';
   }
 
   function build() {
@@ -20661,24 +20387,8 @@ var VZ_ACCOUNT = (function () {
     _btn.setAttribute('aria-label', 'Se connecter');
     _btn.innerHTML = ICO_USER;
 
-    _menu = document.createElement('div');
-    _menu.id = 'vzAccountMenu';
-    _menu.innerHTML = '<span class="em"></span>'
-      + '<button type="button" id="vzAccountOut">Se deconnecter</button>';
-
     document.body.appendChild(_btn);
-    document.body.appendChild(_menu);
-
     _btn.addEventListener('click', function (e) { e.stopPropagation(); onClick(); });
-    _menu.querySelector('#vzAccountOut').addEventListener('click', function () {
-      closeMenu();
-      logout();
-    });
-    document.addEventListener('pointerdown', function (e) {
-      if (!_menu || !_menu.classList.contains('open')) return;
-      if (_menu.contains(e.target) || (_btn && _btn.contains(e.target))) return;
-      closeMenu();
-    });
 
     _built = true;
     // La session peut deja etre restauree quand ce module se monte : le
