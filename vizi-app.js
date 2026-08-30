@@ -1300,6 +1300,8 @@ function initMap() {
   // zoomDelta reste a 1 : il ne pilote que les boutons + / - et le clavier,
   // ou un palier entier est le comportement attendu. Le fractionnaire est un
   // choix pour le geste continu, pas pour un clic.
+  // Vue par defaut, servie tant que le cadrage regional n'a pas repondu et
+  // conservee telle quelle s'il echoue : elle reste un cadrage valide.
   S.map = L.map('map', {
     center: [49.333, -0.424],
     zoom: 9,
@@ -1313,6 +1315,13 @@ function initMap() {
     // remplace juste apres par VZ_WHEEL.
     scrollWheelZoom: false
   });
+  // Drapeau de geste utilisateur. Il n'existe que pour empecher le cadrage
+  // regional par IP d'arriver APRES que le visiteur a bouge la carte lui-meme.
+  // dragstart et zoomstart couvrent le doigt, la molette et les boutons ; les
+  // recadrages programmes passent en { animate: false } et ne les levent pas.
+  S._userMovedMap = false;
+  S.map.on('dragstart zoomstart', function () { S._userMovedMap = true; });
+
   // Zoom molette continu. A chaque evenement wheel on applique directement un
   // zoom fractionnaire, sans animation et sans accumulation : le niveau colle
   // au geste image par image. Le zoom se fait autour du curseur et non du
@@ -14148,11 +14157,78 @@ function startHeadingTracking(userInitiated) {
 function initGeolocationFlow() {
   var choice = null;
   try { choice = localStorage.getItem('vizi_geo_choice'); } catch(e) {}
-  // Carte d'onboarding "#geoBanner" retiree : le bouton localiser (croix)
-  // declenche deja la demande native d'autorisation, la carte faisait doublon.
-  // On conserve la geoloc auto pour qui l'avait deja acceptee.
+
+  // Qui a deja accepte le GPS le reprend : sa position est plus fine que
+  // l'IP, et l'autorisation est acquise, donc aucune popup n'apparait.
   if (choice === 'accepted') {
     geolocateUser(false);
+    return;
+  }
+
+  // Tous les autres, y compris le tout premier visiteur : cadrage par IP.
+  // Aucune autorisation demandee, aucune popup. Voir la doctrine ci-dessus.
+  vzInitialFrameByIP();
+}
+
+// Cadre la carte sur la region du visiteur, sans jamais rien lui demander.
+// Ne pose PAS de marqueur de position : l'IP situe une ville, pas une
+// personne. Afficher un point bleu sur une precision de plusieurs kilometres
+// laisserait croire a une mesure alors que c'est une approximation, et le
+// produit ne presente jamais une approximation comme une mesure.
+var VZ_IPGEO_KEY = 'vizi_ipgeo';
+
+function vzInitialFrameByIP() {
+  if (!(S && S.map)) return;
+
+  // Cache local 24 h. Sans lui, ipapi.co serait appele a CHAQUE chargement de
+  // page par CHAQUE visiteur, et son palier gratuit plafonne a 1000 requetes
+  // par jour : le cadrage cesserait de fonctionner precisement le jour ou le
+  // trafic decolle, c'est-a-dire au pire moment. 24 h laisse le cadrage suivre
+  // un chasseur qui se deplace d'une facade a l'autre, sans en payer le cout.
+  try {
+    var raw = localStorage.getItem(VZ_IPGEO_KEY);
+    if (raw) {
+      var c = JSON.parse(raw);
+      if (c && isFinite(c.lat) && isFinite(c.lon)
+          && (Date.now() - c.at) < 24 * 3600 * 1000) {
+        if (!S._userMovedMap) vzFrameOnNearestPort(c.lat, c.lon);
+        return;
+      }
+    }
+  } catch (e) {}
+
+  fetch('https://ipapi.co/json/').then(function (r) {
+    return r.json();
+  }).then(function (data) {
+    if (!data || !isFinite(data.latitude) || !isFinite(data.longitude)) return;
+    try {
+      localStorage.setItem(VZ_IPGEO_KEY, JSON.stringify({
+        lat: data.latitude, lon: data.longitude, at: Date.now()
+      }));
+    } catch (e) {}
+    // La carte a pu bouger pendant l'appel reseau : un clic, une recherche, un
+    // deep-link. Recadrer par-dessus arracherait la vue sous les doigts du
+    // visiteur. On ne cadre que si personne n'a encore touche a la carte.
+    if (S._userMovedMap) return;
+    vzFrameOnNearestPort(data.latitude, data.longitude);
+  }).catch(function () {
+    // Echec silencieux : le cadrage par defaut reste, et il est valide.
+    // Aucun message, le visiteur n'a rien demande.
+  });
+}
+
+// Cadre sur le port le plus proche plutot que sur la position brute. Un
+// chasseur qui ouvre Visimer depuis chez lui a Caen verrait sinon des champs :
+// le port le plus proche le met sur l'eau, la ou le produit a quelque chose a
+// montrer. Meme regle que le bouton Me localiser, un seul comportement a
+// retenir pour l'utilisateur.
+function vzFrameOnNearestPort(lat, lon) {
+  if (!(S && S.map)) return;
+  var nearest = (typeof findNearestPort === 'function') ? findNearestPort(lat, lon) : null;
+  if (nearest && nearest.spot) {
+    S.map.setView([nearest.spot.lat, nearest.spot.lon], 11, { animate: false });
+  } else {
+    S.map.setView([lat, lon], 10, { animate: false });
   }
 }
 
@@ -14261,8 +14337,14 @@ function handleUserPosition(lat, lon, source, recenter) {
   // Seul point de branchement du mode "Aller au point" sur la geoloc.
   if (typeof vzNavOnFix === 'function') vzNavOnFix();
 
-  // Au demarrage (geoloc auto), on garde la vue d'accueil large : pas de recentrage.
-  if (!recenter) return;
+  // Geoloc automatique au demarrage (le visiteur avait deja accepte le GPS).
+  // On cadre sur son port le plus proche, sans le toast ni l'ajustement de
+  // bounds reserves au geste volontaire : il n'a rien demande a cet instant,
+  // donc rien ne doit s'afficher par-dessus la carte.
+  if (!recenter) {
+    if (!S._userMovedMap) vzFrameOnNearestPort(lat, lon);
+    return;
+  }
 
   var nearest = findNearestPort(lat, lon);
   if (!nearest) {
