@@ -1362,24 +1362,57 @@ var VZ_VIEW = (function() {
       }
     } catch (e) {}
 
-    fetch('https://ipapi.co/json/').then(function (r) {
+    resolveIP(0);
+  }
+
+  // Fournisseurs par ordre de fiabilite constatee. ipwho.is et geojs.io sont
+  // absents des listes de filtrage courantes, contrairement a ipapi.co qui
+  // reste en dernier recours. Chacun expose un JSON avec latitude/longitude,
+  // en HTTPS, sans cle et avec CORS ouvert.
+  var IP_SOURCES = [
+    { url: 'https://ipwho.is/',                     lat: 'latitude',  lon: 'longitude' },
+    { url: 'https://get.geojs.io/v1/ip/geo.json',   lat: 'latitude',  lon: 'longitude' },
+    { url: 'https://ipapi.co/json/',                lat: 'latitude',  lon: 'longitude' }
+  ];
+
+  function resolveIP(i) {
+    if (i >= IP_SOURCES.length) return;          // tous bloques : France, et c'est valide
+    if (S._userMovedMap) return;                 // le visiteur a pris la main
+    var src = IP_SOURCES[i];
+
+    // Plafond par fournisseur. Sans lui, un service qui ne repond jamais
+    // retarderait toute la cascade au-dela du moment ou le visiteur bouge.
+    var timer = null;
+    var done = false;
+    var ctrl = (typeof AbortController === 'function') ? new AbortController() : null;
+    timer = setTimeout(function () {
+      if (done) return;
+      done = true;
+      if (ctrl) { try { ctrl.abort(); } catch (e) {} }
+      resolveIP(i + 1);
+    }, 2500);
+
+    fetch(src.url, ctrl ? { signal: ctrl.signal } : undefined).then(function (r) {
       return r.json();
-    }).then(function (data) {
-      if (!data || !isFinite(data.latitude) || !isFinite(data.longitude)) return;
+    }).then(function (d) {
+      if (done) return;
+      done = true; clearTimeout(timer);
+      // Les fournisseurs renvoient parfois des chaines : parseFloat les couvre
+      // toutes les deux sans distinction.
+      var la = d ? parseFloat(d[src.lat]) : NaN;
+      var lo = d ? parseFloat(d[src.lon]) : NaN;
+      if (!isFinite(la) || !isFinite(lo)) { resolveIP(i + 1); return; }
       try {
-        localStorage.setItem(IPKEY, JSON.stringify({
-          lat: data.latitude, lon: data.longitude, at: Date.now()
-        }));
-        // Alimente aussi la memoire de position : des le DEUXIEME chargement,
-        // le cadrage devient instantane et ne repasse plus par le reseau.
-        localStorage.setItem(POSKEY, JSON.stringify({
-          lat: data.latitude, lon: data.longitude, at: Date.now(), src: 'ip'
-        }));
+        localStorage.setItem(IPKEY, JSON.stringify({ lat: la, lon: lo, at: Date.now() }));
+        // Alimente la memoire de position : des le DEUXIEME chargement, le
+        // cadrage devient instantane et ne repasse plus par le reseau.
+        localStorage.setItem(POSKEY, JSON.stringify({ lat: la, lon: lo, at: Date.now(), src: 'ip' }));
       } catch (e) {}
-      frameOn(data.latitude, data.longitude);
+      frameOn(la, lo);
     }).catch(function () {
-      // Echec silencieux : le cadrage France reste, et il est valide. Aucun
-      // message, le visiteur n'a rien demande.
+      if (done) return;
+      done = true; clearTimeout(timer);
+      resolveIP(i + 1);          // bloque, hors ligne ou CORS : au suivant
     });
   }
 
@@ -1429,9 +1462,16 @@ function initMap() {
     var el = S.map.getContainer();
     if (!el) return;
     function mark() { S._userMovedMap = true; }
-    el.addEventListener('pointerdown', mark, { passive: true });
+    // dragstart de Leaflet : emis par le handler de deplacement uniquement,
+    // jamais par setView ni fitBounds. C'est le seul evenement qui distingue
+    // sans ambiguite un geste d'un recadrage du code.
+    S.map.on('dragstart', mark);
+    // La molette et le pincement sont des gestes eux aussi. En revanche un
+    // simple appui (pointerdown) n'est PAS retenu : un clic sur un bouton ou
+    // un tap sans deplacement ne bouge pas la carte et ne doit pas annuler le
+    // cadrage d'accueil.
     el.addEventListener('wheel', mark, { passive: true });
-    el.addEventListener('touchstart', mark, { passive: true });
+    el.addEventListener('touchmove', mark, { passive: true });
   })();
 
   // Zoom molette continu. A chaque evenement wheel on applique directement un
