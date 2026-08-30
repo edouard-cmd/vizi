@@ -291,13 +291,18 @@
     +   'letter-spacing:-.02em;color:var(--vz-ink);padding-right:44px;}'
     + '#loginModal .login-sub{font-size:var(--vz-fs-meta);font-weight:500;line-height:1.45;'
     +   'color:var(--vz-text-2);margin-top:-6px;}'
+    // Bouton Google conforme aux Branding Guidelines : surface blanche, logo G
+    // quatre couleurs, libelle officiel. La bordure noire de 2px et le rayon
+    // de la charte Terrain sont conserves : rien n'oblige a copier le bouton
+    // Material, seuls le logo et le libelle sont contraints.
     + '#loginModal .login-google-btn{display:flex;align-items:center;justify-content:center;'
-    +   'gap:10px;width:100%;min-height:var(--vz-tap-row);padding:0 16px;'
-    +   'background:var(--vz-accent);border:var(--vz-bd) solid var(--vz-ink);'
+    +   'gap:12px;width:100%;min-height:var(--vz-tap-row);padding:0 16px;'
+    +   'background:var(--vz-surface);border:var(--vz-bd) solid var(--vz-ink);'
     +   'border-radius:var(--vz-r-card);cursor:pointer;font-family:inherit;font-size:16px;'
-    +   'font-weight:800;color:var(--vz-ink);transition:transform var(--vz-t-press);'
+    +   'font-weight:700;color:var(--vz-ink);transition:transform var(--vz-t-press);'
     +   '-webkit-tap-highlight-color:transparent;}'
     + '#loginModal .login-google-btn:active{transform:scale(.97);}'
+    + '#loginModal .login-google-btn svg{flex-shrink:0;}'
     + '#loginModal .login-divider{display:flex;align-items:center;gap:10px;'
     +   'font-family:var(--vz-font-num);font-size:var(--vz-fs-provenance);font-weight:600;'
     +   'text-transform:uppercase;letter-spacing:.08em;color:var(--vz-text-2);}'
@@ -314,13 +319,32 @@
     +   'font-family:inherit;font-size:16px;font-weight:800;cursor:pointer;'
     +   'transition:transform var(--vz-t-press);-webkit-tap-highlight-color:transparent;}'
     + '#loginModal .login-submit:active{transform:scale(.97);}'
-    + '#loginModal .login-alt{display:grid;gap:var(--vz-gap-4);}'
-    + '#loginModal .login-alt-btn{width:100%;min-height:var(--vz-tap-min);padding:11px 12px;'
-    +   'background:transparent;border:var(--vz-bd) solid var(--vz-line);'
-    +   'border-radius:var(--vz-r-row);cursor:pointer;font-family:inherit;'
-    +   'font-size:var(--vz-fs-meta);font-weight:700;color:var(--vz-text-2);'
-    +   '-webkit-tap-highlight-color:transparent;}'
-    + '#loginModal .login-alt-btn:active{background:var(--vz-group);}'
+    // Deux secours sur UNE ligne, en liens et non en boutons pleine largeur.
+    // Cinq boutons empiles donnaient cinq actions d'egale importance a un
+    // ecran qui n'en a qu'une : se connecter. Le mot de passe oublie et le
+    // lien par email sont des recours, leur poids visuel doit le dire.
+    + '#loginModal .login-alt{display:flex;align-items:center;justify-content:center;'
+    +   'gap:6px;flex-wrap:wrap;}'
+    + '#loginModal .login-alt-btn{min-height:var(--vz-tap-min);padding:11px 8px;'
+    +   'background:transparent;border:none;cursor:pointer;font-family:var(--vz-font-num);'
+    +   'font-size:var(--vz-fs-provenance);font-weight:600;color:var(--vz-text-2);'
+    +   'text-decoration:underline;-webkit-tap-highlight-color:transparent;}'
+    + '#loginModal .login-alt-btn:active{color:var(--vz-accent-deep);}'
+    + '#loginModal .login-alt .sep{font-family:var(--vz-font-num);'
+    +   'font-size:var(--vz-fs-provenance);color:var(--vz-line);}'
+    // Les deux benefices du compte, en clair. L'ancien texte expliquait ce que
+    // le compte NE fait pas : loyal, mais ce n'est pas une raison de creer un
+    // compte. La promesse de carte identique reste, en bas et en petit.
+    + '#loginModal .login-why{display:grid;gap:var(--vz-gap-4);padding:2px 0;}'
+    + '#loginModal .login-why div{display:flex;align-items:flex-start;gap:10px;'
+    +   'font-size:var(--vz-fs-body);font-weight:600;line-height:1.35;color:var(--vz-ink);}'
+    + '#loginModal .login-why b{flex:0 0 auto;width:22px;height:22px;border-radius:7px;'
+    +   'background:var(--vz-accent);display:flex;align-items:center;justify-content:center;}'
+    + '#loginModal .login-why b svg{width:13px;height:13px;stroke:var(--vz-ink);fill:none;'
+    +   'stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;}'
+    + '#loginModal .login-foot{font-family:var(--vz-font-num);'
+    +   'font-size:var(--vz-fs-provenance);font-weight:500;line-height:1.45;'
+    +   'color:var(--vz-text-2);text-align:center;}'
     + '#loginModal .login-toggle{text-align:center;font-family:var(--vz-font-num);'
     +   'font-size:var(--vz-fs-provenance);font-weight:500;color:var(--vz-text-2);cursor:pointer;'
     +   'min-height:var(--vz-tap-min);display:flex;align-items:center;justify-content:center;}'
@@ -409,7 +433,17 @@
     star:  '<svg viewBox="0 0 24 24"><path d="M12 3.2 l2.7 5.6 6.1.9 -4.4 4.3 1 6.1 -5.4-2.9 -5.4 2.9 1-6.1 -4.4-4.3 6.1-.9 Z"/></svg>',
     eye:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7 -3.6 7-10 7 -10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>',
     eyeOff:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7c2 0 3.7.5 5.2 1.3"/><path d="M21.4 9.3c.4.5.6 1 .6 1.2 0 0-3.6 7-10 7-1.3 0-2.5-.2-3.5-.6"/><path d="M4 3 L20 21"/></svg>',
-    cam:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5A2 2 0 0 1 5 6.5h2.2l1.2-2h7.2l1.2 2H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.6"/></svg>'
+    cam:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5A2 2 0 0 1 5 6.5h2.2l1.2-2h7.2l1.2 2H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.6"/></svg>',
+    // Logo G officiel, quatre couleurs Google. Les Sign-In Branding Guidelines
+    // l'imposent : ce n'est pas une preference esthetique, c'est contractuel.
+    // C'est aussi ce qui rend le bouton reconnaissable en un quart de seconde
+    // par un chasseur de soixante ans qui ne lit pas le libelle.
+    google:'<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true">'
+      + '<path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/>'
+      + '<path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"/>'
+      + '<path fill="#FBBC05" d="M3.97 10.72a5.4 5.4 0 0 1 0-3.44V4.95H.96a9 9 0 0 0 0 8.1l3.01-2.33z"/>'
+      + '<path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"/>'
+      + '</svg>'
   };
 
   /* ------------------------------------------------------------------------
@@ -729,11 +763,11 @@
     });
     return [
       { n: String(dansAn), u: '', l: 'sorties en ' + an },
-      { n: n ? num(somme / n, true) : '?', u: n ? 'm' : '', l: 'visibilite moyenne observee' },
+      { n: n ? num(somme / n, true) : '?', u: n ? 'm' : '', l: 'visibilit\u00e9 moyenne observ\u00e9e' },
       { n: String(rs.length), u: '', l: 'sorties au total' },
       derniere
-        ? { n: String(derniere.getDate()), u: dateCourte(derniere.toISOString()).split(' ')[1], l: 'derniere sortie' }
-        : { n: '?', u: '', l: 'derniere sortie' }
+        ? { n: String(derniere.getDate()), u: dateCourte(derniere.toISOString()).split(' ')[1], l: 'derni\u00e8re sortie' }
+        : { n: '?', u: '', l: 'derni\u00e8re sortie' }
     ];
   }
 
@@ -771,10 +805,10 @@
         +    '<span class="h">Ton moteur</span>'
         +    '<span class="b" style="font-family:var(--vz-font-num);font-size:var(--vz-fs-num-m);'
         +      'font-weight:700;color:var(--vz-ink);">'
-        +      esc(num(em.moyen, true)) + ' m d\'ecart moyen</span>'
-        +    '<span class="b">Difference moyenne entre la visibilite annoncee par Visimer et '
+        +      esc(num(em.moyen, true)) + ' m d\'\u00e9cart moyen</span>'
+        +    '<span class="b">Diff\u00e9rence moyenne entre la visibilit\u00e9 annonc\u00e9e par Visimer et '
         +      'celle que tu as vue dans l\'eau, sur ' + em.n + ' sortie'
-        +      (em.n > 1 ? 's' : '') + '. Chaque retour que tu deposes affine ce chiffre.</span>'
+        +      (em.n > 1 ? 's' : '') + '. Chaque retour que tu d\u00e9poses affine ce chiffre.</span>'
         + '</div>';
     }
 
@@ -806,13 +840,13 @@
           + '</button>';
       });
       h += '</div>';
-      h += '<span class="vze-gloss" style="padding:0 4px;">visibilite observee par un chasseur '
+      h += '<span class="vze-gloss" style="padding:0 4px;">visibilit\u00e9 observ\u00e9e par un chasseur '
         + 'dans les 12 km, sur les 7 derniers jours. Un point d\'interrogation veut dire '
-        + 'qu\'aucune mesure recente n\'existe : la carte reste la seule a montrer une prevision.</span>';
+        + 'qu\'aucune mesure r\u00e9cente n\'existe : la carte reste la seule \u00e0 montrer une pr\u00e9vision.</span>';
     } else {
       h += '<div class="vze-empty">'
         +    '<span class="t">Aucun secteur suivi</span>'
-        +    '<span class="g">L\'etoile du panneau secteur permettra de suivre un point et de le retrouver ici. Elle arrive au prochain lot.</span>'
+        +    '<span class="g">L\'\u00e9toile du panneau secteur permet de suivre un point et de le retrouver ici.</span>'
         + '</div>';
     }
     h += '</div>';
@@ -846,7 +880,7 @@
     } else {
       h += '<div class="vze-empty">'
         +    '<span class="t">Aucun retour</span>'
-        +    '<span class="g">Un retour garde ce que tu as vu sous l\'eau : la visibilite observee, tes notes, tes photos. Il reste prive. Seule la valeur de visibilite peut etre partagee, si tu le decides.</span>'
+        +    '<span class="g">Un retour garde ce que tu as vu sous l\'eau : la visibilit\u00e9 observ\u00e9e, tes notes, tes photos. Il reste priv\u00e9. Seule la valeur de visibilit\u00e9 peut \u00eatre partag\u00e9e, si tu le d\u00e9cides.</span>'
         + '</div>';
     }
     h += '</div>';
@@ -898,12 +932,12 @@
       +        'spellcheck="false" value="' + esc(p.pseudo || '') + '" placeholder="ton-pseudo">'
       +      '<button type="button" class="vze-btn ghost" id="vzePseudoSave">Enregistrer</button>'
       +    '</div>'
-      +    '<span class="vze-gloss">le seul nom visible par les autres chasseurs. Il n\'apparait nulle part ailleurs.</span>'
+      +    '<span class="vze-gloss">le seul nom visible par les autres chasseurs. Il n\'appara\u00eet nulle part ailleurs.</span>'
       + '</div>';
 
-    // Unites. Le reglage s'applique a toute l'application, pas seulement ici.
+    // Unit\u00e9s. Le reglage s'applique a toute l'application, pas seulement ici.
     h += '<div class="vze-group">'
-      +    '<span class="vze-sect">Unites</span>'
+      +    '<span class="vze-sect">Unit\u00e9s</span>'
       +    '<div style="display:flex;align-items:center;gap:var(--vz-gap-5);min-height:var(--vz-tap);padding:4px 10px;">'
       +      '<span style="flex:1;min-width:0;font-size:var(--vz-fs-label);font-weight:700;">Vitesse du vent</span>'
       +      '<span class="vze-seg">'
@@ -912,30 +946,30 @@
       +      '</span>'
       +    '</div>'
       +    '<div style="display:flex;align-items:center;gap:var(--vz-gap-5);min-height:var(--vz-tap);padding:4px 10px;">'
-      +      '<span style="flex:1;min-width:0;font-size:var(--vz-fs-label);font-weight:700;">Distance et visibilite</span>'
-      +      '<span class="val" style="font-family:var(--vz-font-num);font-size:var(--vz-fs-meta);font-weight:600;color:var(--vz-text-2);">metres</span>'
+      +      '<span style="flex:1;min-width:0;font-size:var(--vz-fs-label);font-weight:700;">Distance et visibilit\u00e9</span>'
+      +      '<span class="val" style="font-family:var(--vz-font-num);font-size:var(--vz-fs-meta);font-weight:600;color:var(--vz-text-2);">m\u00e8tres</span>'
       +    '</div>'
-      +    '<span class="vze-gloss">s\'applique a toute l\'application, pas seulement a l\'espace.</span>'
+      +    '<span class="vze-gloss">s\'applique \u00e0 toute l\'application, pas seulement \u00e0 l\'espace.</span>'
       + '</div>';
 
-    // Mes donnees
+    // Mes donn\u00e9es
     h += '<div class="vze-group">'
-      +    '<span class="vze-sect">Mes donnees</span>'
+      +    '<span class="vze-sect">Mes donn\u00e9es</span>'
       +    '<button type="button" class="vze-row" id="vzeExport">'
       +      '<span style="flex:1;min-width:0;display:grid;gap:2px;">'
-      +        '<span class="nm">Exporter mes donnees</span>'
+      +        '<span class="nm">Exporter mes donn\u00e9es</span>'
       +        '<span class="sub">tout ce que Visimer conserve sur toi, en un fichier.</span>'
       +      '</span>' + ICO.chev
       +    '</button>'
       +    '<button type="button" class="vze-row" id="vzeDelete">'
       +      '<span style="flex:1;min-width:0;display:grid;gap:2px;">'
       +        '<span class="nm" style="color:var(--vz-danger);">Supprimer mon compte</span>'
-      +        '<span class="sub">ton compte, tes retours et tes secteurs. Definitif.</span>'
+      +        '<span class="sub">ton compte, tes retours et tes secteurs. D\u00e9finitif.</span>'
       +      '</span>' + ICO.chev
       +    '</button>'
       + '</div>';
 
-    h += '<button type="button" class="vze-btn danger" id="vzeLogout">Se deconnecter</button>';
+    h += '<button type="button" class="vze-btn danger" id="vzeLogout">Se d\u00e9connecter</button>';
     return h;
   }
 
@@ -950,12 +984,12 @@
      ------------------------------------------------------------------------ */
   function viewActifs() {
     return '<div class="vze-empty">'
-      +      '<span class="t">Pas encore de decompte</span>'
-      +      '<span class="g">Le decompte des retours partages se calcule chaque nuit sur les 90 derniers jours. Il apparaitra ici des que la premiere serie sera complete.</span>'
+      +      '<span class="t">Pas encore de d\u00e9compte</span>'
+      +      '<span class="g">Le d\u00e9compte des retours partag\u00e9s se calcule chaque nuit sur les 90 derniers jours. Il appara\u00eetra ici d\u00e8s que la premi\u00e8re s\u00e9rie sera compl\u00e8te.</span>'
       +    '</div>'
       +  '<div class="vze-note">'
-      +    '<span class="h">Ce qui est compte</span>'
-      +    '<span class="b">Le nombre de retours partages sur 90 jours glissants, un seul par secteur et par jour. Ni la qualite des sorties, ni les prises. Le texte et les photos d\'un retour ne sortent jamais de ton espace.</span>'
+      +    '<span class="h">Ce qui est compt\u00e9</span>'
+      +    '<span class="b">Le nombre de retours partag\u00e9s sur 90 jours glissants, un seul par secteur et par jour. Ni la qualit\u00e9 des sorties, ni les prises. Le texte et les photos d\'un retour ne sortent jamais de ton espace.</span>'
       +  '</div>';
   }
 
@@ -1234,27 +1268,56 @@
     if (document.getElementById('loginOverlay')) return;
     var ov = document.createElement('div');
     ov.id = 'loginOverlay';
+    var ICO_STAR_S = '<svg viewBox="0 0 24 24"><path d="M12 3.2 l2.7 5.6 6.1.9 -4.4 4.3 1 6.1 -5.4-2.9 -5.4 2.9 1-6.1 -4.4-4.3 6.1-.9 Z" fill="none"/></svg>';
+    var ICO_CHART_S = '<svg viewBox="0 0 24 24"><path d="M4 20 V12"/><path d="M12 20 V5"/><path d="M20 20 V14"/></svg>';
+
+    // Un VRAI formulaire, avec un bouton de type submit. Sans lui, Chrome,
+    // Safari et les gestionnaires de mots de passe refusent de proposer
+    // l'enregistrement ET le remplissage automatique, quels que soient les
+    // attributs autocomplete poses sur les champs. C'etait la cause exacte de
+    // l'absence d'autocompletion : les attributs etaient corrects, le
+    // conteneur manquait.
     ov.innerHTML = '<div id="loginModal">'
       + '<button type="button" class="login-close" aria-label="Fermer">' + ICO.x + '</button>'
       + '<div class="login-title">Ton espace</div>'
-      + '<div class="login-sub">La carte fonctionne sans compte, a l\'identique. Un compte sert seulement a retrouver tes secteurs et tes retours d\'une sortie a l\'autre.</div>'
+      + '<div class="login-why">'
+      +   '<div><b>' + ICO_STAR_S + '</b><span>Garde tes spots en favoris et retrouve-les \u00e0 chaque sortie</span></div>'
+      +   '<div><b>' + ICO_CHART_S + '</b><span>Suis tes statistiques de sortie et la visibilit\u00e9 que tu as vue</span></div>'
+      + '</div>'
       + '<div class="login-error" id="loginError"></div>'
       + '<div class="login-ok" id="loginOk"></div>'
-      + '<button type="button" class="login-google-btn">Continuer avec Google</button>'
+      + '<button type="button" class="login-google-btn">' + ICO.google
+      +   '<span>Continuer avec Google</span></button>'
       + '<div class="login-divider">ou avec un email</div>'
-      + '<input type="email" class="login-input" id="loginEmail" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="ton@email.fr">'
-      + '<div class="login-pwd-wrap">'
-      +   '<input type="password" class="login-input" id="loginPwd" autocomplete="current-password" placeholder="Mot de passe">'
-      +   '<button type="button" class="login-eye" id="loginEye" aria-label="Afficher le mot de passe">' + ICO.eye + '</button>'
-      + '</div>'
-      + '<button type="button" class="login-submit" id="loginSubmit">Se connecter</button>'
+      + '<form id="loginForm" autocomplete="on" novalidate style="display:grid;gap:var(--vz-gap-5);">'
+      +   '<input type="email" class="login-input" id="loginEmail" name="email" inputmode="email" autocomplete="username" autocapitalize="off" spellcheck="false" placeholder="ton@email.fr">'
+      +   '<div class="login-pwd-wrap">'
+      +     '<input type="password" class="login-input" id="loginPwd" name="password" autocomplete="current-password" placeholder="Mot de passe">'
+      +     '<button type="button" class="login-eye" id="loginEye" aria-label="Afficher le mot de passe">' + ICO.eye + '</button>'
+      +   '</div>'
+      +   '<button type="submit" class="login-submit" id="loginSubmit">Se connecter</button>'
+      + '</form>'
       + '<div class="login-alt">'
-      +   '<button type="button" class="login-alt-btn" id="loginMagicBtn">Recevoir un lien de connexion</button>'
-      +   '<button type="button" class="login-alt-btn" id="loginResetBtn">Mot de passe oublie</button>'
+      +   '<button type="button" class="login-alt-btn" id="loginResetBtn">Mot de passe oubli\u00e9</button>'
+      +   '<span class="sep">\u00b7</span>'
+      +   '<button type="button" class="login-alt-btn" id="loginMagicBtn">Lien de connexion par email</button>'
       + '</div>'
-      + '<div class="login-toggle" id="loginToggle">Pas encore de compte ? <span>Cree un compte</span></div>'
+      + '<div class="login-toggle" id="loginToggle">Pas encore de compte ?&nbsp;<span>Cr\u00e9e un compte</span></div>'
+      // Ni case a cocher ni promesse a tenir : browserLocalPersistence est actif
+      // depuis le socle, la session dure jusqu'a deconnexion explicite. Une case
+      // "rester connecte" serait decorative, donc un faux affichage.
+      + '<div class="login-foot">Tu restes connect\u00e9 sur cet appareil. '
+      +   'La carte, elle, fonctionne \u00e0 l\'identique avec ou sans compte.</div>'
       + '</div>';
     document.body.appendChild(ov);
+
+    // La soumission du formulaire est le chemin normal : touche Entree, bouton
+    // Aller du clavier mobile, ou clic. C'est aussi ce qui declenche la
+    // proposition d'enregistrement du mot de passe par le navigateur.
+    ov.querySelector('#loginForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (typeof loginEmail === 'function') loginEmail();
+    });
 
     ov.addEventListener('click', function (e) {
       if (e.target === ov && typeof closeLogin === 'function') closeLogin();
@@ -1265,9 +1328,6 @@
     ov.querySelector('.login-google-btn').addEventListener('click', function () {
       if (typeof loginGoogle === 'function') loginGoogle();
     });
-    ov.querySelector('#loginSubmit').addEventListener('click', function () {
-      if (typeof loginEmail === 'function') loginEmail();
-    });
     ov.querySelector('#loginMagicBtn').addEventListener('click', function () {
       if (typeof vzAuthSendMagicLink === 'function') vzAuthSendMagicLink();
     });
@@ -1276,11 +1336,6 @@
     });
     ov.querySelector('#loginToggle').addEventListener('click', function () {
       if (typeof toggleLoginMode === 'function') toggleLoginMode();
-    });
-    // Entree valide le formulaire : au bord de l'eau, un clavier de moins a
-    // refermer avant d'atteindre le bouton.
-    ov.querySelector('#loginPwd').addEventListener('keydown', function (e) {
-      if (e.key === 'Enter' && typeof loginEmail === 'function') loginEmail();
     });
     ov.querySelector('#loginEye').addEventListener('click', function () {
       var inp = document.getElementById('loginPwd');
@@ -1356,10 +1411,10 @@
      secteur demain, et c'est a cet instant seulement qu'on lui parle de compte.
 
      Identifiant du secteur : les coordonnees arrondies a 3 decimales, soit
-     environ 111 metres. Deux appuis sur le meme port produisent donc le meme
+     environ 111 m\u00e8tres. Deux appuis sur le meme port produisent donc le meme
      document et non deux doublons, alors que le centre de carte ne tombe jamais
      deux fois sur les memes decimales. Le nom seul serait un mauvais choix : il
-     vient de findNearestPort et deux points distants de plusieurs kilometres
+     vient de findNearestPort et deux points distants de plusieurs kilom\u00e8tres
      peuvent partager le meme port le plus proche.
      ------------------------------------------------------------------------ */
   var _follows = null;     // { id: true }, null tant que non lu
