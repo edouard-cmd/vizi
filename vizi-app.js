@@ -1210,6 +1210,7 @@ function vzInitSeaMask() {
 var VZ_VIEW = (function() {
   var KEY = 'vizi_view';
   var IPKEY = 'vizi_ipgeo';
+  var POSKEY = 'vizi_lastpos';
   // Desktop : fitBounds sur la France entiere, Corse comprise.
   var FRANCE = [[41.20, -5.60], [51.60, 9.80]];
   // Plus de centre ni de zoom portrait codes en dur : ils n'existaient que
@@ -1325,12 +1326,24 @@ var VZ_VIEW = (function() {
   function frameRegion() {
     if (!S.map) return;
 
-    // Le GPS deja accepte est plus precis et arrive de toute facon par
-    // initGeolocationFlow : deux cadrages concurrents se battraient sur la
-    // meme carte, et le visiteur verrait la vue sauter deux fois.
+    // 1. Derniere position connue. Lecture locale et synchrone : elle
+    // s'applique avant que le visiteur ait pu toucher quoi que ce soit, donc
+    // le drapeau de geste ne peut pas l'annuler. C'est le seul chemin qui ne
+    // depende ni du reseau, ni d'une permission, ni d'un tiers.
+    // Pas de peremption : un chasseur change de facade quelques fois par an,
+    // et le jour ou il le fait, Me localiser reecrit la valeur.
     try {
-      if (localStorage.getItem('vizi_geo_choice') === 'accepted') return;
+      var last = JSON.parse(localStorage.getItem(POSKEY) || 'null');
+      if (last && isFinite(last.lat) && isFinite(last.lon)) {
+        frameOn(last.lat, last.lon);
+        return;
+      }
     } catch (e) {}
+
+    // Aucune exception pour le GPS deja accepte : il repond trop tard pour
+    // cadrer une vue d'accueil. IP et GPS retombent de toute facon sur le meme
+    // port le plus proche dans la quasi-totalite des cas, donc le cadrage est
+    // identique - il arrive simplement a temps.
 
     // Cache local 24 h. Sans lui, ipapi.co serait appele a chaque chargement
     // de page par chaque visiteur, et son palier gratuit plafonne a 1000
@@ -1356,6 +1369,11 @@ var VZ_VIEW = (function() {
       try {
         localStorage.setItem(IPKEY, JSON.stringify({
           lat: data.latitude, lon: data.longitude, at: Date.now()
+        }));
+        // Alimente aussi la memoire de position : des le DEUXIEME chargement,
+        // le cadrage devient instantane et ne repasse plus par le reseau.
+        localStorage.setItem(POSKEY, JSON.stringify({
+          lat: data.latitude, lon: data.longitude, at: Date.now(), src: 'ip'
         }));
       } catch (e) {}
       frameOn(data.latitude, data.longitude);
@@ -14332,6 +14350,16 @@ function showGeolocError() {
 
 function handleUserPosition(lat, lon, source, recenter) {
   GEO_STATE.userLatLng = { lat: lat, lon: lon };
+
+  // Memorisation de la derniere position connue, quelle que soit sa source.
+  // C'est elle qui cadrera la carte au prochain chargement, instantanement et
+  // sans reseau. Un seul appui sur Me localiser suffit a rendre toutes les
+  // ouvertures suivantes correctes, y compris hors connexion.
+  try {
+    localStorage.setItem('vizi_lastpos', JSON.stringify({
+      lat: lat, lon: lon, at: Date.now(), src: source
+    }));
+  } catch (e) {}
   if (typeof vzSyncPointLabel === 'function') vzSyncPointLabel();
   GEO_STATE.lastSource = source;
 
@@ -14372,12 +14400,11 @@ function handleUserPosition(lat, lon, source, recenter) {
   // On cadre sur son port le plus proche, sans le toast ni l'ajustement de
   // bounds reserves au geste volontaire : il n'a rien demande a cet instant,
   // donc rien ne doit s'afficher par-dessus la carte.
-  if (!recenter) {
-    if (typeof VZ_VIEW !== 'undefined' && VZ_VIEW && VZ_VIEW.frameOn) {
-      VZ_VIEW.frameOn(lat, lon);
-    }
-    return;
-  }
+  // Geoloc automatique au demarrage : on pose le marqueur et rien d'autre.
+  // Le cadrage appartient a VZ_VIEW, qui l'a deja fait par IP bien avant que
+  // le GPS reponde. Recadrer ici ferait sauter la vue plusieurs secondes apres
+  // l'ouverture, sur le meme port, donc pour rien.
+  if (!recenter) return;
 
   var nearest = findNearestPort(lat, lon);
   if (!nearest) {
