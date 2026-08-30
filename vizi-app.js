@@ -12666,11 +12666,22 @@ function openObsSheet() {
     anonBtn.classList.remove('on');
   }
   pseudoInput.disabled = false;
-  // Restaure le pseudo précédent si stocké
-  try {
-    var savedPseudo = localStorage.getItem('vizi_pseudo');
-    pseudoInput.value = savedPseudo || '';
-  } catch(e) { pseudoInput.value = ''; }
+  // Pseudo : le compte fait autorite quand il existe. Sans cette priorite, un
+  // chasseur qui a modifie son pseudo dans son profil continuerait de deposer
+  // sous l'ancien nom garde en localStorage, et ses retours apparaitraient sous
+  // deux identites differentes selon l'appareil utilise.
+  var pseudoCompte = '';
+  if (typeof VZ_RETOUR !== 'undefined' && VZ_RETOUR && VZ_RETOUR.isLogged()) {
+    pseudoCompte = VZ_RETOUR.pseudo();
+  }
+  if (pseudoCompte) {
+    pseudoInput.value = pseudoCompte;
+  } else {
+    try {
+      var savedPseudo = localStorage.getItem('vizi_pseudo');
+      pseudoInput.value = savedPseudo || '';
+    } catch(e) { pseudoInput.value = ''; }
+  }
   // Commentaire : jamais restaure d'un depot a l'autre. Contrairement au
   // pseudo (identite stable, persistee en localStorage), un commentaire
   // decrit un etat de mer date : le recycler produirait de la fausse donnee.
@@ -12776,6 +12787,27 @@ if (pseudo) {
     var np = findNearestPort(latlng.lat, latlng.lng);
     if (np && np.spot && np.spot.name) sectorName = np.spot.name;
   }
+  // ---- Retour prive, ecrit d'abord ----------------------------------------
+  // Il appartient au chasseur et ne doit pas dependre du reseau vers le GAS.
+  // predictedVisM y est archive : c'est le seul moment ou l'on dispose a la
+  // fois de ce que le moteur annoncait et de ce que la mer a montre.
+  var visiPrevue = null;
+  if (typeof VZ_RETOUR !== 'undefined' && VZ_RETOUR) {
+    visiPrevue = VZ_RETOUR.prediction();
+    if (VZ_RETOUR.isLogged()) {
+      VZ_RETOUR.save({
+        date: document.getElementById('obsSheetDate').value,
+        heure: document.getElementById('obsSheetTime').value,
+        secteur: sectorName,
+        lat: latlng.lat, lon: latlng.lng,
+        visibilityM: visM,
+        eau: OBS_WATER,
+        notes: comment,
+        partage: true
+      });
+    }
+  }
+
   gasGet('submit_observation', {
     lat: latlng.lat, lon: latlng.lng,
     date: document.getElementById('obsSheetDate').value,
@@ -12785,7 +12817,12 @@ if (pseudo) {
     turbidity: OBS_WATER,
     pseudo: pseudo || 'Anonyme',
     comment: comment,
-    sector: sectorName
+    sector: sectorName,
+    // Prevision du moteur au moment du depot. Vide si aucune analyse n'a ete
+    // faite sur ce point : un champ vide est une information honnete, une
+    // prevision reconstituee apres coup serait une donnee fausse qui
+    // corromprait la calibration qu'elle pretend servir.
+    predicted_m: (visiPrevue != null ? visiPrevue : '')
   }).then(function(result) {
     OBS_SUBMITTING = false;
     if (result && result.success) {
@@ -12797,7 +12834,13 @@ if (pseudo) {
       if (typeof invalidateChainCache === 'function') invalidateChainCache();
       btn.style.display = 'none';
       document.getElementById('obsSheetSuccessMsg').textContent = 'Merci !';
-      document.getElementById('obsSheetSuccessSub').textContent = 'Ton observation aide la communauté.';
+      // Le chasseur connecte doit savoir que son retour lui reste, sinon il
+      // croit n'avoir fait qu'un don a la communaute et ne pense jamais a
+      // rouvrir son espace.
+      var loggue = (typeof VZ_RETOUR !== 'undefined' && VZ_RETOUR && VZ_RETOUR.isLogged());
+      document.getElementById('obsSheetSuccessSub').textContent = loggue
+        ? 'Partagé au secteur, et gardé dans tes retours.'
+        : 'Ton observation aide la communauté.';
       document.getElementById('obsSheetSuccess').style.display = 'block';
       setTimeout(closeObsSheet, 2200);
     } else {
