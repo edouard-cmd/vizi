@@ -1270,9 +1270,12 @@ var VZ_VIEW = (function() {
           var v = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--vzm-navline'));
           if (isFinite(v) && v > 0) nav = v;
         } catch (e) {}
-        S.map.fitBounds(FRANCE, { paddingTopLeft: [2, 10], paddingBottomRight: [2, Math.round(nav)] });
+        // animate:false : ce cadrage est un point de depart, pas une transition.
+        // L'animer n'apporte rien - personne ne regarde encore - et cree une
+        // fenetre de ~250 ms pendant laquelle tout cadrage suivant est ecrase.
+        S.map.fitBounds(FRANCE, { paddingTopLeft: [2, 10], paddingBottomRight: [2, Math.round(nav)], animate: false });
       } else {
-        S.map.fitBounds(FRANCE, { padding: [24, 24] });
+        S.map.fitBounds(FRANCE, { padding: [24, 24], animate: false });
       }
     } finally {
       // Rien a restaurer : zoomSnap n'est plus modifie temporairement.
@@ -1315,6 +1318,10 @@ var VZ_VIEW = (function() {
      ---------------------------------------------------------------------- */
   function frameOn(lat, lon) {
     if (!S.map || S._userMovedMap) return;
+    // Coupe toute animation en cours. Sans ca, un setView emis pendant
+    // l'animation de fitBounds est ecrase a la fin de celle-ci : la carte
+    // revient sur la France une fraction de seconde apres avoir ete cadree.
+    try { S.map.stop(); } catch (e) {}
     var nearest = (typeof findNearestPort === 'function') ? findNearestPort(lat, lon) : null;
     if (nearest && nearest.spot) {
       S.map.setView([nearest.spot.lat, nearest.spot.lon], 11, { animate: false });
