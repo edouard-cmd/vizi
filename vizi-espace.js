@@ -442,6 +442,7 @@
   var _el = null, _body = null, _title = null, _back = null;
   var _retours = null;      // null = pas encore lu, [] = lu et vide
   var _secteurs = null;
+  var _obs = null;          // retours communautaires nationaux, pour les secteurs
   var _loading = false;
 
   /* ------------------------------------------------------------------------
@@ -637,12 +638,61 @@
       });
     }
 
+    // Les retours communautaires partent en meme temps que les deux
+    // sous-collections, et ne bloquent pas l'affichage : l'espace se dessine
+    // des que Firestore repond, les mesures s'ajoutent ensuite. Une liste qui
+    // attend un appel reseau pour montrer un nom de secteur est une liste
+    // qu'on croit cassee.
+    var obsP = (typeof vzEnsureObservations === 'function')
+      ? vzEnsureObservations().catch(function () { return []; })
+      : Promise.resolve([]);
+
     return Promise.all([readSub('retours'), readSub('secteurs')]).then(function (r) {
       _retours = r[0];
       _secteurs = r[1];
       _loading = false;
       render();
+      return obsP.then(function (all) {
+        _obs = all || [];
+        render();
+      });
     });
+  }
+
+  /* ------------------------------------------------------------------------
+     MESURE LA PLUS PROCHE D'UN SECTEUR SUIVI
+     ------------------------------------------------------------------------
+     Rend le retour communautaire le plus RECENT dans un rayon de 12 km et
+     moins de 7 jours, exactement la meme fenetre que le panneau secteur. Deux
+     ecrans qui parlent du meme point doivent afficher le meme chiffre, sinon
+     le chasseur ne sait plus lequel croire.
+
+     Aucune moyenne, aucune synthese, aucun feu tricolore : une mesure, sa
+     date, et rien d'autre. Un secteur sans mesure recente porte un point
+     d'interrogation lisible, jamais un etat grise ni une valeur rassurante.
+     ------------------------------------------------------------------------ */
+  function mesureSecteur(lat, lon) {
+    if (!_obs || !_obs.length || typeof haversineKm !== 'function') return null;
+    var best = null;
+    var maxAge = 7 * 86400000;
+    var now = Date.now();
+    for (var i = 0; i < _obs.length; i++) {
+      var o = _obs[i];
+      if (typeof o.lat !== 'number' || typeof o.lon !== 'number') continue;
+      if (!(o.visibility_m > 0)) continue;
+      if (haversineKm(lat, lon, o.lat, o.lon) > 12) continue;
+      var t = new Date(o.timestamp).getTime();
+      if (isNaN(t) || (now - t) > maxAge) continue;
+      if (!best || t > best.ts) best = { visi: o.visibility_m, ts: t };
+    }
+    if (!best) return null;
+    var h = Math.round((now - best.ts) / 3600000);
+    return {
+      visi: best.visi,
+      age: h < 1 ? 'a l\u2019instant'
+         : h < 24 ? ('il y a ' + h + ' h')
+         : ('il y a ' + Math.round(h / 24) + ' j')
+    };
   }
 
   /* ------------------------------------------------------------------------
@@ -651,6 +701,20 @@
      Quatre chiffres, en premier parce que c'est ce qu'on vient chercher.
      Aucune moyenne inventee : sans retour, la visibilite moyenne vaut ?, pas 0.
      ------------------------------------------------------------------------ */
+  function ecartMoteur() {
+    var rs = _retours || [];
+    var n = 0, somme = 0;
+    rs.forEach(function (r) {
+      if (typeof r.predictedVisM === 'number' && typeof r.visibilityM === 'number'
+          && r.visibilityM > 0) {
+        somme += Math.abs(r.predictedVisM - r.visibilityM);
+        n++;
+      }
+    });
+    if (!n) return null;
+    return { moyen: somme / n, n: n };
+  }
+
   function stats() {
     var rs = _retours || [];
     var an = new Date().getFullYear();
@@ -698,19 +762,53 @@
     });
     h += '</div></div>';
 
+    // Ecart du moteur. N'apparait que quand au moins un retour porte une
+    // prevision archivee : afficher une precision calculee sur rien serait
+    // exactement le genre de chiffre rassurant que le produit refuse.
+    var em = ecartMoteur();
+    if (em) {
+      h += '<div class="vze-note">'
+        +    '<span class="h">Ton moteur</span>'
+        +    '<span class="b" style="font-family:var(--vz-font-num);font-size:var(--vz-fs-num-m);'
+        +      'font-weight:700;color:var(--vz-ink);">'
+        +      esc(num(em.moyen, true)) + ' m d\'ecart moyen</span>'
+        +    '<span class="b">Difference moyenne entre la visibilite annoncee par Visimer et '
+        +      'celle que tu as vue dans l\'eau, sur ' + em.n + ' sortie'
+        +      (em.n > 1 ? 's' : '') + '. Chaque retour que tu deposes affine ce chiffre.</span>'
+        + '</div>';
+    }
+
     // Mes secteurs
     h += '<div style="display:grid;gap:var(--vz-gap-4);">';
     h += '<span class="vze-sect" style="padding:0 4px;">Mes secteurs</span>';
     if (_secteurs && _secteurs.length) {
       h += '<div class="vze-group">';
-      _secteurs.forEach(function (s) {
-        h += '<button type="button" class="vze-row" data-secteur="' + esc(s.id) + '">'
-          +    '<span class="nm">' + esc(s.nom || 'Secteur') + '</span>'
+      _secteurs.forEach(function (sec) {
+        var m = mesureSecteur(sec.lat, sec.lon);
+        // Tant que les retours ne sont pas revenus, on n'affiche RIEN a droite
+        // plutot qu'un point d'interrogation : un ? veut dire "mesure absente",
+        // pas "mesure en cours". Confondre les deux ferait croire au chasseur
+        // qu'un secteur est muet alors qu'on n'a simplement pas fini de lire.
+        var val = (_obs === null)
+          ? ''
+          : (m
+              ? '<span class="val" style="text-align:right;display:grid;gap:1px;">'
+                +   '<span style="font-size:var(--vz-fs-num-m);font-weight:700;color:var(--vz-ink);">'
+                +     esc(num(m.visi, true)) + ' m</span>'
+                +   '<span style="font-size:var(--vz-fs-provenance);font-weight:500;">'
+                +     esc(m.age) + '</span>'
+                + '</span>'
+              : '<span class="val" style="font-size:var(--vz-fs-num-m);font-weight:700;">?</span>');
+        h += '<button type="button" class="vze-row" data-secteur="' + esc(sec.id) + '">'
+          +    '<span class="nm">' + esc(sec.nom || 'Secteur') + '</span>'
+          +    val
           +    ICO.chev
           + '</button>';
       });
       h += '</div>';
-      h += '<span class="vze-gloss" style="padding:0 4px;">un appui ferme l\'espace et ouvre le secteur sur la carte.</span>';
+      h += '<span class="vze-gloss" style="padding:0 4px;">visibilite observee par un chasseur '
+        + 'dans les 12 km, sur les 7 derniers jours. Un point d\'interrogation veut dire '
+        + 'qu\'aucune mesure recente n\'existe : la carte reste la seule a montrer une prevision.</span>';
     } else {
       h += '<div class="vze-empty">'
         +    '<span class="t">Aucun secteur suivi</span>'
@@ -727,9 +825,21 @@
       _retours.slice().sort(function (a, b) {
         return String(b.date || '').localeCompare(String(a.date || ''));
       }).forEach(function (r) {
+        // Prevu contre observe, cote a cote. C'est la lecture qui donne son
+        // sens au retour : elle montre au chasseur ce que son depot a servi
+        // a mesurer, au lieu de lui renvoyer son propre chiffre.
+        var sousTitre = dateCourte(r.date);
+        if (typeof r.predictedVisM === 'number' && r.predictedVisM > 0) {
+          sousTitre += '  \u00b7  annonce ' + num(r.predictedVisM, true) + ' m';
+        }
         h += '<div class="vze-row" style="cursor:default;">'
-          +    '<span class="nm">' + esc(r.secteur || 'Secteur') + '</span>'
-          +    '<span class="val">' + esc(num(r.visibilityM, true)) + ' m</span>'
+          +    '<span style="flex:1;min-width:0;display:grid;gap:2px;">'
+          +      '<span class="nm">' + esc(r.secteur || 'Secteur') + '</span>'
+          +      '<span class="sub" style="font-family:var(--vz-font-num);">'
+          +        esc(sousTitre) + '</span>'
+          +    '</span>'
+          +    '<span class="val" style="font-size:var(--vz-fs-num-m);font-weight:700;color:var(--vz-ink);">'
+          +      esc(num(r.visibilityM, true)) + ' m</span>'
           + '</div>';
       });
       h += '</div>';
@@ -988,19 +1098,47 @@
       });
   }
 
-  // Un appui sur un secteur suivi ferme l'espace, recentre la carte et laisse
-  // le panneau secteur EXISTANT faire son travail. Aucun ecran de detail n'est
-  // construit ici : deux panneaux secteur finiraient par diverger.
+  // Un appui sur un secteur suivi ferme l'espace, recentre la carte et ouvre
+  // les Previsions sur ce point. Aucun ecran de detail n'est construit ici :
+  // deux panneaux secteur finiraient par diverger.
+  //
+  // Le recadrage doit passer par vzSearchGoTo et pas par un setView centre.
+  // openCondDrawer ne recoit aucun point en argument : il va LIRE lui-meme
+  // vzmAimLatLng(), c'est-a-dire le point sous la croix, au tiers de la
+  // hauteur de l'ecran. Centrer le secteur au milieu de la carte ferait donc
+  // analyser un point situe plus au large, et le chasseur lirait une
+  // prevision qui ne parle pas de son secteur. C'est exactement le genre
+  // d'ecart silencieux que le produit ne tolere pas.
   function openSecteur(id) {
-    var s = (_secteurs || []).filter(function (x) { return x.id === id; })[0];
-    if (!s || typeof s.lat !== 'number' || typeof s.lon !== 'number') return;
+    var sec = (_secteurs || []).filter(function (x) { return x.id === id; })[0];
+    if (!sec || typeof sec.lat !== 'number' || typeof sec.lon !== 'number') return;
     close();
     try {
-      if (typeof S !== 'undefined' && S && S.map) {
-        S.map.setView([s.lat, s.lon], Math.max(S.map.getZoom(), 12));
+      if (typeof window.vzSearchGoTo === 'function') {
+        window.vzSearchGoTo(sec.lat, sec.lon, 0);
+      } else if (typeof S !== 'undefined' && S && S.map) {
+        // Repli si le module de recherche n'est pas monte : on refait le meme
+        // decalage a la main plutot que de centrer et fausser la lecture.
+        S.map.setView([sec.lat, sec.lon], 12);
+        if (typeof isMobile === 'function' && isMobile()) {
+          var sz = S.map.getSize();
+          S.map.setView(S.map.containerPointToLatLng([sz.x / 2, sz.y * 2 / 3]), 12,
+                        { animate: false });
+        }
       }
-      if (typeof openSpotPopup === 'function') {
-        openSpotPopup({ lat: s.lat, lng: s.lon }, null);
+
+      var mob = (typeof isMobile === 'function') && isMobile();
+      if (mob && typeof VZM_NAV !== 'undefined' && VZM_NAV && VZM_NAV.open) {
+        // VZM_NAV.open est un toggle : si le mode vaut deja 'cond', l'appel
+        // REFERMERAIT le panneau au lieu de l'ouvrir sur le nouveau secteur.
+        // On remet l'etat a zero avant, sinon le comportement depend de ce que
+        // le chasseur avait ouvert juste avant d'entrer dans son espace.
+        if (typeof VZ_SHEET !== 'undefined' && VZ_SHEET && VZ_SHEET.mode === 'cond') {
+          VZ_SHEET.mode = null;
+        }
+        VZM_NAV.open('cond');
+      } else if (typeof openSpotPopup === 'function') {
+        openSpotPopup({ lat: sec.lat, lng: sec.lon }, null);
       }
     } catch (e) { console.warn('[espace] ouverture secteur', e); }
   }
@@ -1200,6 +1338,7 @@
   window.vzEspaceOnAuth = function () {
     _retours = null;
     _secteurs = null;
+    _obs = null;
     _follows = null;
     if (user()) followResume();
     if (_el && _el.classList.contains('open')) {
@@ -1292,6 +1431,8 @@
     job.then(function () {
       if (!_follows) _follows = {};
       if (on) delete _follows[id]; else _follows[id] = true;
+      // _obs n'est PAS vide ici : les retours communautaires ne dependent pas
+      // du suivi, et les relire ferait un appel reseau pour rien.
       btn.setAttribute('aria-pressed', String(!on));
       btn.setAttribute('aria-label', on ? 'Suivre ce secteur' : 'Ne plus suivre ce secteur');
       // La liste de l'espace est invalidee : sans ca, le secteur qu'on vient de
@@ -1363,6 +1504,72 @@
   window.VZ_FOLLOW = {
     mount: followMount,
     reset: function () { _follows = null; }
+  };
+
+  /* ------------------------------------------------------------------------
+     VZ_RETOUR - ECRITURE D'UN RETOUR PRIVE
+     ------------------------------------------------------------------------
+     Le retour est PRIVE par defaut. Il vit dans users/{uid}/retours, lisible
+     par son seul auteur d'apres les regles Firestore. Le partage a la
+     communaute reste ce qu'il etait : un envoi separe vers le GAS, decide
+     explicitement, qui ne transmet que la valeur de visibilite. Le texte libre
+     ne sort jamais de l'espace personnel.
+
+     predictedVisM est le point capital de ce lot. Le moteur produit une
+     prevision a chaque consultation, mais elle n'etait archivee NULLE PART au
+     moment ou un chasseur constatait la realite. Sans le couple prevu/observe
+     date et localise, aucune calibration n'est possible : on ne peut pas
+     corriger un modele dont on n'a jamais mesure l'erreur. Chaque retour
+     depose devient donc un point de controle du moteur.
+
+     Il est archive tel quel, meme absent. Un retour sans prevision associee est
+     une information honnete ; une prevision reconstituee apres coup serait une
+     donnee fausse, et fausserait la calibration qu'elle pretend servir.
+     ------------------------------------------------------------------------ */
+  function currentPrediction() {
+    try {
+      var o = (typeof S !== 'undefined' && S) ? S._lastScoreObj : null;
+      if (o && typeof o.visi_m === 'number' && isFinite(o.visi_m) && o.visi_m > 0) {
+        return Math.round(o.visi_m * 10) / 10;
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  function saveRetour(data) {
+    var u = user();
+    if (!u || !window.fbDb || !window.fbAddDoc) return Promise.resolve(null);
+    var col = window.fbCollection(window.fbDb, 'users', u.uid, 'retours');
+    var doc = {
+      date: data.date || new Date().toISOString().slice(0, 10),
+      heure: data.heure || '',
+      secteur: data.secteur || '',
+      lat: data.lat, lon: data.lon,
+      visibilityM: data.visibilityM,
+      // Etat de l'eau tel que le chasseur l'a qualifie. Jamais synthetise avec
+      // la visibilite en une note unique : ce sont deux observations distinctes.
+      eau: data.eau || '',
+      notes: data.notes || '',
+      predictedVisM: currentPrediction(),
+      partage: !!data.partage,
+      createdAt: window.fbServerTimestamp()
+    };
+    return window.fbAddDoc(col, doc).then(function (ref) {
+      // La liste de l'espace est invalidee : sans ca le retour n'apparaitrait
+      // qu'au prochain rechargement complet de l'application.
+      _retours = null;
+      return ref;
+    }).catch(function (err) {
+      console.warn('[retour] ecriture', err);
+      return null;
+    });
+  }
+
+  window.VZ_RETOUR = {
+    save: saveRetour,
+    prediction: currentPrediction,
+    isLogged: function () { return !!user(); },
+    pseudo: function () { return profil().pseudo || ''; }
   };
 
   window.VZ_ESPACE = {
