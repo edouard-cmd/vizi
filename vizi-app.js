@@ -15188,21 +15188,30 @@ var css = `
     }
     .vz-cond-table td { padding: 0; text-align: center; vertical-align: middle; }
     .vz-cond-rowlabel {
-      position: sticky; left: 0; z-index: 3; width: 112px; min-width: 112px;
-      background: #FFFFFF; border-right: 2px solid #0A1520; text-align: left; padding: 0 10px;
-      font-size: 12px; font-weight: 600; color: #0A1520;
+      position: sticky; left: 0; z-index: 3; width: 138px; min-width: 138px;
+      background: #FFFFFF; border-right: 2px solid #0A1520; text-align: left; padding: 0 12px;
+      font-size: 13px; font-weight: 600; color: #0A1520;
       transition: width .18s ease, min-width .18s ease;
+      /* Sans clipping, un intitule plus long que sa colonne (zoom navigateur,
+         metriques de police differentes, fallback de fonte) deborde PAR-DESSUS
+         la premiere colonne de donnees : le fond blanc s'arrete au bord de la
+         cellule mais le texte continue, et "Visibilité" se lit sur "4,0m".
+         On ne devine pas la cause, on rend le symptome impossible. */
+      overflow: hidden;
+    }
+    .vz-cond-rowlabel .lb-txt {
+      display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .vz-cond-rowlabel .lb-ico { display: none; }
     .vz-cond-rowlabel .lb-ico svg { width: 19px; height: 19px; stroke: #0A1520; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; margin: 0 auto; }
     .vz-cond-rowlabel.is-corner { background: #F7F9FB; border-bottom: 2px solid #0A1520; }
-    .vz-cond-rowlabel.is-hourlbl { background: #F7F9FB; border-bottom: 1px solid #C9D4DC; font-size: 10.5px; color: #51677A; font-weight: 600; }
-    .vz-cond-rowlabel.is-vis { height: 44px; border-bottom: 2px solid #0A1520; font-size: 13px; font-weight: 800; }
-    .vz-cond-rowlabel.is-tide { height: 38px; border-bottom: 1px solid #EEF2F5; }
+    .vz-cond-rowlabel.is-hourlbl { background: #F7F9FB; border-bottom: 1px solid #C9D4DC; font-size: 12px; color: #51677A; font-weight: 600; }
+    .vz-cond-rowlabel.is-vis { height: 48px; border-bottom: 2px solid #0A1520; font-size: 14px; font-weight: 800; }
+    .vz-cond-rowlabel.is-tide { height: 84px; border-bottom: 1px solid #EEF2F5; }
     /* ATTENTION table-layout:fixed : ces regles ne suffisent pas, le <col>
        inline du colgroup gagne sur la largeur de cellule. La retraction se
        pilote depuis le colgroup, voir vzLabelColWidth / vzBindScroll. */
-    .vz-cond-scroll.is-scrolled .vz-cond-rowlabel { width: 44px; min-width: 44px; padding: 0 4px; text-align: center; }
+    .vz-cond-scroll.is-scrolled .vz-cond-rowlabel { width: 46px; min-width: 46px; padding: 0 4px; text-align: center; }
     .vz-cond-scroll.is-scrolled .vz-cond-rowlabel .lb-txt { display: none; }
     .vz-cond-scroll.is-scrolled .vz-cond-rowlabel .lb-ico { display: block; }
 
@@ -15226,16 +15235,16 @@ var css = `
     /* Lever et coucher cedent en premier : ils s'effacent sans rien pousser. */
     .vz-cond-dayhead .dh-meta { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500; color: #51677A; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
     .vz-cond-hourhead {
-      height: 26px; background: #F7F9FB; border-bottom: 1px solid #C9D4DC;
-      font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; font-weight: 600; color: #51677A;
+      height: 28px; background: #F7F9FB; border-bottom: 1px solid #C9D4DC;
+      font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; color: #51677A;
     }
     .vz-cond-hourhead.is-now { background: #0A1520; color: #fff; }
     .vz-day-edge { border-left: 2px solid #0A1520 !important; }
 
     /* ---- Strate 1 : visibilite, seule rangee en aplat plein ---- */
     .vz-cond-viscell {
-      height: 44px; border-bottom: 2px solid #0A1520; border-left: 1px solid rgba(10,21,32,.14);
-      font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 700;
+      height: 48px; border-bottom: 2px solid #0A1520; border-left: 1px solid rgba(10,21,32,.14);
+      font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 700;
       letter-spacing: -.02em; cursor: pointer;
     }
     .vz-cond-viscell:hover { outline: 2px solid #0A1520; outline-offset: -2px; }
@@ -15251,29 +15260,36 @@ var css = `
        surface coloree. La couleur passe par currentColor, pose en style
        inline sur la cellule. ---- */
     .vz-row-cell {
-      height: 30px; border-bottom: 1px solid #EEF2F5; border-left: 1px solid #F2F5F8;
-      font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; font-weight: 600; color: #0A1520;
+      height: 34px; border-bottom: 1px solid #EEF2F5; border-left: 1px solid #F2F5F8;
+      font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600; color: #0A1520;
     }
     .vz-grad-cell { position: relative; }
     .vz-grad-cell::before { content: ""; position: absolute; inset: 0; background: currentColor; opacity: .10; }
     .vz-grad-cell::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: currentColor; }
     .vz-grad-cell .gv { position: relative; z-index: 1; color: #0A1520; }
     .vz-dash { color: #90A1AE; font-weight: 500; }
-    .vz-dir svg { width: 15px; height: 15px; stroke: #0A1520; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; margin: 0 auto; }
-    .vz-sky svg { width: 17px; height: 17px; stroke: #51677A; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; margin: 0 auto; }
+    .vz-dir svg { width: 17px; height: 17px; stroke: #0A1520; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; margin: 0 auto; }
+    .vz-sky svg { width: 19px; height: 19px; stroke: #51677A; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; margin: 0 auto; }
 
     /* ---- Strate 2 : maree, 38px au lieu de 88px ---- */
-    .vz-cond-tideband { height: 38px; border-bottom: 1px solid #EEF2F5; padding: 0; position: relative; background: #F7F9FB; }
-    .vz-tide-inner { position: relative; width: 100%; height: 38px; overflow: hidden; }
-    .vz-tide-inner svg { display: block; width: 100%; height: 38px; }
+    /* 38px de bande dont 17 mangees par les marqueurs epingles en haut et en
+       bas : il restait 21 unites de viewBox pour tracer un marnage de 8 m, soit
+       22 pixels a l'ecran. La courbe etait plate au point de ne plus rien dire.
+       Les marqueurs suivent desormais LEUR extreme au lieu d'occuper une
+       gouttiere fixe, ce qui rend toute la hauteur a la courbe. */
+    .vz-cond-tideband { height: 84px; border-bottom: 1px solid #EEF2F5; padding: 0; position: relative; background: #F7F9FB; }
+    .vz-tide-inner { position: relative; width: 100%; height: 84px; overflow: hidden; }
+    .vz-tide-inner svg { display: block; width: 100%; height: 84px; }
     .vz-tide-mark {
-      position: absolute; top: 3px; transform: translateX(-50%);
-      font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; font-weight: 700;
-      padding: 1px 4px; border-radius: 4px; white-space: nowrap;
+      position: absolute; left: 0; top: 0;
+      font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; font-weight: 700;
+      padding: 1px 5px; border-radius: 4px; white-space: nowrap;
     }
-    .vz-tide-mark.pm { background: #0A1520; color: #fff; }
-    .vz-tide-mark.bm { background: #FFFFFF; color: #0A1520; border: 1.5px solid #0A1520; top: auto; bottom: 3px; }
-    .vz-tide-none { display: flex; align-items: center; justify-content: center; height: 38px; font-size: 12px; font-weight: 600; color: #90A1AE; }
+    /* Pleine mer : etiquette au-dessus du point. Basse mer : en dessous.
+       Elles ne se marchent jamais dessus puisqu'elles alternent. */
+    .vz-tide-mark.pm { background: #0A1520; color: #fff; transform: translate(-50%, -122%); }
+    .vz-tide-mark.bm { background: #FFFFFF; color: #0A1520; border: 1.5px solid #0A1520; transform: translate(-50%, 22%); }
+    .vz-tide-none { display: flex; align-items: center; justify-content: center; height: 84px; font-size: 12px; font-weight: 600; color: #90A1AE; }
 
     /* ---- Pied et note d'absence ---- */
     .vz-cond-footer {
@@ -15319,9 +15335,11 @@ var css = `
       .vz-cond-rowlabel .lb-ico { display: block; }
       .vz-cond-scroll.is-scrolled .vz-cond-rowlabel { width: 34px; min-width: 34px; padding: 0 2px; }
       .vz-cond-scroll.is-scrolled .vz-cond-rowlabel .lb-ico svg { width: 17px; height: 17px; }
-      .vz-cond-tideband, .vz-cond-rowlabel.is-tide { height: 34px; }
-      .vz-tide-inner, .vz-tide-inner svg, .vz-tide-none { height: 34px; }
-      .vz-cond-viscell, .vz-cond-rowlabel.is-vis { height: 42px; }
+      .vz-cond-tideband, .vz-cond-rowlabel.is-tide { height: 64px; }
+      .vz-tide-inner, .vz-tide-inner svg, .vz-tide-none { height: 64px; }
+      .vz-cond-viscell, .vz-cond-rowlabel.is-vis { height: 46px; }
+      .vz-cond-viscell { font-size: 14px; }
+      .vz-row-cell { height: 32px; font-size: 12.5px; }
       .vz-cond-ident { gap: 10px; padding: 0 2px 10px; }
       .vz-cond-ident-item { font-size: 12.5px; }
       /* Le jour etait ecrit DEUX fois : dans la puce active de la barre de
@@ -15386,6 +15404,14 @@ window.setSheetState = function(state) {
   sheet.classList.remove('sheet-peek', 'sheet-half', 'sheet-full');
   sheet.classList.add('sheet-' + state);
   VZ_SHEET.state = state;
+  // La croix de visee desktop est en z-index 1150, le bandeau en 1100 : au
+  // centre de l'ecran elle tombait DANS le bandeau ouvert et restait posee
+  // par-dessus le tableau et l'ecran de chargement. Un reticule ne vise plus
+  // rien quand la carte est masquee : on le retire tant que le bandeau est
+  // deploye. Une seule classe, posee au seul endroit qui connait l'etat.
+  try {
+    document.body.classList.toggle('vz-sheet-open', state !== 'peek');
+  } catch (e) {}
 };
 
 function updateSheetHeader(modeLabel, spotLabel) {
@@ -15506,6 +15532,9 @@ function vzInitDeskXhair() {
     // Un point a ete choisi au clic : son ping devient le repere, la croix
     // s'efface. Deux vises a l'ecran se disputeraient la lecture.
   + 'body.vz-has-point .vz-xhair-desk{opacity:0;}'
+    // Bandeau deploye : la carte est masquee au centre, la croix ne vise plus
+    // rien et flottait par-dessus le tableau (z-index 1150 contre 1100).
+  + 'body.vz-sheet-open .vz-xhair-desk{opacity:0;}'
     // Modes ou la carte sert a autre chose qu'a viser.
   + 'body.vz-edit-mode .vz-xhair-desk,body.vz-measure-mode .vz-xhair-desk,'
   +   'body.vz-goto .vz-xhair-desk{display:none !important;}'
@@ -16071,8 +16100,8 @@ function vzDirArrow(deg){
    les libelles en icones mais laisse 68px de largeur morte. On ecrit donc les
    deux, la classe ET le col. */
 function vzLabelColWidth(scrolled, isMob){
-  if (isMob) return scrolled ? 34 : 44;
-  return scrolled ? 44 : 112;
+  if (isMob) return scrolled ? 36 : 46;
+  return scrolled ? 46 : 138;
 }
 function vzBindScroll(scrollEl, isMob){
   if (!scrollEl || scrollEl._vzBound) return;
@@ -16186,7 +16215,12 @@ if (slots.length >= 40) break;
   // Bloc source EN TETE : la doctrine veut qu'on lise d'ou vient le chiffre
   // avant de lire le chiffre. Emplacement reserve, rempli par
   // vzRenderCondVerdict juste apres l'injection du HTML.
-  html += '<div class="vz-cond-source" id="vzCondSource"></div>';
+  // Simple point d'accueil, SANS la classe du composant : vzRenderCondSource
+  // genere lui-meme le <div class="vz-cond-source">. La classe posee ici en
+  // double donnait deux bandes imbriquees - bordure noire externe, grille a
+  // deux colonnes, et la vraie bande reduite a la premiere colonne, donc a la
+  // moitie de la largeur avec un grand vide a droite.
+  html += '<div id="vzCondSource"></div>';
 
   // --- Retour communautaire : le bandeau pouces du tableau est retire (jamais
   // clique : demande une validation de NOTRE prevision au moment de la pre-decision).
@@ -16275,8 +16309,10 @@ html += '<div class="vz-cond-daybar" id="vzCondDaybar">'
   // cellule. Sans largeur explicite, 40 colonnes de contenus inegaux se
   // repartissent au petit bonheur et la maree en colspan ne s'aligne plus.
   var _isMob = (typeof isMobile === 'function') ? isMobile() : (window.innerWidth <= 768);
-  var COLW = _isMob ? 44 : 40;
-  var LBLW = _isMob ? 44 : 112;
+  // Colonnes elargies : a 40px et 11,5px de fonte, "0,1m" tenait au pixel pres
+  // et les chiffres devenaient illisibles a bout de bras, dehors.
+  var COLW = _isMob ? 46 : 48;
+  var LBLW = _isMob ? 46 : 138;
   var TOTW = LBLW + slots.length * COLW;
 
   function rl(txt, ico, cls) {
@@ -16590,7 +16626,12 @@ function buildTideBandCell(slots, i0, i1, tideData) {
   var allH = pts.map(function(p) { return p.height; });
   var minH = Math.min.apply(null, allH), maxH = Math.max.apply(null, allH);
   var rangeH = Math.max(maxH - minH, 0.3);
-  var VBW = 100, VBH = 38, yTop = 9, yBot = 30;
+  // 44 unites de course sur 84, soit 44 px a l'ecran contre 22 auparavant :
+  // l'amplitude double. Les 20 unites de garde en haut et en bas ne sont pas
+  // du vide perdu, c'est la place des etiquettes d'etale, qui se posent a la
+  // hauteur de leur extreme et debordent vers l'exterieur de la courbe. Sans
+  // cette garde, .vz-tide-inner les clippait.
+  var VBW = 100, VBH = 84, yTop = 20, yBot = 64;
   function X(ms) { return ((ms - t0) / span) * VBW; }
   function Y(hh) { return yBot - ((hh - minH) / rangeH) * (yBot - yTop); }
 
@@ -16605,10 +16646,14 @@ function buildTideBandCell(slots, i0, i1, tideData) {
   for (var e = 0; e < ext.length; e++) {
     var ems = new Date(ext[e].time).getTime();
     if (ems < t0 || ems > tN) continue;
-    var p = Math.max(6, Math.min(94, X(ems)));
+    var p = Math.max(7, Math.min(93, X(ems)));
+    // L'etiquette se pose A LA HAUTEUR de son extreme : c'est ce qui libere la
+    // bande pour la courbe, et ca dit aussi visuellement de quel creux ou de
+    // quelle bosse on parle.
+    var yp = Math.max(0, Math.min(100, Y(ext[e].height) / VBH * 100));
     var hhmm = new Date(ext[e].time).toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
     marks += '<span class="vz-tide-mark ' + (ext[e].type === 'high' ? 'pm' : 'bm')
-      + '" style="left:' + p.toFixed(1) + '%">' + hhmm + '</span>';
+      + '" style="left:' + p.toFixed(1) + '%;top:' + yp.toFixed(1) + '%">' + hhmm + '</span>';
   }
   return '<td class="vz-cond-tideband vz-day-edge" colspan="' + N + '">'
     + '<div class="vz-tide-inner">' + svg + marks + '</div></td>';
