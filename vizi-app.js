@@ -15100,368 +15100,241 @@ var css = `
       letter-spacing: 0.06em;
       text-transform: uppercase;
       margin-left: auto;
-    }
- .vz-cond-table {
-      width: 100%;
-      border-collapse: separate;
-      border-spacing: 0;
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 14px;
-      color: var(--vz-text-on-dark);
-    }
-    .vz-cond-table th, .vz-cond-table td {
-      padding: 0 9px;
-      height: 34px;
-      text-align: center;
-      white-space: nowrap;
-      /* Le tableau vit sur fond CLAIR (--vz-bg-deep = #F4F7FA). Les bordures
-         etaient en blanc a 5 %, heritees du theme sombre d'origine : donc
-         invisibles. Sans trame, il ne restait que des aplats de couleur bord
-         a bord. Un instrument se lit sur une grille. Verticales plus marquees
-         que les horizontales : l'oeil doit suivre la colonne d'un creneau. */
-      border-right: 1px solid rgba(11,26,38,0.10);
-      border-bottom: 1px solid rgba(11,26,38,0.06);
-    }
-.vz-cond-rowlabel {
-      font-family: 'Inter', sans-serif;
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--vz-text-on-dark-muted);
-      text-transform: none;
-      letter-spacing: 0;
-      text-align: right !important;
-      padding: 0 12px !important;
-      min-width: 100px;
-      position: sticky;
-      left: 0;
-      background: var(--vz-bg-surface);
-      z-index: 3;
-      border-right: 2px solid #0A1520 !important;
-    }
-    .vz-cond-unit {
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 9px;
-      font-weight: 500;
-      color: var(--vz-text-on-dark-muted);
-      opacity: 0.65;
-      margin-left: 3px;
-      letter-spacing: 0;
-    }
-    .vz-cond-rowlabel, .vz-cond-cornerlabel, .vz-cond-cornerhour {
-      transition: min-width 0.2s ease, padding 0.2s ease;
-    }
-    .vz-cond-lbl-icon { display: none; line-height: 0; color: var(--vz-text-on-dark-muted); }
-    .vz-cond-lbl-icon svg { vertical-align: middle; }
-    .vz-cond-scrolled .vz-cond-lbl-word { display: none; }
-    .vz-cond-scrolled .vz-cond-lbl-icon { display: inline-flex; }
-    .vz-cond-scrolled .vz-cond-rowlabel,
-    .vz-cond-scrolled .vz-cond-cornerlabel,
-    .vz-cond-scrolled .vz-cond-cornerhour {
-      min-width: 44px !important;
-      padding: 0 8px !important;
-      text-align: center !important;
-    }
-    .vz-cond-dayhead {
-      font-family: 'Inter', sans-serif;
-      font-size: 11px;
-      font-weight: 700;
-      color: var(--vz-text-on-dark);
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-      background: #EEF3F7;
-      border-bottom: 2px solid #0A1520 !important;
-      padding: 7px 8px !important;
-      height: auto;
-    }
-    .vz-cond-hourhead {
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 11px;
-      font-weight: 500;
-      color: var(--vz-text-on-dark-muted);
-      background: #F7F9FB;
-      letter-spacing: 0.04em;
-      height: 26px;
-      border-bottom: 1px solid rgba(11,26,38,0.12) !important;
-    }
-    .vz-cond-dayboundary { border-left: 2px solid #0A1520 !important; }
-   .vz-cond-now {
-      background: rgba(14,124,98,0.06) !important;
-      box-shadow: inset 2px 0 0 var(--vz-accent), inset -2px 0 0 var(--vz-accent);
-    }
-    .vz-cond-now-header {
-      background: rgba(14,124,98,0.13) !important;
-      color: var(--vz-accent) !important;
-      font-weight: 700 !important;
-      box-shadow: inset 2px 0 0 var(--vz-accent), inset -2px 0 0 var(--vz-accent), inset 0 2px 0 var(--vz-accent);
-    }
-    /* Visi : grosse typo Inter, couleurs saturées */
-    .vz-cond-row-vis td {
-      font-family: 'Inter', sans-serif !important;
-      font-size: 14px !important;
-      font-weight: 700 !important;
-      color: #fff !important;
-      cursor: pointer;
-      letter-spacing: 0;
-      transition: filter 0.15s;
-    }
-    .vz-cond-row-vis td:hover { filter: brightness(1.15); }
-    .vz-cond-row-vis td.vz-cond-rowlabel { color: var(--vz-text-on-dark-muted) !important; cursor: default; }
-    .vz-cond-ident {
-      display: flex;
-      align-items: center;
-      gap: 22px;
-      flex-wrap: wrap;
-      padding: 2px 4px 14px;
-    }
-    .vz-cond-ident-item {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--vz-text-on-dark);
-    }
-    .vz-cond-ident-item svg { flex: none; color: #4DD4A8; }
-    .vz-cond-ident-mono {
-      font-family: 'IBM Plex Mono', monospace;
-      font-weight: 500;
-      font-size: 12.5px;
-      color: var(--vz-text-on-dark-muted);
-      letter-spacing: 0.02em;
-    }
-    /* ----- Bloc source : d'ou vient le chiffre, AVANT le chiffre -----
-       Remplace l'ancienne .vz-cond-satnote, releguee sous les huit lignes de
-       donnees en mono 11px gris. Le satellite est la source numero 1 de la
-       doctrine : il se lit en premier, en cartouche instrument (blanc opaque,
-       bordure noire nette, aucun flou). L'absence de mesure est une
-       information affirmee, pas une note de bas de page. */
+    } /* =================================================================
+       BANDEAU PREVISIONS - doctrine instrument
+       Blanc opaque, bordures noires 2px, rayon 14px, aucun flou, aucun
+       degrade, aucune ombre. Inter pour l'interface, IBM Plex Mono pour
+       toute donnee mesuree. Teal #0E7C62 seule couleur d'accent.
+       ================================================================= */
+
+    /* ---- Bande source : d'ou vient le chiffre, avant le chiffre ---- */
+    #vzCondSource { margin: 0 0 14px; }
     .vz-cond-source {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      margin: 0 0 14px;
+      display: grid; grid-template-columns: 1fr 1fr; background: #FFFFFF;
+      border: 2px solid #0A1520; border-radius: 14px; overflow: hidden;
     }
-    .vz-cond-src {
-      flex: 0 1 340px;
-      min-width: 0;
-      background: #FFFFFF;
-      border: 2px solid #0A1520;
-      border-radius: var(--vz-radius-card);
-      padding: 11px 14px 12px;
+    .vz-cond-src { display: flex; align-items: center; gap: 11px; padding: 13px 16px; min-height: 64px; }
+    .vz-cond-src + .vz-cond-src { border-left: 2px solid #0A1520; }
+    .vz-cond-src.is-void { background: #F7F9FB; }
+    .vz-cond-src.is-void .vz-cond-lbl { color: #51677A; }
+    .vz-cond-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; background: #C9D4DC; }
+    .vz-cond-dot.is-fresh { background: #0E7C62; }
+    .vz-cond-dot.is-aging { background: #E89B3C; }
+    .vz-cond-dot.is-none  { background: #C9D4DC; }
+    .vz-cond-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+    .vz-cond-lbl { display: block; font-family: Inter, sans-serif; font-size: 14px; font-weight: 600; color: #0A1520; line-height: 1.2; }
+    .vz-cond-meta { display: block; font-family: Inter, sans-serif; font-size: 12.5px; font-weight: 500; color: #51677A; line-height: 1.25; }
+    .vz-cond-meta.is-lead { color: #0A1520; font-weight: 600; }
+    .vz-cond-val {
+      font-family: 'IBM Plex Mono', monospace; font-size: 26px; font-weight: 700;
+      color: #0A1520; letter-spacing: -.02em; line-height: 1; flex-shrink: 0; white-space: nowrap;
     }
-    .vz-cond-src-k {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-family: 'Inter', sans-serif;
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: #6D7F8E;
+    .vz-cond-val i { font-style: normal; font-size: 15px; font-weight: 600; }
+    /* Le vide ne prend jamais la typo du releve. */
+    .vz-cond-val.is-empty {
+      font-family: Inter, sans-serif; font-size: 16px; color: #90A1AE; font-weight: 600;
+      white-space: normal; flex-shrink: 1; text-align: right; line-height: 1.25; max-width: 46%;
     }
-    .vz-cond-src-k svg { flex: none; color: #0E7C62; }
-    .vz-cond-src-v {
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 22px;
-      font-weight: 700;
-      color: #0A1520;
-      line-height: 1.15;
-      margin-top: 5px;
+    .vz-cond-empty-inline { display: none; }
+
+    /* ---- Bande source, mobile : en colonne ---- */
+    .vzm-cond-source {
+      display: flex; flex-direction: column; background: #FFFFFF;
+      border: 2px solid #0A1520; border-radius: 14px; overflow: hidden;
     }
-    .vz-cond-src-m {
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 11.5px;
-      color: #51677A;
-      letter-spacing: 0.02em;
-      line-height: 1.65;
-      margin-top: 4px;
+    .vzm-cond-source .vz-cond-src { min-height: 56px; padding: 11px 13px; }
+    .vzm-cond-source .vz-cond-src + .vz-cond-src { border-left: none; border-top: 2px solid #0A1520; }
+    .vzm-cond-source .vz-cond-lbl { font-size: 13.5px; }
+    .vzm-cond-source .vz-cond-meta { font-size: 12px; }
+    .vzm-cond-source .vz-cond-val { font-size: 22px; }
+    /* A 360px une absence alignee a droite reservait 153px et cassait la
+       bande : en colonne elle se lit comme la meta de sa ligne. */
+    .vzm-cond-source .vz-cond-src.is-void { align-items: flex-start; padding-top: 12px; }
+    .vzm-cond-source .vz-cond-src.is-void .vz-cond-dot { margin-top: 4px; }
+    .vzm-cond-source .vz-cond-val.is-empty { display: none; }
+    .vzm-cond-source .vz-cond-src.is-void .vz-cond-empty-inline {
+      display: block; font-family: Inter, sans-serif; font-size: 14px; font-weight: 700;
+      color: #51677A; line-height: 1.25; margin-bottom: 1px;
     }
-    /* Pas de mesure : cartouche volontairement en retrait (bordure grise,
-       fond casse) pour que l'absence ne se lise pas comme une donnee. */
-    .vz-cond-src.is-none { border-color: #C9D4DC; background: #F7F9FB; }
-    .vz-cond-src.is-none .vz-cond-src-v {
-      font-size: 15px;
-      font-weight: 600;
-      color: #51677A;
+
+    /* ---- Chargement : six segments, six sources ---- */
+    .vz-cond-load { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 34px 20px; background: #FFFFFF; }
+    .vz-load-box { width: 100%; max-width: 340px; }
+    .vz-load-title { font-family: Inter, sans-serif; font-size: 16px; font-weight: 700; color: #0A1520; text-align: center; letter-spacing: -.015em; }
+    .vz-load-sub { font-family: Inter, sans-serif; font-size: 12.5px; font-weight: 500; color: #51677A; text-align: center; margin-top: 5px; line-height: 1.45; }
+    .vz-load-bar { display: flex; gap: 4px; margin: 18px 0 20px; }
+    .vz-load-seg { flex: 1; height: 8px; border: 2px solid #0A1520; border-radius: 3px; background: #FFFFFF; }
+    .vz-load-seg.is-on { background: #0E7C62; border-color: #0E7C62; }
+    .vz-load-list { display: flex; flex-direction: column; }
+    .vz-load-row { display: flex; align-items: center; gap: 11px; padding: 9px 0; border-top: 1px solid #EEF2F5; }
+    .vz-load-row:first-child { border-top: none; }
+    .vz-load-mark {
+      width: 22px; height: 22px; flex-shrink: 0; border: 2px solid #C9D4DC; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; background: #FFFFFF;
     }
-    /* ----- Chargement : barre reelle, six sources qui se cochent -----
-       Les six fetchs partent EN PARALLELE (cf. loadSheetConditions). Une barre
-       a etapes sequentielles serait une animation mensongere sur un produit
-       dont l'argument est l'honnetete epistemique. Chaque ligne se coche quand
-       sa source repond vraiment, dans l'ordre ou elle repond. */
-    .vz-cond-load { padding: 24px 4px 10px; max-width: 460px; }
-    .vz-cond-load-t {
-      font-family: 'Inter', sans-serif;
-      font-size: 13px;
-      font-weight: 700;
-      letter-spacing: -0.01em;
-      color: #0A1520;
-      margin-bottom: 12px;
+    .vz-load-mark svg { width: 13px; height: 13px; stroke: #fff; fill: none; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; opacity: 0; }
+    .vz-load-row.is-done .vz-load-mark { background: #0E7C62; border-color: #0E7C62; }
+    .vz-load-row.is-done .vz-load-mark svg { opacity: 1; }
+    .vz-load-name { flex: 1; min-width: 0; font-family: Inter, sans-serif; font-size: 13.5px; font-weight: 500; color: #90A1AE; }
+    .vz-load-row.is-done .vz-load-name { color: #0A1520; font-weight: 600; }
+
+    /* ---- Conteneur et colonne collante ---- */
+    .vz-cond-scroll { overflow-x: auto; overflow-y: hidden; background: #FFFFFF; }
+    .vz-cond-scroll::-webkit-scrollbar { height: 10px; }
+    .vz-cond-scroll::-webkit-scrollbar-thumb { background: #C9D4DC; border-radius: 5px; }
+    .vz-cond-table {
+      border-collapse: separate; border-spacing: 0; table-layout: fixed;
+      font-family: Inter, sans-serif;
     }
-    .vz-cond-load-bar {
-      height: 8px;
-      border-radius: 5px;
-      background: #E4EBF1;
-      border: 1px solid rgba(11,26,38,0.10);
-      overflow: hidden;
+    .vz-cond-table td { padding: 0; text-align: center; vertical-align: middle; }
+    .vz-cond-rowlabel {
+      position: sticky; left: 0; z-index: 3; width: 112px; min-width: 112px;
+      background: #FFFFFF; border-right: 2px solid #0A1520; text-align: left; padding: 0 10px;
+      font-size: 12px; font-weight: 600; color: #0A1520;
+      transition: width .18s ease, min-width .18s ease;
     }
-    .vz-cond-load-fill {
-      height: 100%;
-      width: 0%;
-      background: #0E7C62;
-      transition: width 0.35s cubic-bezier(.4,0,.2,1);
+    .vz-cond-rowlabel .lb-ico { display: none; }
+    .vz-cond-rowlabel .lb-ico svg { width: 19px; height: 19px; stroke: #0A1520; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; margin: 0 auto; }
+    .vz-cond-rowlabel.is-corner { background: #F7F9FB; border-bottom: 2px solid #0A1520; }
+    .vz-cond-rowlabel.is-hourlbl { background: #F7F9FB; border-bottom: 1px solid #C9D4DC; font-size: 10.5px; color: #51677A; font-weight: 600; }
+    .vz-cond-rowlabel.is-vis { height: 44px; border-bottom: 2px solid #0A1520; font-size: 13px; font-weight: 800; }
+    .vz-cond-rowlabel.is-tide { height: 38px; border-bottom: 1px solid #EEF2F5; }
+    /* ATTENTION table-layout:fixed : ces regles ne suffisent pas, le <col>
+       inline du colgroup gagne sur la largeur de cellule. La retraction se
+       pilote depuis le colgroup, voir vzLabelColWidth / vzBindScroll. */
+    .vz-cond-scroll.is-scrolled .vz-cond-rowlabel { width: 44px; min-width: 44px; padding: 0 4px; text-align: center; }
+    .vz-cond-scroll.is-scrolled .vz-cond-rowlabel .lb-txt { display: none; }
+    .vz-cond-scroll.is-scrolled .vz-cond-rowlabel .lb-ico { display: block; }
+
+    /* ---- En-tete de jour et heures ---- */
+    /* Le padding vit sur .dh : .vz-cond-table td{padding:0} est plus
+       specifique que .vz-cond-dayhead et gagnerait sur la cellule. */
+    .vz-cond-dayhead {
+      height: 46px; background: #F7F9FB; border-bottom: 2px solid #0A1520;
+      border-left: 2px solid #0A1520; text-align: left; overflow: hidden;
     }
-    .vz-cond-load-list { margin-top: 15px; display: flex; flex-direction: column; gap: 8px; }
-    .vz-cond-load-i {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 12px;
-      letter-spacing: 0.02em;
-      color: #90A1AE;
-      transition: color 0.2s ease;
+    .vz-cond-dayhead .dh { display: flex; align-items: baseline; gap: 9px; padding: 0 11px; min-width: 0; overflow: hidden; white-space: nowrap; }
+    .vz-cond-dayhead .dh-day { font-size: 14px; font-weight: 800; color: #0A1520; flex: 0 0 auto; }
+    .vz-cond-dayhead .dh-coef {
+      flex: 0 0 auto; white-space: nowrap; font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 5px;
+      border: 1.5px solid #C9D4DC; color: #51677A;
     }
-    .vz-cond-load-i .vz-cond-load-dot {
-      flex: none;
-      width: 15px;
-      height: 15px;
-      border-radius: 50%;
-      border: 1.5px solid #C9D4DC;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: background 0.2s ease, border-color 0.2s ease;
+    .vz-cond-dayhead .dh-coef.is-moyen { border-color: #C9D4DC; color: #51677A; }
+    .vz-cond-dayhead .dh-coef.is-vives { border-color: #E89B3C; color: #8A4F09; background: rgba(232,155,60,.14); }
+    .vz-cond-dayhead .dh-vis { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; font-weight: 700; color: #0E7C62; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+    /* Lever et coucher cedent en premier : ils s'effacent sans rien pousser. */
+    .vz-cond-dayhead .dh-meta { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500; color: #51677A; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+    .vz-cond-hourhead {
+      height: 26px; background: #F7F9FB; border-bottom: 1px solid #C9D4DC;
+      font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; font-weight: 600; color: #51677A;
     }
-    .vz-cond-load-i .vz-cond-load-dot svg { width: 9px; height: 9px; opacity: 0; transition: opacity 0.2s ease; }
-    .vz-cond-load-i.is-done { color: #0B1A26; }
-    .vz-cond-load-i.is-done .vz-cond-load-dot { background: #0E7C62; border-color: #0E7C62; }
-    .vz-cond-load-i.is-done .vz-cond-load-dot svg { opacity: 1; }
-    /* La barre de jours est un organe de NAVIGATION tactile : sur desktop les
-       cinq jours sont deja dans le tableau (en-tetes porteurs du coef, de la
-       fourchette de visi et du lever/coucher), et son CSS ne vit que dans le
-       module vzmNav, sous @media (max-width:768px). Elle s'affichait donc en
-       boutons natifs du navigateur au-dessus du tableau. Masquee ici, le
-       module mobile la reaffiche en flex dans sa media query. */
-    .vz-cond-daybar { display: none; }
-    .vz-cond-vis-0 { background: rgba(201,74,61,0.92) !important; }
-    .vz-cond-vis-1 { background: rgba(232,155,60,0.85) !important; }
-    .vz-cond-vis-2 { background: rgba(216,200,74,0.75) !important; color: #1A2535 !important; }
-    .vz-cond-vis-3 { background: rgba(77,212,168,0.65) !important; color: #1A2535 !important; }
-    .vz-cond-vis-4 { background: rgba(45,168,136,0.92) !important; }
-    /* Visi par creneau : meme granularite que vent/houle/maree, alignee colonne */
-    .vz-cond-viscell { font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 12px; text-align: center; cursor: pointer; }
-    /* Fourchette de visi dans l'en-tete du jour */
-    .vz-cond-dayvisi { display: block; margin-top: 3px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; color: #4DD4A8; white-space: nowrap; }
-    /* Donnee insuffisante : gris neutre, volontairement hors de l'echelle
-       rouge->teal. Le chasseur doit voir au premier coup d'oeil que ce n'est
-       pas une visi mais un trou : ni rassurant, ni alarmant. */
-    .vz-cond-vis-na {
-      background: rgba(92,114,133,0.35) !important;
-      color: #5C7285 !important;
+    .vz-cond-hourhead.is-now { background: #0A1520; color: #fff; }
+    .vz-day-edge { border-left: 2px solid #0A1520 !important; }
+
+    /* ---- Strate 1 : visibilite, seule rangee en aplat plein ---- */
+    .vz-cond-viscell {
+      height: 44px; border-bottom: 2px solid #0A1520; border-left: 1px solid rgba(10,21,32,.14);
+      font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 700;
+      letter-spacing: -.02em; cursor: pointer;
     }
-    /* Vent : Inter 600 */
-.vz-cond-row-wind td, .vz-cond-row-gusts td, .vz-cond-row-wave td {
-      font-family: 'Inter', sans-serif;
-      font-weight: 600;
-      font-size: 12px;
+    .vz-cond-viscell:hover { outline: 2px solid #0A1520; outline-offset: -2px; }
+    .vis-1 { background: #C94A3D; color: #fff; }
+    .vis-2 { background: #E89B3C; color: #231202; }
+    .vis-3 { background: #D8C84A; color: #241F02; }
+    .vis-4 { background: #4DD4A8; color: #052B20; }
+    .vis-5 { background: #2DA888; color: #03211A; }
+    /* Hors echelle : ni bon ni mauvais, un trou. */
+    .vis-void { background: #5C7285; color: #fff; font-weight: 600; }
+
+    /* ---- Strate 3 : vent, rafales, vagues. Meme echelle, un dixieme de
+       surface coloree. La couleur passe par currentColor, pose en style
+       inline sur la cellule. ---- */
+    .vz-row-cell {
+      height: 30px; border-bottom: 1px solid #EEF2F5; border-left: 1px solid #F2F5F8;
+      font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; font-weight: 600; color: #0A1520;
     }
-    .vz-cond-w-0 { background: rgba(77,212,168,0.10); }
-    .vz-cond-w-1 { background: rgba(77,212,168,0.20); }
-    .vz-cond-w-2 { background: rgba(216,200,74,0.20); }
-    .vz-cond-w-3 { background: rgba(232,155,60,0.30); }
-    .vz-cond-w-4 { background: rgba(232,155,60,0.50); }
-    .vz-cond-w-5 { background: rgba(201,74,61,0.55); }
-    .vz-cond-w-6 { background: rgba(201,74,61,0.75); color: #fff; }
-    /* Cellules par défaut (Marée, Direction, Ciel) : taille uniforme */
-    .vz-cond-table tbody td:not(.vz-cond-rowlabel) {
-      font-size: 12px;
+    .vz-grad-cell { position: relative; }
+    .vz-grad-cell::before { content: ""; position: absolute; inset: 0; background: currentColor; opacity: .10; }
+    .vz-grad-cell::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: currentColor; }
+    .vz-grad-cell .gv { position: relative; z-index: 1; color: #0A1520; }
+    .vz-dash { color: #90A1AE; font-weight: 500; }
+    .vz-dir svg { width: 15px; height: 15px; stroke: #0A1520; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; margin: 0 auto; }
+    .vz-sky svg { width: 17px; height: 17px; stroke: #51677A; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; margin: 0 auto; }
+
+    /* ---- Strate 2 : maree, 38px au lieu de 88px ---- */
+    .vz-cond-tideband { height: 38px; border-bottom: 1px solid #EEF2F5; padding: 0; position: relative; background: #F7F9FB; }
+    .vz-tide-inner { position: relative; width: 100%; height: 38px; overflow: hidden; }
+    .vz-tide-inner svg { display: block; width: 100%; height: 38px; }
+    .vz-tide-mark {
+      position: absolute; top: 3px; transform: translateX(-50%);
+      font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; font-weight: 700;
+      padding: 1px 4px; border-radius: 4px; white-space: nowrap;
     }
-    /* Coef */
-    .vz-cond-coef-low { color: var(--vz-text-on-dark-muted); }
-    .vz-cond-coef-mid { color: var(--vz-medium); font-weight: 600; }
-    .vz-cond-coef-high { color: var(--vz-warning); font-weight: 700; }
+    .vz-tide-mark.pm { background: #0A1520; color: #fff; }
+    .vz-tide-mark.bm { background: #FFFFFF; color: #0A1520; border: 1.5px solid #0A1520; top: auto; bottom: 3px; }
+    .vz-tide-none { display: flex; align-items: center; justify-content: center; height: 38px; font-size: 12px; font-weight: 600; color: #90A1AE; }
+
+    /* ---- Pied et note d'absence ---- */
     .vz-cond-footer {
-      margin-top: 16px;
-      padding-top: 14px;
-      border-top: 1px solid rgba(11,26,38,0.12);
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 10px;
-      color: var(--vz-text-on-dark-faint);
-      letter-spacing: 0.05em;
-      line-height: 1.7;
-      display: flex;
-      gap: 22px;
-      flex-wrap: wrap;
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      padding: 11px 14px; border-top: 2px solid #0A1520; background: #F7F9FB;
     }
-    .vz-cond-footer strong { color: var(--vz-accent); font-weight: 600; }
-    .vz-cond-dayname { display: inline; }
-    .vz-cond-daycoef {
-      margin-left: 8px;
-      font-family: 'IBM Plex Mono', monospace;
-      font-weight: 700;
-      font-size: 12px;
+    .vz-cond-footer .fl { font-family: Inter, sans-serif; font-size: 11px; font-weight: 700; color: #51677A; letter-spacing: -.005em; }
+    .vz-cond-footer .fs {
+      font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; font-weight: 500; color: #51677A;
+      border: 1px solid #C9D4DC; border-radius: 5px; padding: 2px 7px; background: #FFFFFF;
     }
-    .vz-cond-rowlabel { font-size: 12px !important; }
-    .vz-cond-hourhead { font-size: 12px !important; }
-    .vz-cond-table tbody td:not(.vz-cond-rowlabel) { font-size: 13px; }
-    .vz-cond-row-wind td, .vz-cond-row-gusts td, .vz-cond-row-wave td { font-size: 13px; }
-    .vz-cond-row-tide td.vz-cond-tideband {
-      padding: 0 !important;
-      height: 88px;
-      border-right: none;
+    /* Une journee entiere en "?" ne doit pas se lire comme une panne. */
+    .vz-cond-note {
+      display: flex; align-items: center; gap: 9px; padding: 10px 14px;
+      border-top: 1px solid #C9D4DC; background: #FFFFFF;
+      font-family: Inter, sans-serif; font-size: 12.5px; font-weight: 500; color: #51677A; line-height: 1.4;
     }
-    .vz-tideband-wrap { position: relative; width: 100%; height: 88px; }
-    .vz-tideband-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-    .vz-tide-mark { position: absolute; top: 0; bottom: 0; transform: translateX(-50%); pointer-events: none; }
-    .vz-tide-dot {
-      position: absolute; left: 50%;
-      width: 8px; height: 8px; border-radius: 50%;
-      transform: translate(-50%, -50%);
-      box-shadow: 0 0 0 2px var(--vz-bg-deep);
-    }
-    .vz-tide-time {
-      position: absolute; left: 50%;
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 12px; font-weight: 600; white-space: nowrap;
-    }
-    .vz-tide-pm .vz-tide-dot { background: #4DD4A8; }
-    .vz-tide-pm .vz-tide-time { transform: translate(-50%, -170%); color: #4DD4A8; }
-    .vz-tide-bm .vz-tide-dot { background: #86C7D6; }
-    .vz-tide-bm .vz-tide-time { transform: translate(-50%, 70%); color: #86C7D6; }
-    .vz-tideband-empty {
-      padding: 36px 16px; text-align: center;
-      color: var(--vz-text-on-dark-muted);
-      font-family: 'IBM Plex Mono', monospace; font-size: 12px;
-    }
+    .vz-cond-note .nd { width: 10px; height: 10px; border-radius: 50%; background: #5C7285; flex-shrink: 0; }
+
+    /* ---- Ligne d'identite du point ---- */
+    .vz-cond-ident { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; padding: 2px 4px 14px; }
+    .vz-cond-ident-item { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; color: #0A1520; }
+    .vz-cond-ident-item svg { flex: none; color: #0E7C62; }
+    .vz-cond-ident-mono { font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 12.5px; color: #51677A; letter-spacing: 0.02em; }
+    .vz-cond-unit { font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 500; color: #51677A; opacity: 0.65; margin-left: 3px; letter-spacing: 0; }
+
+    /* La barre de jours est un organe de navigation TACTILE. Sur desktop les
+       cinq jours sont deja dans les en-tetes du tableau, et son CSS ne vit
+       que dans le module vzmNav sous @media (max-width:768px) : elle
+       s'affichait en boutons natifs du navigateur. Masquee ici. */
+    .vz-cond-daybar { display: none; }
+
+    /* ---- Mobile ---- */
     @media (max-width: 768px) {
       .vz-sheet-cond-wrap { padding: 12px 12px 20px; }
-      .vz-cond-table { font-size: 12px; }
-      .vz-cond-table th, .vz-cond-table td { padding: 0 7px; height: 34px; }
-      .vz-cond-rowlabel { min-width: 96px; padding: 0 12px !important; font-size: 10px; }
-      .vz-cond-cornerlabel, .vz-cond-cornerhour { min-width: 96px; }
-      .vz-cond-row-vis td { font-size: 13px !important; }
+      .vz-cond-source { grid-template-columns: 1fr; }
+      .vz-cond-source .vz-cond-src + .vz-cond-src { border-left: none; border-top: 2px solid #0A1520; }
+      .vz-cond-scroll { -webkit-overflow-scrolling: touch; }
+      .vz-cond-scroll::-webkit-scrollbar { height: 6px; }
+      /* Deja en icones a l'arret : au defile on rend encore 10px aux creneaux. */
+      .vz-cond-rowlabel { width: 44px; min-width: 44px; padding: 0 4px; text-align: center; }
+      .vz-cond-rowlabel .lb-txt { display: none; }
+      .vz-cond-rowlabel .lb-ico { display: block; }
+      .vz-cond-scroll.is-scrolled .vz-cond-rowlabel { width: 34px; min-width: 34px; padding: 0 2px; }
+      .vz-cond-scroll.is-scrolled .vz-cond-rowlabel .lb-ico svg { width: 17px; height: 17px; }
+      .vz-cond-tideband, .vz-cond-rowlabel.is-tide { height: 34px; }
+      .vz-tide-inner, .vz-tide-inner svg, .vz-tide-none { height: 34px; }
+      .vz-cond-viscell, .vz-cond-rowlabel.is-vis { height: 42px; }
+      .vz-cond-ident { gap: 10px; padding: 0 2px 10px; }
+      .vz-cond-ident-item { font-size: 12.5px; }
+      /* Le jour etait ecrit DEUX fois : dans la puce active de la barre de
+         navigation, et dans l'en-tete du tableau juste dessous. On garde
+         l'en-tete pour le coef, la fourchette de visi et le lever/coucher,
+         mais le nom du jour ne s'y repete plus. */
+      .vz-cond-dayhead { height: 38px; }
+      .vz-cond-dayhead .dh-day { display: none; }
+      .vz-cond-dayhead .dh { gap: 7px; padding: 0 9px; }
+      .vz-cond-dayhead .dh-vis { font-size: 11.5px; }
+      .vz-cond-dayhead .dh-meta { font-size: 10px; }
     }
-     /* Scrollbar horizontale discrète type Apple */
-    .vz-sheet-cond-wrap > div[style*="overflow-x"] {
-      scrollbar-width: thin;
-      scrollbar-color: rgba(255,255,255,0.18) transparent;
-    }
-    .vz-sheet-cond-wrap > div[style*="overflow-x"]::-webkit-scrollbar {
-      height: 6px;
-      background: transparent;
-    }
-    .vz-sheet-cond-wrap > div[style*="overflow-x"]::-webkit-scrollbar-thumb {
-      background: rgba(255,255,255,0.18);
-      border-radius: 4px;
-    }
-    .vz-sheet-cond-wrap > div[style*="overflow-x"]::-webkit-scrollbar-thumb:hover {
-      background: rgba(255,255,255,0.32);
-    }
-    .vz-sheet-cond-wrap > div[style*="overflow-x"]::-webkit-scrollbar-track {
-      background: transparent;
-    }
+
   `;
   var style = document.createElement('style');
   style.id = 'vzSheetTableCSS';
@@ -15785,114 +15658,142 @@ function getSpotDisplayName(lat, lng) {
 //      secondes apres l'ouverture.
 // Desormais renderSheetTable reserve #vzCondSource et appelle cette fonction
 // en fin de rendu : un seul point d'entree, increvable au re-render.
+/* Bande source. sat et fb peuvent valoir null.
+   Les coordonnees ne sont volontairement pas affichees ici : elles figurent
+   deja en degres-minutes dans la ligne d'identite juste au-dessus. */
+var VZ_MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet',
+               'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+
+function vzNum1(v){ return v.toFixed(1).replace('.', ','); }
+
+function vzDateFromAge(h){
+  var d = new Date(Date.now() - h * 3600000);
+  return d.getDate() + ' ' + VZ_MOIS[d.getMonth()];
+}
+function vzHeureFromAge(h){
+  var d = new Date(Date.now() - h * 3600000), m = d.getMinutes();
+  return d.getHours() + 'h' + (m < 10 ? '0' + m : m);
+}
+function vzAgeText(h){
+  if (h < 24) return 'il y a ' + Math.round(h) + ' h';
+  return 'il y a ' + Math.round(h / 24) + ' jours';
+}
+
+/* L'absence est rendue deux fois : a droite pour le desktop, en ligne sous le
+   libelle pour le mobile. Le CSS n'en montre qu'une seule a la fois. */
+function vzSrcRow(o){
+  var val = o.value
+    ? '<span class="vz-cond-val">' + o.value + '</span>'
+    : '<span class="vz-cond-val is-empty">' + o.empty + '</span>';
+  var inline = o.value ? '' :
+    '<span class="vz-cond-empty-inline">' + o.empty + '</span>';
+  return '<div class="vz-cond-src' + (o.state === 'none' ? ' is-void' : '') + '">'
+    + '<span class="vz-cond-dot is-' + o.state + '"></span>'
+    + '<span class="vz-cond-txt">'
+    +   '<span class="vz-cond-lbl">' + o.label + '</span>'
+    +   inline
+    +   '<span class="vz-cond-meta' + (o.lead ? ' is-lead' : '') + '">' + o.meta + '</span>'
+    + '</span>' + val + '</div>';
+}
+
+function vzRenderCondSource(sat, fb){
+  var rows = [];
+
+  /* --- satellite --- */
+  if (sat && typeof sat.visi_plongeur_m === 'number') {
+    var age = (typeof sat.age_hours === 'number' && isFinite(sat.age_hours)) ? sat.age_hours : 0;
+    var vieux = age >= 72;
+    rows.push({
+      state: vieux ? 'aging' : 'fresh',
+      label: 'Visibilité mesurée par satellite',
+      lead:  vieux,
+      meta:  vieux
+        ? 'photo du ' + vzDateFromAge(age) + ', ' + vzAgeText(age)
+        : 'photo du ' + vzDateFromAge(age) + ', ' + vzHeureFromAge(age),
+      value: '~' + vzNum1(sat.visi_plongeur_m) + '<i> m</i>'
+    });
+  } else {
+    /* Doctrine : on nomme le trou, on ne l'explique pas a la place du
+       satellite (nuage, angle de passage, filtre qualite : on n'en sait rien). */
+    rows.push({
+      state: 'none',
+      label: 'Mesure satellite',
+      meta:  'la visibilité du tableau vient du calcul physique',
+      empty: "pas d'image exploitable"
+    });
+  }
+
+  /* --- retour chasseur, rayon 5 km --- */
+  var m = fb ? (typeof fb.real_m === 'number' ? fb.real_m : fb.predicted_m) : null;
+  if (fb && typeof m === 'number') {
+    var ageF = (typeof fb.age_hours === 'number' && isFinite(fb.age_hours)) ? fb.age_hours : 0;
+    var dist = (typeof fb.dist_km === 'number') ? fb.dist_km.toFixed(1).replace('.', ',') + ' km' : 'moins de 5 km';
+    rows.push({
+      state: ageF >= 72 ? 'aging' : 'fresh',
+      label: 'Visibilité observée par un chasseur',
+      meta:  'sortie du ' + vzDateFromAge(ageF) + ', à ' + dist,
+      value: vzNum1(m) + '<i> m</i>'
+    });
+  } else {
+    rows.push({
+      state: 'none',
+      label: 'Retour de chasseur',
+      meta:  'aucune sortie déposée dans les 5 km',
+      empty: 'aucun retour'
+    });
+  }
+
+  return '<div class="vz-cond-source">' + rows.map(vzSrcRow).join('') + '</div>';
+}
+
+/* Point d'entree unique du bloc source.
+   ------------------------------------------------------------------
+   Il etait insere APRES coup par loadSheetConditions, devant le pied de
+   tableau. Deux consequences : la seule chose qui distingue Visimer d'un
+   modele meteo se lisait en dernier, et renderSheetTable - rappelee SEULE
+   par le retour de fetchVisiFeedback - effacait le bandeau quelques
+   secondes apres l'ouverture. Desormais renderSheetTable reserve
+   #vzCondSource et appelle cette fonction en fin de rendu. */
 function vzRenderCondVerdict(){
   var host = document.getElementById('vzCondSource');
   if (!host || !VZ_SHEET.data) return;
   var sat = VZ_SHEET.data.satellite;
   var spot = VZ_SHEET.data.spot;
-  var MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
-  var icSat = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
-    + '<path d="M12 3a9 9 0 0 1 9 9"/><path d="M12 8a4 4 0 0 1 4 4"/><circle cx="7" cy="17" r="3"/><path d="M9.4 14.6 14 10"/></svg>';
-  var icHunt = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
-    + '<path d="M21 15a2 2 0 0 1-2 2H8.5L4 20.5V6a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z"/></svg>';
-  var html = '';
 
-  if (sat && typeof sat.visi_plongeur_m === 'number') {
-    var v = (Math.round(sat.visi_plongeur_m * 10) / 10).toFixed(1).replace('.', ',');
-    var meta = [];
-    if (typeof sat.age_hours === 'number' && isFinite(sat.age_hours)) {
-      var d = new Date(Date.now() - sat.age_hours * 3600 * 1000);
-      meta.push('Photo du ' + d.getDate() + ' ' + MOIS[d.getMonth()] + ' à '
-        + String(d.getHours()).padStart(2, '0') + 'h' + String(d.getMinutes()).padStart(2, '0'));
+  /* Premier rendu synchrone : le satellite est deja la, le retour chasseur
+     peut ne pas l'etre. On ne laisse pas de trou en attendant. */
+  var fb0 = null;
+  try {
+    if (typeof vzNearestFeedback === 'function' && spot
+        && typeof spot.lat === 'number' && typeof spot.lng === 'number') {
+      fb0 = vzNearestFeedback(spot.lat, spot.lng, 5);
     }
-    if (spot && typeof spot.lat === 'number' && typeof spot.lng === 'number') {
-      meta.push(spot.lat.toFixed(4) + ' N · ' + Math.abs(spot.lng).toFixed(4) + (spot.lng < 0 ? ' O' : ' E'));
-    }
-    html += '<div class="vz-cond-src">'
-      + '<div class="vz-cond-src-k">' + icSat + '<span>Mesure satellite CMEMS</span></div>'
-      + '<div class="vz-cond-src-v">~' + v + ' m</div>'
-      + (meta.length ? '<div class="vz-cond-src-m">' + meta.join('<br>') + '</div>' : '')
-      + '</div>';
-  } else {
-    // Doctrine : on nomme le trou, on ne l'explique pas a la place du
-    // satellite (nuage, angle de passage, filtre qualite : on n'en sait
-    // rien). On dit ce qui est vrai - pas de mesure, donc chaine physique.
-    html += '<div class="vz-cond-src is-none">'
-      + '<div class="vz-cond-src-k">' + icSat + '<span>Mesure satellite CMEMS</span></div>'
-      + '<div class="vz-cond-src-v">Aucune mesure sur ce point</div>'
-      + '<div class="vz-cond-src-m">Visibilité calculée par la chaîne physique<br>(vent, houle, marée, nature du fond)</div>'
-      + '</div>';
-  }
-  // Emplacement RESERVE pour le retour chasseur : le cartouche existe deja,
-  // masque, et se remplit quand ensurePortCounts_ revient. Sans reservation,
-  // l'insertion tardive ferait sauter le tableau sous les yeux du lecteur.
-  html += '<div class="vz-cond-src" id="vzCondSrcHunt" style="display:none;"></div>';
-  host.innerHTML = html;
+  } catch (e) {}
+  host.innerHTML = vzRenderCondSource(sat, fb0);
 
-  // Meme honnetete epistemique pour l'observation d'un chasseur dans les 5 km.
-  // Pas d'async/await : chaine .then (contrainte Leaflet du projet).
-  if (typeof ensurePortCounts_ === 'function' && spot
+  /* Meme honnetete epistemique pour l'observation d'un chasseur : si les
+     retours n'etaient pas encore charges, on rejoue le rendu quand ils
+     arrivent. Pas d'async/await (contrainte Leaflet du projet). */
+  if (!fb0 && typeof ensurePortCounts_ === 'function' && spot
       && typeof spot.lat === 'number' && typeof spot.lng === 'number') {
     ensurePortCounts_().then(function() {
-      var slot = document.getElementById('vzCondSrcHunt');
-      if (!slot) return;                       // re-render passe par la entre-temps
+      var h2 = document.getElementById('vzCondSource');
+      if (!h2 || h2 !== host) return;            // un re-render est passe par la
       var fb = (typeof vzNearestFeedback === 'function') ? vzNearestFeedback(spot.lat, spot.lng, 5) : null;
       if (!fb) return;
-      var vh = (fb.real_m != null) ? fb.real_m : fb.predicted_m;
-      if (vh == null) return;
-      var metaH = [];
-      if (typeof fb.age_hours === 'number' && isFinite(fb.age_hours)) {
-        var dh = new Date(Date.now() - fb.age_hours * 3600 * 1000);
-        metaH.push('Sortie du ' + dh.getDate() + ' ' + MOIS[dh.getMonth()]);
-      }
-      metaH.push('Retour d\'un chasseur dans le secteur');
-      slot.innerHTML = '<div class="vz-cond-src-k">' + icHunt + '<span>Visibilité observée</span></div>'
-        + '<div class="vz-cond-src-v">~' + (Math.round(vh * 10) / 10).toFixed(1).replace('.', ',') + ' m</div>'
-        + '<div class="vz-cond-src-m">' + metaH.join('<br>') + '</div>';
-      slot.style.display = '';
+      h2.innerHTML = vzRenderCondSource(sat, fb);
     });
   }
 }
-// Scroll horizontal du tableau Conditions : libelles -> icones SVG, et retour.
-function vzCondScrollIcons(){
-  var body = document.getElementById('vzSheetBody');
-  if (!body) return;
-  var table = body.querySelector('.vz-cond-table');
-  if (!table) return;
-  var scroller = table.parentElement;
-  var I = {
-    visi:  '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.6"/></svg>',
-    maree: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9c2 0 2.3-2.4 4.5-2.4S8.8 9 11 9s2.3-2.4 4.5-2.4S17.8 9 20 9"/><path d="M2 15c2 0 2.3-2.4 4.5-2.4S8.8 15 11 15s2.3-2.4 4.5-2.4S17.8 15 20 15"/></svg>',
-    prof:  '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11"/><path d="M8 11l4 4 4-4"/><path d="M5 20h14"/></svg>',
-    vent:  '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h10.5a2.2 2.2 0 1 0-2.2-2.2"/><path d="M3 13h14a2.2 2.2 0 1 1-2.2 2.2"/></svg>',
-    raf:   '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h7"/><path d="M3 12h12a2 2 0 1 0-2-2"/><path d="M3 17h9a1.8 1.8 0 1 1-1.8 1.8"/></svg>',
-    dir:   '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.3l2.3 6.9L12 13l-2.3 1.2z"/></svg>',
-    ciel:  '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="8.8" cy="8" r="2.6"/><path d="M7.5 18.5h9a3.3 3.3 0 0 0 0-6.6 4.6 4.6 0 0 0-8.7-1A3.4 3.4 0 0 0 7.5 18.5z"/></svg>'
-  };
-  var labels = table.querySelectorAll('.vz-cond-rowlabel');
-  labels.forEach(function(cell){
-    if (cell.querySelector('.vz-cond-lbl-word')) return;
-    var t = (cell.textContent || '').trim().toLowerCase();
-    var ic = '';
-    if (t.indexOf('visi') === 0) ic = I.visi;
-    else if (t.indexOf('mar') === 0) ic = I.maree;
-    else if (t.indexOf('prof') === 0) ic = I.prof;
-    else if (t.indexOf('vent') === 0) ic = I.vent;
-    else if (t.indexOf('raf') === 0) ic = I.raf;
-    else if (t.indexOf('dir') === 0) ic = I.dir;
-    else if (t.indexOf('ciel') === 0) ic = I.ciel;
-    cell.innerHTML = '<span class="vz-cond-lbl-icon">' + ic + '</span><span class="vz-cond-lbl-word">' + cell.innerHTML + '</span>';
-  });
-  if (scroller && !scroller._vzScrollHooked) {
-    scroller._vzScrollHooked = true;
-    var sync = function(){
-      if (scroller.scrollLeft > 24) table.classList.add('vz-cond-scrolled');
-      else table.classList.remove('vz-cond-scrolled');
-    };
-    scroller.addEventListener('scroll', sync, { passive: true });
-    sync();
-  }
-}
+// Bascule libelles -> icones au defile.
+// ------------------------------------------------------------------
+// Cette fonction reecrivait le contenu des .vz-cond-rowlabel apres coup pour y
+// injecter une icone, et posait sa propre classe sur le tableau. Le markup
+// porte desormais .lb-txt et .lb-ico des la construction, et la retraction est
+// pilotee par vzBindScroll, qui doit ecrire la largeur du <col> en plus de la
+// classe (table-layout:fixed : le colgroup gagne sur la cellule). Conservee
+// vide : elle reste appelee par loadSheetConditions.
+function vzCondScrollIcons(){ /* remplacee par le markup + vzBindScroll */ }
 // Etat de chargement du bandeau Conditions.
 // ------------------------------------------------------------------
 // POINT D'ENTREE UNIQUE. Les deux appelants (openConditionsInSheet et le
@@ -15906,30 +15807,60 @@ function vzCondScrollIcons(){
 // reellement, dans l'ordre ou elle repond, et la barre avance d'un sixieme.
 // L'attente devient la premiere lecon de doctrine : le chasseur voit ses
 // sources se declarer avant de lire le moindre chiffre.
-function vzCondLoader(sources) {
-  var body = document.getElementById('vzSheetBody');
-  if (!body) return { done: function(){} };
-  var CHK = '<svg viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 13 9 18 20 6"/></svg>';
-  var h = '<div class="vz-cond-load">'
-    + '<div class="vz-cond-load-t">Chargement des prévisions</div>'
-    + '<div class="vz-cond-load-bar"><div class="vz-cond-load-fill" id="vzCondLoadFill"></div></div>'
-    + '<div class="vz-cond-load-list">';
-  for (var i = 0; i < sources.length; i++) {
-    h += '<div class="vz-cond-load-i" id="vzCondLoad-' + sources[i].k + '">'
-      + '<span class="vz-cond-load-dot">' + CHK + '</span>'
-      + '<span>' + sources[i].lb + '</span></div>';
+/* Chargement. Les six requetes partent EN PARALLELE : on ne pilote pas une
+   progression par le temps, on la pilote par les reponses reelles. Une barre
+   a etapes sequentielles serait une animation mensongere sur un produit dont
+   l'argument est l'honnetete epistemique. Une source qui echoue a repondu
+   elle aussi : elle se coche et la barre avance.
+   Les noms techniques (CMEMS, AROME, EMODnet) restent au pied du tableau, une
+   fois les donnees affichees : la tracabilite est tenue, elle n'a simplement
+   pas a devancer la lecture. */
+var VZ_SOURCES = [
+  { key: 'sat',   label: 'Image satellite de la mer' },
+  { key: 'fb',    label: 'Retours des chasseurs' },
+  { key: 'meteo', label: 'Prévisions météo' },
+  { key: 'maree', label: 'Horaires de marée' },
+  { key: 'depth', label: 'Profondeur du fond' },
+  { key: 'sed',   label: 'Nature du fond' }
+];
+var VZ_CHECK = '<svg viewBox="0 0 24 24"><path d="M5 13l5 5L19 7"/></svg>';
+
+function vzRenderCondLoad(doneKeys){
+  var n = doneKeys.length, segs = '', i;
+  for (i = 0; i < 6; i++) {
+    segs += '<span class="vz-load-seg' + (i < n ? ' is-on' : '') + '"></span>';
   }
-  h += '</div></div>';
-  body.innerHTML = h;
-  var total = sources.length || 1, n = 0;
+  var rows = VZ_SOURCES.map(function(s){
+    var ok = doneKeys.indexOf(s.key) !== -1;
+    return '<div class="vz-load-row' + (ok ? ' is-done' : '') + '">'
+      + '<span class="vz-load-mark">' + VZ_CHECK + '</span>'
+      + '<span class="vz-load-name">' + s.label + '</span></div>';
+  }).join('');
+  return '<div class="vz-cond-load"><div class="vz-load-box">'
+    + '<div class="vz-load-title">Chargement des prévisions</div>'
+    + '<div class="vz-load-sub">Visimer croise six sources pour ce point</div>'
+    + '<div class="vz-load-bar">' + segs + '</div>'
+    + '<div class="vz-load-list">' + rows + '</div>'
+    + '</div></div>';
+}
+
+/* Cablage : une seule liste mutable, re-rendue a chaque reponse.
+   POINT D'ENTREE UNIQUE de l'attente. Les deux appelants de
+   loadSheetConditions peignaient chacun le meme spinner en dur ; c'est
+   loadSheetConditions qui sait quelles sources sont interrogees. */
+function vzCondLoader(sources) {
+  var host = document.getElementById('vzSheetBody');
+  if (!host) return { done: function(){} };
+  var done = [];
+  host.innerHTML = vzRenderCondLoad(done);
   return {
     done: function(k) {
-      var el = document.getElementById('vzCondLoad-' + k);
-      if (!el || el.classList.contains('is-done')) return;
-      el.classList.add('is-done');
-      n++;
-      var fill = document.getElementById('vzCondLoadFill');
-      if (fill) fill.style.width = Math.round(n / total * 100) + '%';
+      if (done.indexOf(k) !== -1) return;
+      done.push(k);
+      var h = document.getElementById('vzSheetBody');
+      /* Le tableau a pu prendre la place entre-temps : on ne repeint que si
+         l'ecran de chargement est encore a l'affiche. */
+      if (h && h.querySelector('.vz-cond-load')) h.innerHTML = vzRenderCondLoad(done);
     }
   };
 }
@@ -15939,12 +15870,8 @@ function loadSheetConditions(spot) {
   // ensuite, chaine physique apres). Ordre de COCHAGE = ordre reel des
   // reponses reseau. Les deux n'ont pas a coincider.
   var LOAD = vzCondLoader([
-    { k: 'sat',   lb: 'Satellite CMEMS' },
-    { k: 'fb',    lb: 'Retours chasseurs' },
-    { k: 'meteo', lb: 'Modèles AROME + ARPEGE' },
-    { k: 'tides', lb: 'Marées SHOM' },
-    { k: 'depth', lb: 'Bathymétrie EMODnet' },
-    { k: 'sed',   lb: 'Nature du fond SHOM' }
+    { k: 'sat', lb: '' }, { k: 'fb', lb: '' }, { k: 'meteo', lb: '' },
+    { k: 'maree', lb: '' }, { k: 'depth', lb: '' }, { k: 'sed', lb: '' }
   ]);
   // Une source qui echoue a repondu, elle aussi : les deux branches cochent.
   // Fournir le second callback n'est pas cosmetique - fetchSheetMeteo n'a pas
@@ -15961,7 +15888,7 @@ function loadSheetConditions(spot) {
     : (typeof fetchRealDepth === 'function'
         ? fetchRealDepth(spot.lat, spot.lng).catch(function(){ return null; })
         : Promise.resolve(null)), 'depth');
-  var tidesPromise = mark(fetchSheetTides(spot), 'tides');
+  var tidesPromise = mark(fetchSheetTides(spot), 'maree');
   var satPromise = mark((typeof fetchCmemsZSD === 'function')
     ? fetchCmemsZSD(spot.lat, spot.lng).catch(function(){ return null; })
     : Promise.resolve(null), 'sat');
@@ -16074,7 +16001,96 @@ var marineUrl = 'https://marine-api.open-meteo.com/v1/marine?latitude=' + lat + 
 }
 
 // ============================================================
-// RENDU TABLEAU 7 lignes × 5 jours (créneaux 3h)
+// HELPERS DE RENDU DU TABLEAU
+// ------------------------------------------------------------
+// Hierarchie a trois strates, et non neuf rangees egales :
+//   strate 1, la visibilite, seule rangee en aplat plein - c'est le produit ;
+//   strate 2, la maree, bande de contexte de 38px ;
+//   strate 3, vent / rafales / vagues, meme echelle de couleur mais un
+//   dixieme de surface coloree (fond a 10 % + ruban de 3px en pied de
+//   cellule). Les quatre rangees en aplat plein produisaient un damier ou
+//   l'oeil ne distinguait plus le produit de ses ingredients.
+// ============================================================
+
+/* Echelle de visibilite, logarithmique par paliers. Le null est traite hors
+   echelle : ce n'est ni bon ni mauvais, c'est un trou. */
+function vzVisClass(v){
+  if (v === null || v === undefined) return 'vis-void';
+  if (v < 0.6) return 'vis-1';
+  if (v < 1.2) return 'vis-2';
+  if (v < 2.5) return 'vis-3';
+  if (v < 5)   return 'vis-4';
+  return 'vis-5';
+}
+
+var VZ_WIND_B = [10, 15, 20, 28, 38, 50];
+var VZ_WIND_C = ['#7FD9BE', '#4DD4A8', '#D8C84A', '#E89B3C', '#DB6F3A', '#C94A3D', '#9B3428'];
+var VZ_WAVE_B = [0.3, 0.6, 1.0, 1.5, 2.0];
+var VZ_WAVE_C = ['#7FD9BE', '#4DD4A8', '#D8C84A', '#E89B3C', '#C94A3D', '#9B3428'];
+function vzRamp(bounds, colors, v){
+  for (var i = 0; i < bounds.length; i++) if (v < bounds[i]) return colors[i];
+  return colors[colors.length - 1];
+}
+
+/* Icones de la colonne d'intitules, affichees quand elle se retracte. */
+var VZ_ICO = {
+  hour: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
+  vis:  '<svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>',
+  tide: '<svg viewBox="0 0 24 24"><path d="M2 14c3 0 3-5 6-5s3 5 6 5 3-5 6-5"/><path d="M2 19h20"/></svg>',
+  depth:'<svg viewBox="0 0 24 24"><path d="M12 3v14"/><path d="M8 13l4 4 4-4"/><path d="M4 21h16"/></svg>',
+  wind: '<svg viewBox="0 0 24 24"><path d="M3 8h11a3 3 0 100-3"/><path d="M3 13h15a3 3 0 110 3"/><path d="M3 18h8"/></svg>',
+  gust: '<svg viewBox="0 0 24 24"><path d="M3 7h9a3 3 0 100-3"/><path d="M3 12h13a3 3 0 110 3"/><path d="M3 17h6"/><path d="M17 19l3 2"/></svg>',
+  dir:  '<svg viewBox="0 0 24 24"><path d="M12 3v18"/><path d="M7 8l5-5 5 5"/></svg>',
+  wave: '<svg viewBox="0 0 24 24"><path d="M2 10c3 0 3-4 6-4s3 4 6 4 3-4 6-4"/><path d="M2 17c3 0 3-4 6-4s3 4 6 4 3-4 6-4"/></svg>',
+  sky:  '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M6 6l1.5 1.5M16.5 16.5L18 18M18 6l-1.5 1.5M7.5 16.5L6 18"/></svg>'
+};
+var VZ_SKY = {
+  sun:   '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M6 6l1.4 1.4M16.6 16.6L18 18M18 6l-1.4 1.4M7.4 16.6L6 18"/></svg>',
+  veil:  '<svg viewBox="0 0 24 24"><circle cx="10" cy="9" r="3.4"/><path d="M10 2.6v1.6M3.6 9h1.6M5.6 4.6l1.1 1.1"/><path d="M7 19h10a3 3 0 000-6 4.5 4.5 0 00-8.6-1A3.2 3.2 0 007 19z"/></svg>',
+  cloud: '<svg viewBox="0 0 24 24"><path d="M7 19h10a3.4 3.4 0 000-6.8 5 5 0 00-9.6-1.2A3.6 3.6 0 007 19z"/></svg>',
+  overc: '<svg viewBox="0 0 24 24"><path d="M6 15h11a3.2 3.2 0 000-6.4 4.8 4.8 0 00-9.2-1A3.4 3.4 0 006 15z"/><path d="M4 19h16"/></svg>',
+  rain:  '<svg viewBox="0 0 24 24"><path d="M7 15h10a3.2 3.2 0 000-6.4 4.8 4.8 0 00-9.2-1A3.4 3.4 0 007 15z"/><path d="M8 19l-1 2M13 19l-1 2M18 19l-1 2"/></svg>'
+};
+function vzSkyKey(cloud, rain){
+  if (rain != null && rain >= 0.3) return 'rain';
+  if (cloud == null) return null;
+  if (cloud < 25) return 'sun';
+  if (cloud < 55) return 'veil';
+  if (cloud < 85) return 'cloud';
+  return 'overc';
+}
+function vzDirArrow(deg){
+  if (deg == null) return '<span class="vz-dash">-</span>';
+  return '<span class="vz-dir" style="display:block;transform:rotate(' + deg + 'deg)">'
+    + '<svg viewBox="0 0 24 24"><path d="M12 4v16"/><path d="M7 9l5-5 5 5"/></svg></span>';
+}
+
+/* Retraction de la colonne d'intitules au dela de 24px de defile.
+   Le tableau est en table-layout:fixed : la largeur qui fait foi est celle du
+   premier <col>, pas celle de la cellule. Basculer la seule classe CSS change
+   les libelles en icones mais laisse 68px de largeur morte. On ecrit donc les
+   deux, la classe ET le col. */
+function vzLabelColWidth(scrolled, isMob){
+  if (isMob) return scrolled ? 34 : 44;
+  return scrolled ? 44 : 112;
+}
+function vzBindScroll(scrollEl, isMob){
+  if (!scrollEl || scrollEl._vzBound) return;
+  scrollEl._vzBound = true;
+  var on = false;
+  var firstCol = scrollEl.querySelector('.vz-cond-table col');
+  scrollEl.addEventListener('scroll', function(){
+    var next = scrollEl.scrollLeft > 24;
+    if (next === on) return;
+    on = next;
+    if (on) scrollEl.className += ' is-scrolled';
+    else scrollEl.className = scrollEl.className.replace(/\s*is-scrolled/, '');
+    if (firstCol) firstCol.style.width = vzLabelColWidth(on, isMob) + 'px';
+  }, { passive: true });
+}
+
+// ============================================================
+// RENDU TABLEAU 9 rangees × 5 jours (créneaux 3h)
 // ============================================================
 function renderSheetTable() {
   var body = document.getElementById('vzSheetBody');
@@ -16129,97 +16145,11 @@ if (slots.length >= 40) break;
     }
   });
 
-  // Helpers
-  function visClass(score) {
-    if (score < 20) return 'vz-cond-vis-0';
-    if (score < 40) return 'vz-cond-vis-1';
-    if (score < 60) return 'vz-cond-vis-2';
-    if (score < 80) return 'vz-cond-vis-3';
-    return 'vz-cond-vis-4';
-  }
-function visLabel(score) {
-    // Aligne sur l'echelle officielle du drawer spot : 1m / 2m / 4m / 6m / 8m
-    if (score < 20) return '1m';
-    if (score < 40) return '2m';
-    if (score < 60) return '4m';
-    if (score < 80) return '6m';
-    return '8m';
-  }
-  function windCls(v) {
-    if (v < 10) return 'vz-cond-w-0';
-    if (v < 15) return 'vz-cond-w-1';
-    if (v < 20) return 'vz-cond-w-2';
-    if (v < 28) return 'vz-cond-w-3';
-    if (v < 38) return 'vz-cond-w-4';
-    if (v < 50) return 'vz-cond-w-5';
-    return 'vz-cond-w-6';
-  }
-  function dirArrowSvg(deg) {
-    if (deg == null) return '—';
-    return '<svg width="14" height="14" viewBox="0 0 20 20" style="transform:rotate(' + deg + 'deg);display:inline-block;vertical-align:middle;">'
-      + '<path d="M10 2 L10 16 M10 16 L6 12 M10 16 L14 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>';
-  }
-  function skyIcon(cloud, rain) {
-    var color = '#4DD4A8'; // vert Talisker pour cohérence
-    var grayCloud = 'rgba(216,200,74,0.85)'; // jaune Talisker pour nuageux
-    var darkCloud = 'rgba(232,155,60,0.9)'; // orange Talisker pour couvert
-    var rainColor = 'rgba(77,150,212,0.95)'; // bleu pour pluie
-    
-    // Pluie : nuage avec gouttes
-    if (rain != null && rain >= 0.3) {
-      return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="' + rainColor + '" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;">'
-        + '<path d="M5 13 Q3 13 3 11 Q3 9 5 9 Q6 6 9 6 Q12 6 13 8 Q15 7 17 9 Q19 9 19 11 Q19 13 17 13 Z"/>'
-        + '<line x1="8" y1="16" x2="7" y2="19"/>'
-        + '<line x1="12" y1="16" x2="11" y2="19"/>'
-        + '<line x1="16" y1="16" x2="15" y2="19"/>'
-        + '</svg>';
-    }
-    
-    if (cloud == null) return '—';
-    
-    // Soleil clair < 25%
-    if (cloud < 25) {
-      return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="1.8" stroke-linecap="round" style="display:inline-block;vertical-align:middle;">'
-        + '<circle cx="12" cy="12" r="4"/>'
-        + '<line x1="12" y1="3" x2="12" y2="5"/>'
-        + '<line x1="12" y1="19" x2="12" y2="21"/>'
-        + '<line x1="3" y1="12" x2="5" y2="12"/>'
-        + '<line x1="19" y1="12" x2="21" y2="12"/>'
-        + '<line x1="5.6" y1="5.6" x2="7" y2="7"/>'
-        + '<line x1="17" y1="17" x2="18.4" y2="18.4"/>'
-        + '<line x1="5.6" y1="18.4" x2="7" y2="17"/>'
-        + '<line x1="17" y1="7" x2="18.4" y2="5.6"/>'
-        + '</svg>';
-    }
-    
-    // Peu nuageux 25-55% : soleil + petit nuage
-    if (cloud < 55) {
-      return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="' + color + '" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;">'
-        + '<circle cx="9" cy="9" r="3"/>'
-        + '<line x1="9" y1="3" x2="9" y2="4.5"/>'
-        + '<line x1="3" y1="9" x2="4.5" y2="9"/>'
-        + '<line x1="4.7" y1="4.7" x2="5.6" y2="5.6"/>'
-        + '<path d="M10 16 Q8 16 8 14 Q8 12 10 12 Q11 10 13.5 10 Q16 10 16.5 12 Q18 12 18 14 Q18 16 16 16 Z" stroke="' + grayCloud + '"/>'
-        + '</svg>';
-    }
-    
-    // Nuageux 55-85% : nuage simple
-    if (cloud < 85) {
-      return '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="' + grayCloud + '" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;">'
-        + '<path d="M5 16 Q3 16 3 14 Q3 11 6 11 Q7 8 10 8 Q14 8 15 11 Q19 11 19 14 Q19 16 17 16 Z"/>'
-        + '</svg>';
-    }
-    
-    // Couvert >= 85% : nuage rempli
-    return '<svg width="18" height="18" viewBox="0 0 24 24" fill="' + darkCloud + '" stroke="' + darkCloud + '" stroke-width="1.5" stroke-linejoin="round" style="display:inline-block;vertical-align:middle;">'
-      + '<path d="M5 16 Q3 16 3 14 Q3 11 6 11 Q7 8 10 8 Q14 8 15 11 Q19 11 19 14 Q19 16 17 16 Z"/>'
-      + '</svg>';
-  }
-  function coefCls(c) {
-    if (c < 50) return 'vz-cond-coef-low';
-    if (c < 80) return 'vz-cond-coef-mid';
-    return 'vz-cond-coef-high';
-  }
+  // Les helpers locaux visClass / visLabel / windCls / dirArrowSvg /
+  // skyIcon / coefCls ont ete retires : ils produisaient les classes de
+  // l'ancien tableau (vz-cond-vis-N, vz-cond-w-N) qui n'existent plus.
+  // Leurs remplacants sont hors de renderSheetTable, avec les autres
+  // helpers de rendu : vzVisClass, vzRamp, vzDirArrow, vzSkyKey.
 
   var unitLabel = S_windUnit === 'kt' ? 'nds' : 'km/h';
   var conv = S_windUnit === 'kt' ? toKt : function(v){ return Math.round(v); };
@@ -16269,30 +16199,22 @@ html += '<div class="vz-cond-daybar" id="vzCondDaybar">'
         return '<button type="button" class="vz-cdb" data-vzgo="' + i + '">' + g.label + '</button>';
       }).join('')
     + '</div>';
-  html += '<div style="overflow-x:auto;" id="vzCondScroll">';
-  html += '<table class="vz-cond-table">';
 
-  // Header jours
-  html += '<tr><th class="vz-cond-cornerlabel"></th>';
   // ============================================================
   // VISI PAR CRENEAU DE 3 H (remplace la moyenne unique par jour)
   // ------------------------------------------------------------
-  // Doctrine revue avec Edouard le 18/07 : sur un estran a gros marnage la
-  // moyenne du jour ment sur l'instant (11 h de maree haute claire noyaient le
-  // creneau marron de maree basse). On calcule donc la visi de CHAQUE creneau,
-  // au meme pas que vent/houle/maree, et l'en-tete du jour resume par une
-  // FOURCHETTE min-max (pas une moyenne trompeuse). Le chasseur lit "1 a 3 m"
-  // en tete, puis descend a l'heure de sa maree.
-  // Pre-calcul en une passe, sous la maree du tableau (deja swappee ci-dessus).
+  // Sur un estran a gros marnage la moyenne du jour ment sur l'instant (11 h
+  // de maree haute claire noyaient le creneau marron de maree basse). On
+  // calcule la visi de CHAQUE creneau, au meme pas que vent/houle/maree, et
+  // l'en-tete du jour resume par une FOURCHETTE min-max, pas une moyenne.
   var _visiCells = [];      // par slot global : {vm, sObj} (vm null si insuffisant)
   var _dayRange = {};       // par gIdx : {min,max,n} ou null
   (function() {
     var optsC = { satellite: VZ_SHEET.data.satellite, sediment: VZ_SHEET.data.sediment };
-    // Marée du tableau injectée AVANT le calcul : sans elle, depthAtTime lit le
+    // Maree du tableau injectee AVANT le calcul : sans elle, depthAtTime lit le
     // global TIDES (vide en contexte tableau), la profondeur reste au LAT brut,
     // la houle ne touche jamais le fond et TOUTES les cases sortent au plafond
-    // de zone (4,1 m plats). C'est exactement le bug observe le 18/07 : cases
-    // par creneau OK mais toutes identiques. Restaure en finally.
+    // de zone. Restaure en finally.
     var _tSave = (typeof TIDES !== 'undefined') ? TIDES.data : undefined;
     var _tSwap = false;
     try {
@@ -16322,154 +16244,14 @@ html += '<div class="vz-cond-daybar" id="vzCondDaybar">'
     }
   })();
   function _fmtRange(r) {
-    if (!r) return '';
+    if (!r) return 'visi indisponible';
     if (Math.abs(r.max - r.min) < 0.05) return r.min.toFixed(1).replace('.', ',') + ' m';
-    return r.min.toFixed(1).replace('.', ',') + '-' + r.max.toFixed(1).replace('.', ',') + ' m';
+    return r.min.toFixed(1).replace('.', ',') + ' à ' + r.max.toFixed(1).replace('.', ',') + ' m';
   }
 
-  dayGroups.forEach(function(g, gIdx) {
-    var cls = 'vz-cond-dayhead' + (gIdx > 0 ? ' vz-cond-dayboundary' : '');
-    var cd = g.date;
-    var dayCoef = getCoefForDate(cd.getFullYear() + '-' + String(cd.getMonth() + 1).padStart(2, '0') + '-' + String(cd.getDate()).padStart(2, '0'));
-  var sunHtml = '';
-    if (h.sun && h.sun.time) {
-      var dkey = cd.getFullYear() + '-' + String(cd.getMonth() + 1).padStart(2, '0') + '-' + String(cd.getDate()).padStart(2, '0');
-      var si = h.sun.time.indexOf(dkey);
-      if (si >= 0) {
-        var sr = (h.sun.sunrise && h.sun.sunrise[si]) ? h.sun.sunrise[si].slice(11, 16) : null;
-        var ss = (h.sun.sunset && h.sun.sunset[si]) ? h.sun.sunset[si].slice(11, 16) : null;
-        if (sr && ss) {
-        sunHtml = '<span style="display:block;margin-top:5px;font-family:IBM Plex Mono,monospace;font-size:12px;font-weight:500;color:#51677A;white-space:nowrap;">'
-            + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E89B3C" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:3px;"><path d="M4 18h16"/><path d="M7.5 18a4.5 4.5 0 0 1 9 0"/><path d="M12 3v4"/><path d="M9.7 5.3 12 3l2.3 2.3"/></svg>' + sr
-            + '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#51677A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin:0 3px 0 12px;"><path d="M4 18h16"/><path d="M7.5 18a4.5 4.5 0 0 1 9 0"/><path d="M12 7V3"/><path d="M9.7 4.7 12 7l2.3-2.3"/></svg>' + ss
-            + '</span>';
-        }
-      }
-    }
-    var _rngTxt = _fmtRange(_dayRange[gIdx]);
-    html += '<th class="' + cls + '" colspan="' + g.count + '" data-vzday="' + gIdx + '">'
-      + '<span class="vz-cond-dayname">' + g.label + '</span>'
-      + '<span class="vz-cond-daycoef ' + coefCls(dayCoef) + '">coef ' + dayCoef + '</span>'
-      + (_rngTxt ? '<span class="vz-cond-dayvisi">visi ' + _rngTxt + '</span>' : '')
-      + sunHtml
-      + '</th>';
-  });
-  html += '</tr>';
-
-  // Header heures : deplace SOUS la ligne Visibilite (voir plus bas). La visi est
-  // une donnee du jour, affichee en premier ; les heures servent d'en-tete aux
-  // lignes horaires (maree, vent, vagues) et viennent donc juste avant elles.
-
-
-  function renderRow(label, rowCls, cellFn) {
-    var row = '<tr' + (rowCls ? ' class="' + rowCls + '"' : '') + '>';
-    row += '<td class="vz-cond-rowlabel">' + label + '</td>';
-    slots.forEach(function(s, idx) {
-      var cell = cellFn(s, idx);
-      var cls = cell.cls || '';
-      // Surlignage colonne "maintenant" retire (18/07) : il induisait en erreur
-      // les chasseurs qui planifient pour un autre jour (la colonne mise en avant
-      // etait lue comme le creneau pertinent quel que soit le jour regarde).
-      if (idx > 0 && s.time.toDateString() !== slots[idx-1].time.toDateString()) cls += ' vz-cond-dayboundary';
-      var attrs = cell.attrs || '';
-      row += '<td class="' + cls.trim() + '"' + attrs + '>' + cell.html + '</td>';
-    });
-    row += '</tr>';
-    return row;
-  }
-// Voie B : chiffre mesuré sur présent/passé, tendance météo qualifiée sur le futur.
-  // La tendance dérive uniquement de la météo (houle + vent/rafales = remise en
-  // suspension), conforme a la doctrine "météo = tendance, pas de chiffre concurrent".
-  var _nowSlotI = (nowIdx >= 0 && slots[nowIdx]) ? slots[nowIdx].i : (slots[0] ? slots[0].i : 0);
-  function vzMeteoLoad(i) {
-    var wave = (h.wave_height && h.wave_height[i] != null) ? h.wave_height[i] : 0;
-    var wind = h.windspeed_10m[i] || 0;
-    var gust = (h.windgusts_10m && h.windgusts_10m[i] != null) ? h.windgusts_10m[i] : wind;
-    var dir = (h.winddirection_10m && h.winddirection_10m[i] != null) ? h.winddirection_10m[i] : null;
-    var dirF = getDirFactorForPoint(dir, spot.lat, spot.lng);
-    return wave * 12 + (wind * 0.4 + gust * 0.2) * dirF;
-  }
-  var _trSvg = {
-    trouble: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C94A3D" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="7" x2="17" y2="17"/><polyline points="17 7 17 17 7 17"/></svg>',
-    clear:   '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4DD4A8" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="17 17 17 7 7 7"/></svg>',
-    stable:  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7FA0B4" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="14 7 19 12 14 17"/></svg>'
-  };
-  function vzVisiTrend(i) {
-    var loadNow = vzMeteoLoad(_nowSlotI);
-    var d = vzMeteoLoad(i) - loadNow;
-    var thr = Math.max(3, loadNow * 0.25);
-    if (d > thr)  return { svg: _trSvg.trouble, label: 'se trouble' };
-    if (d < -thr) return { svg: _trSvg.clear,   label: "s'éclaircit" };
-    return { svg: _trSvg.stable, label: 'stable' };
-  }
-  // ----- Ligne Visibilite : UNE cellule fusionnee par jour -----
-  // La visi est une donnee du JOUR, pas une valeur horaire (doctrine : le
-  // satellite donne une mesure par jour, pas une propagation par creneau). On
-  // fusionne donc les creneaux d'un meme jour en une seule cellule (colspan).
-  //   - Jour mesurable (aujourd'hui / passe) : un chiffre. Satellite frais <=72h
-  //     en priorite (verite), sinon moteur V4 au creneau de reference du jour.
-  //   - Jour futur : pas de faux chiffre, une tendance qualifiee unique
-  //     (se trouble / stable / s'eclaircit), conforme a "meteo = tendance".
-  (function() {
-    var visRow = '<tr class="vz-cond-row-vis"><td class="vz-cond-rowlabel">Visibilité</td>';
-    // Visi PAR CRENEAU : une cellule par colonne, alignee sous les autres lignes.
-    // Le calcul (avec injection de maree) a deja eu lieu dans _visiCells plus
-    // haut ; ici on ne fait QUE lire, donc plus aucun swap de maree necessaire.
-    slots.forEach(function(sl, si) {
-      var c = _visiCells[si];
-      var cls = 'vz-cond-viscell', inner, title;
-      if (!c || c.vm === null) {
-        inner = '?';
-        cls += ' vz-cond-vis-na';
-        title = 'Donnee insuffisante : ' +
-          ((c && c.sObj && c.sObj.trace && c.sObj.trace.fallback_reason) ? c.sObj.trace.fallback_reason : 'physique locale inapplicable');
-      } else {
-        inner = c.vm.toFixed(1).replace('.', ',') + 'm';
-        cls += ' ' + visClass(mapVisiToScore(c.vm));
-        var o = c.sObj, srcTxt;
-        if (o && o.observation) {
-          srcTxt = 'retour chasseur ' + o.observation.real_m + ' m il y a '
-            + Math.round(o.observation.age_hours) + ' h a '
-            + (Math.round(o.observation.dist_km * 10) / 10) + ' km (poids '
-            + Math.round(o.observation.weight * 100) + ' %) + modele';
-        } else if (o && o.engine === 'observation_propagated') {
-          srcTxt = 'retour chasseur ' + o.observation.real_m + ' m a '
-            + (Math.round(o.observation.dist_km * 10) / 10) + ' km, propage '
-            + Math.round(o.observation.gap_hours) + ' h (vent, mer, maree)';
-        } else if (o && o.engine === 'satellite_propagated') {
-          srcTxt = 'satellite propage (vent, mer, maree) depuis la photo';
-        } else if (o && o.engine === 'coriolis_propagated') {
-          srcTxt = 'bouee Coriolis + propagation';
-        } else {
-          srcTxt = 'chaine 9 briques : vent, mer, maree, orientation de cote';
-        }
-        title = sl.t.substr(11, 5) + ' — ' + srcTxt;
-      }
-      var attrs = ' onclick="vzSheetCellClick(\'' + sl.t + '\')" title="' + title + '"';
-      visRow += '<td class="' + cls + '"' + attrs + '>' + inner + '</td>';
-    });
-    visRow += '</tr>';
-    html += visRow;
-  })();
-// Bande marée : courbe alignée sur les colonnes + PM/BM (heures).
-  // Le coef est desormais affiché une fois par jour dans l'en-tête (header jours).
-  // Remplace les anciennes lignes "Marée (m)" et "Coef" (chiffres répétés par créneau).
-  // Header heures (deplace sous la Visibilite) : en-tete des colonnes horaires
-  // pour les lignes maree / profondeur / vent / rafales / direction / vagues.
-  html += '<tr><th class="vz-cond-cornerhour"></th>';
-  slots.forEach(function(s, idx) {
-    var cls = 'vz-cond-hourhead';
-    // (pas de surlignage "maintenant" sur l'en-tete d'heure : cf. note ci-dessus)
-    if (idx > 0 && s.time.toDateString() !== slots[idx-1].time.toDateString()) cls += ' vz-cond-dayboundary';
-    html += '<th class="' + cls + '">' + String(s.time.getHours()).padStart(2,'0') + 'h</th>';
-  });
-  html += '</tr>';
-
-html += buildTideBandRow(slots, VZ_SHEET.data.tides);
-
-  // Profondeur d'eau reelle au creneau = fond (zero hydro EMODnet) + hauteur de maree
-  // interpolee sur les memes points que la bande maree ci-dessus (coherence visuelle).
-  // On ne touche pas a depthAtTime (chemin de l'algo physique) : ce calcul est local au tableau.
+  // Profondeur d'eau reelle au creneau = fond (zero hydro EMODnet) + hauteur de
+  // maree interpolee. On ne touche pas a depthAtTime (chemin de l'algo
+  // physique) : ce calcul est local au tableau.
   function sheetTideHeightAt(ms) {
     var td = VZ_SHEET.data.tides;
     if (!td || !td.points || !td.points.length) return null;
@@ -16487,61 +16269,186 @@ html += buildTideBandRow(slots, VZ_SHEET.data.tides);
     return prev ? prev.h : (next ? next.h : null);
   }
   var depthLAT = (data.depth != null && data.depth > 0) ? data.depth : null;
-  html += renderRow('Profondeur <span class="vz-cond-unit">m</span>', null, function(s) {
-    if (depthLAT == null) return { cls: '', html: '—' };
-    var th = sheetTideHeightAt(s.time.getTime());
-    if (th == null) return { cls: '', html: '—' };
-    var wd = Math.max(0.3, depthLAT + th);
-    return { cls: '', html: Math.round(wd) };
+
+  // ---- Geometrie du tableau ----
+  // table-layout:fixed : la largeur fait foi dans le colgroup, pas dans la
+  // cellule. Sans largeur explicite, 40 colonnes de contenus inegaux se
+  // repartissent au petit bonheur et la maree en colspan ne s'aligne plus.
+  var _isMob = (typeof isMobile === 'function') ? isMobile() : (window.innerWidth <= 768);
+  var COLW = _isMob ? 44 : 40;
+  var LBLW = _isMob ? 44 : 112;
+  var TOTW = LBLW + slots.length * COLW;
+
+  function rl(txt, ico, cls) {
+    return '<td class="vz-cond-rowlabel' + (cls ? ' ' + cls : '') + '">'
+      + '<span class="lb-txt">' + txt + '</span>'
+      + '<span class="lb-ico">' + ico + '</span></td>';
+  }
+  // Premier creneau d'un jour : c'est lui qui porte le trait de frontiere.
+  function isDayStart(idx) {
+    return idx === 0 || slots[idx].time.toDateString() !== slots[idx - 1].time.toDateString();
+  }
+  function edge(idx) { return isDayStart(idx) ? ' vz-day-edge' : ''; }
+
+  html += '<div class="vz-cond-scroll" id="vzCondScroll">';
+  html += '<table class="vz-cond-table" style="width:' + TOTW + 'px">';
+  html += '<colgroup><col style="width:' + LBLW + 'px">';
+  for (var ci = 0; ci < slots.length; ci++) html += '<col style="width:' + COLW + 'px">';
+  html += '</colgroup>';
+
+  // ---- En-tete de jour : nom, coef, fourchette de visi, lever/coucher ----
+  // Le padding vit sur .dh : .vz-cond-table td{padding:0} est plus specifique
+  // que .vz-cond-dayhead et gagnerait sur la cellule.
+  html += '<tr><td class="vz-cond-rowlabel is-corner"></td>';
+  dayGroups.forEach(function(g, gIdx) {
+    var cd = g.date;
+    var dkey = cd.getFullYear() + '-' + String(cd.getMonth() + 1).padStart(2, '0') + '-' + String(cd.getDate()).padStart(2, '0');
+    var dayCoef = getCoefForDate(dkey);
+    var kc = dayCoef >= 80 ? 'is-vives' : (dayCoef >= 50 ? 'is-moyen' : '');
+    var sunTxt = '';
+    if (h.sun && h.sun.time) {
+      var si2 = h.sun.time.indexOf(dkey);
+      if (si2 >= 0) {
+        var sr = (h.sun.sunrise && h.sun.sunrise[si2]) ? h.sun.sunrise[si2].slice(11, 16) : null;
+        var ss = (h.sun.sunset && h.sun.sunset[si2]) ? h.sun.sunset[si2].slice(11, 16) : null;
+        if (sr && ss) sunTxt = sr + ' / ' + ss;
+      }
+    }
+    html += '<td class="vz-cond-dayhead" colspan="' + g.count + '" data-vzday="' + gIdx + '"><div class="dh">'
+      + '<span class="dh-day">' + g.label + '</span>'
+      + '<span class="dh-coef ' + kc + '">coef ' + dayCoef + '</span>'
+      + '<span class="dh-vis">' + _fmtRange(_dayRange[gIdx]) + '</span>'
+      + (sunTxt ? '<span class="dh-meta">' + sunTxt + '</span>' : '')
+      + '</div></td>';
   });
-  // Vent
-  html += renderRow('Vent <span class="vz-cond-unit">' + unitLabel + '</span>', 'vz-cond-row-wind', function(s) {
-    var v = h.windspeed_10m[s.i] || 0;
-    return { cls: windCls(v), html: conv(v) };
+  html += '</tr>';
+
+  // ---- Heures, remontees AU-DESSUS de la visibilite ----
+  // Elles arrivaient au milieu du tableau, ce qui obligeait a remonter pour
+  // savoir de quel creneau parlait le vent.
+  html += '<tr>' + rl('Créneau', VZ_ICO.hour, 'is-hourlbl');
+  slots.forEach(function(sl, idx) {
+    html += '<td class="vz-cond-hourhead' + edge(idx) + (idx === nowIdx ? ' is-now' : '') + '">'
+      + String(sl.time.getHours()).padStart(2, '0') + 'h</td>';
+  });
+  html += '</tr>';
+
+  // ---- Strate 1 : visibilite ----
+  var _voidCount = 0;
+  html += '<tr>' + rl('Visibilité', VZ_ICO.vis, 'is-vis');
+  slots.forEach(function(sl, si) {
+    var c = _visiCells[si];
+    var inner, title;
+    if (!c || c.vm === null) {
+      _voidCount++;
+      inner = '?';
+      title = 'Aucune donnée exploitable sur ce créneau'
+        + ((c && c.sObj && c.sObj.trace && c.sObj.trace.fallback_reason) ? ' : ' + c.sObj.trace.fallback_reason : '');
+    } else {
+      inner = c.vm.toFixed(1).replace('.', ',') + 'm';
+      var o = c.sObj, srcTxt;
+      if (o && o.observation) {
+        srcTxt = 'retour chasseur ' + o.observation.real_m + ' m il y a '
+          + Math.round(o.observation.age_hours) + ' h a '
+          + (Math.round(o.observation.dist_km * 10) / 10) + ' km + modele';
+      } else if (o && o.engine === 'observation_propagated') {
+        srcTxt = 'retour chasseur propage (vent, mer, maree)';
+      } else if (o && o.engine === 'satellite_propagated') {
+        srcTxt = 'satellite propage (vent, mer, maree) depuis la photo';
+      } else if (o && o.engine === 'coriolis_propagated') {
+        srcTxt = 'bouee Coriolis + propagation';
+      } else {
+        srcTxt = 'chaine 9 briques : vent, mer, maree, orientation de cote';
+      }
+      title = sl.t.substr(11, 5) + ' - ' + srcTxt;
+    }
+    html += '<td class="vz-cond-viscell ' + vzVisClass(c ? c.vm : null) + edge(si) + '"'
+      + ' title="' + title + '"'
+      + ' onclick="vzSheetCellClick(\'' + sl.t + '\')">' + inner + '</td>';
+  });
+  html += '</tr>';
+
+  // ---- Strate 2 : maree, une cellule par jour ----
+  html += '<tr>' + rl('Marée', VZ_ICO.tide, 'is-tide');
+  (function() {
+    var cur = 0;
+    dayGroups.forEach(function(g) {
+      var f0 = cur, l0 = cur + g.count - 1; cur += g.count;
+      html += buildTideBandCell(slots, f0, l0, VZ_SHEET.data.tides);
+    });
+  })();
+  html += '</tr>';
+
+  // ---- Strate 3 : rangees de chiffres ----
+  function numRow(label, ico, cellFn) {
+    var r = '<tr>' + rl(label, ico, '');
+    slots.forEach(function(sl, idx) { r += cellFn(sl, idx); });
+    html += r + '</tr>';
+  }
+
+  numRow('Profondeur', VZ_ICO.depth, function(sl, idx) {
+    if (depthLAT == null) return '<td class="vz-row-cell' + edge(idx) + '"><span class="vz-dash">-</span></td>';
+    var th = sheetTideHeightAt(sl.time.getTime());
+    if (th == null) return '<td class="vz-row-cell' + edge(idx) + '"><span class="vz-dash">-</span></td>';
+    return '<td class="vz-row-cell' + edge(idx) + '">' + Math.round(Math.max(0.3, depthLAT + th)) + '</td>';
   });
 
-// Rafales
-  html += renderRow('Rafales <span class="vz-cond-unit">' + unitLabel + '</span>', 'vz-cond-row-gusts', function(s) {
-    var v = h.windgusts_10m[s.i] || 0;
-    return { cls: windCls(v), html: conv(v) };
+  numRow('Vent', VZ_ICO.wind, function(sl, idx) {
+    var v = h.windspeed_10m[sl.i] || 0;
+    return '<td class="vz-row-cell vz-grad-cell' + edge(idx) + '" style="color:'
+      + vzRamp(VZ_WIND_B, VZ_WIND_C, v) + '"><span class="gv">' + conv(v) + '</span></td>';
   });
 
-  // Direction
-  html += renderRow('Direction', null, function(s) {
-    return { cls: '', html: dirArrowSvg(h.winddirection_10m[s.i]) };
+  numRow('Rafales', VZ_ICO.gust, function(sl, idx) {
+    var v = (h.windgusts_10m && h.windgusts_10m[sl.i] != null) ? h.windgusts_10m[sl.i] : 0;
+    return '<td class="vz-row-cell vz-grad-cell' + edge(idx) + '" style="color:'
+      + vzRamp(VZ_WIND_B, VZ_WIND_C, v) + '"><span class="gv">' + conv(v) + '</span></td>';
   });
 
-  // Vagues (etat de la mer) : houle significative Open-Meteo, deja dans h.wave_height
-  html += renderRow('Vagues <span class="vz-cond-unit">m</span>', 'vz-cond-row-wave', function(s) {
-    var wv = (h.wave_height && h.wave_height[s.i] != null) ? h.wave_height[s.i] : null;
-    if (wv == null) return { cls: '', html: '\u2014' };
-    var wvCls = wv < 0.3 ? 'vz-cond-w-0'
-      : wv < 0.6 ? 'vz-cond-w-1'
-      : wv < 1.0 ? 'vz-cond-w-2'
-      : wv < 1.5 ? 'vz-cond-w-3'
-      : wv < 2.0 ? 'vz-cond-w-4'
-      : 'vz-cond-w-5';
-    return { cls: wvCls, html: (Math.round(wv * 10) / 10).toFixed(1).replace('.', ',') };
+  numRow('Direction', VZ_ICO.dir, function(sl, idx) {
+    return '<td class="vz-row-cell' + edge(idx) + '">' + vzDirArrow(h.winddirection_10m[sl.i]) + '</td>';
   });
 
-  // Ciel
-  html += renderRow('Ciel', null, function(s) {
-    var cloud = h.cloud_cover ? h.cloud_cover[s.i] : null;
-    var rain = h.precipitation ? h.precipitation[s.i] : null;
-    return { cls: '', html: skyIcon(cloud, rain) };
+  numRow('Vagues', VZ_ICO.wave, function(sl, idx) {
+    var wv = (h.wave_height && h.wave_height[sl.i] != null) ? h.wave_height[sl.i] : null;
+    if (wv == null) return '<td class="vz-row-cell' + edge(idx) + '"><span class="vz-dash">-</span></td>';
+    return '<td class="vz-row-cell vz-grad-cell' + edge(idx) + '" style="color:'
+      + vzRamp(VZ_WAVE_B, VZ_WAVE_C, wv) + '"><span class="gv">'
+      + (Math.round(wv * 10) / 10).toFixed(1).replace('.', ',') + '</span></td>';
+  });
+
+  numRow('Ciel', VZ_ICO.sky, function(sl, idx) {
+    var k = vzSkyKey(h.cloud_cover ? h.cloud_cover[sl.i] : null, h.precipitation ? h.precipitation[sl.i] : null);
+    if (!k) return '<td class="vz-row-cell' + edge(idx) + '"><span class="vz-dash">-</span></td>';
+    return '<td class="vz-row-cell' + edge(idx) + '"><span class="vz-sky">' + VZ_SKY[k] + '</span></td>';
   });
 
   html += '</table></div>';
 
+  // Une journee entiere en "?" ne doit pas se lire comme une panne : on dit
+  // pourquoi, sans inventer la raison a la place du moteur.
+  if (_voidCount === slots.length) {
+    html += '<div class="vz-cond-note"><span class="nd"></span>'
+      + '<span>Aucune visibilité calculable sur ce point : ni image satellite exploitable, '
+      + 'ni retour de chasseur, et la chaîne physique manque d\'une donnée locale. '
+      + 'Les conditions météo et de marée ci-dessus restent valables.</span></div>';
+  }
+
   html += '<div class="vz-cond-footer">'
-    + '<span><strong>AROME</strong> 1.3km (0-48h)</span>'
-    + '<span><strong>ARPEGE</strong> Europe (48h-5j)</span>'
-    + '<span>Marées : SHOM via WorldTides</span>'
-    + '<span>Algo visi calibré Courseulles 04/26</span>'
+    + '<span class="fl">Sources</span>'
+    + '<span class="fs">AROME 1,3 km</span>'
+    + '<span class="fs">ARPEGE Europe</span>'
+    + '<span class="fs">Satellite CMEMS</span>'
+    + '<span class="fs">Marées SHOM</span>'
+    + '<span class="fs">Bathymétrie EMODnet</span>'
+    + '<span class="fs">Calibration Courseulles 04/26</span>'
     + '</div>';
 
   html += '</div>';
   body.innerHTML = html;
+
+  // Retraction de la colonne d'intitules au defile (classe + colgroup).
+  vzBindScroll(document.getElementById('vzCondScroll'), _isMob);
 
   // Bloc source : construit ICI, dans le rendu, et non plus insere apres coup
   // par loadSheetConditions. renderSheetTable ayant deux appelants dont un qui
@@ -16563,7 +16470,10 @@ html += buildTideBandRow(slots, VZ_SHEET.data.tides);
     var offs = [];
     function computeOffsets(){
       offs = [];
-      var ths = sc.querySelectorAll('th[data-vzday]');
+      // Les en-tetes de jour sont des <td> depuis la refonte du tableau :
+      // le selecteur 'th[data-vzday]' ne matchait plus rien et la barre de
+      // jours mobile ne defilait plus vers le jour clique.
+      var ths = sc.querySelectorAll('[data-vzday]');
       for (var i = 0; i < ths.length; i++) offs.push(ths[i].offsetLeft);
     }
 
@@ -16639,67 +16549,69 @@ function localExtremes(pts) {
   return out;
 }
 
-// Bande marée : courbe sinusoïde (fond SVG étiré) + marqueurs PM/BM en heures
-// (overlay HTML positionné en %, donc texte net et aligné sur les colonnes).
-function buildTideBandRow(slots, tideData) {
-  var N = slots.length;
-  var labelCell = '<td class="vz-cond-rowlabel">Marée</td>';
-  if (!tideData || !tideData.points || tideData.points.length === 0) {
-    return '<tr class="vz-cond-row-tide">' + labelCell
-      + '<td class="vz-cond-tideband" colspan="' + N + '"><div class="vz-tideband-empty">Marées indisponibles</div></td></tr>';
+// Bande maree, UNE CELLULE PAR JOUR (colspan sur les creneaux du jour).
+// ------------------------------------------------------------------
+// Elle etait en un seul colspan sur les 40 creneaux, sur 88px de haut : la
+// rangee la moins dense du tableau (4 a 6 heures d'etale par jour) prenait
+// deux fois et demie la hauteur des rangees de chiffres et coupait le tableau
+// en deux. Decoupee par jour, elle respecte les traits de frontiere et tient
+// en 38px, l'etale restant portee par les marqueurs.
+//
+// Montage inchange : SVG etire en preserveAspectRatio="none", trait non
+// deformant (vector-effect), marqueurs en surcouche HTML positionnes en
+// pourcentage. Ne jamais mettre dans ce SVG une forme qui doit rester ronde.
+function buildTideBandCell(slots, i0, i1, tideData) {
+  var N = i1 - i0 + 1;
+  if (!tideData || !tideData.points || !tideData.points.length) {
+    return '<td class="vz-cond-tideband vz-day-edge" colspan="' + N + '">'
+      + '<div class="vz-tide-none">Hors de portée d\'un port de référence</div></td>';
   }
-  var t0 = slots[0].time.getTime();
-  var tN = slots[N - 1].time.getTime();
+  // Bornes de la cellule : on etend d'un demi-creneau de chaque cote pour que
+  // la courbe touche les bords au lieu de flotter au centre.
+  var stepMs = 3 * 3600000;
+  var t0 = slots[i0].time.getTime() - stepMs / 2;
+  var tN = slots[i1].time.getTime() + stepMs / 2;
   var span = Math.max(tN - t0, 1);
-  function posFrac(ms) {
-    var frac = (ms - t0) / span;
-    return (0.5 + frac * (N - 1)) / N;
-  }
-  var pts = tideData.points;
-  var win = [];
+
+  var pts = tideData.points, win = [];
   for (var i = 0; i < pts.length; i++) {
     var pm = new Date(pts[i].time).getTime();
-    if (pm >= t0 - 5400000 && pm <= tN + 5400000) win.push({ ms: pm, height: pts[i].height });
+    if (pm >= t0 - 3600000 && pm <= tN + 3600000) win.push({ ms: pm, height: pts[i].height });
   }
-  if (win.length === 0) {
-    for (var w0 = 0; w0 < pts.length; w0++) win.push({ ms: new Date(pts[w0].time).getTime(), height: pts[w0].height });
+  if (win.length < 2) {
+    return '<td class="vz-cond-tideband vz-day-edge" colspan="' + N + '">'
+      + '<div class="vz-tide-none">Marées indisponibles</div></td>';
   }
-  var heights = win.map(function(p) { return p.height; });
-  var minH = Math.min.apply(null, heights);
-  var maxH = Math.max.apply(null, heights);
-  var rangeH = Math.max(maxH - minH, 0.3);
-  var VBW = 1000, VBH = 100, yTop = 32, yBot = 70;
-  function X(ms) { return posFrac(ms) * VBW; }
-  function Y(hh) { return yBot - ((hh - minH) / rangeH) * (yBot - yTop); }
   win.sort(function(a, b) { return a.ms - b.ms; });
-  var path = '';
-  for (var c = 0; c < win.length; c++) path += (c === 0 ? 'M' : 'L') + X(win[c].ms).toFixed(1) + ' ' + Y(win[c].height).toFixed(1) + ' ';
-  var firstX = X(win[0].ms).toFixed(1);
-  var lastX = X(win[win.length - 1].ms).toFixed(1);
-  var area = path + 'L' + lastX + ' ' + VBH + ' L' + firstX + ' ' + VBH + ' Z';
-  var svg = '<svg class="vz-tideband-svg" viewBox="0 0 ' + VBW + ' ' + VBH + '" preserveAspectRatio="none">'
-    + '<path d="' + area + '" fill="rgba(77,212,168,0.16)"/>'
-    + '<path d="' + path + '" fill="none" stroke="#4DD4A8" stroke-width="2" vector-effect="non-scaling-stroke"/>'
-    + '</svg>';
+
+  // L'echelle verticale est GLOBALE (min/max sur toute la fenetre du tableau)
+  // et non par jour : sinon un jour de mortes-eaux afficherait la meme
+  // amplitude visuelle qu'un jour de vives-eaux, ce qui serait un mensonge.
+  var allH = pts.map(function(p) { return p.height; });
+  var minH = Math.min.apply(null, allH), maxH = Math.max.apply(null, allH);
+  var rangeH = Math.max(maxH - minH, 0.3);
+  var VBW = 100, VBH = 38, yTop = 9, yBot = 30;
+  function X(ms) { return ((ms - t0) / span) * VBW; }
+  function Y(hh) { return yBot - ((hh - minH) / rangeH) * (yBot - yTop); }
+
+  var poly = [];
+  for (var c = 0; c < win.length; c++) poly.push(X(win[c].ms).toFixed(2) + ',' + Y(win[c].height).toFixed(2));
+  var svg = '<svg viewBox="0 0 ' + VBW + ' ' + VBH + '" preserveAspectRatio="none">'
+    + '<polyline points="' + poly.join(' ') + '" fill="none" stroke="#0E7C62" stroke-width="2"'
+    + ' vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>';
+
   var ext = (tideData.extremes && tideData.extremes.length) ? tideData.extremes : localExtremes(pts);
   var marks = '';
   for (var e = 0; e < ext.length; e++) {
     var ems = new Date(ext[e].time).getTime();
-    if (ems < t0 - 1800000 || ems > tN + 1800000) continue;
-    var isHigh = (ext[e].type === 'high');
-    var leftPct = posFrac(ems) * 100;
-    if (leftPct < 0) leftPct = 0;
-    if (leftPct > 100) leftPct = 100;
-    var topPct = Y(ext[e].height) / VBH * 100;
-    if (topPct < 0) topPct = 0;
-    if (topPct > 100) topPct = 100;
+    if (ems < t0 || ems > tN) continue;
+    var p = Math.max(6, Math.min(94, X(ems)));
     var hhmm = new Date(ext[e].time).toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
-    marks += '<span class="vz-tide-mark ' + (isHigh ? 'vz-tide-pm' : 'vz-tide-bm') + '" style="left:' + leftPct.toFixed(2) + '%;">'
-      + '<span class="vz-tide-dot" style="top:' + topPct.toFixed(1) + '%;"></span>'
-      + '<span class="vz-tide-time" style="top:' + topPct.toFixed(1) + '%;">' + hhmm + '</span></span>';
+    marks += '<span class="vz-tide-mark ' + (ext[e].type === 'high' ? 'pm' : 'bm')
+      + '" style="left:' + p.toFixed(1) + '%">' + hhmm + '</span>';
   }
-  return '<tr class="vz-cond-row-tide">' + labelCell
-    + '<td class="vz-cond-tideband" colspan="' + N + '"><div class="vz-tideband-wrap">' + svg + marks + '</div></td></tr>';
+  return '<td class="vz-cond-tideband vz-day-edge" colspan="' + N + '">'
+    + '<div class="vz-tide-inner">' + svg + marks + '</div></td>';
 }
 // Click cellule visi → ouvre drawer spot à la date/heure choisie
 window.vzSheetCellClick = function(timeStr) {
