@@ -15595,8 +15595,13 @@ var css = `
       }
       body.vzm-nav.vzm-full .vzsp-shead .vzsp-idt { flex: 1; min-width: 0; }
       /* Aspect commun des deux sorties : pastille bordee, libelle a cote de
-         l'icone, 56px de haut. */
-      body.vzm-nav.vzm-full #vzSheet > button.vz-sheet-close,
+         l'icone, 56px de haut.
+         Le :not(.vzm-cond) n'est pas decoratif : sans lui cette regle a la
+         meme specificite que le display:none pose plus haut pour Previsions,
+         les deux sont !important, et la derniere ecrite l'emporte. Le bandeau
+         reaffichait donc sa propre sortie par-dessus le panneau vertical qui
+         a deja la sienne. */
+      body.vzm-nav.vzm-full:not(.vzm-cond) #vzSheet > button.vz-sheet-close,
       body.vzm-nav.vzm-full .vzsp-shead .vzsp-close {
         display: flex !important; align-items: center; justify-content: center; gap: 7px;
         width: auto !important; min-width: 0; height: 56px !important; padding: 0 14px !important;
@@ -15608,10 +15613,10 @@ var css = `
          de #vzSheet, pose par-dessus en absolu. Le faire passer en flux le
          transformait en bande pleine largeur au sommet de la colonne flex.
          Il reste donc absolu, et l'en-tete lui reserve sa place a droite. */
-      body.vzm-nav.vzm-full #vzSheet > button.vz-sheet-close {
+      body.vzm-nav.vzm-full:not(.vzm-cond) #vzSheet > button.vz-sheet-close {
         position: absolute !important; top: 10px !important; right: 12px !important; z-index: 4;
       }
-      body.vzm-nav.vzm-full #vzSheet .vz-sheet-header { padding-right: 124px !important; }
+      body.vzm-nav.vzm-full:not(.vzm-cond) #vzSheet .vz-sheet-header { padding-right: 124px !important; }
       /* Celui du panneau secteur, lui, EST dans son en-tete : il rejoint le
          flux, sinon il reste colle a droite en absolu et le nom lui passe
          dessous des qu'il se replie sur deux lignes. */
@@ -15796,7 +15801,7 @@ window.openConditionsInSheet = function() {
   if (!body) return;
 
   if (!spot) {
-    body.innerHTML = '<div class="vz-sheet-loading">Clique un point en mer ou un port pour afficher les prévisions</div>';
+    body.innerHTML = vzCondMessage('Clique un point en mer ou un port pour afficher les prévisions');
     return;
   }
 
@@ -16228,12 +16233,19 @@ function vzRenderCondLoad(doneKeys){
       + '<span class="vz-load-mark">' + VZ_CHECK + '</span>'
       + '<span class="vz-load-name">' + s.label + '</span></div>';
   }).join('');
-  return '<div class="vz-cond-load"><div class="vz-load-box">'
+  var box = '<div class="vz-cond-load"><div class="vz-load-box">'
     + '<div class="vz-load-title">Chargement des prévisions</div>'
     + '<div class="vz-load-sub">Visimer croise six sources pour ce point</div>'
     + '<div class="vz-load-bar">' + segs + '</div>'
     + '<div class="vz-load-list">' + rows + '</div>'
     + '</div></div>';
+  // Sur mobile, l'attente prend le gabarit du panneau : meme barre de titre,
+  // meme sortie. Sans ca l'ecran de chargement n'a aucune sortie, et le
+  // passage a l'affichage des donnees fait sauter la barre en place.
+  var mob = (typeof isMobile === 'function') ? isMobile() : (window.innerWidth <= 768);
+  if (!mob) return box;
+  return '<div class="vzm-panel">' + vzmTopbar(vzmIdentNow())
+    + '<div class="vzm-scroll">' + box + '</div></div>';
 }
 
 /* Cablage : une seule liste mutable, re-rendue a chaque reponse.
@@ -16307,7 +16319,7 @@ function loadSheetConditions(spot) {
     var sat = results[3];
     var sediment = results[4];
     if (!meteo || !meteo.time) {
-      document.getElementById('vzSheetBody').innerHTML = '<div class="vz-sheet-loading">Données météo indisponibles</div>';
+      document.getElementById('vzSheetBody').innerHTML = vzCondMessage('Données météo indisponibles');
       return;
     }
     VZ_SHEET.data = { meteo: meteo, depth: depth, tides: tides, spot: spot, satellite: sat, sediment: sediment };
@@ -16318,7 +16330,7 @@ function loadSheetConditions(spot) {
     if (typeof vzCondScrollIcons === 'function') vzCondScrollIcons();
   }).catch(function(err) {
     console.error('[Sheet] erreur chargement', err);
-    document.getElementById('vzSheetBody').innerHTML = '<div class="vz-sheet-loading">Erreur de chargement</div>';
+    document.getElementById('vzSheetBody').innerHTML = vzCondMessage('Erreur de chargement');
   });
 }
 
@@ -16793,10 +16805,7 @@ function vzmBuildPanel(ctx) {
 
   // ---- assemblage ----
   var out = '<div class="vzm-panel">';
-  out += '<div class="vzm-topbar"><span class="tb-id">'
-    + '<span class="tb-n">' + vzmIdentity(place) + '</span></span>'
-    + '<button class="vzm-panel-close" type="button" onclick="closeSheetCompletely()">'
-    + '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>Fermer</button></div>';
+  out += vzmTopbar(vzmIdentity(place));
   out += vzmSourceBand(satM, fbM);
   out += '<div class="vzm-scroll" id="vzmCondScroll">';
   if (voidCount === slots.length) out += vzmVoidNote();
@@ -16807,6 +16816,44 @@ function vzmBuildPanel(ctx) {
     + '<span class="fs">AROME 1,3 km</span><span class="fs">SHOM</span>'
     + '<span class="fs">Satellite CMEMS</span><span class="fs">EMODnet</span></div>';
   return out + '</div>';
+}
+
+/* Message d'etat du bandeau Previsions (attente, erreur, vide).
+   Sur mobile il prend le gabarit du panneau, donc sa barre de titre et sa
+   sortie. Sans ca, "Données météo indisponibles" s'affichait dans un ecran
+   plein sans aucun moyen d'en sortir : le bandeau masque sa propre croix sur
+   Previsions, et le panneau qui porte la sienne n'a jamais ete peint. */
+function vzCondMessage(txt) {
+  var box = '<div class="vz-sheet-loading">' + txt + '</div>';
+  var mob = (typeof isMobile === 'function') ? isMobile() : (window.innerWidth <= 768);
+  if (!mob) return box;
+  return '<div class="vzm-panel">' + vzmTopbar(vzmIdentNow())
+    + '<div class="vzm-scroll">' + box + '</div></div>';
+}
+
+/* Barre de titre du panneau vertical. Partagee entre le rendu des donnees et
+   l'ecran de chargement : sans elle pendant le chargement, il n'y a aucune
+   sortie a l'ecran, puisque le bandeau masque la sienne sur Previsions. Deux
+   a cinq secondes sans pouvoir fermer, c'est deux a cinq secondes de trop. */
+function vzmTopbar(nom) {
+  return '<div class="vzm-topbar"><span class="tb-id">'
+    + '<span class="tb-n">' + nom + '</span></span>'
+    + '<button class="vzm-panel-close" type="button" onclick="closeSheetCompletely()">'
+    + '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>Fermer</button></div>';
+}
+
+/* Nom du secteur pour la barre de titre, avant que les donnees soient la.
+   Meme regle que vzmIdentity : rattachement au port sous 20 km, sinon le nom
+   du point, sinon un libelle neutre. */
+function vzmIdentNow() {
+  var sp = (typeof VZ_SHEET !== 'undefined' && VZ_SHEET) ? VZ_SHEET.spot : null;
+  if (!sp || typeof sp.lat !== 'number') return 'Point personnalisé';
+  var place = { name: sp.name || null, portName: null, portDistanceKm: Infinity };
+  try {
+    var np = (typeof findNearestPort === 'function') ? findNearestPort(sp.lat, sp.lng) : null;
+    if (np && np.spot && np.spot.name) { place.portName = np.spot.name; place.portDistanceKm = np.distanceKm; }
+  } catch (e) {}
+  return vzmIdentity(place);
 }
 
 /* Un seul ecouteur delegue sur la zone defilante : 40 boutons, 40 handlers
@@ -16854,7 +16901,7 @@ function renderSheetTable() {
 if (slots.length >= 40) break;
   }
   if (slots.length === 0) {
-    body.innerHTML = '<div class="vz-sheet-loading">Pas de données disponibles</div>';
+    body.innerHTML = vzCondMessage('Pas de données disponibles');
     return;
   }
 
@@ -20139,6 +20186,15 @@ function vzmInit() {
     + '.vzsp-datepick .vzsp-dfield input{border:none;background:transparent;padding:0;margin-top:2px;width:100%;font-family:\'IBM Plex Mono\',monospace;font-size:19px;font-weight:700;color:var(--vzsp-ink);letter-spacing:-0.01em;}'
     + '.vzsp-datepick .vzsp-dfield input::-webkit-calendar-picker-indicator{cursor:pointer;opacity:0.8;}'
     + '.vzsp-datepick .vzsp-dfield input:focus{outline:none;}'
+    // Le champ natif garde le selecteur du systeme, bien meilleur que tout ce
+    // qu'on ecrirait, mais on n'affiche plus sa mise en forme : il passe en
+    // transparent par-dessus le libelle en toutes lettres. opacity:0 et non
+    // visibility:hidden, sinon il ne recoit plus le tap.
+    + '.vzsp-dfield-long{position:relative;}'
+    + '.vzsp-dfield-long .vzsp-dtxt{display:block;margin-top:2px;font-family:Inter,sans-serif;'
+    +   'font-size:17px;font-weight:800;letter-spacing:-0.02em;color:var(--vzsp-ink);line-height:1.2;}'
+    + '.vzsp-dfield-long input{position:absolute;inset:0;width:100%;height:100%;opacity:0;'
+    +   'margin:0;cursor:pointer;}'
     + '.vzsp-drange{font-size:11px;font-weight:600;color:var(--vzsp-ink2);margin:8px 6px 0;letter-spacing:0.02em;}'
     + '.vzsp-coefwrap{display:flex;align-items:center;gap:14px;}'
     + '.vzsp-coefwrap .vzsp-big{font-family:\'IBM Plex Mono\',monospace;font-size:46px;font-weight:700;line-height:0.9;letter-spacing:-0.02em;}'
@@ -20220,6 +20276,20 @@ function vzmInit() {
     var p = String(ymd || '').split('-');
     if (p.length !== 3) return '';
     return p[2] + '/' + p[1] + '/' + p[0];
+  }
+
+  var VZSP_JOURS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+  var VZSP_MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+                   'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+  /* "mardi 1 septembre" plutot que "01/09/2026". L'annee n'est pas affichee :
+     la plage de marees ne depasse jamais 14 jours, elle n'apprend rien. */
+  function vzspLongDate(ymd) {
+    var p = String(ymd || '').split('-');
+    if (p.length !== 3) return '';
+    var d = new Date(+p[0], +p[1] - 1, +p[2]);
+    if (isNaN(d.getTime())) return '';
+    var j = VZSP_JOURS[d.getDay()];
+    return j.charAt(0).toUpperCase() + j.slice(1) + ' ' + d.getDate() + ' ' + VZSP_MOIS[d.getMonth()];
   }
 
   function vzspTodayISO() {
@@ -20557,12 +20627,13 @@ function vzmInit() {
     var html = '<div class="vzsp-slab">Date</div>'
       + '<div class="vzsp-datepick">'
       +   '<button class="vzsp-dnav" type="button" data-vzspnav="-1" aria-label="Jour précédent">' + VZSP_SVG_PREV + '</button>'
-      +   '<label class="vzsp-dfield"><span class="vzsp-dlab">Jour observé</span>'
+      +   '<label class="vzsp-dfield vzsp-dfield-long"><span class="vzsp-dlab">Jour observé</span>'
+      +     '<span class="vzsp-dtxt">' + vzspLongDate(sel) + '</span>'
       +     '<input type="date" id="vzspDate" value="' + sel + '" min="' + minD + '" max="' + maxD + '">'
       +   '</label>'
       +   '<button class="vzsp-dnav" type="button" data-vzspnav="1" aria-label="Jour suivant">' + VZSP_SVG_NEXT + '</button>'
       + '</div>'
-      + '<div class="vzsp-drange vzsp-mono">Marées disponibles jusqu\u2019au ' + vzspFrDate(maxD) + '</div>';
+      + '<div class="vzsp-drange vzsp-mono">Marées disponibles jusqu\u2019au ' + vzspLongDate(maxD) + '</div>';
 
     if (!pts.length) {
       pane.innerHTML = html + '<div class="vzsp-note">Aucune donnée de marée pour cette date.</div>';
@@ -20574,6 +20645,13 @@ function vzmInit() {
     var hs = pts.map(function (p) { return p.height; });
     var marnage = Math.max.apply(null, hs) - Math.min.apply(null, hs);
     var isMed = (typeof isMediterraneanTidePort === 'function') && isMediterraneanTidePort(port.siteId);
+
+    // isToday est lu par la courbe (repere de l'heure courante) : il etait
+    // calcule plus bas, avec la phase. Remonte ici avec elle.
+    var todayISO = vzspTodayISO();
+    var isToday = (sel === todayISO);
+
+    html += '<div class="vzsp-slab">Courbe du jour</div>' + vzspCurve(pts, exs, isToday);
 
     html += '<div class="vzsp-slab">Coefficient</div><div class="vzsp-card vzsp-pad"><div class="vzsp-coefwrap">';
     if (isMed) {
@@ -20596,8 +20674,6 @@ function vzmInit() {
     html += '</div>';
 
     // Phase en cours et marnage : uniquement des faits, aucun conseil.
-    var todayISO = vzspTodayISO();
-    var isToday = (sel === todayISO);
     var phaseTxt = null, phaseSvg = VZSP_SVG_PHASE_UP;
     if (isToday) {
       // On balaie toute la plage chargee, pas seulement le jour affiche :
@@ -20623,8 +20699,6 @@ function vzmInit() {
       + '<div class="vzsp-lbl"><div class="vzsp-t">Marnage</div></div>'
       + '<div class="vzsp-val"><div class="vzsp-v">' + vzspNum(marnage.toFixed(1)) + '<small> m</small></div></div></div>'
       + '</div>';
-
-    html += '<div class="vzsp-slab">Courbe du jour</div>' + vzspCurve(pts, exs, isToday);
 
     html += '<div class="vzsp-slab">Soleil</div><div class="vzsp-card">'
       + '<div class="vzsp-row"><span class="vzsp-ico">' + VZSP_SVG_SUNUP + '</span>'
