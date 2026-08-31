@@ -5331,8 +5331,7 @@ function openSpotPopup(latlng, name) {
           };
           VZ_SHEET.spot = newSpot;
           updateSheetHeader('', '');
-          var bodySheet = document.getElementById('vzSheetBody');
-          if (bodySheet) bodySheet.innerHTML = '<div class="vz-sheet-loading"><span class="vsm-spinner vsm-lg" role="status" aria-label="Chargement"><svg viewBox="0 0 48 48"><circle class="vsm-track" cx="24" cy="24" r="20" stroke-width="5.8"/><path class="vsm-arc" d="M 24 4 A 20 20 0 0 1 44 24" stroke-width="5.8"/></svg></span><div style="margin-top:14px;">Chargement des prévisions...</div></div>';
+          // Idem : plus de spinner peint ici. Un seul endroit sait attendre.
           loadSheetConditions(newSpot);
         }
       }, 250);
@@ -15111,12 +15110,17 @@ var css = `
       color: var(--vz-text-on-dark);
     }
     .vz-cond-table th, .vz-cond-table td {
-      padding: 0 10px;
-      height: 46px;
+      padding: 0 9px;
+      height: 34px;
       text-align: center;
       white-space: nowrap;
-      border-right: 1px solid rgba(255,255,255,0.05);
-      border-bottom: 1px solid rgba(255,255,255,0.05);
+      /* Le tableau vit sur fond CLAIR (--vz-bg-deep = #F4F7FA). Les bordures
+         etaient en blanc a 5 %, heritees du theme sombre d'origine : donc
+         invisibles. Sans trame, il ne restait que des aplats de couleur bord
+         a bord. Un instrument se lit sur une grille. Verticales plus marquees
+         que les horizontales : l'oeil doit suivre la colonne d'un creneau. */
+      border-right: 1px solid rgba(11,26,38,0.10);
+      border-bottom: 1px solid rgba(11,26,38,0.06);
     }
 .vz-cond-rowlabel {
       font-family: 'Inter', sans-serif;
@@ -15130,9 +15134,9 @@ var css = `
       min-width: 100px;
       position: sticky;
       left: 0;
-      background: var(--vz-bg-deep);
+      background: var(--vz-bg-surface);
       z-index: 3;
-      border-right: 1px solid var(--vz-accent-border) !important;
+      border-right: 2px solid #0A1520 !important;
     }
     .vz-cond-unit {
       font-family: 'IBM Plex Mono', monospace;
@@ -15164,9 +15168,9 @@ var css = `
       color: var(--vz-text-on-dark);
       text-transform: uppercase;
       letter-spacing: 0.1em;
-      background: rgba(255,255,255,0.04);
-      border-bottom: 1px solid var(--vz-accent-border) !important;
-      padding: 10px !important;
+      background: #EEF3F7;
+      border-bottom: 2px solid #0A1520 !important;
+      padding: 7px 8px !important;
       height: auto;
     }
     .vz-cond-hourhead {
@@ -15174,11 +15178,12 @@ var css = `
       font-size: 11px;
       font-weight: 500;
       color: var(--vz-text-on-dark-muted);
-      background: rgba(255,255,255,0.02);
+      background: #F7F9FB;
       letter-spacing: 0.04em;
-      height: 32px;
+      height: 26px;
+      border-bottom: 1px solid rgba(11,26,38,0.12) !important;
     }
-    .vz-cond-dayboundary { border-left: 1px solid var(--vz-accent-border) !important; }
+    .vz-cond-dayboundary { border-left: 2px solid #0A1520 !important; }
    .vz-cond-now {
       background: rgba(14,124,98,0.06) !important;
       box-shadow: inset 2px 0 0 var(--vz-accent), inset -2px 0 0 var(--vz-accent);
@@ -15224,16 +15229,122 @@ var css = `
       color: var(--vz-text-on-dark-muted);
       letter-spacing: 0.02em;
     }
-    .vz-cond-satnote {
-      margin-top: 14px;
-      padding-top: 13px;
-      border-top: 1px solid rgba(11,26,38,0.08);
-      font-family: 'IBM Plex Mono', monospace;
-      font-size: 11px;
-      color: var(--vz-text-on-dark-muted);
-      letter-spacing: 0.03em;
-      line-height: 1.7;
+    /* ----- Bloc source : d'ou vient le chiffre, AVANT le chiffre -----
+       Remplace l'ancienne .vz-cond-satnote, releguee sous les huit lignes de
+       donnees en mono 11px gris. Le satellite est la source numero 1 de la
+       doctrine : il se lit en premier, en cartouche instrument (blanc opaque,
+       bordure noire nette, aucun flou). L'absence de mesure est une
+       information affirmee, pas une note de bas de page. */
+    .vz-cond-source {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 0 0 14px;
     }
+    .vz-cond-src {
+      flex: 0 1 340px;
+      min-width: 0;
+      background: #FFFFFF;
+      border: 2px solid #0A1520;
+      border-radius: var(--vz-radius-card);
+      padding: 11px 14px 12px;
+    }
+    .vz-cond-src-k {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: 'Inter', sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #6D7F8E;
+    }
+    .vz-cond-src-k svg { flex: none; color: #0E7C62; }
+    .vz-cond-src-v {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 22px;
+      font-weight: 700;
+      color: #0A1520;
+      line-height: 1.15;
+      margin-top: 5px;
+    }
+    .vz-cond-src-m {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11.5px;
+      color: #51677A;
+      letter-spacing: 0.02em;
+      line-height: 1.65;
+      margin-top: 4px;
+    }
+    /* Pas de mesure : cartouche volontairement en retrait (bordure grise,
+       fond casse) pour que l'absence ne se lise pas comme une donnee. */
+    .vz-cond-src.is-none { border-color: #C9D4DC; background: #F7F9FB; }
+    .vz-cond-src.is-none .vz-cond-src-v {
+      font-size: 15px;
+      font-weight: 600;
+      color: #51677A;
+    }
+    /* ----- Chargement : barre reelle, six sources qui se cochent -----
+       Les six fetchs partent EN PARALLELE (cf. loadSheetConditions). Une barre
+       a etapes sequentielles serait une animation mensongere sur un produit
+       dont l'argument est l'honnetete epistemique. Chaque ligne se coche quand
+       sa source repond vraiment, dans l'ordre ou elle repond. */
+    .vz-cond-load { padding: 24px 4px 10px; max-width: 460px; }
+    .vz-cond-load-t {
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: #0A1520;
+      margin-bottom: 12px;
+    }
+    .vz-cond-load-bar {
+      height: 8px;
+      border-radius: 5px;
+      background: #E4EBF1;
+      border: 1px solid rgba(11,26,38,0.10);
+      overflow: hidden;
+    }
+    .vz-cond-load-fill {
+      height: 100%;
+      width: 0%;
+      background: #0E7C62;
+      transition: width 0.35s cubic-bezier(.4,0,.2,1);
+    }
+    .vz-cond-load-list { margin-top: 15px; display: flex; flex-direction: column; gap: 8px; }
+    .vz-cond-load-i {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 0.02em;
+      color: #90A1AE;
+      transition: color 0.2s ease;
+    }
+    .vz-cond-load-i .vz-cond-load-dot {
+      flex: none;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      border: 1.5px solid #C9D4DC;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s ease, border-color 0.2s ease;
+    }
+    .vz-cond-load-i .vz-cond-load-dot svg { width: 9px; height: 9px; opacity: 0; transition: opacity 0.2s ease; }
+    .vz-cond-load-i.is-done { color: #0B1A26; }
+    .vz-cond-load-i.is-done .vz-cond-load-dot { background: #0E7C62; border-color: #0E7C62; }
+    .vz-cond-load-i.is-done .vz-cond-load-dot svg { opacity: 1; }
+    /* La barre de jours est un organe de NAVIGATION tactile : sur desktop les
+       cinq jours sont deja dans le tableau (en-tetes porteurs du coef, de la
+       fourchette de visi et du lever/coucher), et son CSS ne vit que dans le
+       module vzmNav, sous @media (max-width:768px). Elle s'affichait donc en
+       boutons natifs du navigateur au-dessus du tableau. Masquee ici, le
+       module mobile la reaffiche en flex dans sa media query. */
+    .vz-cond-daybar { display: none; }
     .vz-cond-vis-0 { background: rgba(201,74,61,0.92) !important; }
     .vz-cond-vis-1 { background: rgba(232,155,60,0.85) !important; }
     .vz-cond-vis-2 { background: rgba(216,200,74,0.75) !important; color: #1A2535 !important; }
@@ -15274,7 +15385,7 @@ var css = `
     .vz-cond-footer {
       margin-top: 16px;
       padding-top: 14px;
-      border-top: 1px solid rgba(255,255,255,0.08);
+      border-top: 1px solid rgba(11,26,38,0.12);
       font-family: 'IBM Plex Mono', monospace;
       font-size: 10px;
       color: var(--vz-text-on-dark-faint);
@@ -15298,10 +15409,10 @@ var css = `
     .vz-cond-row-wind td, .vz-cond-row-gusts td, .vz-cond-row-wave td { font-size: 13px; }
     .vz-cond-row-tide td.vz-cond-tideband {
       padding: 0 !important;
-      height: 128px;
+      height: 88px;
       border-right: none;
     }
-    .vz-tideband-wrap { position: relative; width: 100%; height: 128px; }
+    .vz-tideband-wrap { position: relative; width: 100%; height: 88px; }
     .vz-tideband-svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
     .vz-tide-mark { position: absolute; top: 0; bottom: 0; transform: translateX(-50%); pointer-events: none; }
     .vz-tide-dot {
@@ -15448,7 +15559,8 @@ window.openConditionsInSheet = function() {
     return;
   }
 
-  body.innerHTML = '<div class="vz-sheet-loading"><span class="vsm-spinner vsm-lg" role="status" aria-label="Chargement"><svg viewBox="0 0 48 48"><circle class="vsm-track" cx="24" cy="24" r="20" stroke-width="5.8"/><path class="vsm-arc" d="M 24 4 A 20 20 0 0 1 44 24" stroke-width="5.8"/></svg></span><div style="margin-top:14px;">Chargement des prévisions...</div></div>';
+  // L'etat de chargement appartient a loadSheetConditions : elle seule connait
+  // les six sources interrogees et peut afficher leur avancement reel.
   loadSheetConditions(spot);
 };
 
@@ -15661,61 +15773,83 @@ function getSpotDisplayName(lat, lng) {
 }
 
 // ----- Chargement parallèle météo + profondeur -----
-// Bandeau verdict satellite en tete du bandeau Conditions (option B)
+// Bloc source, EN TETE du bandeau Conditions.
+// ------------------------------------------------------------------
+// Il etait auparavant insere APRES coup par loadSheetConditions, en bas de
+// tableau, devant .vz-cond-footer. Deux consequences :
+//   1. la seule chose qui distingue Visimer d'un modele meteo (une mesure
+//      reelle, ou l'aveu qu'il n'y en a pas) se lisait en dernier ;
+//   2. renderSheetTable est rappelee SEULE par le retour de fetchVisiFeedback
+//      (pipeline du clic spot, ~ligne 5240). Comme elle reecrit tout le
+//      innerHTML, le bandeau satellite disparaissait silencieusement quelques
+//      secondes apres l'ouverture.
+// Desormais renderSheetTable reserve #vzCondSource et appelle cette fonction
+// en fin de rendu : un seul point d'entree, increvable au re-render.
 function vzRenderCondVerdict(){
-  var body = document.getElementById('vzSheetBody');
-  if (!body || !VZ_SHEET.data) return;
+  var host = document.getElementById('vzCondSource');
+  if (!host || !VZ_SHEET.data) return;
   var sat = VZ_SHEET.data.satellite;
   var spot = VZ_SHEET.data.spot;
-  var html;
+  var MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+  var icSat = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+    + '<path d="M12 3a9 9 0 0 1 9 9"/><path d="M12 8a4 4 0 0 1 4 4"/><circle cx="7" cy="17" r="3"/><path d="M9.4 14.6 14 10"/></svg>';
+  var icHunt = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+    + '<path d="M21 15a2 2 0 0 1-2 2H8.5L4 20.5V6a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2z"/></svg>';
+  var html = '';
+
   if (sat && typeof sat.visi_plongeur_m === 'number') {
-    var v = Math.round(sat.visi_plongeur_m * 10) / 10;
-    var clause = '';
+    var v = (Math.round(sat.visi_plongeur_m * 10) / 10).toFixed(1).replace('.', ',');
+    var meta = [];
     if (typeof sat.age_hours === 'number' && isFinite(sat.age_hours)) {
       var d = new Date(Date.now() - sat.age_hours * 3600 * 1000);
-      var mois = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
-      var hh = String(d.getHours()).padStart(2, '0'), mm = String(d.getMinutes()).padStart(2, '0');
-      clause = ' le ' + d.getDate() + ' ' + mois[d.getMonth()] + ' à ' + hh + 'h' + mm;
+      meta.push('Photo du ' + d.getDate() + ' ' + MOIS[d.getMonth()] + ' à '
+        + String(d.getHours()).padStart(2, '0') + 'h' + String(d.getMinutes()).padStart(2, '0'));
     }
-    var coords = '';
     if (spot && typeof spot.lat === 'number' && typeof spot.lng === 'number') {
-      coords = spot.lat.toFixed(4) + ' N · ' + Math.abs(spot.lng).toFixed(4) + (spot.lng < 0 ? ' O' : ' E');
+      meta.push(spot.lat.toFixed(4) + ' N · ' + Math.abs(spot.lng).toFixed(4) + (spot.lng < 0 ? ' O' : ' E'));
     }
-    html = '<div class="vz-cond-satnote">'
-      + '<span style="color:#0E7C62;font-weight:700;font-size:13px;">~' + v + ' m</span> mesuré par satellite' + clause
-      + (coords ? '<br>' + coords : '')
+    html += '<div class="vz-cond-src">'
+      + '<div class="vz-cond-src-k">' + icSat + '<span>Mesure satellite CMEMS</span></div>'
+      + '<div class="vz-cond-src-v">~' + v + ' m</div>'
+      + (meta.length ? '<div class="vz-cond-src-m">' + meta.join('<br>') + '</div>' : '')
       + '</div>';
   } else {
-    html = '<div class="vz-cond-satnote">Pas de mesure satellite sur ce point · prévisions estimées</div>';
+    // Doctrine : on nomme le trou, on ne l'explique pas a la place du
+    // satellite (nuage, angle de passage, filtre qualite : on n'en sait
+    // rien). On dit ce qui est vrai - pas de mesure, donc chaine physique.
+    html += '<div class="vz-cond-src is-none">'
+      + '<div class="vz-cond-src-k">' + icSat + '<span>Mesure satellite CMEMS</span></div>'
+      + '<div class="vz-cond-src-v">Aucune mesure sur ce point</div>'
+      + '<div class="vz-cond-src-m">Visibilité calculée par la chaîne physique<br>(vent, houle, marée, nature du fond)</div>'
+      + '</div>';
   }
-  var footer = body.querySelector('.vz-cond-footer');
-  if (footer) footer.insertAdjacentHTML('beforebegin', html);
-  else body.insertAdjacentHTML('beforeend', html);
+  // Emplacement RESERVE pour le retour chasseur : le cartouche existe deja,
+  // masque, et se remplit quand ensurePortCounts_ revient. Sans reservation,
+  // l'insertion tardive ferait sauter le tableau sous les yeux du lecteur.
+  html += '<div class="vz-cond-src" id="vzCondSrcHunt" style="display:none;"></div>';
+  host.innerHTML = html;
 
-  // Note jumelle : si un chasseur a rapporte une visi dans le secteur (5 km),
-  // on l'affiche sous la mesure satellite, meme honnetete epistemique. Charge
-  // les retours en arriere-plan puis insere la ligne (pas d'async/await).
+  // Meme honnetete epistemique pour l'observation d'un chasseur dans les 5 km.
+  // Pas d'async/await : chaine .then (contrainte Leaflet du projet).
   if (typeof ensurePortCounts_ === 'function' && spot
       && typeof spot.lat === 'number' && typeof spot.lng === 'number') {
     ensurePortCounts_().then(function() {
-      if (!body || body.querySelector('.vz-cond-huntnote')) return;
+      var slot = document.getElementById('vzCondSrcHunt');
+      if (!slot) return;                       // re-render passe par la entre-temps
       var fb = (typeof vzNearestFeedback === 'function') ? vzNearestFeedback(spot.lat, spot.lng, 5) : null;
       if (!fb) return;
       var vh = (fb.real_m != null) ? fb.real_m : fb.predicted_m;
       if (vh == null) return;
-      var clauseH = '';
+      var metaH = [];
       if (typeof fb.age_hours === 'number' && isFinite(fb.age_hours)) {
         var dh = new Date(Date.now() - fb.age_hours * 3600 * 1000);
-        var moisH = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
-        clauseH = ' le ' + dh.getDate() + ' ' + moisH[dh.getMonth()];
+        metaH.push('Sortie du ' + dh.getDate() + ' ' + MOIS[dh.getMonth()]);
       }
-      var htmlH = '<div class="vz-cond-satnote vz-cond-huntnote">'
-        + '<span style="color:#1A6B5D;font-weight:700;font-size:13px;">~' + (Math.round(vh * 10) / 10) + ' m</span>'
-        + ' observé' + clauseH + ' par un chasseur dans le secteur'
-        + '</div>';
-      var ft = body.querySelector('.vz-cond-footer');
-      if (ft) ft.insertAdjacentHTML('beforebegin', htmlH);
-      else body.insertAdjacentHTML('beforeend', htmlH);
+      metaH.push('Retour d\'un chasseur dans le secteur');
+      slot.innerHTML = '<div class="vz-cond-src-k">' + icHunt + '<span>Visibilité observée</span></div>'
+        + '<div class="vz-cond-src-v">~' + (Math.round(vh * 10) / 10).toFixed(1).replace('.', ',') + ' m</div>'
+        + '<div class="vz-cond-src-m">' + metaH.join('<br>') + '</div>';
+      slot.style.display = '';
     });
   }
 }
@@ -15759,31 +15893,92 @@ function vzCondScrollIcons(){
     sync();
   }
 }
+// Etat de chargement du bandeau Conditions.
+// ------------------------------------------------------------------
+// POINT D'ENTREE UNIQUE. Les deux appelants (openConditionsInSheet et le
+// pipeline du clic spot) peignaient chacun le meme spinner en dur, duplique
+// caractere pour caractere. C'est loadSheetConditions qui sait quelles sources
+// sont interrogees : c'est donc elle qui affiche l'attente.
+//
+// Les six fetchs partent EN PARALLELE. Une barre a etapes sequentielles serait
+// une animation mensongere, inacceptable sur un produit dont l'argument est
+// l'honnetete epistemique. Chaque ligne se coche quand sa source repond
+// reellement, dans l'ordre ou elle repond, et la barre avance d'un sixieme.
+// L'attente devient la premiere lecon de doctrine : le chasseur voit ses
+// sources se declarer avant de lire le moindre chiffre.
+function vzCondLoader(sources) {
+  var body = document.getElementById('vzSheetBody');
+  if (!body) return { done: function(){} };
+  var CHK = '<svg viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 13 9 18 20 6"/></svg>';
+  var h = '<div class="vz-cond-load">'
+    + '<div class="vz-cond-load-t">Chargement des prévisions</div>'
+    + '<div class="vz-cond-load-bar"><div class="vz-cond-load-fill" id="vzCondLoadFill"></div></div>'
+    + '<div class="vz-cond-load-list">';
+  for (var i = 0; i < sources.length; i++) {
+    h += '<div class="vz-cond-load-i" id="vzCondLoad-' + sources[i].k + '">'
+      + '<span class="vz-cond-load-dot">' + CHK + '</span>'
+      + '<span>' + sources[i].lb + '</span></div>';
+  }
+  h += '</div></div>';
+  body.innerHTML = h;
+  var total = sources.length || 1, n = 0;
+  return {
+    done: function(k) {
+      var el = document.getElementById('vzCondLoad-' + k);
+      if (!el || el.classList.contains('is-done')) return;
+      el.classList.add('is-done');
+      n++;
+      var fill = document.getElementById('vzCondLoadFill');
+      if (fill) fill.style.width = Math.round(n / total * 100) + '%';
+    }
+  };
+}
+
 function loadSheetConditions(spot) {
-  var meteoPromise = fetchSheetMeteo(spot.lat, spot.lng);
-  var depthPromise = (spot.depth != null && spot.depth > 0)
+  // Ordre d'AFFICHAGE = ordre de la doctrine (satellite d'abord, retours
+  // ensuite, chaine physique apres). Ordre de COCHAGE = ordre reel des
+  // reponses reseau. Les deux n'ont pas a coincider.
+  var LOAD = vzCondLoader([
+    { k: 'sat',   lb: 'Satellite CMEMS' },
+    { k: 'fb',    lb: 'Retours chasseurs' },
+    { k: 'meteo', lb: 'Modèles AROME + ARPEGE' },
+    { k: 'tides', lb: 'Marées SHOM' },
+    { k: 'depth', lb: 'Bathymétrie EMODnet' },
+    { k: 'sed',   lb: 'Nature du fond SHOM' }
+  ]);
+  // Une source qui echoue a repondu, elle aussi : les deux branches cochent.
+  // Fournir le second callback n'est pas cosmetique - fetchSheetMeteo n'a pas
+  // de .catch propre, et une chaine derivee sans handler de rejet produirait
+  // une unhandled rejection dans la console a chaque panne reseau.
+  function mark(p, k) {
+    p.then(function(){ LOAD.done(k); }, function(){ LOAD.done(k); });
+    return p;
+  }
+
+  var meteoPromise = mark(fetchSheetMeteo(spot.lat, spot.lng), 'meteo');
+  var depthPromise = mark((spot.depth != null && spot.depth > 0)
     ? Promise.resolve(spot.depth)
     : (typeof fetchRealDepth === 'function'
         ? fetchRealDepth(spot.lat, spot.lng).catch(function(){ return null; })
-        : Promise.resolve(null));
-  var tidesPromise = fetchSheetTides(spot);
-  var satPromise = (typeof fetchCmemsZSD === 'function')
+        : Promise.resolve(null)), 'depth');
+  var tidesPromise = mark(fetchSheetTides(spot), 'tides');
+  var satPromise = mark((typeof fetchCmemsZSD === 'function')
     ? fetchCmemsZSD(spot.lat, spot.lng).catch(function(){ return null; })
-    : Promise.resolve(null);
+    : Promise.resolve(null), 'sat');
   // Sédiment : requis pour que la chaîne de resuspension tourne dans le
   // tableau (le tableau ne peuple pas S._spotSediment via le clic drawer).
-  var sedimentPromise = (typeof fetchSedimentType === 'function')
+  var sedimentPromise = mark((typeof fetchSedimentType === 'function')
     ? fetchSedimentType(spot.lat, spot.lng).catch(function(){ return null; })
-    : Promise.resolve(null);
+    : Promise.resolve(null), 'sed');
   // Retours chasseurs : DOCTRINE 1. S_allFeedback n'etait peuple que par le clic
   // sur un PORT (fetchPortCounts_) ; en ouvrant le tableau sur un point en mer,
   // il restait null et vzNearestFeedback renvoyait null — un retour frais (ex.
   // "Doudou, il y a 3 h : 1 m", bien affiche dans le popup) etait donc IGNORE
   // par le moteur, en violation directe de la doctrine 1. On garantit ici son
   // chargement avant le calcul du tableau.
-  var feedbackPromise = (typeof ensurePortCounts_ === 'function')
+  var feedbackPromise = mark((typeof ensurePortCounts_ === 'function')
     ? ensurePortCounts_().catch(function(){ return null; })
-    : Promise.resolve(null);
+    : Promise.resolve(null), 'fb');
 
   Promise.all([meteoPromise, depthPromise, tidesPromise, satPromise, sedimentPromise, feedbackPromise]).then(function(results) {
     if (VZ_SHEET.mode !== 'cond') return;
@@ -15797,8 +15992,10 @@ function loadSheetConditions(spot) {
       return;
     }
     VZ_SHEET.data = { meteo: meteo, depth: depth, tides: tides, spot: spot, satellite: sat, sediment: sediment };
+    // renderSheetTable appelle elle-meme vzRenderCondVerdict en fin de rendu :
+    // c'est ce qui garantit que le bloc source survit aux re-renders declenches
+    // ailleurs (retour de fetchVisiFeedback, changement d'unite de vent).
     renderSheetTable();
-    if (typeof vzRenderCondVerdict === 'function') vzRenderCondVerdict();
     if (typeof vzCondScrollIcons === 'function') vzCondScrollIcons();
   }).catch(function(err) {
     console.error('[Sheet] erreur chargement', err);
@@ -16055,6 +16252,11 @@ function visLabel(score) {
       + '<span class="vz-cond-ident-item vz-cond-ident-mono" id="vzCondSeaTemp" style="display:none;"></span>'
       + '</div>';
   })();
+
+  // Bloc source EN TETE : la doctrine veut qu'on lise d'ou vient le chiffre
+  // avant de lire le chiffre. Emplacement reserve, rempli par
+  // vzRenderCondVerdict juste apres l'injection du HTML.
+  html += '<div class="vz-cond-source" id="vzCondSource"></div>';
 
   // --- Retour communautaire : le bandeau pouces du tableau est retire (jamais
   // clique : demande une validation de NOTRE prevision au moment de la pre-decision).
@@ -16340,6 +16542,12 @@ html += buildTideBandRow(slots, VZ_SHEET.data.tides);
 
   html += '</div>';
   body.innerHTML = html;
+
+  // Bloc source : construit ICI, dans le rendu, et non plus insere apres coup
+  // par loadSheetConditions. renderSheetTable ayant deux appelants dont un qui
+  // l'invoque seule (retour de fetchVisiFeedback), c'est le seul montage qui
+  // garantit que le satellite ne disparaisse jamais du bandeau.
+  if (typeof vzRenderCondVerdict === 'function') vzRenderCondVerdict();
 
   // --- Barre de jours : synchronisation bidirectionnelle avec le tableau ---
   (function vzCondDaybarWire(){
