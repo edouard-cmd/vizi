@@ -15316,6 +15316,259 @@ var css = `
     .vz-cond-ident-mono { font-family: 'IBM Plex Mono', monospace; font-weight: 500; font-size: 12.5px; color: #51677A; letter-spacing: 0.02em; }
     .vz-cond-unit { font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 500; color: #51677A; opacity: 0.65; margin-left: 3px; letter-spacing: 0; }
 
+    /* ================================================================
+       BANDEAU MOBILE - lecture verticale, une ligne par creneau
+       ----------------------------------------------------------------
+       Le tableau a 40 colonnes disparait sur telephone : sur 360px, sept
+       creneaux etaient visibles a la fois et il fallait balayer
+       lateralement pour lire une journee. Une ligne par creneau, les jours
+       enchaines dans un seul defilement vertical, le pouce fait ce qu'il
+       fait deja toute la journee.
+       ================================================================ */
+/* ---- Panneau plein ecran ----
+   Le panneau livre etait autonome (position:fixed;inset:0). Ici il est injecte
+   dans #vzSheetBody, qui porte deja le plein ecran via body.vzm-cond : deux
+   position:fixed imbriques auraient donne un panneau dans un panneau, avec
+   double bordure et double barre de titre. Il remplit son hote. */
+.vzm-panel{position:relative;display:flex;flex-direction:column;height:100%;
+  min-height:0;background:#FFFFFF;color:#0A1520}
+
+/* ---- Barre de titre : sortie explicite, jamais une croix seule ---- */
+.vzm-topbar{flex-shrink:0;display:flex;align-items:center;gap:10px;padding:10px 12px;
+  border-bottom:2px solid #0A1520;background:#FFFFFF}
+.vzm-topbar .tb-id{flex:1;min-width:0}
+/* Pas de surtitre : le rattachement au secteur EST l identite. Le mot
+   Secteur fait partie du nom affiche, il n annonce pas une categorie.
+   Le nom se replie sur deux lignes plutot que de perdre sa fin : une
+   troncature rendrait le secteur non identifiable. */
+.vzm-topbar .tb-n{display:block;font-size:15.5px;font-weight:800;letter-spacing:-.02em;
+  color:#0A1520;line-height:1.18;white-space:normal;overflow-wrap:break-word}
+/* 56px : la sortie est une commande, elle ne descend pas sous la cible. */
+.vzm-panel-close{flex-shrink:0;display:flex;align-items:center;gap:7px;height:56px;padding:0 14px;
+  border:2px solid #0A1520;border-radius:11px;background:#FFFFFF;
+  font-family:Inter,sans-serif;font-size:13.5px;font-weight:800;color:#0A1520}
+.vzm-panel-close svg{width:15px;height:15px;stroke:#0A1520;fill:none;stroke-width:2.6;
+  stroke-linecap:round}
+
+/* ---- Bande source : une ligne de 52px, hors defilement ---- */
+.vzm-src{flex-shrink:0;display:flex;align-items:stretch;
+  border-bottom:2px solid #0A1520;background:#F7F9FB}
+.vzm-src-cell{flex:1;min-width:0;display:flex;align-items:flex-start;gap:7px;
+  padding:8px 10px;min-height:58px}
+.vzm-src-cell+.vzm-src-cell{border-left:2px solid #0A1520}
+.vzm-src-led{width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:3px}
+.led-fresh{background:#0E7C62}  /* moins de 72 h */
+.led-old{background:#E89B3C}    /* existe mais ne pilote plus le calcul */
+.led-none{background:#C9D4DC}   /* absente */
+/* Les deux display:block ne sont pas decoratifs : sans eux l intitule et
+   l age se collent sur la meme ligne. */
+.vzm-src-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+/* Rang 2 : l age et la valeur partagent la largeur ENTIERE de la cellule.
+   Sur un seul rang, les trois se disputaient 168px et l age se coupait
+   juste la ou il compte. */
+.vzm-src-line{display:flex;align-items:baseline;justify-content:space-between;gap:6px}
+/* Sentence case en Inter : ces deux mots nomment ce qu on mesure, ce ne
+   sont pas des etiquettes de champ. */
+.vzm-src-lbl{display:block;font-family:Inter,sans-serif;font-size:11.5px;
+  font-weight:700;letter-spacing:-.02em;color:#0A1520;line-height:1.15;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vzm-src-age{flex:1;min-width:0;font-family:"IBM Plex Mono",monospace;font-size:10.5px;
+  font-weight:600;color:#51677A;line-height:1.2;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis}
+/* Au-dela de 72 h l age devient l information principale de la ligne. */
+.vzm-src-cell.is-stale .vzm-src-age{color:#E89B3C;font-weight:700}
+.vzm-src-cell.is-stale .vzm-src-val{color:#51677A}
+.vzm-src-val{flex-shrink:0;font-family:"IBM Plex Mono",monospace;font-size:16px;
+  font-weight:700;color:#0A1520;letter-spacing:-.03em;line-height:1}
+.vzm-src-val.is-none{font-family:Inter,sans-serif;font-size:12px;font-weight:700;color:#90A1AE}
+
+/* ---- Defilement vertical, seul mode de navigation dans le temps ---- */
+.vzm-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;background:#FFFFFF}
+
+/* ---- Un bloc PAR JOUR : .vzm-cday, et surtout pas .vzm-day, qui appartient
+   deja a la pastille du selecteur de dates du drawer spot (fond sombre,
+   min-height 116px) ET a un querySelectorAll global qui lui pose la classe
+   de selection. Obligatoire aussi : c est lui qui borne le sticky de
+   son en-tete. Sans ce conteneur, le rect de contrainte est tout le
+   contenu defilant, les en-tetes s empilent a top:0 et le dernier de la
+   pile nomme une journee qui n est plus a l ecran. ---- */
+.vzm-cday{position:relative}
+
+/* ---- En-tete de jour collant. Fond OPAQUE obligatoire, sinon les lignes
+   defilent visiblement dessous. ---- */
+.vzm-dayhead{position:sticky;top:0;z-index:4;display:flex;align-items:center;gap:8px;
+  padding:8px 12px;min-height:44px;background:#0A1520;border-bottom:2px solid #0A1520}
+.vzm-dayhead .dh-d{font-size:13.5px;font-weight:800;color:#fff;letter-spacing:-.01em;
+  flex:0 0 auto}
+.vzm-dayhead .dh-c{flex:0 0 auto;font-family:"IBM Plex Mono",monospace;font-size:10.5px;
+  font-weight:700;padding:2px 6px;border-radius:5px;border:1.5px solid rgba(255,255,255,.4);
+  color:#fff;white-space:nowrap}
+.vzm-dayhead .dh-c.is-vives{border-color:#E89B3C;color:#FFD9A8;background:rgba(232,155,60,.2)}
+.vzm-dayhead .dh-s{margin-left:auto;flex:0 1 auto;min-width:0;
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:500;
+  color:rgba(255,255,255,.72);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* ---- Barre d intitules de colonnes ---- */
+.vzm-colhead{display:flex;align-items:center;gap:6px;padding:5px 12px;
+  background:#F7F9FB;border-bottom:1px solid #C9D4DC}
+.vzm-colhead span{font-family:"IBM Plex Mono",monospace;font-size:8.5px;font-weight:700;
+  letter-spacing:.1em;text-transform:uppercase;color:#51677A}
+/* Sept colonnes de largeur FIXE. C est ce qui permet de suivre une
+   variable du regard de haut en bas : son x ne bouge pas d une ligne a
+   l autre. Les en-tetes sont ecrits en clair, jamais abreges. */
+.vzm-colhead .c-h{width:34px;flex-shrink:0}
+.vzm-colhead .c-v{width:78px;flex-shrink:0}
+.vzm-colhead .c-d{width:34px;flex-shrink:0;text-align:center}
+.vzm-colhead .c-w{width:52px;flex-shrink:0;text-align:center}
+.vzm-colhead .c-r{width:24px;flex-shrink:0;text-align:center}
+.vzm-colhead .c-g{width:40px;flex-shrink:0;text-align:center}
+.vzm-colhead .c-s{flex:1;min-width:0;text-align:right}
+
+/* ---- La ligne de creneau, cible tactile de 56px ----
+   position:relative est structurel : le filet du creneau en cours est un
+   ::before absolu, sans repere il se cale sur .vzm-panel et barre tout
+   l ecran sur 4px. */
+.vzm-slot{position:relative;display:flex;align-items:center;gap:6px;padding:0 12px;
+  min-height:56px;border:0;border-bottom:1px solid #EEF2F5;background:#FFFFFF;
+  width:100%;text-align:left;cursor:pointer}
+.vzm-slot:active{background:#F7F9FB}
+.vzm-slot.is-now::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;
+  background:#0A1520}
+.vzm-slot.is-now .sl-h{color:#0A1520;font-weight:700}
+.sl-h{width:34px;flex-shrink:0;font-family:"IBM Plex Mono",monospace;font-size:13px;
+  font-weight:600;color:#51677A;letter-spacing:-.01em}
+
+/* Visibilite : seule surface pleine de la ligne. Elle forme une colonne
+   verticale continue que l oeil descend sans lire. Les cinq paliers .vis-N
+   sont definis une seule fois, plus haut, avec le tableau desktop. */
+.sl-v{width:78px;flex-shrink:0;height:40px;border-radius:9px;display:flex;
+  align-items:center;justify-content:center;font-family:"IBM Plex Mono",monospace;
+  font-size:16px;font-weight:700;letter-spacing:-.02em}
+.sl-v.vis-void{font-size:15px}  /* hors echelle, taille propre a la pastille */
+
+/* Profondeur : hauteur d eau au creneau, plus le sens de la maree. */
+.sl-d{width:34px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:1px}
+.sl-d .dv{font-family:"IBM Plex Mono",monospace;font-size:13px;font-weight:600;
+  color:#0A1520;line-height:1}
+.sl-d .dv.is-none{color:#90A1AE;font-weight:500}
+.sl-d .dt{display:flex;align-items:center;gap:1px;font-family:"IBM Plex Mono",monospace;
+  font-size:8.5px;font-weight:600;color:#90A1AE;line-height:1}
+.sl-d .dt svg{width:9px;height:9px;stroke:currentColor;fill:none;stroke-width:2.6;
+  stroke-linecap:round;stroke-linejoin:round}
+
+/* Vent, direction, vagues : trois colonnes bornees, jamais une zone
+   partagee. Le ruban de couleur tient sous sa SEULE variable, donc il
+   occupe le meme x a chaque ligne : plus d effet d escalier. Vent et
+   rafales fusionnent en 24/35, ces deux nombres se lisant ensemble. */
+.sl-w{width:52px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:3px}
+.sl-w .wv{font-family:"IBM Plex Mono",monospace;font-size:14px;font-weight:700;
+  color:#0A1520;letter-spacing:-.03em;line-height:1}
+.sl-w .wv i{font-style:normal;font-size:11px;font-weight:600;color:#51677A}
+.sl-bar{width:100%;height:3px;border-radius:2px;display:block}
+.sl-r{width:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.sl-r svg{width:14px;height:14px;stroke:#0A1520;fill:none;stroke-width:2.2;
+  stroke-linecap:round;stroke-linejoin:round;display:block}
+.sl-g{width:40px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:3px}
+.sl-g .gv{font-family:"IBM Plex Mono",monospace;font-size:13px;font-weight:600;
+  color:#0A1520;letter-spacing:-.02em;line-height:1}
+.sl-s{flex:1;min-width:0;display:flex;align-items:center;justify-content:flex-end}
+.sl-s svg{width:18px;height:18px;stroke:#51677A;fill:none;stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round}
+
+/* ---- Etale intercalee entre deux creneaux ---- */
+.vzm-slack{display:flex;align-items:center;gap:9px;padding:7px 12px;min-height:38px;
+  background:#F7F9FB;border-top:2px solid #0A1520;border-bottom:2px solid #0A1520}
+.vzm-slack .sk-i{width:24px;height:24px;flex-shrink:0;border-radius:7px;
+  border:2px solid #0A1520;display:flex;align-items:center;justify-content:center;
+  background:#FFFFFF}
+.vzm-slack .sk-i svg{width:13px;height:13px;stroke:#0A1520;fill:none;stroke-width:2.6;
+  stroke-linecap:round;stroke-linejoin:round}
+.vzm-slack.is-pm .sk-i{background:#0A1520}
+.vzm-slack.is-pm .sk-i svg{stroke:#fff}
+.vzm-slack .sk-t{font-size:12.5px;font-weight:800;color:#0A1520;letter-spacing:-.01em}
+.vzm-slack .sk-h{margin-left:auto;font-family:"IBM Plex Mono",monospace;font-size:14px;
+  font-weight:700;color:#0A1520;letter-spacing:-.01em}
+.vzm-slack .sk-m{font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;
+  color:#51677A}
+
+/* ---- Etat 3 : visibilite indisponible partout. La note evite que la
+   liste se lise comme une panne. ---- */
+.vzm-note{display:flex;align-items:flex-start;gap:9px;padding:12px;
+  border-bottom:1px solid #C9D4DC;background:#FFFFFF}
+.vzm-note .nd{width:11px;height:11px;border-radius:50%;background:#5C7285;
+  flex-shrink:0;margin-top:2px}
+.vzm-note p{margin:0;font-size:12.5px;line-height:1.45;color:#51677A}
+.vzm-note p b{color:#0A1520;font-weight:700}
+
+/* ---- Etat 6 : marees hors de portee d un port de reference ---- */
+.vzm-tidenone{display:flex;align-items:center;gap:8px;padding:9px 12px;background:#F7F9FB;
+  border-top:1px solid #C9D4DC;border-bottom:1px solid #C9D4DC;
+  font-size:12px;font-weight:600;color:#90A1AE}
+
+/* ---- Pied de sources ---- */
+.vzm-foot{flex-shrink:0;display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+  padding:9px 12px;border-top:2px solid #0A1520;background:#F7F9FB}
+.vzm-foot .fl{font-size:10.5px;font-weight:700;color:#51677A}
+.vzm-foot .fs{font-family:"IBM Plex Mono",monospace;font-size:9.5px;font-weight:500;
+  color:#51677A;border:1px solid #C9D4DC;border-radius:4px;padding:2px 6px;background:#FFFFFF}
+
+/* ---- 320px : iPhone SE en zoom d affichage ---- */
+@media (max-width:340px){
+  .sl-v{width:68px;font-size:15px}
+  .sl-h{width:30px;font-size:12px}
+  .sl-d{width:30px}
+  .sl-w{width:46px}
+  .sl-g{width:34px}
+  .vzm-slot{gap:4px;padding:0 8px}
+  .sl-w .wv{font-size:13px}
+  .vzm-colhead{padding:5px 8px;gap:4px}
+  .vzm-colhead .c-v{width:68px}
+  .vzm-colhead .c-h{width:30px}
+  .vzm-colhead .c-d{width:30px}
+  .vzm-colhead .c-w{width:46px}
+  .vzm-colhead .c-g{width:34px}
+}
+
+/* ---- Le desktop ne bouge pas ---- */
+@media (min-width:769px){ .vzm-panel{display:none} }
+
+    /* Plein ecran du bandeau Previsions sur mobile.
+       Le gabarit a quatre onglets impose la meme geometrie a tous les
+       panneaux (62vh, coins arrondis, bordure) pour qu'en changer ne
+       deplace rien. Previsions fait exception : c'est le seul onglet dont
+       le contenu est une liste longue, et le seul qui gagne a occuper
+       l'ecran. On garde la barre de navigation visible dessous, sinon on
+       enferme le chasseur dans un ecran sans retour. */
+    @media (max-width: 768px) {
+      body.vzm-nav.vzm-cond #vzSheet {
+        top: 0 !important; height: auto !important; max-height: none !important;
+        border-radius: 0 !important; border-left: 0 !important; border-right: 0 !important;
+        border-top: 0 !important;
+      }
+      /* La barre de titre du panneau porte deja le nom du secteur et la
+         sortie : l'en-tete du bandeau ferait doublon. */
+      body.vzm-nav.vzm-cond #vzSheet .vz-sheet-handle,
+      body.vzm-nav.vzm-cond #vzSheet .vz-sheet-header,
+      body.vzm-nav.vzm-cond #vzSheet > button.vz-sheet-close { display: none !important; }
+      body.vzm-nav.vzm-cond #vzSheetBody { padding: 0 !important; overflow: hidden !important; }
+      /* Le bandeau plein ecran est en z-index 1205, les surfaces flottantes de
+         la carte montent jusqu'a 1300 : la barre de recherche et le bouton de
+         compte se posaient sur la barre de titre du panneau et recouvraient la
+         sortie. Plein ecran veut dire que la carte n'est plus manipulable :
+         ses commandes n'ont donc rien a faire au-dessus. On les retire au lieu
+         de surenchérir sur les z-index, equilibre deja fragile entre une
+         dizaine de surfaces. */
+      body.vzm-nav.vzm-cond #vzSearch,
+      body.vzm-nav.vzm-cond #vzBtnLocate,
+      body.vzm-nav.vzm-cond #vzAccountBtn,
+      body.vzm-nav.vzm-cond .vz-logo-pill,
+      body.vzm-nav.vzm-cond #zoomControls,
+      body.vzm-nav.vzm-cond .vz-layers-fab,
+      body.vzm-nav.vzm-cond #vzmIdent,
+      body.vzm-nav.vzm-cond .vzm-sonar-fab { display: none !important; }
+    }
+
     /* La barre de jours est un organe de navigation TACTILE. Sur desktop les
        cinq jours sont deja dans les en-tetes du tableau, et son CSS ne vit
        que dans le module vzmNav sous @media (max-width:768px) : elle
@@ -15434,6 +15687,12 @@ window.openConditionsInSheet = function() {
   
   VZ_SHEET.mode = 'cond';
   if (window.vzmHideAim) window.vzmHideAim();
+  // Pose des l'ouverture, pas au premier rendu : sans ca l'ecran de
+  // chargement s'affiche encore au gabarit 62vh puis saute au plein ecran
+  // quand les donnees arrivent.
+  try {
+    if (typeof isMobile === 'function' && isMobile()) document.body.classList.add('vzm-cond');
+  } catch (e) {}
   // Affiche le bandeau s'il était caché
   var sheet = document.getElementById('vzSheet');
   if (sheet) sheet.style.display = '';
@@ -15479,6 +15738,11 @@ window.openCondDrawer = function() {
 window.closeCondDrawer = function() {
   setSheetState('peek');
   VZ_SHEET.mode = null;
+  // Le plein ecran n'appartient qu'a l'onglet Previsions : le laisser en
+  // place ferait heriter les trois autres onglets d'un gabarit qui n'est pas
+  // le leur, et le panneau secteur se retrouverait sans ses coins ni sa
+  // bordure.
+  try { document.body.classList.remove('vzm-cond'); } catch (e) {}
   var tabCond = document.getElementById('vzTabCond');
   if (tabCond) tabCond.classList.remove('active');
   // Cache complètement le bandeau
@@ -15695,6 +15959,13 @@ var VZ_MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet',
 
 function vzNum1(v){ return v.toFixed(1).replace('.', ','); }
 
+/* Le pseudo vient de la base communautaire : il est saisi par un tiers et ne
+   doit jamais atteindre innerHTML tel quel. */
+function vzEscHtml(t){
+  return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 function vzDateFromAge(h){
   var d = new Date(Date.now() - h * 3600000);
   return d.getDate() + ' ' + VZ_MOIS[d.getMonth()];
@@ -15757,9 +16028,18 @@ function vzRenderCondSource(sat, fb){
   if (fb && typeof m === 'number') {
     var ageF = (typeof fb.age_hours === 'number' && isFinite(fb.age_hours)) ? fb.age_hours : 0;
     var dist = (typeof fb.dist_km === 'number') ? fb.dist_km.toFixed(1).replace('.', ',') + ' km' : 'moins de 5 km';
+    // Un retour a un auteur. Le nommer transforme une donnee anonyme en
+    // temoignage : c'est la difference entre un modele et une communaute.
+    // _normalizeObservation_ pose 'Anonyme' par defaut ; dans ce cas on
+    // retombe sur le mot generique plutot que d'afficher le mot "Anonyme",
+    // qui sonnerait comme un manque alors que c'est un choix du chasseur.
+    var qui = 'un chasseur';
+    if (fb.pseudo && String(fb.pseudo).trim() && String(fb.pseudo).trim().toLowerCase() !== 'anonyme') {
+      qui = vzEscHtml(String(fb.pseudo).trim());
+    }
     rows.push({
       state: ageF >= 72 ? 'aging' : 'fresh',
-      label: 'Visibilité observée par un chasseur',
+      label: 'Visibilité observée par ' + qui,
       meta:  'sortie du ' + vzDateFromAge(ageF) + ', à ' + dist,
       value: vzNum1(m) + '<i> m</i>'
     });
@@ -16094,6 +16374,182 @@ function vzDirArrow(deg){
     + '<svg viewBox="0 0 24 24"><path d="M12 4v16"/><path d="M7 9l5-5 5 5"/></svg></span>';
 }
 
+/* ---- Constantes de rendu. Elles doivent voyager avec les fonctions :
+   sans elles, la premiere ligne rendue jette une ReferenceError. ---- */
+var VZM_ARROW_UP = '<svg viewBox="0 0 24 24"><path d="M12 20V6"/><path d="M6 12l6-6 6 6"/></svg>';
+var VZM_ARROW_DN = '<svg viewBox="0 0 24 24"><path d="M12 4v14"/><path d="M6 12l6 6 6-6"/></svg>';
+var VZM_ARROW_DIR = '<svg viewBox="0 0 24 24"><path d="M12 4v16"/><path d="M7 9l5-5 5 5"/></svg>';
+
+var VZM_SKY = {
+  sun:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M6 6l1.4 1.4M16.6 16.6L18 18M18 6l-1.4 1.4M7.4 16.6L6 18"/></svg>',
+  veil:'<svg viewBox="0 0 24 24"><circle cx="10" cy="9" r="3.4"/><path d="M10 2.6v1.6M3.6 9h1.6M5.6 4.6l1.1 1.1"/><path d="M7 19h10a3 3 0 000-6 4.5 4.5 0 00-8.6-1A3.2 3.2 0 007 19z"/></svg>',
+  cloud:'<svg viewBox="0 0 24 24"><path d="M7 19h10a3.4 3.4 0 000-6.8 5 5 0 00-9.6-1.2A3.6 3.6 0 007 19z"/></svg>',
+  overc:'<svg viewBox="0 0 24 24"><path d="M6 15h11a3.2 3.2 0 000-6.4 4.8 4.8 0 00-9.2-1A3.4 3.4 0 006 15z"/><path d="M4 19h16"/></svg>',
+  rain:'<svg viewBox="0 0 24 24"><path d="M7 15h10a3.2 3.2 0 000-6.4 4.8 4.8 0 00-9.2-1A3.4 3.4 0 007 15z"/><path d="M8 19l-1 2M13 19l-1 2M18 19l-1 2"/></svg>'
+};
+
+/* En-tetes ecrits en clair. Une abreviation dans un en-tete signale une
+   colonne trop etroite pour sa donnee, pas un mot trop long. */
+var VZM_COLHEAD = '<div class="vzm-colhead">'
+  + '<span class="c-h">Heure</span><span class="c-v">Visibilité</span>'
+  + '<span class="c-d">Eau</span><span class="c-w">Vent</span>'
+  + '<span class="c-r">Dir</span><span class="c-g">Vagues</span>'
+  + '<span class="c-s">Ciel</span></div>';
+
+/* Echelle de visibilite, logarithmique par paliers. Le null sort de
+   l echelle : ce n est ni bon ni mauvais, c est un trou. */
+function vzmVisClass(v){
+  if (v === null || v === undefined) return 'vis-void';
+  if (v < 0.6) return 'vis-1';
+  if (v < 1.2) return 'vis-2';
+  if (v < 2.5) return 'vis-3';
+  if (v < 5)   return 'vis-4';
+  return 'vis-5';
+}
+
+var VZM_WIND_B = [10,15,20,28,38,50];
+var VZM_WIND_C = ['#7FD9BE','#4DD4A8','#D8C84A','#E89B3C','#DB6F3A','#C94A3D','#9B3428'];
+var VZM_WAVE_B = [0.3,0.6,1.0,1.5,2.0];
+var VZM_WAVE_C = ['#7FD9BE','#4DD4A8','#D8C84A','#E89B3C','#C94A3D','#9B3428'];
+function vzmRamp(bounds, colors, v){
+  for (var i = 0; i < bounds.length; i++) if (v < bounds[i]) return colors[i];
+  return colors[colors.length - 1];
+}
+function vzmNum(v){ return v.toFixed(1).replace('.', ','); }
+
+/* Une ligne de creneau. slot.vis peut valoir null : c est le cas frequent,
+   pas une exception a traiter en amont. */
+function vzmSlotRow(slot, isNow){
+  var v = slot.vis;
+  var h = '<button class="vzm-slot' + (isNow ? ' is-now' : '') + '" type="button"'
+    + ' data-ts="' + slot.ts + '"'
+    + ' title="' + (v === null ? 'Aucune donnée exploitable sur ce créneau' : slot.source) + '">';
+  h += '<span class="sl-h">' + slot.hour + '</span>';
+  h += '<span class="sl-v ' + vzmVisClass(v) + '">'
+    + (v === null ? '?' : vzmNum(v) + 'm') + '</span>';
+
+  h += '<span class="sl-d">';
+  if (slot.depth === null) h += '<span class="dv is-none">-</span>';
+  else {
+    h += '<span class="dv">' + slot.depth + 'm</span>';
+    if (slot.rising !== null) {
+      h += '<span class="dt">' + (slot.rising ? VZM_ARROW_UP : VZM_ARROW_DN) + '</span>';
+    }
+  }
+  h += '</span>';
+
+  /* Trois colonnes bornees. Chaque ruban tient sous sa seule variable,
+     donc il garde le meme x d une ligne a l autre. */
+  h += '<span class="sl-w">'
+    + '<span class="wv">' + slot.wind + '<i>/' + slot.gust + '</i></span>'
+    + '<span class="sl-bar" style="background:'
+    + vzmRamp(VZM_WIND_B, VZM_WIND_C, slot.wind) + '"></span></span>';
+  h += '<span class="sl-r"><span style="display:flex;transform:rotate('
+    + slot.dir + 'deg)">' + VZM_ARROW_DIR + '</span></span>';
+  h += '<span class="sl-g">'
+    + '<span class="gv">' + vzmNum(slot.wave) + '</span>'
+    + '<span class="sl-bar" style="background:'
+    + vzmRamp(VZM_WAVE_B, VZM_WAVE_C, slot.wave) + '"></span></span>';
+
+  h += '<span class="sl-s">' + VZM_SKY[slot.sky] + '</span>';
+  return h + '</button>';
+}
+
+/* Etale intercalee. Elle nomme l heure exacte, ce que la colonne
+   profondeur ne peut pas faire avec des creneaux de 3 heures. */
+function vzmSlackRow(ex){
+  var pm = ex.type === 'pm';
+  return '<div class="vzm-slack' + (pm ? ' is-pm' : '') + '">'
+    + '<span class="sk-i">' + (pm ? VZM_ARROW_UP : VZM_ARROW_DN) + '</span>'
+    + '<span class="sk-t">' + (pm ? 'Pleine mer' : 'Basse mer') + '</span>'
+    + '<span class="sk-h">' + ex.time + '</span>'
+    + '<span class="sk-m">' + vzmNum(ex.height) + ' m</span>'
+    + '</div>';
+}
+
+/* Assemblage d une journee.
+   Le conteneur .vzm-cday n est PAS cosmetique : il borne le sticky de
+   l en-tete. A plat, tous les en-tetes se collent a top:0, s empilent, et
+   celui qui reste visible nomme une journee qui n est plus a l ecran.
+   Les extremes sont ranges apres le creneau qui les precede : un seul
+   passage, pas de tri a chaque ligne. */
+function vzmDayBlock(day){
+  var h = '<div class="vzm-cday">';
+  h += '<div class="vzm-dayhead">'
+    + '<span class="dh-d">' + day.label + '</span>'
+    + '<span class="dh-c' + (day.coef >= 80 ? ' is-vives' : '') + '">coef ' + day.coef + '</span>'
+    + '<span class="dh-s">' + day.sunrise + ' / ' + day.sunset + '</span></div>';
+  h += VZM_COLHEAD;
+  for (var i = 0; i < day.slots.length; i++) {
+    h += vzmSlotRow(day.slots[i], day.slots[i].isNow);
+    for (var j = 0; j < day.extremes.length; j++) {
+      if (day.extremes[j].afterSlot === i) h += vzmSlackRow(day.extremes[j]);
+    }
+  }
+  return h + '</div>';
+}
+
+/* Age en heures sous 24 h, en jours au-dela. Les DEUX sources le portent
+   dans ce format : c est l ecart d age qui decide laquelle croire. */
+function vzmAgeLabel(hours){
+  if (hours < 24) return 'il y a ' + Math.round(hours) + ' h';
+  var d = Math.round(hours / 24);
+  return 'il y a ' + d + (d > 1 ? ' jours' : ' jour');
+}
+
+/* Bande source resserree : une ligne, deux cellules, deux voyants.
+   La distance est de second rang : rayon de 5 km, donc toujours faible.
+   Elle cede la place a l age des que la largeur manque. */
+function vzmSourceCell(label, measure){
+  var led = 'led-none', age = measure.emptyLabel, val = 'aucune', none = true, stale = false;
+  if (measure.value !== null) {
+    stale = measure.ageHours >= 72;
+    led = stale ? 'led-old' : 'led-fresh';
+    age = vzmAgeLabel(measure.ageHours);
+    /* Un retour sans pseudo est un choix, pas un manque : jamais Anonyme. */
+    if (measure.kind === 'hunter') {
+      age = (measure.pseudo || 'un chasseur') + ', ' + age;
+    }
+    val = (measure.approx ? '~' : '') + vzmNum(measure.value) + ' m';
+    none = false;
+  }
+  return '<div class="vzm-src-cell' + (stale ? ' is-stale' : '') + '">'
+    + '<span class="vzm-src-led ' + led + '"></span>'
+    + '<span class="vzm-src-body">'
+    + '<span class="vzm-src-lbl">' + label + '</span>'
+    + '<span class="vzm-src-line"><span class="vzm-src-age">' + age + '</span>'
+    + '<span class="vzm-src-val' + (none ? ' is-none' : '') + '">' + val + '</span></span>'
+    + '</span></div>';
+}
+
+function vzmSourceBand(sat, hunter){
+  return '<div class="vzm-src">'
+    + vzmSourceCell('Mesure satellite', sat)
+    + vzmSourceCell('Retour chasseur', hunter)
+    + '</div>';
+}
+
+/* Identite du point : rattachement au secteur des qu un port de reference
+   est a moins de 20 km, c est le meme rattachement que les alertes et les
+   retours communautaires. Sinon le nom du point, sinon un libelle neutre. */
+function vzmIdentity(place){
+  if (place.portName && place.portDistanceKm < 20) return 'Secteur ' + place.portName;
+  return place.name || 'Point personnalisé';
+}
+
+/* Etat 3 : aucune visibilite calculable sur toute la fenetre. */
+function vzmVoidNote(){
+  return '<div class="vzm-note"><span class="nd"></span><p>'
+    + '<b>Aucune mesure exploitable ces cinq jours.</b> Le ciel est resté couvert sur les '
+    + 'dernières passes satellite et aucun retour de chasseur n\'a été déposé dans le rayon '
+    + 'de 5 km. Le calcul reprend dès qu\'une source répond.</p></div>';
+}
+
+/* Etat 6 : point hors de portee d un port de reference. */
+function vzmTideNone(){
+  return '<div class="vzm-tidenone">Marées hors de portée d\'un port de référence</div>';
+}
+
 /* Retraction de la colonne d'intitules au dela de 24px de defile.
    Le tableau est en table-layout:fixed : la largeur qui fait foi est celle du
    premier <col>, pas celle de la cellule. Basculer la seule classe CSS change
@@ -16116,6 +16572,172 @@ function vzBindScroll(scrollEl, isMob){
     else scrollEl.className = scrollEl.className.replace(/\s*is-scrolled/, '');
     if (firstCol) firstCol.style.width = vzLabelColWidth(on, isMob) + 'px';
   }, { passive: true });
+}
+
+// ============================================================
+// ADAPTATEUR MOBILE
+// ------------------------------------------------------------
+// Les fonctions de rendu vertical attendent des structures normalisees
+// (jour -> creneaux -> extremes). Ce module les fabrique a partir de
+// VZ_SHEET.data, sans toucher ni au moteur ni au rendu desktop. C'est le
+// seul endroit qui connait les deux formats.
+// ============================================================
+
+/* Sens de la maree au creneau : on compare la hauteur interpolee au creneau
+   et une demi-heure plus tot. Renvoie null quand les marees manquent, ce qui
+   fait disparaitre la fleche au lieu d'en inventer une. */
+function vzmTideRising(tideAt, ms) {
+  var a = tideAt(ms - 1800000), b = tideAt(ms);
+  if (a == null || b == null) return null;
+  if (Math.abs(b - a) < 0.005) return null;
+  return b > a;
+}
+
+/* Provenance d'une valeur, pour l'infobulle du creneau. Meme vocabulaire que
+   le tableau desktop : une seule facon de nommer les quatre voies. */
+function vzmSlotSource(o) {
+  if (o && o.observation) return 'retour chasseur + modele';
+  if (o && o.engine === 'observation_propagated') return 'retour chasseur propage';
+  if (o && o.engine === 'satellite_propagated') return 'satellite propage depuis la photo';
+  if (o && o.engine === 'coriolis_propagated') return 'bouee Coriolis + propagation';
+  return 'chaine physique : vent, mer, maree, cote';
+}
+
+/* Construit le panneau complet. tideAt est la fonction d'interpolation locale
+   du tableau, passee en argument plutot que recalculee : elle depend de
+   VZ_SHEET.data.tides et n'a aucune raison d'exister en double. */
+function vzmBuildPanel(ctx) {
+  var slots = ctx.slots, dayGroups = ctx.dayGroups, h = ctx.meteo;
+  var data = VZ_SHEET.data;
+
+  // ---- identite du point ----
+  var place = { name: ctx.spot.name || null, portName: null, portDistanceKm: Infinity };
+  try {
+    var np = (typeof findNearestPort === 'function') ? findNearestPort(ctx.spot.lat, ctx.spot.lng) : null;
+    if (np && np.spot && np.spot.name) { place.portName = np.spot.name; place.portDistanceKm = np.distanceKm; }
+  } catch (e) {}
+
+  // ---- bande source ----
+  var sat = data.satellite;
+  var fb = null;
+  try {
+    if (typeof vzNearestFeedback === 'function') fb = vzNearestFeedback(ctx.spot.lat, ctx.spot.lng, 5);
+  } catch (e) {}
+  var satM = (sat && typeof sat.visi_plongeur_m === 'number')
+    ? { value: sat.visi_plongeur_m, ageHours: (typeof sat.age_hours === 'number' && isFinite(sat.age_hours)) ? sat.age_hours : 0, approx: true }
+    : { value: null, emptyLabel: 'aucune image exploitable' };
+  var fbV = fb ? ((typeof fb.real_m === 'number') ? fb.real_m : fb.predicted_m) : null;
+  var pseudo = null;
+  if (fb && fb.pseudo && String(fb.pseudo).trim()
+      && String(fb.pseudo).trim().toLowerCase() !== 'anonyme') {
+    pseudo = vzEscHtml(String(fb.pseudo).trim());
+  }
+  var fbM = (typeof fbV === 'number')
+    ? { value: fbV, ageHours: (fb && typeof fb.age_hours === 'number' && isFinite(fb.age_hours)) ? fb.age_hours : 0,
+        kind: 'hunter', pseudo: pseudo }
+    : { value: null, emptyLabel: 'aucun sous 5 km' };
+
+  // ---- jours ----
+  var days = [], cur = 0, voidCount = 0;
+  var extremes = [];
+  if (data.tides) {
+    var ex = (data.tides.extremes && data.tides.extremes.length)
+      ? data.tides.extremes
+      : ((typeof localExtremes === 'function' && data.tides.points) ? localExtremes(data.tides.points) : []);
+    extremes = ex || [];
+  }
+
+  dayGroups.forEach(function(g, gi) {
+    var f0 = cur, l0 = cur + g.count - 1; cur += g.count;
+    var cd = g.date;
+    var dkey = cd.getFullYear() + '-' + String(cd.getMonth() + 1).padStart(2, '0')
+      + '-' + String(cd.getDate()).padStart(2, '0');
+    var sr = '', ss = '';
+    if (h.sun && h.sun.time) {
+      var si2 = h.sun.time.indexOf(dkey);
+      if (si2 >= 0) {
+        if (h.sun.sunrise && h.sun.sunrise[si2]) sr = h.sun.sunrise[si2].slice(11, 16).replace(':', 'h');
+        if (h.sun.sunset && h.sun.sunset[si2]) ss = h.sun.sunset[si2].slice(11, 16).replace(':', 'h');
+      }
+    }
+    var daySlots = [];
+    for (var si = f0; si <= l0; si++) {
+      var sl = slots[si], c = ctx.visiCells[si];
+      var vm = (c && c.vm !== null && c.vm !== undefined) ? c.vm : null;
+      if (vm === null) voidCount++;
+      var ms = sl.time.getTime();
+      var th = ctx.tideAt(ms);
+      var dep = (ctx.depthLAT != null && th != null) ? Math.round(Math.max(0.3, ctx.depthLAT + th)) : null;
+      var wv = (h.wave_height && h.wave_height[sl.i] != null) ? h.wave_height[sl.i] : 0;
+      daySlots.push({
+        ts: sl.t,
+        hour: String(sl.time.getHours()).padStart(2, '0') + 'h',
+        vis: vm,
+        depth: dep,
+        rising: (dep === null) ? null : vzmTideRising(ctx.tideAt, ms),
+        wind: ctx.conv(h.windspeed_10m[sl.i] || 0),
+        gust: ctx.conv((h.windgusts_10m && h.windgusts_10m[sl.i] != null) ? h.windgusts_10m[sl.i] : 0),
+        dir: (h.winddirection_10m && h.winddirection_10m[sl.i] != null) ? h.winddirection_10m[sl.i] : 0,
+        wave: wv,
+        sky: vzSkyKey(h.cloud_cover ? h.cloud_cover[sl.i] : null,
+                      h.precipitation ? h.precipitation[sl.i] : null) || 'cloud',
+        source: vzmSlotSource(c ? c.sObj : null),
+        isNow: (si === ctx.nowIdx)
+      });
+    }
+    // Extremes de la journee, ranges apres le creneau qui les precede.
+    var dayEx = [];
+    for (var e = 0; e < extremes.length; e++) {
+      var ems = new Date(extremes[e].time).getTime();
+      if (ems < slots[f0].time.getTime() - 5400000 || ems > slots[l0].time.getTime() + 5400000) continue;
+      var after = -1;
+      for (var k = f0; k <= l0; k++) if (slots[k].time.getTime() <= ems) after = k - f0;
+      if (after < 0) after = 0;
+      dayEx.push({
+        afterSlot: after,
+        type: (extremes[e].type === 'high') ? 'pm' : 'bm',
+        time: new Date(extremes[e].time).toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' }).replace(':', 'h'),
+        height: extremes[e].height
+      });
+    }
+    days.push({
+      label: g.label.charAt(0) + g.label.slice(1).toLowerCase(),
+      coef: getCoefForDate(dkey),
+      sunrise: sr, sunset: ss,
+      slots: daySlots, extremes: dayEx
+    });
+  });
+
+  // ---- assemblage ----
+  var out = '<div class="vzm-panel">';
+  out += '<div class="vzm-topbar"><span class="tb-id">'
+    + '<span class="tb-n">' + vzmIdentity(place) + '</span></span>'
+    + '<button class="vzm-panel-close" type="button" onclick="closeSheetCompletely()">'
+    + '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>Fermer</button></div>';
+  out += vzmSourceBand(satM, fbM);
+  out += '<div class="vzm-scroll" id="vzmCondScroll">';
+  if (voidCount === slots.length) out += vzmVoidNote();
+  if (!data.tides || !data.tides.points || !data.tides.points.length) out += vzmTideNone();
+  for (var d = 0; d < days.length; d++) out += vzmDayBlock(days[d]);
+  out += '</div>';
+  out += '<div class="vzm-foot"><span class="fl">Sources</span>'
+    + '<span class="fs">AROME 1,3 km</span><span class="fs">SHOM</span>'
+    + '<span class="fs">Satellite CMEMS</span><span class="fs">EMODnet</span></div>';
+  return out + '</div>';
+}
+
+/* Un seul ecouteur delegue sur la zone defilante : 40 boutons, 40 handlers
+   inline, c'etait le meme cout a chaque re-rendu. */
+function vzmWirePanel() {
+  var sc = document.getElementById('vzmCondScroll');
+  if (!sc || sc._vzmBound) return;
+  sc._vzmBound = true;
+  sc.addEventListener('click', function(ev) {
+    var b = ev.target && ev.target.closest ? ev.target.closest('.vzm-slot') : null;
+    if (!b) return;
+    var ts = b.getAttribute('data-ts');
+    if (ts && typeof vzSheetCellClick === 'function') vzSheetCellClick(ts);
+  });
 }
 
 // ============================================================
@@ -16303,12 +16925,30 @@ html += '<div class="vz-cond-daybar" id="vzCondDaybar">'
     return prev ? prev.h : (next ? next.h : null);
   }
   var depthLAT = (data.depth != null && data.depth > 0) ? data.depth : null;
+  var _isMob = (typeof isMobile === 'function') ? isMobile() : (window.innerWidth <= 768);
+
+  // ---- Bifurcation mobile ----
+  // Meme moteur, meme modele de donnees, deux rendus. Tout ce qui precede
+  // (creneaux, groupes de jours, visi par creneau, interpolation de maree)
+  // est commun ; seule la mise en forme differe. Le desktop garde son tableau
+  // a 40 colonnes, le mobile passe en liste verticale.
+  if (_isMob) {
+    try {
+      document.body.classList.add('vzm-cond');
+    } catch (e) {}
+    body.innerHTML = vzmBuildPanel({
+      slots: slots, dayGroups: dayGroups, visiCells: _visiCells, meteo: h,
+      spot: spot, depthLAT: depthLAT, tideAt: sheetTideHeightAt,
+      conv: conv, nowIdx: nowIdx
+    });
+    vzmWirePanel();
+    return;
+  }
 
   // ---- Geometrie du tableau ----
   // table-layout:fixed : la largeur fait foi dans le colgroup, pas dans la
   // cellule. Sans largeur explicite, 40 colonnes de contenus inegaux se
   // repartissent au petit bonheur et la maree en colspan ne s'aligne plus.
-  var _isMob = (typeof isMobile === 'function') ? isMobile() : (window.innerWidth <= 768);
   // Colonnes elargies : a 40px et 11,5px de fonte, "0,1m" tenait au pixel pres
   // et les chiffres devenaient illisibles a bout de bras, dehors.
   var COLW = _isMob ? 46 : 48;
@@ -20922,7 +21562,10 @@ var VZ_ACCOUNT = (function () {
     + 'body.vzm-nav #vzSheet .vz-sheet-title{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0;flex:1;}'
     + 'body.vzm-nav #vzSheetModeLabel{font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#6D7F8E;}'
     + 'body.vzm-nav #vzSheetSpotLabel{font-family:Inter,sans-serif;font-size:18px;font-weight:800;letter-spacing:-.02em;color:#0A1520;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}'
-    + 'body.vzm-nav #vzSheet .vz-sheet-close{position:absolute;top:0;right:0;width:56px;height:56px;display:flex;align-items:center;justify-content:center;background:transparent;border:none;color:#0A1520;z-index:3;}'
+    + 'body.vzm-nav #vzSheet .vz-sheet-close{position:absolute;top:9px;right:12px;width:auto;min-width:auto;'
+    +   'height:40px;padding:0 13px 0 10px;gap:6px;display:flex;align-items:center;justify-content:center;'
+    +   'background:#FFFFFF;border:2px solid #0A1520;border-radius:20px;color:#0A1520;z-index:3;'
+    +   'font-family:Inter,sans-serif;font-size:13px;font-weight:700;}'
     + 'body.vzm-nav #vzSheet .vz-sheet-close svg{width:20px;height:20px;}'
     + 'body.vzm-nav #vzSheetBody{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:18px 16px 18px;background:#FFFFFF;color:#0A1520;}'
     // Zone basse : plus rien ne flotte au-dessus de la barre sans passer par
