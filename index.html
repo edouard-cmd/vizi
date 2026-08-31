@@ -2762,29 +2762,34 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
 #vzSheet.sheet-half { height: 78vh; }
 #vzSheet.sheet-full { height: 95vh; } /* desktop : full = half (cycle peek <-> half) */
 /* Bouton X de fermeture du bandeau (mobile prioritaire) */
+/* Une croix seule ne dit pas ce qu'elle ferme. Doctrine instrument : jamais
+   d'icone sans libelle. Le mot elargit aussi la cible, qui passe de 36 a
+   plus de 100px de large. */
 .vz-sheet-close {
   position: absolute;
-  top: 14px;
+  top: 12px;
   right: 14px;
   z-index: 2;
-  width: 36px;
-  height: 36px;
-  background: rgba(255,255,255,0.08);
-  border: 0.5px solid var(--vz-border-glass);
-  border-radius: 50%;
-  color: var(--vz-text-on-dark-muted);
+  height: 40px;
+  min-width: 40px;
+  padding: 0 14px 0 11px;
+  gap: 7px;
+  background: #FFFFFF;
+  border: 2px solid #0A1520;
+  border-radius: 20px;
+  color: #0A1520;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   cursor: pointer;
   display: none; /* caché par défaut, visible quand half/full */
   align-items: center;
   justify-content: center;
-  transition: all 0.15s ease;
-  padding: 0;
+  transition: background 0.15s ease;
 }
-.vz-sheet-close:hover {
-  background: rgba(255,255,255,0.15);
-  color: var(--vz-text-on-dark);
-  border-color: var(--vz-accent-border);
-}
+.vz-sheet-close-lb { white-space: nowrap; }
+.vz-sheet-close:hover { background: #EEF3F7; }
 .vz-sheet-close svg { width: 16px; height: 16px; }
 #vzSheet.sheet-half .vz-sheet-close,
 #vzSheet.sheet-full .vz-sheet-close {
@@ -6097,11 +6102,11 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
      BANDEAU BAS UNIFIÉ - Conditions + Marées (3 états : peek/half/full)
      ============================================================ -->
 <div id="vzSheet" class="sheet-peek" style="display:none;">
-  <button class="vz-sheet-close" onclick="closeSheetCompletely()" title="Fermer">
+  <button class="vz-sheet-close" onclick="closeSheetCompletely()" title="Fermer le tableau" aria-label="Fermer le tableau">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
       <line x1="18" y1="6" x2="6" y2="18"></line>
       <line x1="6" y1="6" x2="18" y2="18"></line>
-    </svg>
+    </svg><span class="vz-sheet-close-lb">Fermer</span>
   </button>
   <div class="vz-sheet-handle" onclick="onSheetHandleClick(event)">
     <div class="vz-sheet-handle-bar"></div>
