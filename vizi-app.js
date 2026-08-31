@@ -15541,17 +15541,98 @@ var css = `
        l'ecran. On garde la barre de navigation visible dessous, sinon on
        enferme le chasseur dans un ecran sans retour. */
     @media (max-width: 768px) {
-      body.vzm-nav.vzm-cond #vzSheet {
+      /* Le gabarit unique du mobile passe de 62vh a plein ecran. La regle de
+         fond ne change pas : les quatre onglets partagent la meme geometrie,
+         pour que passer de l'un a l'autre ne deplace ni la barre de titre, ni
+         la barre basse. Previsions faisait exception depuis sa refonte, ce
+         qui cassait justement cette regle. */
+      body.vzm-nav.vzm-full #vzSheet,
+      body.vzm-nav.vzm-full .vzm-sonar-panel[data-vzsp="1"] {
         top: 0 !important; height: auto !important; max-height: none !important;
         border-radius: 0 !important; border-left: 0 !important; border-right: 0 !important;
         border-top: 0 !important;
       }
       /* La barre de titre du panneau porte deja le nom du secteur et la
          sortie : l'en-tete du bandeau ferait doublon. */
+      /* Previsions SEULEMENT : son panneau vertical porte deja sa propre
+         barre de titre avec le nom du secteur et la sortie. Affichage, qui
+         partage #vzSheet, garde la sienne. */
       body.vzm-nav.vzm-cond #vzSheet .vz-sheet-handle,
       body.vzm-nav.vzm-cond #vzSheet .vz-sheet-header,
       body.vzm-nav.vzm-cond #vzSheet > button.vz-sheet-close { display: none !important; }
       body.vzm-nav.vzm-cond #vzSheetBody { padding: 0 !important; overflow: hidden !important; }
+      /* .vz-sheet-header est enfant de .vz-sheet-handle : masquer la poignee
+         emportait la barre de titre d'Affichage, et donc son nom. On ne retire
+         que la barre de glissement, qui n'a plus de sens en plein ecran. */
+      body.vzm-nav.vzm-full #vzSheet .vz-sheet-handle-bar { display: none !important; }
+      body.vzm-nav.vzm-full #vzSheet .vz-sheet-handle {
+        padding: 0 !important; cursor: default; flex-shrink: 0;
+      }
+
+      /* ---- Barre de titre commune aux onglets qui n'en ont pas ----
+         Affichage (#vzSheet) et le panneau secteur (VZSP) sont alignes sur le
+         gabarit de la barre de Previsions : nom en Inter 800 a 15,5px qui se
+         replie sur deux lignes plutot que de se tronquer, et une sortie
+         explicite de 100 par 56. Une troncature ici rendrait le secteur non
+         identifiable, ce qui est precisement ce que la barre doit donner. */
+      body.vzm-nav.vzm-full #vzSheet .vz-sheet-header,
+      body.vzm-nav.vzm-full .vzsp-shead {
+        display: flex !important; align-items: center; gap: 10px;
+        padding: 10px 12px !important; min-height: 76px;
+        border-bottom: 2px solid #0A1520 !important; background: #FFFFFF;
+        position: relative;
+      }
+      body.vzm-nav.vzm-full #vzSheetModeLabel,
+      body.vzm-nav.vzm-full .vzsp-shead .vzsp-kicker,
+      body.vzm-nav.vzm-full .vzsp-shead .vzsp-pin { display: none !important; }
+      body.vzm-nav.vzm-full #vzSheetSpotLabel,
+      body.vzm-nav.vzm-full .vzsp-shead .vzsp-nm {
+        font-family: Inter, sans-serif !important; font-size: 15.5px !important;
+        font-weight: 800 !important; letter-spacing: -.02em !important; color: #0A1520 !important;
+        line-height: 1.18 !important; white-space: normal !important;
+        overflow: visible !important; text-overflow: clip !important;
+        overflow-wrap: break-word; margin-top: 0 !important;
+      }
+      body.vzm-nav.vzm-full .vzsp-shead .vzsp-idt { flex: 1; min-width: 0; }
+      /* Aspect commun des deux sorties : pastille bordee, libelle a cote de
+         l'icone, 56px de haut. */
+      body.vzm-nav.vzm-full #vzSheet > button.vz-sheet-close,
+      body.vzm-nav.vzm-full .vzsp-shead .vzsp-close {
+        display: flex !important; align-items: center; justify-content: center; gap: 7px;
+        width: auto !important; min-width: 0; height: 56px !important; padding: 0 14px !important;
+        border: 2px solid #0A1520 !important; border-radius: 11px !important;
+        background: #FFFFFF !important; color: #0A1520 !important;
+        font-family: Inter, sans-serif; font-size: 13.5px; font-weight: 800;
+      }
+      /* Le bouton du bandeau n'est PAS dans l'en-tete : c'est un frere direct
+         de #vzSheet, pose par-dessus en absolu. Le faire passer en flux le
+         transformait en bande pleine largeur au sommet de la colonne flex.
+         Il reste donc absolu, et l'en-tete lui reserve sa place a droite. */
+      body.vzm-nav.vzm-full #vzSheet > button.vz-sheet-close {
+        position: absolute !important; top: 10px !important; right: 12px !important; z-index: 4;
+      }
+      body.vzm-nav.vzm-full #vzSheet .vz-sheet-header { padding-right: 124px !important; }
+      /* Celui du panneau secteur, lui, EST dans son en-tete : il rejoint le
+         flux, sinon il reste colle a droite en absolu et le nom lui passe
+         dessous des qu'il se replie sur deux lignes. */
+      body.vzm-nav.vzm-full .vzsp-shead .vzsp-close {
+        position: static !important; top: auto !important; right: auto !important;
+        flex-shrink: 0;
+      }
+      body.vzm-nav.vzm-full .vzsp-shead .vzsp-close svg { width: 15px; height: 15px; }
+      /* L'etoile de suivi vit dans vizi-espace.js, calee en absolu sur
+         right:56px, c'est-a-dire sur la largeur de l'ancienne croix. Une
+         sortie de 100px la faisait tomber dessus et interceptait le tap.
+         Elle rejoint le flux, entre le nom et la sortie : suivre un secteur
+         est l'action principale de cet ecran, elle reste dans la barre et
+         c'est le nom qui cede la place en se repliant. */
+      body.vzm-nav.vzm-full .vzsp-shead { padding-right: 12px !important; }
+      body.vzm-nav.vzm-full .vzsp-shead .vz-follow {
+        position: static !important; flex-shrink: 0;
+        width: 56px !important; height: 56px !important; order: 2;
+      }
+      body.vzm-nav.vzm-full .vzsp-shead .vzsp-idt { order: 1; }
+      body.vzm-nav.vzm-full .vzsp-shead .vzsp-close { order: 3; }
       /* Le bandeau plein ecran est en z-index 1205, les surfaces flottantes de
          la carte montent jusqu'a 1300 : la barre de recherche et le bouton de
          compte se posaient sur la barre de titre du panneau et recouvraient la
@@ -15559,14 +15640,14 @@ var css = `
          ses commandes n'ont donc rien a faire au-dessus. On les retire au lieu
          de surenchérir sur les z-index, equilibre deja fragile entre une
          dizaine de surfaces. */
-      body.vzm-nav.vzm-cond #vzSearch,
-      body.vzm-nav.vzm-cond #vzBtnLocate,
-      body.vzm-nav.vzm-cond #vzAccountBtn,
-      body.vzm-nav.vzm-cond .vz-logo-pill,
-      body.vzm-nav.vzm-cond #zoomControls,
-      body.vzm-nav.vzm-cond .vz-layers-fab,
-      body.vzm-nav.vzm-cond #vzmIdent,
-      body.vzm-nav.vzm-cond .vzm-sonar-fab { display: none !important; }
+      body.vzm-nav.vzm-full #vzSearch,
+      body.vzm-nav.vzm-full #vzBtnLocate,
+      body.vzm-nav.vzm-full #vzAccountBtn,
+      body.vzm-nav.vzm-full .vz-logo-pill,
+      body.vzm-nav.vzm-full #zoomControls,
+      body.vzm-nav.vzm-full .vz-layers-fab,
+      body.vzm-nav.vzm-full #vzmIdent,
+      body.vzm-nav.vzm-full .vzm-sonar-fab { display: none !important; }
     }
 
     /* La barre de jours est un organe de navigation TACTILE. Sur desktop les
@@ -15691,7 +15772,9 @@ window.openConditionsInSheet = function() {
   // chargement s'affiche encore au gabarit 62vh puis saute au plein ecran
   // quand les donnees arrivent.
   try {
-    if (typeof isMobile === 'function' && isMobile()) document.body.classList.add('vzm-cond');
+    if (typeof isMobile === 'function' && isMobile()) {
+      document.body.classList.add('vzm-full', 'vzm-cond');
+    }
   } catch (e) {}
   // Affiche le bandeau s'il était caché
   var sheet = document.getElementById('vzSheet');
@@ -15742,7 +15825,7 @@ window.closeCondDrawer = function() {
   // place ferait heriter les trois autres onglets d'un gabarit qui n'est pas
   // le leur, et le panneau secteur se retrouverait sans ses coins ni sa
   // bordure.
-  try { document.body.classList.remove('vzm-cond'); } catch (e) {}
+  try { document.body.classList.remove('vzm-full', 'vzm-cond'); } catch (e) {}
   var tabCond = document.getElementById('vzTabCond');
   if (tabCond) tabCond.classList.remove('active');
   // Cache complètement le bandeau
@@ -16934,7 +17017,7 @@ html += '<div class="vz-cond-daybar" id="vzCondDaybar">'
   // a 40 colonnes, le mobile passe en liste verticale.
   if (_isMob) {
     try {
-      document.body.classList.add('vzm-cond');
+      document.body.classList.add('vzm-full', 'vzm-cond');
     } catch (e) {}
     body.innerHTML = vzmBuildPanel({
       slots: slots, dayGroups: dayGroups, visiCells: _visiCells, meteo: h,
@@ -20188,7 +20271,8 @@ function vzmInit() {
       + '<div class="vzsp-shead">'
       +   '<span class="vzsp-pin">' + VZSP_SVG_PIN + '</span>'
       +   '<div class="vzsp-idt"><div class="vzsp-kicker">Secteur</div><div class="vzsp-nm">' + escapeH(name || 'Ton secteur') + '</div></div>'
-      +   '<button class="vzsp-close" type="button" id="vzspClose" aria-label="Fermer">' + VZSP_SVG_X + '</button>'
+      +   '<button class="vzsp-close" type="button" id="vzspClose" aria-label="Fermer le panneau">'
+      +     VZSP_SVG_X + '<span class="vzsp-close-lb">Fermer</span></button>'
       + '</div>'
       + '<div class="vzsp-tabs" role="tablist">'
       +   '<button role="tab" aria-selected="true" data-vzsptab="fb">Retours</button>'
@@ -21639,6 +21723,10 @@ var VZ_ACCOUNT = (function () {
     + 'body.vzm-nav .vzsp-shead .vzsp-close{position:absolute;top:0;right:0;width:56px;height:56px;'
     +   'border-radius:0;background:transparent;border:none;}'
     + 'body.vzm-nav .vzsp-shead .vzsp-close svg{width:20px;height:20px;stroke-width:2.6;}'
+    // Le libelle n'apparait qu'en plein ecran : hors de ce mode la croix est
+    // une pastille ronde de 56px ou un mot ne tiendrait pas.
+    + '.vzsp-close-lb{display:none;}'
+    + 'body.vzm-nav.vzm-full .vzsp-close-lb{display:inline;}'
     + 'body.vzm-nav .vzsp-body{padding:18px 16px 18px;}'
     // Panneau ouvert : tout le flottant s'efface, un seul objet a la fois.
     + 'body.vzm-open .vzm-sonar-fab,body.vzm-open .vzm-sonar-menu,body.vzm-open #vzRainCtrl,'
@@ -21763,7 +21851,16 @@ var VZ_ACCOUNT = (function () {
   // En-tete du panneau. Seuls Previsions et Affichage vivent dans #vzSheet :
   // Observations et Maree ont l'en-tete propre du panneau VZSP.
   function stampHeader(k){
-    if (k === 'cond')      navHeader('Secteur', port || condTitle());
+    // BUG PREEXISTANT : `port` n'est defini nulle part dans ce module. La
+    // ReferenceError etait levee a CHAQUE ouverture d'onglet et interrompait
+    // open() juste apres syncTabs : identUpdate() ne tournait jamais, et les
+    // deux re-stamps differes (900 ms et 2600 ms), poses pour rattraper les
+    // en-tetes ecrits en asynchrone par loadSheetConditions, n'existaient pas
+    // non plus. Le panneau s'ouvrait quand meme, ce qui masquait la panne.
+    // Le commentaire juste au-dessus de condTitle dit la regle : le sujet de
+    // Previsions est le point vise, JAMAIS le port. Le `port ||` la
+    // contredisait autant qu'il plantait.
+    if (k === 'cond')      navHeader('Secteur', condTitle());
     else if (k === 'disp') navHeader('Carte', 'Affichage');
   }
 
@@ -21784,6 +21881,14 @@ var VZ_ACCOUNT = (function () {
       else if (k === 'disp')  { showSheet(); vzmNavDisp(); }
       VZ_SHEET.mode = k;
       document.body.classList.add('vzm-open');
+      // Plein ecran pour les quatre onglets. Pose ICI et pas dans chaque
+      // ouverture : VZM_NAV.open est le seul endroit qui connaisse le mode
+      // demande, et closeEverythingElse a deja tourne juste avant, donc
+      // aucune fermeture ne peut retirer la classe apres coup.
+      // vzm-cond reste specifique a Previsions : elle masque l'en-tete de
+      // #vzSheet, que Affichage doit au contraire conserver.
+      document.body.classList.add('vzm-full');
+      document.body.classList.toggle('vzm-cond', k === 'cond');
       syncTabs(k);
       stampHeader(k);
       identUpdate();
@@ -21804,6 +21909,7 @@ var VZ_ACCOUNT = (function () {
       var sc = document.querySelector('.vzm-sonar-pscrim');
       if (sc) sc.classList.remove('open');
       document.body.classList.remove('vzm-open');
+      document.body.classList.remove('vzm-full', 'vzm-cond');
       VZ_SHEET.mode = null;
       syncTabs(null);
       identUpdate();
@@ -21827,6 +21933,11 @@ var VZ_ACCOUNT = (function () {
         var r = orig.apply(this, arguments);
         if (typeof VZ_SHEET !== 'undefined' && VZ_SHEET) VZ_SHEET.mode = 'obs';
         document.body.classList.add('vzm-open');
+        // Meme gabarit que par la barre basse : le panneau secteur ouvert
+        // depuis un marqueur de port doit etre plein ecran lui aussi, sinon
+        // le meme panneau a deux tailles selon la porte d'entree.
+        document.body.classList.add('vzm-full');
+        document.body.classList.remove('vzm-cond');
         syncTabs('obs');
         identUpdate();
         return r;
@@ -21852,6 +21963,7 @@ var VZ_ACCOUNT = (function () {
     if (e.target.closest('#vzspClose')) {
       setTimeout(function(){
         document.body.classList.remove('vzm-open');
+        document.body.classList.remove('vzm-full', 'vzm-cond');
         if (typeof VZ_SHEET !== 'undefined' && VZ_SHEET) VZ_SHEET.mode = null;
         syncTabs(null); identUpdate();
       }, 0);
