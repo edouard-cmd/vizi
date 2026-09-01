@@ -2866,12 +2866,15 @@ function vzWindFlowEnsure() {
 // redemarrage passe par _clearAndRestart, l'API du plugin, pour qu'il repose
 // lui-meme son lineWidth et son style de fondu. Garde-fou : si l'interne
 // change, on echoue en silence et on retrouve le rendu d'avant.
-function vzWindHiDpiEnsure_(tries) {
-  var vl = S.windFlowLayer;
+function vzWindHiDpiEnsure_(tries, layer) {
+  // Sans second argument : la couche vent, comme avant. Le courant passe
+  // la sienne, sinon ses particules seraient tracees au tiers de la
+  // resolution physique sur mobile, exactement le defaut corrige ici.
+  var vl = layer || S.windFlowLayer;
   var cl = vl && vl._canvasLayer;
   var cv = cl && cl._canvas;
   if (!cv) {
-    if (tries > 0) setTimeout(function(){ vzWindHiDpiEnsure_(tries - 1); }, 200);
+    if (tries > 0) setTimeout(function(){ vzWindHiDpiEnsure_(tries - 1, layer); }, 200);
     return;
   }
   if (cl._vzHiDpi) return;
@@ -3415,13 +3418,13 @@ function vzWindSetPlayIcon_(playing) {
 // Garde-fou : si l'interne du plugin change, on echoue en silence -> retour au
 // comportement fige d'origine, rien ne casse. _windy est cree en asynchrone
 // (setTimeout interne), d'ou le petit polling.
-function vzWindKeepAnimatedOnPan_(tries) {
-  var vl = S.windFlowLayer;
+function vzWindKeepAnimatedOnPan_(tries, layer) {
+  var vl = layer || S.windFlowLayer;
   if (vl && vl._windy && typeof vl._windy.stop === 'function') {
     try { S.map.off('dragstart', vl._windy.stop); } catch (e) {}
     return;
   }
-  if (tries > 0) setTimeout(function(){ vzWindKeepAnimatedOnPan_(tries - 1); }, 200);
+  if (tries > 0) setTimeout(function(){ vzWindKeepAnimatedOnPan_(tries - 1, layer); }, 200);
 }
 
 function vzWindStop_() {
@@ -3529,6 +3532,7 @@ var VZ_CUR_CFG = {
 
 var VZ_CUR_STATE = {
   lut: null, min: null, max: null, warned: false,
+  cmap: null, g2f: null, fieldSeq: 0, fieldPending: false,
   legendPending: null, resolvePending: null,
   layers: null,            // [{cfg, layer}]
   time: null               // chaine TIME appliquee aux tuiles
@@ -3616,6 +3620,10 @@ function vzCurFetchLegend_() {
     VZ_CUR_STATE.min = c.valueMin;
     VZ_CUR_STATE.max = c.valueMax;
     VZ_CUR_STATE.lut = vzWmtsBuildLut_(c.cmap.colorMap, VZ_CUR_CFG.stops);
+    // La table brute est conservee : c'est elle qui permet de remonter d'un
+    // pixel vers une valeur physique pour le champ de particules.
+    VZ_CUR_STATE.cmap = c.cmap.colorMap;
+    VZ_CUR_STATE.g2f = vzCurBuildG2f_(c.cmap.colorMap);
     return VZ_CUR_STATE;
   }).catch(function(e) {
     console.warn('[courant] GetLegend indisponible, tuiles haline brutes', e);
@@ -3678,6 +3686,7 @@ function vzCurShowFrame_(i) {
       try { VZ_CUR_STATE.layers[k].redraw(); } catch (e) {}
     }
   }
+  if (S.curFlowLayer) vzCurLoadField_();
 }
 
 // Point d'entree unique de la couche : resout les identifiants, construit
@@ -3756,6 +3765,243 @@ function vzCurEnsureLegend_() {
   return leg;
 }
 
+/* ------------------------------------------------------------
+   PARTICULES DE COURANT - reconstruction du champ vectoriel
+   ------------------------------------------------------------
+   leaflet-velocity attend deux tableaux de valeurs, u et v, pas des
+   images. Copernicus ne sert pas de grille numerique sans compte ni
+   backend. On exploite donc le meme principe que la couche visibilite,
+   pousse d'un cran : les tuiles sont demandees en 'haline', dont la
+   table de 256 couleurs est monotone sur le canal vert, avec une echelle
+   IMPOSEE par 'range'. Le canal vert d'un pixel donne donc sa position
+   sur cette echelle, et l'echelle etant connue, sa valeur en m/s.
+
+   Autrement dit : on demande deux images (une par composante) et on les
+   redecode en nombres. Aucun compte Copernicus, aucun serveur, aucun
+   pipeline.
+
+   LIMITE ASSUMEE : la valeur est quantifiee par la palette, environ 215
+   niveaux entre -2 et +2 m/s, soit un pas de ~2 cm/s. C'est invisible sur
+   des particules et sans consequence tant que la couche reste de
+   l'affichage. Ces valeurs ne doivent PAS alimenter le moteur : pour du
+   calcul il faudra la donnee brute (toolbox Copernicus).
+
+   Decoupage des tuiles : TILEMATRIX 4 en EPSG:4326, soit des tuiles de
+   11,25 degres. La France tient dans 2 colonnes (15 et 16) et 2 lignes
+   (3 et 4). En @2x chaque tuile fait 512 px, donc la mosaique 1024x1024
+   couvre -11,25/+11,25 en longitude et 33,75/56,25 en latitude, a
+   ~0,022 degre par pixel : la resolution native des modeles.
+   ------------------------------------------------------------ */
+var VZ_CUR_GRID = {
+  tileMatrix: 4,
+  tileCols: [15, 16],
+  tileRows: [3, 4],
+  tilePx: 512,
+  // Emprise de la mosaique, deduite du decoupage ci-dessus.
+  mosLon0: -11.25, mosLat0: 56.25, mosSpan: 22.5,
+  // Grille de sortie. 0,04 degre ~ 4,4 km : au-dessus du pas des modeles
+  // (2 a 4 km), donc aucune information inventee, et 110 000 points
+  // seulement a transporter.
+  lon0: -6.5, lat0: 51.6, lon1: 10.0, lat1: 40.9, step: 0.04,
+  // Bornes de l'echelle imposee aux composantes, en m/s. Un courant de
+  // maree cotier depasse rarement 2 m/s hors des raz.
+  uvMax: 2,
+  // Noms des deux composantes dans les datasets. 'uo'/'vo' sont les noms
+  // standards des courants dans les produits Copernicus. Si une facade
+  // exposait les courants moyennes sur la colonne d'eau sous 'ubar'/'vbar',
+  // c'est la seule ligne a changer : les tuiles reviendraient sinon en
+  // erreur, le fond colore resterait affiche et la console porterait
+  // l'avertissement '[courant] champ de particules indisponible'.
+  components: ['uo', 'vo'],
+  // Zone ou la facade mediterraneenne prime sur IBI (les deux modeles se
+  // recouvrent sur le golfe du Lion, MED y est le bon).
+  medClip: { lon0: 2.6, lat0: 43.9, lon1: 10.2, lat1: 40.9 }
+};
+
+// Table canal vert -> position 0-1 sur l'echelle. Meme inversion que la
+// palette, mais on en sort la fraction au lieu d'une couleur.
+function vzCurBuildG2f_(colorMap) {
+  var n = colorMap.length;
+  if (!n) return null;
+  var g2f = new Float32Array(256);
+  for (var g = 0; g < 256; g++) {
+    var best = 0, bestD = 1e9;
+    for (var j = 0; j < n; j++) {
+      var d = Math.abs(colorMap[j][1] - g);
+      if (d < bestD) { bestD = d; best = j; }
+    }
+    g2f[g] = (n > 1) ? (best / (n - 1)) : 0;
+  }
+  return g2f;
+}
+
+// Charge une image de tuile. Resout toujours, meme en erreur : une facade
+// absente doit laisser un trou, pas casser le chargement complet.
+function vzCurLoadTile_(url) {
+  return new Promise(function(resolve) {
+    var img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = function() { resolve(img); };
+    img.onerror = function() { resolve(null); };
+    img.src = url;
+  });
+}
+
+// URL GetTile d'une composante, pour une facade et une tuile donnees.
+function vzCurTileUrl_(layer, varName, col, row) {
+  return VZ_CUR_CFG.endpoint
+    + '?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0'
+    + '&LAYER=' + layer.replace('/' + VZ_CUR_CFG.variable, '/' + varName)
+    + '&STYLE=cmap:haline,range:-' + VZ_CUR_GRID.uvMax + '/' + VZ_CUR_GRID.uvMax
+    + '&TILEMATRIXSET=EPSG:4326@2x'
+    + '&TILEMATRIX=' + VZ_CUR_GRID.tileMatrix
+    + '&TILEROW=' + row + '&TILECOL=' + col
+    + '&FORMAT=image/png'
+    + '&time=' + VZ_CUR_STATE.time;
+}
+
+// Assemble la mosaique d'une composante puis l'echantillonne sur la
+// grille de sortie. IBI est peint en premier, MED par-dessus mais
+// restreint a son rectangle : la ou les deux modeles existent, c'est le
+// modele mediterraneen qui gagne.
+function vzCurDecodeComponent_(varName) {
+  var G = VZ_CUR_GRID;
+  var side = G.tilePx * 2;
+  var ibi = VZ_CUR_CFG.facades[0], med = VZ_CUR_CFG.facades[1];
+  var jobs = [];
+  var placed = [];
+  for (var ci = 0; ci < G.tileCols.length; ci++) {
+    for (var ri = 0; ri < G.tileRows.length; ri++) {
+      placed.push({ x: ci * G.tilePx, y: ri * G.tilePx, med: false });
+      jobs.push(vzCurLoadTile_(vzCurTileUrl_(ibi.layer, varName, G.tileCols[ci], G.tileRows[ri])));
+    }
+  }
+  // Une seule tuile suffit pour la Mediterranee francaise : colonne 16,
+  // ligne 4, soit 0 a 11,25 est et 33,75 a 45 nord.
+  placed.push({ x: G.tilePx, y: G.tilePx, med: true });
+  jobs.push(vzCurLoadTile_(vzCurTileUrl_(med.layer, varName, 16, 4)));
+
+  return Promise.all(jobs).then(function(imgs) {
+    var cv = document.createElement('canvas');
+    cv.width = side; cv.height = side;
+    var ctx = cv.getContext('2d');
+    function px(lon) { return (lon - G.mosLon0) / G.mosSpan * side; }
+    function py(lat) { return (G.mosLat0 - lat) / G.mosSpan * side; }
+    for (var i = 0; i < imgs.length; i++) {
+      if (!imgs[i]) continue;
+      var p = placed[i];
+      if (p.med) {
+        var c = G.medClip;
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(px(c.lon0), py(c.lat0), px(c.lon1) - px(c.lon0), py(c.lat1) - py(c.lat0));
+        ctx.clip();
+        ctx.drawImage(imgs[i], p.x, p.y, G.tilePx, G.tilePx);
+        ctx.restore();
+      } else {
+        ctx.drawImage(imgs[i], p.x, p.y, G.tilePx, G.tilePx);
+      }
+    }
+    var data;
+    try {
+      data = ctx.getImageData(0, 0, side, side).data;
+    } catch (e) {
+      console.warn('[courant] canvas verrouille (CORS absent), particules indisponibles', e);
+      return null;
+    }
+    var g2f = VZ_CUR_STATE.g2f;
+    if (!g2f) return null;
+    var nx = Math.round((G.lon1 - G.lon0) / G.step) + 1;
+    var ny = Math.round((G.lat0 - G.lat1) / G.step) + 1;
+    var out = new Array(nx * ny);
+    var k = 0;
+    for (var y = 0; y < ny; y++) {
+      var lat = G.lat0 - y * G.step;                 // nord vers sud
+      var sy = Math.round((G.mosLat0 - lat) / G.mosSpan * side);
+      if (sy < 0) sy = 0; else if (sy > side - 1) sy = side - 1;
+      for (var x = 0; x < nx; x++) {
+        var lon = G.lon0 + x * G.step;               // ouest vers est
+        var sx = Math.round((lon - G.mosLon0) / G.mosSpan * side);
+        if (sx < 0) sx = 0; else if (sx > side - 1) sx = side - 1;
+        var o = (sy * side + sx) * 4;
+        var a = data[o + 3];
+        var r = data[o], g = data[o + 1], b = data[o + 2];
+        // alpha nul = hors emprise du modele, r==g==b = masque terre.
+        if (a === 0 || (r === g && g === b)) { out[k++] = null; continue; }
+        out[k++] = (g2f[g] * 2 - 1) * G.uvMax;       // 0..1 -> -uvMax..+uvMax
+      }
+    }
+    return { nx: nx, ny: ny, data: out };
+  });
+}
+
+// Recharge le champ complet et l'applique aux particules. Le compteur de
+// generation evite qu'un decodage lent, lance sur une echeance qu'on a
+// deja quittee, ne vienne ecraser le champ courant.
+function vzCurLoadField_() {
+  var seq = ++VZ_CUR_STATE.fieldSeq;
+  VZ_CUR_STATE.fieldPending = true;
+  return vzCurFetchLegend_().then(function() {
+    return Promise.all([
+      vzCurDecodeComponent_(VZ_CUR_GRID.components[0]),
+      vzCurDecodeComponent_(VZ_CUR_GRID.components[1])
+    ]);
+  }).then(function(res) {
+    VZ_CUR_STATE.fieldPending = false;
+    if (seq !== VZ_CUR_STATE.fieldSeq) return null;   // echeance perimee
+    var u = res[0], v = res[1];
+    if (!u || !v || !S.curFlowLayer) return null;
+    var G = VZ_CUR_GRID;
+    function hdr(pn) {
+      return {
+        nx: u.nx, ny: u.ny,
+        lo1: G.lon0, la1: G.lat0,
+        // Bornes calculees depuis le nombre de points reellement produit.
+        // nx et ny etant arrondis, la borne demandee et la borne atteinte
+        // different d'un pas : annoncer la premiere decalerait le champ.
+        lo2: G.lon0 + (u.nx - 1) * G.step,
+        la2: G.lat0 - (u.ny - 1) * G.step,
+        dx: G.step, dy: G.step,
+        parameterCategory: 2, parameterNumber: pn,
+        refTime: VZ_CUR_STATE.time
+      };
+    }
+    S.curFlowLayer.setData([
+      { header: hdr(2), data: u.data },
+      { header: hdr(3), data: v.data }
+    ]);
+    return true;
+  }).catch(function(e) {
+    VZ_CUR_STATE.fieldPending = false;
+    console.warn('[courant] champ de particules indisponible', e);
+    return null;
+  });
+}
+
+// Cree la couche de particules. Reglages propres au courant : un courant
+// de maree cotier plafonne vers 2 m/s la ou le vent monte a 20, donc
+// l'echelle de vitesse est un ordre de grandeur au-dessus de celle du
+// vent, sans quoi les traits seraient immobiles. La couleur reste le
+// blanc : la force vit dans le fond colore, une seule variable un seul
+// encodage, comme pour le vent.
+function vzCurFlowEnsure_() {
+  if (S.curFlowLayer) return S.curFlowLayer;
+  if (typeof L.velocityLayer !== 'function') return null;
+  S.curFlowLayer = L.velocityLayer({
+    displayValues: false,
+    data: [],
+    speedUnit: 'kt',
+    velocityScale: 0.05,
+    particleMultiplier: 0.0022,
+    lineWidth: 1.3,
+    opacity: 0.9,
+    colorScale: ['#FFFFFF'],
+    minVelocity: 0,
+    maxVelocity: VZ_CUR_GRID.uvMax
+  });
+  return S.curFlowLayer;
+}
+
 // Retire la couche et rend la main au curseur. Point de sortie unique,
 // appele par le toggle et par l'echec de chargement.
 function vzCurTeardown_() {
@@ -3764,6 +4010,10 @@ function vzCurTeardown_() {
       if (S.map.hasLayer(VZ_CUR_STATE.layers[k])) S.map.removeLayer(VZ_CUR_STATE.layers[k]);
     }
   }
+  // Invalide tout decodage en vol : sans ca un champ perime pourrait
+  // etre applique a une couche qu'on vient de retirer.
+  VZ_CUR_STATE.fieldSeq++;
+  if (S.curFlowLayer && S.map.hasLayer(S.curFlowLayer)) S.map.removeLayer(S.curFlowLayer);
   var leg = document.getElementById('vzCurLegend');
   if (leg) leg.classList.remove('on');
   if (S.timeOwner === 'cur') {
@@ -4300,6 +4550,18 @@ function toggleLayer(type) {
         if (!S.showCurrent) return;   // re-toggle off pendant la resolution
         for (var k = 0; k < layers.length; k++) {
           if (!S.map.hasLayer(layers[k])) layers[k].addTo(S.map);
+        }
+        // Particules par-dessus le fond colore. Meme repartition que le
+        // vent : le fond porte la force, les traits portent le mouvement
+        // et la direction.
+        var _cf = vzCurFlowEnsure_();
+        if (_cf) {
+          if (!S.map.hasLayer(_cf)) _cf.addTo(S.map);
+          vzWindKeepAnimatedOnPan_(12, _cf);
+          vzWindHiDpiEnsure_(12, _cf);
+          vzCurLoadField_();
+        } else {
+          console.warn('[courant] leaflet-velocity absent, fond colore seul');
         }
         S.timeOwner = 'cur';
         vzCurEnsureLegend_().classList.add('on');
