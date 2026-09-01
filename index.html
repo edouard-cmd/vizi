@@ -5429,6 +5429,11 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
       <span class="vz-layers-label"><span class="vz-layers-name">Vent</span><span class="vz-layers-sub">prévision animée</span></span>
       <div class="vz-layers-check"></div>
     </div>
+    <div class="vz-layers-row" id="vzRowCurrent" onclick="toggleLayer('current')">
+      <span class="vz-layers-ico"><svg viewBox="0 0 24 24"><path d="M2 9 Q7 5 12 9 T22 9"></path><path d="M2 16 Q7 12 12 16 T22 16"></path><polyline points="17 3 21 6.5 17 10"></polyline></svg></span>
+      <span class="vz-layers-label"><span class="vz-layers-name">Courant</span><span class="vz-layers-sub">marée, heure par heure</span></span>
+      <div class="vz-layers-check"></div>
+    </div>
     <div class="vz-layers-row" id="vzRowLitto3d" onclick="toggleLayer('litto3d')">
       <span class="vz-layers-ico"><svg viewBox="0 0 24 24"><path d="M3 6 Q12 3 21 6"></path><path d="M3 11 Q12 8 21 11"></path><path d="M3 16 Q12 13 21 16"></path><path d="M3 21 Q12 18 21 21"></path></svg></span>
       <span class="vz-layers-label"><span class="vz-layers-name">Relief du fond</span><span class="vz-layers-sub">détail près des côtes</span></span>
