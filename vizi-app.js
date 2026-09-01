@@ -3064,14 +3064,21 @@ function vzWindEnsureCtrl_() {
     // La safe-area disparait du padding : elle est deja portee par la barre de
     // navigation en dessous, la compter deux fois creusait un vide.
     // z-index 1206 : au-dessus du panneau (1205), sous la barre (1210).
-    +   "#vzWindCtrl{left:0;right:0;bottom:var(--vzm-navline,94px);transform:none;max-width:none;display:none;z-index:1206;grid-template-columns:auto auto auto 1fr auto;grid-template-rows:36px var(--vzi-tap);column-gap:8px;row-gap:2px;align-items:center;padding:4px 12px 8px;border-width:2px 0;border-radius:0;box-shadow:0 -8px 28px rgba(8,17,27,0.35);}"
+    // --vzm-navh et NON --vzm-navline : la garde de 8px de navline est faite
+    // pour les flottants, pas pour un bandeau qui s'empile bord a bord.
+    // RANGEES INVERSEES : le doigt qui saisit le curseur arrive par le bas de
+    // l'ecran et masque tout ce qui se trouve sous lui. Avec le curseur en
+    // rangee haute, le libelle d'echeance disparaissait sous la main au moment
+    // precis ou on le lit. Rangee 1 = commandes et jour, rangee 2 = curseur.
+    // Hauteur totale inchangee (44 + 36), donc --vzm-windh ne bouge pas.
+    +   "#vzWindCtrl{left:0;right:0;bottom:var(--vzm-navh,86px);transform:none;max-width:none;display:none;z-index:1206;grid-template-columns:auto auto auto 1fr auto;grid-template-rows:var(--vzi-tap) 36px;column-gap:8px;row-gap:2px;align-items:center;padding:4px 12px 8px;border-width:2px 0;border-radius:0;box-shadow:0 -8px 28px rgba(8,17,27,0.35);}"
     +   "#vzWindCtrl.on{display:grid;}"
-    +   "#vzWindSliderWrap{grid-column:1 / -1;grid-row:1;height:36px;min-width:0;}"
-    +   "#vzWindPrev{grid-column:1;grid-row:2;}"
-    +   "#vzWindPlay{grid-column:2;grid-row:2;}"
-    +   "#vzWindNext{grid-column:3;grid-row:2;}"
-    +   "#vzWindLabel{grid-column:4;grid-row:2;width:auto;min-width:0;justify-self:stretch;text-align:center;font-size:13px;padding:0 4px;}"
-    +   "#vzWindNow{grid-column:5;grid-row:2;font-size:13px;padding:0 11px;}"
+    +   "#vzWindSliderWrap{grid-column:1 / -1;grid-row:2;height:36px;min-width:0;}"
+    +   "#vzWindPrev{grid-column:1;grid-row:1;}"
+    +   "#vzWindPlay{grid-column:2;grid-row:1;}"
+    +   "#vzWindNext{grid-column:3;grid-row:1;}"
+    +   "#vzWindLabel{grid-column:4;grid-row:1;width:auto;min-width:0;justify-self:stretch;text-align:center;font-size:13px;padding:0 4px;}"
+    +   "#vzWindNow{grid-column:5;grid-row:1;font-size:13px;padding:0 11px;}"
     // Libelle : forme longue masquee, forme courte affichee.
     +   "#vzWindLabelLong{display:none;}"
     +   "#vzWindLabelShort{display:inline;}"
@@ -3172,7 +3179,9 @@ function vzWindEnsureLegend_() {
       "#vzWindLegend{position:fixed;top:66px;left:50%;transform:translateX(-50%);z-index:1150;display:none;align-items:center;gap:10px;padding:7px 11px;box-sizing:border-box;background:var(--vzi-bg);border:2px solid var(--vzi-line);border-radius:14px;box-shadow:0 10px 28px rgba(8,17,27,0.35);font-family:'Inter',sans-serif;pointer-events:none;}"
     + "#vzWindLegend.on{display:flex;}"
     + ".vzwl-cap{color:var(--vzi-ink);font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;}"
-    + ".vzwl-scale{display:flex;flex-direction:column;gap:4px;width:168px;}"
+    // 200px et non 168 : sept reperes (0 a 50 tous les 10, plus la borne) ne
+    // tiennent pas sur 168px sans se toucher.
+    + ".vzwl-scale{display:flex;flex-direction:column;gap:4px;width:200px;}"
     // Barre generee depuis VZ_WIND_COLOR_STOPS : plus de degrade recopie a la
     // main, donc plus de risque de legende qui mente apres une refonte de palette.
     + ".vzwl-bar{height:12px;border-radius:6px;border:1px solid rgba(10,21,32,0.3);background:" + vzWindGradientCss_() + ";}"
@@ -3189,11 +3198,25 @@ function vzWindEnsureLegend_() {
     // 64px, z-index 1250 contre 1150) : son coin haut etait mange par un fond
     // blanc opaque et son ombre. On se cale sur la ligne d'ancrage haute
     // mesuree, +10px de garde pour l'ombre portee de la recherche.
-    +   "#vzWindLegend{top:calc(var(--vzm-topline, 64px) + 10px);gap:7px;padding:5px 8px;border-radius:12px;}"
+    // BANDEAU, et non plus pastille centree. La ligne haute (recherche, bouton
+    // position, compte) va de 12px a 12px ; la legende se posait dessous sur
+    // left:50% avec une barre de largeur fixe, donc deux grammaires empilees -
+    // c'est ce decalage de grille que l'oeil lit comme un mauvais centrage,
+    // alors que la boite etait centree au pixel pres. Meme grille que la ligne
+    // du dessus : alignement franc a gauche et a droite. left/right bornent la
+    // boite, max-width n'a plus d'objet. Rayon 14px, celui de la recherche.
+    +   "#vzWindLegend{top:calc(var(--vzm-topline, 64px) + 10px);left:12px;right:12px;transform:none;max-width:none;gap:10px;padding:6px 10px;border-radius:14px;}"
     +   ".vzwl-cap{font-size:10px;letter-spacing:0.08em;}"
-    +   ".vzwl-scale{width:118px;gap:3px;}"
+    // Barre ELASTIQUE : elle prend tout ce qui reste entre le mot VENT et le
+    // bouton d'unite, au lieu d'une largeur fixe qui laissait du vide. Environ
+    // 235px sur un ecran de 393, soit le double : l'ecart entre graduations
+    // passe de 16 a 32px. Les deux voisins sont figes pour qu'ils ne se
+    // compriment pas a sa place quand la place manque.
+    +   ".vzwl-scale{flex:1 1 auto;width:auto;min-width:0;gap:3px;}"
+    +   ".vzwl-cap{flex:0 0 auto;}"
+    +   ".vzwl-unit{flex:0 0 auto;}"
     +   ".vzwl-bar{height:10px;border-radius:5px;}"
-    +   ".vzwl-ticks{height:12px;font-size:10px;}"
+    +   ".vzwl-ticks{height:13px;font-size:11px;}"
     +   ".vzwl-unit{min-height:36px;min-width:44px;font-size:12px;padding:0 6px;border-radius:8px;}"
     + "}";
     (document.head || document.documentElement).appendChild(st);
@@ -3226,15 +3249,28 @@ function vzWindRenderLegendTicks_() {
   var wrap = document.getElementById('vzWindTicks');
   if (!wrap) return;
   var kt = (typeof S_windUnit !== 'undefined' && S_windUnit === 'kt');
-  var vals = kt ? [0, 10, 20, 30, 40] : [0, 20, 40, 60];
+  // Graduations tous les 10 dans l'unite courante, DERIVEES de la borne au lieu
+  // d'etre recopiees : plus de liste a maintenir a chaque changement d'unite ou
+  // de palette. La borne elle-meme ferme l'echelle avec un "+", parce qu'au-dela
+  // du dernier palier de VZ_WIND_COLOR_STOPS (20.58 m/s, soit 74 km/h ou 40 kt)
+  // la couche affiche toujours la meme couleur : l'echelle sature. Sans ce
+  // repere terminal la legende laisse croire qu'elle gradue jusqu'au bout.
+  var maxKmh = VZ_WIND_LEGEND_MAX_KMH;
+  var maxU = Math.round(kt ? maxKmh * 0.539957 : maxKmh);
+  var vals = [];
+  // On s'arrete un intervalle complet avant la borne, sinon le dernier multiple
+  // de 10 et le repere terminal se chevauchent. En km/h : 0 a 60 puis 74+. En
+  // noeuds : 0 a 30 puis 40+.
+  for (var g = 0; g <= maxU - 10; g += 10) vals.push(g);
   var html = '';
   for (var i = 0; i < vals.length; i++) {
     var v = vals[i];
     var kmh = kt ? (v / 0.539957) : v;          // valeur en km/h pour positionner
-    var pct = Math.min(100, kmh / VZ_WIND_LEGEND_MAX_KMH * 100);
-    var tx = (i === 0) ? '0' : (i === vals.length - 1 ? '-100%' : '-50%');
+    var pct = Math.min(100, kmh / maxKmh * 100);
+    var tx = (i === 0) ? '0' : '-50%';
     html += '<span style="left:' + pct.toFixed(1) + '%;transform:translateX(' + tx + ');">' + v + '</span>';
   }
+  html += '<span style="left:100%;transform:translateX(-100%);">' + maxU + '+</span>';
   wrap.innerHTML = html;
   var ub = document.getElementById('vzWindUnitBtn');
   if (ub) ub.textContent = kt ? 'kt' : 'km/h';
@@ -3585,18 +3621,21 @@ function vzZsdEnsureLegend_() {
     // deux couches sont actives derive de la hauteur MESUREE de la legende
     // vent (--vzm-windleg), plus d'un 118px recopie a la main qui devenait faux
     // des que la legende vent changeait de gabarit.
-    +   "#vzZsdLegend{top:calc(var(--vzm-topline, 64px) + 10px);gap:9px;padding:8px 10px;border-radius:13px;}"
+    // Meme bandeau que la legende vent : sinon, les deux couches actives,
+    // on empile un bandeau pleine largeur et une pastille centree et le defaut
+    // de grille revient un cran plus bas.
+    +   "#vzZsdLegend{top:calc(var(--vzm-topline, 64px) + 10px);left:12px;right:12px;transform:none;max-width:none;gap:10px;padding:8px 10px;border-radius:14px;}"
     +   "body.vz-wind-band #vzZsdLegend{top:calc(var(--vzm-topline, 64px) + 10px + var(--vzm-windleg, 50px) + 8px);}"
-    +   ".vzzl-scale{width:230px;gap:4px;}"
+    +   ".vzzl-scale{flex:1 1 auto;width:auto;min-width:0;gap:4px;}"
     +   ".vzzl-cap{font-size:11px;}"
     +   ".vzzl-bar{height:14px;border-radius:7px;}"
     +   ".vzzl-ticks{height:13px;font-size:11px;}"
     +   ".vzzl-age{min-height:38px;font-size:13px;padding:0 8px;border-radius:9px;}"
     + "}"
-    // Tres petits ecrans : le titre passe en version courte pour ne pas forcer
-    // la boite au-dela de la largeur de la fenetre.
+    // Tres petits ecrans : seul le titre se reduit. La largeur de la barre n'a
+    // plus a etre bridee ici - elle est elastique et deja bornee par left/right.
+    // La laisser en dur ecraserait le flex, ce bloc venant apres le bloc 768px.
     + "@media (max-width:400px){"
-    +   ".vzzl-scale{width:200px;}"
     +   ".vzzl-cap{font-size:10px;}"
     + "}";
     (document.head || document.documentElement).appendChild(st);
@@ -21893,6 +21932,13 @@ var VZ_ACCOUNT = (function () {
     // redefinition du bandeau vent (body.vzm-nav.vz-wind-band).
     root.style.setProperty('--vzm-identh', hi + 'px');
     root.style.setProperty('--vzm-navline', (hi + hb + 8) + 'px');
+    // Hauteur REELLEMENT occupee par l'empilement bas, sans garde. A ne pas
+    // confondre avec --vzm-navline, qui ajoute 8px de respiration pour les
+    // elements FLOTTANTS (FAB sonar, boutons ronds) qui ne doivent pas coller
+    // a la barre. Un bandeau pleine largeur, lui, s'empile bord a bord : la
+    // garde y creusait une bande de carte visible entre le bandeau vent et la
+    // ligne d'identite.
+    root.style.setProperty('--vzm-navh', (hi + hb) + 'px');
     // LIGNE D'ANCRAGE HAUTE, symetrique de --vzm-navline. Il n'en existait
     // aucune : chaque element flottant du haut portait sa propre valeur en dur
     // (legende vent 58px, legende ZSD 58/118px, menu compte 70px) alors que la
