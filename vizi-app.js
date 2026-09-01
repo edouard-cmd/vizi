@@ -2727,13 +2727,50 @@ function vzWindNowIndex_() {
   return best;
 }
 
+// ARBITRAGE UNIQUE du fond colore du vent et de sa legende.
+// Le fond colore du vent vit dans vzWindColorPane (z-index 300) avec une
+// opacite de 0.54 a 0.94 selon la force ; le relief Litto3D vit dans
+// litto3dPane (z-index 250) en opacite pleine. Superposes, le vent ne rend pas
+// le relief difficile a lire : il le rend INVISIBLE. C'est ce qui justifiait
+// l'exclusion mutuelle, ou chaque couche coupait l'autre a l'activation.
+// On leve l'exclusion sans faire mentir aucune des deux echelles : quand les
+// deux couches sont demandees, le fond colore s'efface et seules les particules
+// restent. Elles vivent dans overlayPane (z-index 400), donc elles passent
+// au-dessus du relief sans rien recouvrir. Le relief porte la couleur, le vent
+// porte le mouvement et la direction.
+// La legende suit obligatoirement le fond colore : elle decrit une echelle de
+// couleur, la laisser a l'ecran sans le calque qu'elle decrit serait un
+// mensonge. L'unite reste reglable depuis le drawer (windUnitToggle).
+// Point d'entree unique : les quatre branches de toggleLayer concernees
+// appellent cette fonction et ne touchent plus ni la couche ni la legende.
+function vzWindColorArbitrate_() {
+  var showColor = !!(S.showWindFlow && !S.showLitto3d);
+  if (S.windColorLayer && S.map) {
+    var on = S.map.hasLayer(S.windColorLayer);
+    // Rafraichir AVANT de remontrer : pendant que le relief masquait le fond,
+    // vzWindShowFrame_ ne repeignait plus le canvas (voir son garde). Sans ca,
+    // couper le relief reafficherait l'echeance figee au moment ou la couche a
+    // ete construite, pas celle du curseur.
+    if (showColor && !on && S.windFrames && S.windFrames.length) {
+      vzWindEnsureColorLayer_(S.windPos);
+    }
+    if (showColor && !on) S.windColorLayer.addTo(S.map);
+    else if (!showColor && on) S.map.removeLayer(S.windColorLayer);
+  }
+  var leg = document.getElementById('vzWindLegend');
+  if (leg) leg.classList.toggle('on', showColor);
+  return showColor;
+}
+
 // Applique la frame d'index i aux deux couches (partage A1 present + A2 curseur).
 function vzWindShowFrame_(i) {
   if (!S.windFrames || !S.windFrames.length) return;
   i = Math.max(0, Math.min(i, S.windFrames.length - 1));
   S.windPos = i;
   if (S.windFlowLayer) S.windFlowLayer.setData(vzWindBuildVelocity_(S.windHeader, S.windFrames[i]));
-  if (S.windColorLayer && S.showWindFlow) vzWindEnsureColorLayer_(i);
+  // Relief actif = fond colore retire de la carte : inutile de repeindre un
+  // canvas 256x256 a chaque cran de curseur pour une couche hors carte.
+  if (S.windColorLayer && S.showWindFlow && !S.showLitto3d) vzWindEnsureColorLayer_(i);
 }
 
 // Plafond de resolution du canvas des particules. Le plugin dimensionne son
@@ -3796,17 +3833,17 @@ function toggleLayer(type) {
     var _btnWind = document.getElementById('vzBtnWind');
     if (_btnWind) _btnWind.classList.toggle('active', S.showWindFlow);
     if (S.showWindFlow) {
-      // Exclusion mutuelle : fond vent et bathy Litto3D sont deux couches de
-      // fond, une seule a la fois (sinon les teals se confondent, illisible).
-      if (S.showLitto3d) toggleLayer('litto3d');
+      // Plus d'exclusion mutuelle avec Litto3D : les deux couches peuvent etre
+      // actives ensemble, c'est vzWindColorArbitrate_ qui tranche ce qui est
+      // affiche. Les particules, elles, sont montrees dans tous les cas.
       vzWindFlowEnsure().then(function(layer){
         if (!S.showWindFlow) return;   // re-toggle off pendant le fetch
-        if (S.windColorLayer && !S.map.hasLayer(S.windColorLayer)) S.windColorLayer.addTo(S.map);
         if (!S.map.hasLayer(layer)) layer.addTo(S.map);
         vzWindKeepAnimatedOnPan_(12);              // traits animes pendant le pan
         vzWindHiDpiEnsure_(12);                    // canvas en resolution physique
         vzWindEnsureCtrl_().classList.add('on');   // A2 : curseur temporel
-        vzWindEnsureLegend_().classList.add('on'); // legende de couleur
+        vzWindEnsureLegend_();                     // creee ici, AFFICHEE par l'arbitrage
+        vzWindColorArbitrate_();                   // fond colore + legende
         // Bandeau mobile en place : on repousse FAB sonar, curseur pluie et
         // attribution Leaflet. Classe explicite, retiree DANS LES DEUX sorties
         // (toggle off ET echec de chargement) sinon l'attribution reste masquee.
@@ -3824,19 +3861,18 @@ function toggleLayer(type) {
       vzWindStop_();
       var _wc = document.getElementById('vzWindCtrl');
       if (_wc) _wc.classList.remove('on');
-      var _wl = document.getElementById('vzWindLegend');
-      if (_wl) _wl.classList.remove('on');
       document.body.classList.remove('vz-wind-band');
       if (S.windFlowLayer && S.map.hasLayer(S.windFlowLayer)) S.map.removeLayer(S.windFlowLayer);
-      if (S.windColorLayer && S.map.hasLayer(S.windColorLayer)) S.map.removeLayer(S.windColorLayer);
+      // Fond colore et legende : meme point d'entree qu'a l'activation.
+      // showWindFlow vient de passer a false, donc l'arbitrage retire les deux.
+      vzWindColorArbitrate_();
     }
   } else if (type === 'litto3d') {
     S.showLitto3d = !S.showLitto3d;
     var btnL = document.getElementById('btnLitto3d');
     if (btnL) btnL.classList.toggle('active', S.showLitto3d);
     if (S.showLitto3d) {
-      // Exclusion mutuelle avec le fond vent (deux couches de fond).
-      if (S.showWindFlow) toggleLayer('windflow');
+      // Plus d'exclusion mutuelle avec le vent. Voir vzWindColorArbitrate_.
       S.litto3d.addTo(S.map);
       // Ordre Z : basemap < Litto3D < sediment/isobathes/markers
       S.litto3d.eachLayer(function(l) { if (l.bringToBack) l.bringToBack(); });
@@ -3849,6 +3885,10 @@ function toggleLayer(type) {
  } else {
       if (S.map.hasLayer(S.litto3d)) S.map.removeLayer(S.litto3d);
     }
+    // Dans les DEUX sens : allumer le relief efface le fond colore du vent,
+    // l'eteindre le rend. Sans cet appel cote extinction, le fond colore ne
+    // reviendrait jamais sans re-toggler le vent.
+    vzWindColorArbitrate_();
   } else if (type === 'zsd') {
     S.showZsd = !S.showZsd;
     var _rowZsd = document.getElementById('vzRowZsd');
@@ -22216,7 +22256,9 @@ var VZ_ACCOUNT = (function () {
     var el = document.getElementById('vzmNavCount');
     if (!el) return;
     var n = 0;
-    ['showWindFlow','showRain','showSed','showWrecks','showZsd','showLitto','showIso','showHeatmap']
+    // showLitto3d et non showLitto : la cle testee n'existait pas, le Relief du
+    // fond n'a donc jamais ete compte dans ce badge.
+    ['showWindFlow','showRain','showSed','showWrecks','showZsd','showLitto3d','showIso','showHeatmap']
       .forEach(function(k){ if (S && S[k]) n++; });
     el.textContent = n;
     el.style.display = n ? '' : 'none';
