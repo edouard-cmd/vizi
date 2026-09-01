@@ -2945,6 +2945,26 @@ function vzInstrEnsureTokens_() {
   (document.head || document.documentElement).appendChild(st);
 }
 
+// LIGNES D'ANCRAGE MESUREES - point d'entree unique
+// Ecrit la hauteur REELLE d'un element dans une variable CSS sur <html>. Toutes
+// les hauteurs de panneaux flottants passent par ici : plus aucune valeur en
+// dur dans une feuille de style, donc plus de derive quand un panneau change de
+// gabarit. Meme mecanique que --vzm-navline, deja mesuree par VZM_NAV.
+// On n'ecrit jamais 0 : un panneau masque garde sa derniere hauteur connue,
+// sinon tout ce qui en derive s'effondrerait a chaque fermeture.
+function vzMeasureVar_(el, name) {
+  if (!el || !name) return;
+  function m() {
+    var h = el.offsetHeight;
+    if (!h) return;
+    document.documentElement.style.setProperty(name, h + 'px');
+  }
+  if (window.ResizeObserver) { try { new ResizeObserver(m).observe(el); } catch (e) {} }
+  window.addEventListener('resize', m);
+  setTimeout(m, 60);
+  setTimeout(m, 500);
+}
+
 // Genere la barre de degrade de la legende DEPUIS VZ_WIND_COLOR_STOPS au lieu
 // de la recopier a la main. Garantit qu'une refonte future de la palette ne
 // pourra plus faire mentir la legende. La barre couvre la plage physique
@@ -3037,7 +3057,14 @@ function vzWindEnsureCtrl_() {
     // play, libelle, Maintenant. Le libelle absorbe la contrainte de largeur
     // via min-width:0 + ellipse, il ne pousse plus rien hors de la grille.
     + "@media (max-width:768px){"
-    +   "#vzWindCtrl{left:0;right:0;bottom:0;transform:none;max-width:none;display:none;grid-template-columns:auto auto auto 1fr auto;grid-template-rows:36px var(--vzi-tap);column-gap:8px;row-gap:2px;align-items:center;padding:4px 12px calc(8px + env(safe-area-inset-bottom, 0px));border-width:2px 0 0 0;border-radius:0;box-shadow:0 -8px 28px rgba(8,17,27,0.35);}"
+    // Le bandeau se POSE SUR la ligne d'ancrage mesuree, il ne colle plus au
+    // bord de l'ecran. Avant : bottom:0 et z-index 1200, sous une barre de
+    // navigation de 94px en z-index 1210 - le bandeau etait recouvert au pixel
+    // pres, seul le sommet de la piste du curseur depassait.
+    // La safe-area disparait du padding : elle est deja portee par la barre de
+    // navigation en dessous, la compter deux fois creusait un vide.
+    // z-index 1206 : au-dessus du panneau (1205), sous la barre (1210).
+    +   "#vzWindCtrl{left:0;right:0;bottom:var(--vzm-navline,94px);transform:none;max-width:none;display:none;z-index:1206;grid-template-columns:auto auto auto 1fr auto;grid-template-rows:36px var(--vzi-tap);column-gap:8px;row-gap:2px;align-items:center;padding:4px 12px 8px;border-width:2px 0;border-radius:0;box-shadow:0 -8px 28px rgba(8,17,27,0.35);}"
     +   "#vzWindCtrl.on{display:grid;}"
     +   "#vzWindSliderWrap{grid-column:1 / -1;grid-row:1;height:36px;min-width:0;}"
     +   "#vzWindPrev{grid-column:1;grid-row:2;}"
@@ -3081,13 +3108,21 @@ function vzWindEnsureCtrl_() {
     // propre hauteur (72px) par-dessus cette ligne. Une seule valeur a
     // maintenir au lieu des sept valeurs absolues independantes d'avant, qui
     // deplacaient la collision au lieu de la resoudre.
-    +   "body.vz-wind-band{--vz-fabline:calc(var(--vzm-navline, 34px) + 72px);}"
+    // 72px etait faux : le bandeau en fait 96. Tant qu'il etait invisible ca ne
+    // se voyait pas ; des qu'on le remonte a sa place, le FAB sonar retombe
+    // dedans sur 24px. On derive de la hauteur MESUREE (vzMeasureVar_), plus
+    // d'une constante recopiee. Repli 94px, la meme valeur que VZM_NAV : deux
+    // replis differents pour la meme variable, c'etait deux geometries.
+    +   "body.vz-wind-band{--vz-fabline:calc(var(--vzm-navline, 94px) + var(--vzm-windh, 96px));}"
     +   "body.vz-wind-band .vz-layers-popover{bottom:calc(var(--vz-fabline) + 62px);max-height:56vh;}"
     +   "body.vz-wind-band #mobileAnalyzeBtn{bottom:calc(var(--vz-fabline) + 60px);}"
     +   "body.vz-wind-band #mobileShareBtn{bottom:calc(var(--vz-fabline) + 8px);}"
     +   "body.vz-wind-band .vzm-sonar-fab{bottom:calc(var(--vz-fabline) + 6px);}"
     +   "body.vz-wind-band .vzm-sonar-menu{bottom:calc(var(--vz-fabline) + 82px);}"
-    +   "body.vz-wind-band .leaflet-control-attribution{margin-bottom:calc(var(--vz-fabline) - 8px);}"
+    // +2px et non -8px : -8 faisait mordre l'attribution de 8px dans le bas du
+    // bandeau. Meme garde que la regle equivalente de VZM_NAV, dont cette
+    // regle prend la suite a specificite egale.
+    +   "body.vz-wind-band .leaflet-control-attribution{margin-bottom:calc(var(--vz-fabline) + 2px);}"
     // Bottom sheet ouvert : on efface le bandeau. Meme motif que celui deja en
     // place dans index.html pour les boutons mobiles. Le sheet est en z-index
     // 1100 et le bandeau en 1200, donc sans ca le bandeau passerait dessus.
@@ -3116,6 +3151,10 @@ function vzWindEnsureCtrl_() {
   document.getElementById('vzWindPrev').addEventListener('click', function(){ vzWindStep_(-1); });
   document.getElementById('vzWindNext').addEventListener('click', function(){ vzWindStep_(1); });
   document.getElementById('vzWindNow').addEventListener('click', vzWindGoNow_);
+  // Hauteur reelle du bandeau -> --vzm-windh. Tout ce qui flotte au-dessus de
+  // lui (FAB sonar, menu sonar, popover Couches, analyse, partage, curseur
+  // pluie, attribution) en derive par CSS via --vz-fabline.
+  vzMeasureVar_(pan, '--vzm-windh');
   return pan;
 }
 
@@ -3146,7 +3185,11 @@ function vzWindEnsureLegend_() {
     // Mobile : legende resserree. Elle etait disproportionnee, en particulier
     // le bouton d'unite. 36px reste au-dessus du seuil tactile confortable.
     + "@media (max-width:768px){"
-    +   "#vzWindLegend{top:58px;gap:7px;padding:5px 8px;border-radius:12px;}"
+    // 58px la faisait passer SOUS la barre de recherche (top 12 + hauteur 52 =
+    // 64px, z-index 1250 contre 1150) : son coin haut etait mange par un fond
+    // blanc opaque et son ombre. On se cale sur la ligne d'ancrage haute
+    // mesuree, +10px de garde pour l'ombre portee de la recherche.
+    +   "#vzWindLegend{top:calc(var(--vzm-topline, 64px) + 10px);gap:7px;padding:5px 8px;border-radius:12px;}"
     +   ".vzwl-cap{font-size:10px;letter-spacing:0.08em;}"
     +   ".vzwl-scale{width:118px;gap:3px;}"
     +   ".vzwl-bar{height:10px;border-radius:5px;}"
@@ -3169,6 +3212,9 @@ function vzWindEnsureLegend_() {
     if (typeof toggleWindUnit === 'function') toggleWindUnit();
   });
   vzWindRenderLegendTicks_();
+  // Hauteur reelle de la legende -> --vzm-windleg. La legende ZSD s'empile
+  // dessus quand les deux couches sont actives, sans hauteur recopiee.
+  vzMeasureVar_(leg, '--vzm-windleg');
   return leg;
 }
 
@@ -3535,8 +3581,12 @@ function vzZsdEnsureLegend_() {
     // Pastille de date : nowrap obligatoire, elle se cassait en deux lignes.
     + ".vzzl-age{flex:0 0 auto;box-sizing:border-box;border:2px solid var(--vzi-line);background:var(--vzi-bg);color:var(--vzi-ink);font-family:\'IBM Plex Mono\',monospace;font-size:14px;font-weight:700;padding:0 10px;min-height:40px;display:flex;align-items:center;border-radius:10px;line-height:1;white-space:nowrap;}"
     + "@media (max-width:768px){"
-    +   "#vzZsdLegend{top:58px;gap:9px;padding:8px 10px;border-radius:13px;}"
-    +   "body.vz-wind-band #vzZsdLegend{top:118px;}"
+    // Meme ligne d'ancrage haute que la legende vent. L'empilement quand les
+    // deux couches sont actives derive de la hauteur MESUREE de la legende
+    // vent (--vzm-windleg), plus d'un 118px recopie a la main qui devenait faux
+    // des que la legende vent changeait de gabarit.
+    +   "#vzZsdLegend{top:calc(var(--vzm-topline, 64px) + 10px);gap:9px;padding:8px 10px;border-radius:13px;}"
+    +   "body.vz-wind-band #vzZsdLegend{top:calc(var(--vzm-topline, 64px) + 10px + var(--vzm-windleg, 50px) + 8px);}"
     +   ".vzzl-scale{width:230px;gap:4px;}"
     +   ".vzzl-cap{font-size:11px;}"
     +   ".vzzl-bar{height:14px;border-radius:7px;}"
@@ -21753,7 +21803,7 @@ var VZ_ACCOUNT = (function () {
     // absolue. La regle .vz-wind-band est plus specifique (0,2,1 contre 0,1,1)
     // donc elle l'emporte quand le bandeau vent est affiche.
     + 'body.vzm-nav{--vz-fabline:var(--vzm-navline,94px);}'
-    + 'body.vzm-nav.vz-wind-band{--vz-fabline:calc(var(--vzm-navline,94px) + 72px);}'
+    + 'body.vzm-nav.vz-wind-band{--vz-fabline:calc(var(--vzm-navline,94px) + var(--vzm-windh,96px));}'
     + 'body.vzm-nav .vzm-sonar-fab{bottom:calc(var(--vz-fabline) + 8px);}'
     + 'body.vzm-nav .vzm-sonar-menu{bottom:calc(var(--vz-fabline) + 84px);}'
     + 'body.vzm-nav #mobileAnalyzeBtn{bottom:calc(var(--vz-fabline) + 62px);}'
@@ -21833,6 +21883,7 @@ var VZ_ACCOUNT = (function () {
   document.body.classList.add('vzm-nav');
 
   // --- Ligne d'ancrage : une seule valeur, mesuree, jamais ecrite a la main ---
+  var _roSearch = null;
   function measure(){
     var hi = ident.offsetHeight;
     var hb = bar.offsetHeight;
@@ -21842,6 +21893,22 @@ var VZ_ACCOUNT = (function () {
     // redefinition du bandeau vent (body.vzm-nav.vz-wind-band).
     root.style.setProperty('--vzm-identh', hi + 'px');
     root.style.setProperty('--vzm-navline', (hi + hb + 8) + 'px');
+    // LIGNE D'ANCRAGE HAUTE, symetrique de --vzm-navline. Il n'en existait
+    // aucune : chaque element flottant du haut portait sa propre valeur en dur
+    // (legende vent 58px, legende ZSD 58/118px, menu compte 70px) alors que la
+    // barre de recherche descend a 64px. D'ou les chevauchements.
+    // On mesure .vz-search-box et PAS #vzSearch : ce dernier englobe la liste
+    // deroulante, donc il grandit a chaque frappe et les legendes sauteraient.
+    var sb = document.querySelector('#vzSearch .vz-search-box');
+    if (sb && sb.offsetHeight) {
+      root.style.setProperty('--vzm-topline',
+        Math.round(sb.getBoundingClientRect().bottom) + 'px');
+      // La recherche est construite par un module independant, souvent absent
+      // au boot de la barre : on l'observe des qu'elle apparait.
+      if (!_roSearch && window.ResizeObserver) {
+        try { _roSearch = new ResizeObserver(measure); _roSearch.observe(sb); } catch (e) {}
+      }
+    }
   }
   if (window.ResizeObserver) {
     var ro = new ResizeObserver(measure);
@@ -21849,6 +21916,7 @@ var VZ_ACCOUNT = (function () {
   }
   window.addEventListener('resize', measure);
   setTimeout(measure, 60);
+  setTimeout(measure, 500);
 
   // --- Contrôleur unique ---
   function syncTabs(k){
