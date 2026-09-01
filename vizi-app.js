@@ -3538,28 +3538,134 @@ var VZ_CUR_STATE = {
   time: null               // chaine TIME appliquee aux tuiles
 };
 
-// Liste des echeances. Purement locale : le pas de temps des deux
-// modeles est horaire, donc les echeances sont deduites de l'horloge et
-// aucune requete n'est necessaire pour construire le curseur.
+// Echeances reellement publiees pour un layer, lues dans son bloc du
+// GetCapabilities. Le service WMTS ne rejette PAS un TIME qu'il ne sait
+// pas interpreter : il retombe en silence sur son echeance par defaut, et
+// la carte semble alors figee alors que les requetes partent bien. La
+// seule parade fiable est de ne rien fabriquer et de reutiliser mot pour
+// mot les valeurs annoncees par le serveur.
+// Deux ecritures possibles selon les produits : une liste de valeurs, ou
+// un intervalle "debut/fin/periode" au sens ISO 8601. Les deux sont
+// traitees ; tout le reste renvoie null et declenche le repli local.
+function vzCurExtractTimes_(xml, layerId) {
+  try {
+    var blocks = xml.split('<Layer>');
+    var blk = null;
+    for (var i = 1; i < blocks.length; i++) {
+      if (blocks[i].indexOf('>' + layerId + '<') !== -1) { blk = blocks[i]; break; }
+    }
+    if (!blk) return null;
+    // On se limite au bloc de dimension portant l'identifiant "time" :
+    // certains produits exposent aussi une dimension d'elevation.
+    var dim = null;
+    var dims = blk.split('<Dimension>');
+    for (var d = 1; d < dims.length; d++) {
+      if (/<ows:Identifier>\s*time\s*<\/ows:Identifier>/i.test(dims[d])) { dim = dims[d]; break; }
+    }
+    if (!dim) return null;
+    var cut = dim.indexOf('</Dimension>');
+    if (cut !== -1) dim = dim.slice(0, cut);
+
+    var vals = [];
+    var re = /<Value>([^<]+)<\/Value>/g, m;
+    while ((m = re.exec(dim)) !== null) vals.push(m[1].trim());
+    if (!vals.length) return null;
+
+    // Cas intervalle : "2026-09-01T00:00:00.000000000Z/2026-09-11T.../PT1H".
+    if (vals.length === 1 && vals[0].indexOf('/') !== -1) {
+      var p = vals[0].split('/');
+      if (p.length < 2) return null;
+      var t0 = Date.parse(p[0]), t1 = Date.parse(p[1]);
+      if (isNaN(t0) || isNaN(t1)) return null;
+      var stepMs = 3600000;
+      if (p[2]) {
+        var mh = /PT(\d+)H/i.exec(p[2]);
+        var mm = /PT(\d+)M/i.exec(p[2]);
+        if (mh) stepMs = parseInt(mh[1], 10) * 3600000;
+        else if (mm) stepMs = parseInt(mm[1], 10) * 60000;
+      }
+      if (stepMs <= 0) return null;
+      // Garde-fou : on ne deroule pas un intervalle absurde.
+      if ((t1 - t0) / stepMs > 5000) return null;
+      var out = [];
+      for (var t = t0; t <= t1; t += stepMs) {
+        out.push(vzCurStampLike_(new Date(t), p[0]));
+      }
+      return out;
+    }
+    return vals;
+  } catch (e) {
+    console.warn('[courant] lecture des echeances impossible', e);
+    return null;
+  }
+}
+
+// Reecrit une date dans l'ecriture exacte d'un modele fourni par le
+// serveur (nombre de decimales, presence du Z). On ne suppose jamais le
+// format, on le recopie.
+function vzCurStampLike_(d, model) {
+  var base = d.getUTCFullYear() + '-'
+    + String(d.getUTCMonth() + 1).padStart(2, '0') + '-'
+    + String(d.getUTCDate()).padStart(2, '0') + 'T'
+    + String(d.getUTCHours()).padStart(2, '0') + ':'
+    + String(d.getUTCMinutes()).padStart(2, '0') + ':'
+    + String(d.getUTCSeconds()).padStart(2, '0');
+  var frac = /\.(\d+)/.exec(model || '');
+  if (frac) base += '.' + new Array(frac[1].length + 1).join('0');
+  if (/Z$/.test(model || '')) base += 'Z';
+  return base;
+}
+
+// Liste des echeances du curseur. Chaque entree porte DEUX ecritures :
+//   time : forme courte "YYYY-MM-DDTHH:MM", celle que sait lire
+//          vzWindDate_ et donc tout l'affichage du curseur ;
+//   wmts : la chaine EXACTE a renvoyer au service dans TIME.
+// Les deux ne peuvent pas etre confondues : vzWindDate_ concatene un 'Z',
+// ce qui casserait une valeur serveur qui en porte deja un.
+// Source par ordre de preference : les echeances annoncees par le
+// serveur, filtrees sur la fenetre utile ; a defaut une generation locale
+// au pas horaire, dans le format documente a neuf decimales.
 function vzCurBuildFrames_() {
   var out = [];
+  var now = Date.now();
+  var t0 = now - VZ_CUR_CFG.hoursBack * 3600000;
+  var t1 = now + VZ_CUR_CFG.hoursFwd * 3600000;
+  var srv = VZ_CUR_CFG.facades[0].times;
+
+  if (srv && srv.length) {
+    for (var i = 0; i < srv.length; i++) {
+      var ms = Date.parse(srv[i]);
+      if (isNaN(ms) || ms < t0 || ms > t1) continue;
+      out.push({ time: vzCurShortStamp_(new Date(ms)), wmts: srv[i] });
+    }
+    if (out.length) return out;
+    console.warn('[courant] aucune echeance serveur dans la fenetre, repli local');
+  }
+
   var d = new Date();
   d.setUTCMinutes(0, 0, 0);
   d.setUTCHours(d.getUTCHours() - VZ_CUR_CFG.hoursBack);
   var n = VZ_CUR_CFG.hoursBack + VZ_CUR_CFG.hoursFwd;
-  for (var i = 0; i <= n; i++) {
-    var t = new Date(d.getTime() + i * 3600000);
-    out.push({ time: t.getUTCFullYear() + '-'
-      + String(t.getUTCMonth() + 1).padStart(2, '0') + '-'
-      + String(t.getUTCDate()).padStart(2, '0') + 'T'
-      + String(t.getUTCHours()).padStart(2, '0') + ':00' });
+  for (var k = 0; k <= n; k++) {
+    var t = new Date(d.getTime() + k * 3600000);
+    out.push({
+      time: vzCurShortStamp_(t),
+      // Neuf decimales : c'est l'ecriture documentee par Copernicus. Une
+      // ecriture au millieme est acceptee sans erreur mais ignoree, donc
+      // toutes les echeances renverraient la meme image.
+      wmts: vzCurStampLike_(t, '.000000000Z')
+    });
   }
   return out;
 }
 
-// TIME au format attendu par le service, depuis un time de frame.
-function vzCurTimeParam_(iso) {
-  return iso + ':00.000Z';
+// Forme courte lisible par vzWindDate_ (qui ajoute les secondes et le Z).
+function vzCurShortStamp_(d) {
+  return d.getUTCFullYear() + '-'
+    + String(d.getUTCMonth() + 1).padStart(2, '0') + '-'
+    + String(d.getUTCDate()).padStart(2, '0') + 'T'
+    + String(d.getUTCHours()).padStart(2, '0') + ':'
+    + String(d.getUTCMinutes()).padStart(2, '0');
 }
 
 // Resolution de l'identifiant complet de chaque facade depuis
@@ -3587,10 +3693,12 @@ function vzCurResolveLayers_() {
       }
       if (!best) throw new Error('aucun dataset horaire non detide');
       f.layer = best;
+      f.times = vzCurExtractTimes_(xml, best);
       return best;
     }).catch(function(e) {
       console.warn('[courant] resolution ' + f.id + ' echouee, identifiant de repli', e);
       f.layer = f.layerFallback;
+      f.times = null;
       return f.layer;
     });
   });
@@ -3673,6 +3781,17 @@ function vzCurBuildLayer_(f) {
   });
 }
 
+// Echeance la plus proche de l'instant present dans S.curFrames.
+function vzCurNowIndex_() {
+  if (!S.curFrames || !S.curFrames.length) return 0;
+  var now = Date.now(), best = 0, bestD = Infinity;
+  for (var i = 0; i < S.curFrames.length; i++) {
+    var d = Math.abs(Date.parse(S.curFrames[i].wmts) - now);
+    if (d < bestD) { bestD = d; best = i; }
+  }
+  return best;
+}
+
 // Applique l'echeance d'index i. Le rafraichissement passe par redraw(),
 // donc par le cache HTTP du navigateur : revenir sur une echeance deja
 // vue ne recharge rien.
@@ -3680,7 +3799,7 @@ function vzCurShowFrame_(i) {
   if (!S.curFrames || !S.curFrames.length) return;
   i = Math.max(0, Math.min(i, S.curFrames.length - 1));
   S.curPos = i;
-  VZ_CUR_STATE.time = vzCurTimeParam_(S.curFrames[i].time);
+  VZ_CUR_STATE.time = S.curFrames[i].wmts;
   if (VZ_CUR_STATE.layers) {
     for (var k = 0; k < VZ_CUR_STATE.layers.length; k++) {
       try { VZ_CUR_STATE.layers[k].redraw(); } catch (e) {}
@@ -3696,8 +3815,11 @@ function vzCurEnsure_() {
   return vzCurResolveLayers_().then(function() {
     if (VZ_CUR_STATE.layers) return VZ_CUR_STATE.layers;   // course
     S.curFrames = vzCurBuildFrames_();
-    S.curPos = VZ_CUR_CFG.hoursBack;                       // heure ronde courante
-    VZ_CUR_STATE.time = vzCurTimeParam_(S.curFrames[S.curPos].time);
+    // L'echeance de depart n'est plus deduite de la fenetre demandee : la
+    // liste vient du serveur, elle peut commencer ailleurs. On cherche
+    // donc l'echeance la plus proche de maintenant.
+    S.curPos = vzCurNowIndex_();
+    VZ_CUR_STATE.time = S.curFrames[S.curPos].wmts;
     VZ_CUR_STATE.layers = VZ_CUR_CFG.facades.map(vzCurBuildLayer_);
     // La LUT arrive apres les premieres tuiles : on repeint une fois prete.
     vzCurFetchLegend_().then(function() {
