@@ -123,8 +123,45 @@
     + '#vzDepot .vzd-date svg{width:20px;height:20px;flex-shrink:0;fill:none;'
     +   'stroke:var(--vz-ink,#0A1520);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}'
     + '#vzDepot .vzd-date .d{flex:1;min-width:0;font-size:16px;font-weight:700;}'
-    + '#vzDepot .vzd-date input{position:absolute;inset:0;width:100%;height:100%;opacity:0;'
-    +   'border:none;background:none;cursor:pointer;-webkit-appearance:none;}'
+    + '#vzDepot .vzd-date .chev{width:20px;height:20px;flex-shrink:0;fill:none;'
+    +   'stroke:var(--vz-text-2,#33475A);stroke-width:2.6;stroke-linecap:round;'
+    +   'stroke-linejoin:round;transition:transform var(--vz-t-state,.2s);}'
+    + '#vzDepot .vzd-date.open .chev{transform:rotate(90deg);}'
+
+    // --- calendrier --------------------------------------------------------
+    // Ecrit a la main plutot que de compter sur input[type=date]. Le picker
+    // natif ne s'ouvre pas au clic sur desktop (seul l'indicateur minuscule
+    // repond) et son rendu differe sur chaque plateforme. Un instrument doit
+    // se comporter pareil partout.
+    + '#vzDepot .vzd-cal{margin-top:8px;padding:10px;background:var(--vz-surface,#fff);'
+    +   'border:var(--vz-bd,2px) solid var(--vz-ink,#0A1520);'
+    +   'border-radius:var(--vz-r-card,14px);}'
+    + '#vzDepot .vzd-cal-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;}'
+    + '#vzDepot .vzd-cal-head .m{flex:1;min-width:0;text-align:center;font-size:15px;'
+    +   'font-weight:800;text-transform:capitalize;}'
+    + '#vzDepot .vzd-cal-nav{display:flex;align-items:center;justify-content:center;'
+    +   'width:44px;height:44px;flex-shrink:0;padding:0;background:var(--vz-surface,#fff);'
+    +   'border:var(--vz-bd,2px) solid var(--vz-line,#C3D0DA);border-radius:11px;'
+    +   'color:var(--vz-ink,#0A1520);cursor:pointer;-webkit-tap-highlight-color:transparent;}'
+    + '#vzDepot .vzd-cal-nav svg{width:18px;height:18px;fill:none;stroke:currentColor;'
+    +   'stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;}'
+    + '#vzDepot .vzd-cal-nav[disabled]{opacity:.35;pointer-events:none;}'
+    + '#vzDepot .vzd-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}'
+    + '#vzDepot .vzd-cal-w{height:24px;display:flex;align-items:center;justify-content:center;'
+    +   'font-family:var(--vz-font-num,monospace);font-size:10px;font-weight:600;'
+    +   'letter-spacing:.06em;color:var(--vz-text-2,#33475A);}'
+    + '#vzDepot .vzd-cal-d{height:48px;display:flex;align-items:center;justify-content:center;'
+    +   'padding:0;background:var(--vz-surface,#fff);border:var(--vz-bd,2px) solid transparent;'
+    +   'border-radius:10px;cursor:pointer;font-family:var(--vz-font-num,monospace);'
+    +   'font-size:15px;font-weight:600;color:var(--vz-ink,#0A1520);'
+    +   '-webkit-tap-highlight-color:transparent;}'
+    + '#vzDepot .vzd-cal-d.today{border-color:var(--vz-line,#C3D0DA);}'
+    + '#vzDepot .vzd-cal-d.on{background:var(--vz-accent,#4DD4A8);'
+    +   'border-color:var(--vz-ink,#0A1520);font-weight:800;}'
+    // Une sortie ne peut pas avoir eu lieu demain. Les jours a venir restent
+    // AFFICHES mais inertes : les masquer ferait croire a un calendrier casse.
+    + '#vzDepot .vzd-cal-d[disabled]{opacity:.28;pointer-events:none;}'
+    + '#vzDepot .vzd-cal-d.vide{visibility:hidden;pointer-events:none;}'
 
     // --- grille de visibilite : meme echelle que #obsVisGrid ---------------
     + '#vzDepot .vzd-vis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}'
@@ -268,7 +305,10 @@
     lock:   '<svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10 V7 a4 4 0 0 1 8 0 v3"/></svg>',
     up:     '<svg viewBox="0 0 24 24"><path d="M12 19 V5"/><path d="M6 11 l6-6 6 6"/></svg>',
     warn:   '<svg viewBox="0 0 24 24"><path d="M12 4 l9 16 H3 Z"/><path d="M12 10 v4"/><path d="M12 17.2 v.1"/></svg>',
-    cam:    '<svg viewBox="0 0 24 24"><path d="M3 8.5 A2 2 0 0 1 5 6.5 h2.2 l1.3-2 h7 l1.3 2 H19 a2 2 0 0 1 2 2 V18 a2 2 0 0 1-2 2 H5 a2 2 0 0 1-2-2 Z"/><circle cx="12" cy="13" r="3.6"/></svg>'
+    cam:    '<svg viewBox="0 0 24 24"><path d="M3 8.5 A2 2 0 0 1 5 6.5 h2.2 l1.3-2 h7 l1.3 2 H19 a2 2 0 0 1 2 2 V18 a2 2 0 0 1-2 2 H5 a2 2 0 0 1-2-2 Z"/><circle cx="12" cy="13" r="3.6"/></svg>',
+    chev:   '<svg class="chev" viewBox="0 0 24 24"><path d="M9 6 l6 6 -6 6"/></svg>',
+    prev:   '<svg viewBox="0 0 24 24"><path d="M15 5 l-7 7 7 7"/></svg>',
+    next:   '<svg viewBox="0 0 24 24"><path d="M9 5 l7 7 -7 7"/></svg>'
   };
 
   /* ------------------------------------------------------------------------
@@ -311,6 +351,8 @@
   ];
 
   var JOURS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+  // Semaine commencant le lundi, usage francais.
+  var SEM = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
   var MOIS  = ['janvier', 'f\u00e9vrier', 'mars', 'avril', 'mai', 'juin', 'juillet',
                'ao\u00fbt', 'septembre', 'octobre', 'novembre', 'd\u00e9cembre'];
 
@@ -336,6 +378,8 @@
   var _done = null;           // recapitulatif apres envoi
   var _searchTimer = null;
   var _searchItems = [];
+  var _calOpen = false;
+  var _calMois = null;        // Date positionnee au 1er du mois affiche
 
   function esc(s) {
     return String(s == null ? '' : s)
@@ -422,10 +466,12 @@
 
     // --- date ---
     h += '<div class="vzd-f"><span class="vzd-k">Date de la sortie</span>'
-      +    '<div class="vzd-date">' + ICO.cal
-      +      '<span class="d" id="vzdDateLabel">' + esc(dateLongue(_date)) + '</span>'
-      +      '<input type="date" id="vzdDate" value="' + esc(_date) + '" />'
-      +    '</div>'
+      +    '<button type="button" class="vzd-date' + (_calOpen ? ' open' : '') + '" id="vzdDateBtn">'
+      +      ICO.cal
+      +      '<span class="d">' + esc(dateLongue(_date)) + '</span>'
+      +      ICO.chev
+      +    '</button>'
+      +    (_calOpen ? calendrier() : '')
       +  '</div>';
 
     // --- visibilite ---
@@ -494,6 +540,71 @@
     h += '<div class="vzd-f">' + blocPartage() + '</div>';
 
     return h;
+  }
+
+  /* ------------------------------------------------------------------------
+     CALENDRIER
+     ------------------------------------------------------------------------
+     Grille mensuelle ecrite a la main. input[type=date] a ete retire : son
+     picker ne s'ouvre pas au clic sur desktop, et son rendu change a chaque
+     plateforme. Ici le comportement est le meme partout, ce qu'on attend d'un
+     instrument.
+
+     Aucune date future selectionnable : une sortie ne peut pas avoir eu lieu
+     demain. Les jours a venir restent affiches et inertes, les masquer ferait
+     croire a un calendrier casse.
+     ------------------------------------------------------------------------ */
+  function moisAffiche() {
+    if (_calMois) return _calMois;
+    var d = _date ? new Date(_date + 'T12:00:00') : new Date();
+    if (isNaN(d.getTime())) d = new Date();
+    _calMois = new Date(d.getFullYear(), d.getMonth(), 1);
+    return _calMois;
+  }
+
+  function iso(y, m, j) {
+    return y + '-' + String(m + 1).padStart(2, '0') + '-' + String(j).padStart(2, '0');
+  }
+
+  function calendrier() {
+    var cur = moisAffiche();
+    var an = cur.getFullYear(), mo = cur.getMonth();
+    var auj = new Date();
+    var isoAuj = iso(auj.getFullYear(), auj.getMonth(), auj.getDate());
+
+    // getDay() rend 0 pour dimanche ; on decale pour une semaine au lundi.
+    var premier = new Date(an, mo, 1).getDay();
+    var decal = (premier + 6) % 7;
+    var nbJours = new Date(an, mo + 1, 0).getDate();
+
+    // Le mois suivant n'est atteignable que s'il contient au moins un jour
+    // passe ou aujourd'hui.
+    var suivantOk = new Date(an, mo + 1, 1) <= new Date(auj.getFullYear(), auj.getMonth(), 1);
+
+    var h = '<div class="vzd-cal">'
+      +   '<div class="vzd-cal-head">'
+      +     '<button type="button" class="vzd-cal-nav" data-mois="-1" aria-label="Mois pr\u00e9c\u00e9dent">'
+      +       ICO.prev + '</button>'
+      +     '<span class="m">' + MOIS[mo] + ' ' + an + '</span>'
+      +     '<button type="button" class="vzd-cal-nav" data-mois="1" aria-label="Mois suivant"'
+      +       (suivantOk ? '' : ' disabled') + '>' + ICO.next + '</button>'
+      +   '</div>'
+      +   '<div class="vzd-cal-grid">';
+
+    SEM.forEach(function (w) { h += '<span class="vzd-cal-w">' + w + '</span>'; });
+    for (var i = 0; i < decal; i++) h += '<span class="vzd-cal-d vide"></span>';
+
+    for (var j = 1; j <= nbJours; j++) {
+      var v = iso(an, mo, j);
+      var futur = v > isoAuj;
+      var cls = 'vzd-cal-d'
+        + (v === _date ? ' on' : '')
+        + (v === isoAuj ? ' today' : '');
+      h += '<button type="button" class="' + cls + '" data-jour="' + v + '"'
+        + (futur ? ' disabled' : '') + '>' + j + '</button>';
+    }
+
+    return h + '</div></div>';
   }
 
   function triBloc(titre, cle, liste, sel) {
@@ -567,8 +678,13 @@
       if (b) b.addEventListener('click', fermerVersEspace);
       return;
     }
+    // Chaque appui sur une pastille reconstruit tout le formulaire. Sans cette
+    // restauration, choisir "Grands" en bas du formulaire renvoyait le chasseur
+    // en haut de l'ecran a chaque fois.
+    var sc = _body.scrollTop;
     _body.className = 'vzd-body';
     _body.innerHTML = vueForm();
+    _body.scrollTop = sc;
     _foot.innerHTML = '<button type="button" class="vzd-cta" id="vzdGo"'
       + (pretAEnvoyer() ? '' : ' disabled') + '>' + labelCta() + '</button>';
     bind();
@@ -611,11 +727,27 @@
       });
     });
 
-    var dt = document.getElementById('vzdDate');
-    if (dt) dt.addEventListener('change', function () {
-      _date = dt.value || _date;
-      var lb = document.getElementById('vzdDateLabel');
-      if (lb) lb.textContent = dateLongue(_date);
+    var db = document.getElementById('vzdDateBtn');
+    if (db) db.addEventListener('click', function () {
+      _calOpen = !_calOpen;
+      // Le calendrier s'ouvre TOUJOURS sur le mois de la date retenue, pas sur
+      // le dernier mois feuillete lors d'une ouverture precedente.
+      if (_calOpen) _calMois = null;
+      render();
+    });
+    _body.querySelectorAll('[data-mois]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var c = moisAffiche();
+        _calMois = new Date(c.getFullYear(), c.getMonth() + parseInt(b.getAttribute('data-mois'), 10), 1);
+        render();
+      });
+    });
+    _body.querySelectorAll('[data-jour]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        _date = b.getAttribute('data-jour');
+        _calOpen = false;
+        render();
+      });
     });
 
     var nt = document.getElementById('vzdNotes');
