@@ -31,6 +31,15 @@
      aucun conseil, aucune incitation a sortir
      aucune celebration, aucun niveau, aucun titre, aucun badge
      aucun emoji, aucun tiret cadratin
+
+   DEROGATION ASSUMEE, decidee le 2 septembre 2026.
+   La feuille de depot demande la vie aquatique et la TAILLE des poissons, en
+   trois crans chacune. C'est un ecart au principe qui excluait toute donnee
+   de prise. Le perimetre en est la contrepartie : aucune espece, aucun
+   comptage, aucune position, et surtout AUCUNE de ces deux valeurs ne quitte
+   users/{uid}/retours. Le secteur ne recoit toujours que la visibilite et le
+   pseudo. Si l'une des deux devait un jour partir en public, ce serait une
+   decision produit distincte, a reprendre a zero.
      une mesure porte sa source et son age, une prevision porte son echeance
      un secteur sans mesure recente porte un point d'interrogation lisible,
      jamais un etat grise : afficher une valeur rassurante que la mer
@@ -1268,13 +1277,15 @@
   /* Un seul chemin de recadrage pour les trois entrees qui en ont besoin :
      un secteur suivi, un spot favori, et le depot d'un retour. Trois copies
      de ce bloc finiraient par diverger sur le decalage mobile. */
-  function allerAuPoint(lat, lon) {
+  function allerAuPoint(lat, lon, ouvrirPanneau) {
     if (typeof lat !== 'number' || typeof lon !== 'number') return;
     close();
     try {
       if (typeof window.vzSearchGoTo === 'function') {
         window.vzSearchGoTo(lat, lon, 0);
       } else if (typeof S !== 'undefined' && S && S.map) {
+        // Repli si le module de recherche n'est pas monte : on refait le meme
+        // decalage a la main plutot que de centrer et fausser la lecture.
         S.map.setView([lat, lon], 12);
         if (typeof isMobile === 'function' && isMobile()) {
           var sz = S.map.getSize();
@@ -1283,8 +1294,16 @@
         }
       }
 
+      // Recadrer et ouvrir un panneau sont deux actions distinctes. Les avoir
+      // soudees faisait ouvrir les Previsions au clic sur "Deposer un retour" :
+      // VZM_NAV.open('cond') deroule le panneau secteur ET appelle
+      // closeEverythingElse, qui refermait la feuille de depot juste apres.
+      if (!ouvrirPanneau) return;
+
       var mob = (typeof isMobile === 'function') && isMobile();
       if (mob && typeof VZM_NAV !== 'undefined' && VZM_NAV && VZM_NAV.open) {
+        // VZM_NAV.open est un toggle : si le mode vaut deja 'cond', l'appel
+        // REFERMERAIT le panneau au lieu de l'ouvrir sur le nouveau secteur.
         if (typeof VZ_SHEET !== 'undefined' && VZ_SHEET && VZ_SHEET.mode === 'cond') {
           VZ_SHEET.mode = null;
         }
@@ -1316,49 +1335,23 @@
         return typeof x.lat === 'number' && typeof x.lon === 'number';
       })[0] || null;
     }
+    // Aucun recadrage de carte ici. L'ecran de depot fait CHOISIR le secteur :
+    // le chasseur n'a pas besoin que la carte se soit deplacee derriere, et
+    // deplacer la camera sans qu'il l'ait demande lui ferait perdre sa vue.
     close();
-    try {
-      if (cible) allerAuPoint(cible.lat, cible.lon);
-    } catch (e) {}
-    if (typeof openObsSheet !== 'function') return;
-    var pt = cible ? { lat: cible.lat, lng: cible.lon } : null;
-    // Laisse le recadrage se poser avant d'ouvrir la feuille : sur mobile,
-    // VZM_NAV.open('cond') deroule le panneau secteur dans le meme tick.
-    setTimeout(function () { openObsSheet(pt); }, cible ? 340 : 0);
+    if (typeof VZ_DEPOT !== 'undefined' && VZ_DEPOT && VZ_DEPOT.open) {
+      VZ_DEPOT.open(cible ? { lat: cible.lat, lon: cible.lon } : null);
+    } else if (typeof openObsSheet === 'function') {
+      openObsSheet(cible ? { lat: cible.lat, lng: cible.lon } : null);
+    }
   }
 
   function openSecteur(id) {
     var sec = (_secteurs || []).filter(function (x) { return x.id === id; })[0];
     if (!sec || typeof sec.lat !== 'number' || typeof sec.lon !== 'number') return;
-    close();
-    try {
-      if (typeof window.vzSearchGoTo === 'function') {
-        window.vzSearchGoTo(sec.lat, sec.lon, 0);
-      } else if (typeof S !== 'undefined' && S && S.map) {
-        // Repli si le module de recherche n'est pas monte : on refait le meme
-        // decalage a la main plutot que de centrer et fausser la lecture.
-        S.map.setView([sec.lat, sec.lon], 12);
-        if (typeof isMobile === 'function' && isMobile()) {
-          var sz = S.map.getSize();
-          S.map.setView(S.map.containerPointToLatLng([sz.x / 2, sz.y * 2 / 3]), 12,
-                        { animate: false });
-        }
-      }
-
-      var mob = (typeof isMobile === 'function') && isMobile();
-      if (mob && typeof VZM_NAV !== 'undefined' && VZM_NAV && VZM_NAV.open) {
-        // VZM_NAV.open est un toggle : si le mode vaut deja 'cond', l'appel
-        // REFERMERAIT le panneau au lieu de l'ouvrir sur le nouveau secteur.
-        // On remet l'etat a zero avant, sinon le comportement depend de ce que
-        // le chasseur avait ouvert juste avant d'entrer dans son espace.
-        if (typeof VZ_SHEET !== 'undefined' && VZ_SHEET && VZ_SHEET.mode === 'cond') {
-          VZ_SHEET.mode = null;
-        }
-        VZM_NAV.open('cond');
-      } else if (typeof openSpotPopup === 'function') {
-        openSpotPopup({ lat: sec.lat, lng: sec.lon }, null);
-      }
-    } catch (e) { console.warn('[espace] ouverture secteur', e); }
+    // Delegue : un secteur suivi recadre ET deroule le panneau secteur. C'est
+    // la seule difference avec le depot, et elle tient dans le drapeau.
+    allerAuPoint(sec.lat, sec.lon, true);
   }
 
   /* ------------------------------------------------------------------------
@@ -1398,7 +1391,7 @@
     _body.querySelectorAll('[data-point]').forEach(function (b) {
       b.addEventListener('click', function () {
         var c = String(b.getAttribute('data-point') || '').split(',');
-        allerAuPoint(parseFloat(c[0]), parseFloat(c[1]));
+        allerAuPoint(parseFloat(c[0]), parseFloat(c[1]), true);
       });
     });
     _body.querySelectorAll('[data-act="depot"]').forEach(function (b) {
@@ -1801,6 +1794,13 @@
       // users/{uid}/retours : aucune espece, aucune taille, aucun comptage, et
       // rien qui puisse etre recoupe pour deduire ou le poisson se tient.
       vie: data.vie || '',
+      // Taille des poissons, trois crans. Meme regime que la vie aquatique :
+      // elle ne quitte JAMAIS users/{uid}/retours, aucune espece, aucun
+      // comptage, et rien qui puisse etre recoupe avec un point GPS public.
+      taille: data.taille || '',
+      // URL Storage des cliches. L'album est personnel : ces URL ne sont
+      // jamais transmises au GAS ni affichees sur un secteur.
+      photos: Array.isArray(data.photos) ? data.photos : [],
       notes: data.notes || '',
       predictedVisM: currentPrediction(),
       partage: !!data.partage,
@@ -1828,6 +1828,16 @@
     open: open,
     close: close,
     go: go,
+    // Lus par le module de depot pour ses chips d'acces rapide. Copie
+    // defensive : le module ne doit pas pouvoir muter l'etat de l'espace.
+    secteurs: function () { return (_secteurs || []).slice(); },
+    // Appele apres un depot. _retours a null force la relecture Firestore au
+    // prochain rendu, sinon le nouveau retour n'apparaitrait qu'apres un
+    // rechargement complet de l'application.
+    refresh: function () {
+      _retours = null;
+      if (_el && _el.classList.contains('open')) loadData();
+    },
     isOpen: function () { return !!(_el && _el.classList.contains('open')); },
     unread: unread,
     version: VERSION
