@@ -222,6 +222,13 @@
     +   'background:var(--vz-accent);border:var(--vz-bd) solid var(--vz-ink);cursor:pointer;'
     +   'font-family:inherit;font-size:16px;font-weight:800;color:var(--vz-ink);'
     +   'transition:transform var(--vz-t-press);-webkit-tap-highlight-color:transparent;}'
+    // CAUSE DU BOUTON GEANT : ICO.plus ne porte ni width ni height, et aucune
+    // regle ne dimensionnait les SVG dans .vze-btn. Un SVG sans taille dans un
+    // conteneur flex prend sa taille de remplacement par defaut et s'etire :
+    // le "+" occupait toute la hauteur du bouton. La regle porte sur TOUT SVG
+    // de .vze-btn, pas sur cette icone, pour que le prochain bouton a icone ne
+    // repose pas le probleme.
+    + '#vzEspace .vze-btn svg{width:20px;height:20px;flex-shrink:0;}'
     + '#vzEspace .vze-btn:active{transform:scale(.97);}'
     + '#vzEspace .vze-btn.ghost{background:var(--vz-surface);border-color:var(--vz-line);'
     +   'color:var(--vz-text-2);font-size:var(--vz-fs-label);}'
