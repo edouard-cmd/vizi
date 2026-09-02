@@ -2519,10 +2519,22 @@ var VZ_RAIN_TTL = 10 * 60 * 1000;  // frames valides 10 min, sinon re-fetch
    Manche il mesure la Manche, en Mediterranee la Mediterranee. Aucune
    constante regionale, ca vaut sur toute la facade par construction.
    ============================================================ */
-var VZ_RAIN_FUT_STEPS = 3;        // +1, +2, +3 pas de radar, soit +30 min
+// Echeances extrapolees, en MINUTES apres la derniere image mesuree. Le pas
+// n'a plus aucune raison d'etre celui de RainViewer (10 min) : on ne rejoue
+// plus leurs images, on fabrique les notres a partir d'un vecteur mesure, donc
+// on choisit la grille qui sert la decision.
+// Franchise sur la qualite : la competence d'une advection decroit vite avec
+// l'echeance. A +15 elle est excellente, a +30 bonne sur un front, a +60 elle
+// ne vaut plus que pour une masse organisee qui traverse. Elle ne verra jamais
+// une cellule qui se forme sur place, a aucune echeance.
+var VZ_RAIN_FUT_MIN = [15, 30, 45, 60];
 var VZ_RAIN_ADV_TILE = 64;        // chaque tuile 256 est reduite a 64 px
 var VZ_RAIN_ADV_N = 192;          // mosaique 3x3 tuiles = 192x192 px
-var VZ_RAIN_ADV_MAX = 10;         // recherche +/- 10 px, soit ~115 km/h
+// 14 px et non 10 : au zoom 7 vers 49 deg N, 1 px de mosaique vaut ~3,2 km,
+// donc 10 px sur 20 min plafonnaient a ~96 km/h. Un front rapide d'hiver passe
+// au-dessus et sortait en "hors fenetre", donc sans prevision au moment ou elle
+// sert le plus. 14 px porte le plafond a ~134 km/h pour 75 ms de calcul.
+var VZ_RAIN_ADV_MAX = 14;
 // Un champ presque vide n'a pas de mouvement mesurable : sous ce taux
 // d'echos on ne devine pas, on s'abstient.
 var VZ_RAIN_ADV_MIN_ECHO = 0.004;
@@ -2561,7 +2573,12 @@ function vzRainLayerFor(idx) {
   if (S.rainCache[idx]) return S.rainCache[idx];
   var f = S.rainFrames[idx];
   var url = S.rainHost + f.path + '/256/{z}/{x}/{y}/' + VZ_RAIN_COLOR + '/1_1.png';
-  var layer = L.tileLayer(url, { opacity: 0, maxZoom: 12, maxNativeZoom: 7, pane: 'vzRainPane', attribution: 'Radar RainViewer.com' });
+  // crossOrigin OBLIGATOIRE, meme si l'affichage n'en a pas besoin. Sans lui,
+  // Leaflet met la tuile en cache en mode NON-CORS ; l'Image() que l'advection
+  // charge ensuite sur la MEME url recoit cette copie sans en-tetes CORS, et
+  // Safari refuse alors getImageData. Un seul mode de requete, une seule entree
+  // de cache, les deux chemins lisent la meme chose.
+  var layer = L.tileLayer(url, { opacity: 0, maxZoom: 12, maxNativeZoom: 7, crossOrigin: true, pane: 'vzRainPane', attribution: 'Radar RainViewer.com' });
   layer.addTo(S.map);
   S.rainCache[idx] = layer;
   return layer;
@@ -2664,44 +2681,100 @@ function vzRainBestShift_(A, B) {
 // Mesure le vecteur de deplacement et allonge S.rainFrames des echeances
 // futures. Memoisee par horodatage de la derniere mesure : tant que RainViewer
 // n'a pas publie d'image, il n'y a rien de nouveau a mesurer.
+// Toute sortie sans vecteur passe par ici. Un garde-fou muet est un garde-fou
+// inutilisable : quand il n'y a pas de futur a l'ecran, la console doit dire
+// lequel des cinq cas s'est produit, sinon le diagnostic se fait a l'aveugle.
+function vzRainNoAdvect_(why, detail) {
+  console.warn('[rain] pas de prevision : ' + why, detail !== undefined ? detail : '');
+  return null;
+}
+
+// Diagnostic complet en un appel, depuis la console : vzRainDiag(). Repond a la
+// seule question qui compte quand il n'y a pas de futur a l'ecran, sans avoir a
+// lire le code ni a decrire ce qu'on voit.
+window.vzRainDiag = function() {
+  var o = {
+    couche_active: !!S.showRain,
+    proprietaire_curseur: S.timeOwner,
+    images_chargees: S.rainFrames ? S.rainFrames.length : 0,
+    derniere_mesure_idx: S.rainNowIdx,
+    echeances_futures: S.rainFrames ? S.rainFrames.filter(function(f){ return f.future; }).length : 0,
+    position_curseur: S.rainPos,
+    vecteur: S.rainAdvect || 'aucun'
+  };
+  if (S.map) {
+    var b = S.map.getBounds();
+    o.zoom_carte = S.map.getZoom();
+    o.zoom_tuiles = Math.min(Math.round(S.map.getZoom()), 7);
+    o.largeur_vue_km = Math.round(b.getNorthWest().distanceTo(b.getNorthEast()) / 1000);
+  }
+  console.table(o);
+  console.log('Relance de la mesure...');
+  return vzRainAdvectEnsure_().then(function(a) {
+    console.log(a ? 'vecteur obtenu' : 'refus, voir la ligne [rain] ci-dessus');
+    return a;
+  });
+};
+
 function vzRainAdvectEnsure_() {
-  if (!S.rainFrames || S.rainFrames.length < 3) return Promise.resolve(null);
+  if (!S.rainFrames || S.rainFrames.length < 3) {
+    return Promise.resolve(vzRainNoAdvect_('moins de 3 images passees', S.rainFrames && S.rainFrames.length));
+  }
   var last = S.rainFrames[S.rainNowIdx];
   if (S.rainAdvect && S.rainAdvect.base === last.time) return Promise.resolve(S.rainAdvect);
   // Emprise de la vue : au-dela d'une region, un vecteur unique ne decrit plus
   // le champ. On rend null, l'appelant n'ajoute simplement pas de futur.
   var b = S.map.getBounds();
   var spanKm = b.getNorthWest().distanceTo(b.getNorthEast()) / 1000;
-  if (spanKm > VZ_RAIN_ADV_MAX_SPAN_KM) return Promise.resolve(null);
+  if (spanKm > VZ_RAIN_ADV_MAX_SPAN_KM) {
+    return Promise.resolve(vzRainNoAdvect_('vue trop large pour un vecteur unique',
+      Math.round(spanKm) + ' km > ' + VZ_RAIN_ADV_MAX_SPAN_KM));
+  }
   // Zoom des tuiles : plafonne au zoom natif de la source (7 en offre libre).
   var z = Math.min(Math.round(S.map.getZoom()), 7);
-  if (z < 3) return Promise.resolve(null);
+  if (z < 3) return Promise.resolve(vzRainNoAdvect_('zoom trop faible', z));
   var ctr = S.map.project(S.map.getCenter(), z).divideBy(256).floor();
   var prev = S.rainFrames[S.rainNowIdx - 2];   // 2 pas en arriere : le signal
   var dt = last.time - prev.time;              // est 2x plus grand que le bruit
-  if (!dt || dt <= 0) return Promise.resolve(null);
+  if (!dt || dt <= 0) return Promise.resolve(vzRainNoAdvect_('horodatages incoherents', dt));
   return Promise.all([
     vzRainFieldAt_(prev.path, z, ctr.x, ctr.y),
     vzRainFieldAt_(last.path, z, ctr.x, ctr.y)
   ]).then(function(r) {
     var A = r[0], B = r[1];
-    if (!A || !B) return null;
-    if (B.echo < VZ_RAIN_ADV_MIN_ECHO) return null;   // rien a suivre
+    if (!A || !B) return vzRainNoAdvect_('tuiles radar illisibles (CORS ou 404)');
+    if (B.echo < VZ_RAIN_ADV_MIN_ECHO) {
+      return vzRainNoAdvect_('pas assez d echos dans la zone',
+        (B.echo * 100).toFixed(2) + '% < ' + (VZ_RAIN_ADV_MIN_ECHO * 100) + '%');
+    }
     var sh = vzRainBestShift_(A.field, B.field);
-    if (sh.score < VZ_RAIN_ADV_MIN_SCORE) return null;
-    if (sh.edge) return null;   // deplacement hors fenetre : vecteur non borne
-    // 1 px de mosaique = 256/64 = 4 px projetes au zoom z. On ramene le
-    // deplacement a UN pas de radar pour pouvoir le multiplier par l'echeance.
-    var perStep = (S.rainFrames[S.rainNowIdx].time - S.rainFrames[S.rainNowIdx - 1].time) || (dt / 2);
-    var k = (256 / VZ_RAIN_ADV_TILE) * (perStep / dt);
+    if (sh.score < VZ_RAIN_ADV_MIN_SCORE) {
+      return vzRainNoAdvect_('champs trop dissemblables (formation/dissipation)',
+        'score ' + sh.score.toFixed(2) + ' < ' + VZ_RAIN_ADV_MIN_SCORE);
+    }
+    if (sh.edge) {
+      return vzRainNoAdvect_('deplacement hors fenetre de recherche',
+        'dx=' + sh.sx.toFixed(1) + ' dy=' + sh.sy.toFixed(1));
+    }
+    // 1 px de mosaique = 256/VZ_RAIN_ADV_TILE px projetes au zoom z. On ramene
+    // le deplacement a UNE MINUTE : c'est la seule base qui rende les echeances
+    // independantes du pas de publication de la source.
+    var perMin = (256 / VZ_RAIN_ADV_TILE) / (dt / 60);
     S.rainAdvect = {
-      px: sh.sx * k, py: sh.sy * k, tz: z,
-      score: sh.score, base: last.time, step: perStep
+      pxMin: sh.sx * perMin, pyMin: sh.sy * perMin, tz: z,
+      score: sh.score, base: last.time
     };
+    // Vitesse en km/h, pour pouvoir juger la plausibilite du vecteur d'un coup
+    // d'oeil : un front atlantique file entre 30 et 70 km/h. Une valeur hors de
+    // cet ordre de grandeur signale une mesure a ne pas croire.
+    var mPerPx = 156543.03392 * Math.cos(S.map.getCenter().lat * Math.PI / 180) / Math.pow(2, z);
+    var kmh = Math.sqrt(Math.pow(S.rainAdvect.pxMin, 2) + Math.pow(S.rainAdvect.pyMin, 2)) * mPerPx * 60 / 1000;
+    var dir = (Math.atan2(S.rainAdvect.pxMin, -S.rainAdvect.pyMin) * 180 / Math.PI + 360) % 360;
+    console.log('[rain] deplacement mesure : ' + kmh.toFixed(0) + ' km/h vers '
+      + dir.toFixed(0) + ' deg (correlation ' + sh.score.toFixed(2) + ')');
     return S.rainAdvect;
   }).catch(function(e) {
-    console.warn('[rain] advection indisponible', e);
-    return null;
+    return vzRainNoAdvect_('erreur pendant la mesure', e && e.message);
   });
 }
 
@@ -2713,8 +2786,13 @@ function vzRainBuildFuture_() {
   S.rainFrames = S.rainFrames.slice(0, S.rainNowIdx + 1);
   if (!S.rainAdvect) return;
   var last = S.rainFrames[S.rainNowIdx];
-  for (var k = 1; k <= VZ_RAIN_FUT_STEPS; k++) {
-    S.rainFrames.push({ time: last.time + k * S.rainAdvect.step, future: true, k: k });
+  // Les echeances sont comptees depuis la derniere image MESUREE, pas depuis
+  // l'horloge : c'est la seule base physique. A 22h20, la mesure de 22h10 et
+  // l'echeance +15 donnent 22h25. Le libelle long affiche donc l'heure absolue,
+  // et le libelle court le delai reel depuis maintenant, qui n'est pas 15 min.
+  for (var i = 0; i < VZ_RAIN_FUT_MIN.length; i++) {
+    var m = VZ_RAIN_FUT_MIN[i];
+    S.rainFrames.push({ time: last.time + m * 60, future: true, k: m });
   }
 }
 
@@ -2736,7 +2814,7 @@ function vzRainFutureEnsure_() {
   var last = S.rainFrames[S.rainNowIdx];
   S.rainFutureLayer = L.tileLayer(
     S.rainHost + last.path + '/256/{z}/{x}/{y}/' + VZ_RAIN_COLOR + '/1_1.png',
-    { opacity: 0, maxZoom: 12, maxNativeZoom: 7, keepBuffer: 4,
+    { opacity: 0, maxZoom: 12, maxNativeZoom: 7, keepBuffer: 4, crossOrigin: true,
       pane: 'vzRainFuturePane', attribution: 'Radar RainViewer.com' }
   );
   S.rainFutureLayer.addTo(S.map);
@@ -2754,12 +2832,13 @@ function vzRainFutureEnsure_() {
   return S.rainFutureLayer;
 }
 
+// k est ici un nombre de MINUTES apres la derniere mesure.
 function vzRainFutureApply_(k) {
   var pn = S.map.getPane('vzRainFuturePane');
   if (!pn || !S.rainAdvect) return;
   var sc = Math.pow(2, S.map.getZoom() - S.rainAdvect.tz);
-  pn.style.transform = 'translate3d(' + (S.rainAdvect.px * k * sc).toFixed(1)
-    + 'px,' + (S.rainAdvect.py * k * sc).toFixed(1) + 'px,0)';
+  pn.style.transform = 'translate3d(' + (S.rainAdvect.pxMin * k * sc).toFixed(1)
+    + 'px,' + (S.rainAdvect.pyMin * k * sc).toFixed(1) + 'px,0)';
 }
 
 // Ne fait plus qu'une chose : montrer la bonne tuile. Le libelle, le curseur,
