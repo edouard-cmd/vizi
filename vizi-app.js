@@ -2494,6 +2494,47 @@ var VZ_RAIN_COLOR = 2;      // schema couleur "Universal Blue"
 var VZ_RAIN_ANIM_MS = 600;
 var VZ_RAIN_TTL = 10 * 60 * 1000;  // frames valides 10 min, sinon re-fetch
 
+/* ============================================================
+   NOWCAST PAR ADVECTION
+   ------------------------------------------------------------
+   RainViewer a retire les frames de prevision de son offre publique le
+   1er janvier 2026 : d.radar.nowcast revient vide, il ne reste que les
+   deux heures de mesures passees. On reconstruit donc l'echeance courte
+   nous-memes, a partir des images qu'on recoit encore.
+
+   Le procede est celui de tous les nowcasts radar a 30 min : ce n'est pas
+   de la physique atmospherique, c'est du DEPLACEMENT. On mesure de combien
+   le champ d'echos s'est decale entre deux images espacees de 20 min, et on
+   prolonge ce mouvement. La litterature appelle ca l'advection lagrangienne
+   (Germann & Zawadzki, Mon. Wea. Rev. 2002) ; sa competence utile s'effondre
+   au-dela d'une heure, d'ou l'arret ferme a +30 min.
+
+   LIMITE A CONNAITRE, elle n'est pas negociable : l'advection DEPLACE la
+   pluie, elle n'en cree pas et n'en tue pas. Une cellule qui se forme
+   au-dessus du spot dans le quart d'heure est invisible pour ce procede.
+   Un front qui traverse est tres bien suivi. C'est un outil de trajectoire,
+   pas de prevision.
+
+   Le vecteur est mesure sur la zone REGARDEE, jamais sur une table : en
+   Manche il mesure la Manche, en Mediterranee la Mediterranee. Aucune
+   constante regionale, ca vaut sur toute la facade par construction.
+   ============================================================ */
+var VZ_RAIN_FUT_STEPS = 3;        // +1, +2, +3 pas de radar, soit +30 min
+var VZ_RAIN_ADV_TILE = 64;        // chaque tuile 256 est reduite a 64 px
+var VZ_RAIN_ADV_N = 192;          // mosaique 3x3 tuiles = 192x192 px
+var VZ_RAIN_ADV_MAX = 10;         // recherche +/- 10 px, soit ~115 km/h
+// Un champ presque vide n'a pas de mouvement mesurable : sous ce taux
+// d'echos on ne devine pas, on s'abstient.
+var VZ_RAIN_ADV_MIN_ECHO = 0.004;
+// Correlation en dessous de laquelle la superposition trouvee ne vaut pas
+// mieux qu'un hasard : deux champs qui ne se ressemblent pas (convection
+// qui se forme et se dissipe) ne doivent pas produire de fleche.
+var VZ_RAIN_ADV_MIN_SCORE = 0.35;
+// Un vecteur unique applique a toute la vue tient a l'echelle d'une region,
+// pas d'un pays. Au-dela, on n'affiche pas de futur plutot que d'afficher
+// un mensonge propre.
+var VZ_RAIN_ADV_MAX_SPAN_KM = 700;
+
 function vzRainEnsureData() {
   var fresh = S.rainFrames && S.rainFrames.length && (Date.now() - (S.rainFetchedAt || 0) < VZ_RAIN_TTL);
   if (fresh) return Promise.resolve(S.rainFrames);
@@ -2526,6 +2567,201 @@ function vzRainLayerFor(idx) {
   return layer;
 }
 
+// Charge une tuile radar en Image CORS. Resout a null en cas d'echec : une
+// tuile manquante en bord de mosaique ne doit pas condamner la mesure.
+function vzRainLoadTile_(path, z, x, y) {
+  return new Promise(function(res) {
+    var img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = function() { res(img); };
+    img.onerror = function() { res(null); };
+    img.src = S.rainHost + path + '/256/' + z + '/' + x + '/' + y + '/' + VZ_RAIN_COLOR + '/1_1.png';
+  });
+}
+
+// Champ d'echos d'une frame : mosaique 3x3 tuiles autour du centre de la vue,
+// chaque tuile reduite de 256 a 64 px. On ne garde que le canal ALPHA : sur
+// RainViewer le vide est transparent, donc l'alpha est la presence de pluie,
+// independamment du schema de couleurs. Une tuile seule ne suffit pas, le
+// centre de la vue est souvent en mer alors que la pluie est sur un bord.
+function vzRainFieldAt_(path, z, cx, cy) {
+  var cells = [];
+  for (var dy = -1; dy <= 1; dy++) {
+    for (var dx = -1; dx <= 1; dx++) cells.push([dx, dy]);
+  }
+  return Promise.all(cells.map(function(c) {
+    return vzRainLoadTile_(path, z, cx + c[0], cy + c[1]);
+  })).then(function(imgs) {
+    var N = VZ_RAIN_ADV_N, T = VZ_RAIN_ADV_TILE;
+    var cv = document.createElement('canvas');
+    cv.width = N; cv.height = N;
+    var g = cv.getContext('2d');
+    var got = 0;
+    for (var i = 0; i < cells.length; i++) {
+      if (!imgs[i]) continue;
+      got++;
+      g.drawImage(imgs[i], (cells[i][0] + 1) * T, (cells[i][1] + 1) * T, T, T);
+    }
+    if (!got) return null;
+    var d = g.getImageData(0, 0, N, N).data;
+    var f = new Float32Array(N * N);
+    var echo = 0;
+    for (var p = 0, q = 3; p < f.length; p++, q += 4) {
+      var a = d[q] / 255;
+      f[p] = a;
+      if (a > 0.05) echo++;
+    }
+    return { field: f, echo: echo / f.length };
+  });
+}
+
+// Decalage qui superpose le mieux A sur B, par correlation croisee normalisee.
+// On MAXIMISE le recouvrement des echos plutot que de minimiser un ecart : sur
+// un champ majoritairement vide, minimiser l'ecart recompense le decalage qui
+// aligne le vide, ce qui donne systematiquement un vecteur nul.
+// Le maximum est ensuite raffine au sous-pixel par ajustement parabolique sur
+// ses deux voisins, sinon la quantification (1 px = ~3 km ici) plafonnerait la
+// resolution du vecteur a une dizaine de km/h.
+function vzRainBestShift_(A, B) {
+  var N = VZ_RAIN_ADV_N, M = VZ_RAIN_ADV_MAX;
+  var W = 2 * M + 1;
+  var sc = new Float32Array(W * W);
+  var bi = 0, bs = -1;
+  for (var sy = -M; sy <= M; sy++) {
+    for (var sx = -M; sx <= M; sx++) {
+      var num = 0, da = 0, db = 0;
+      var y0 = Math.max(0, -sy), y1 = Math.min(N, N - sy);
+      var x0 = Math.max(0, -sx), x1 = Math.min(N, N - sx);
+      for (var y = y0; y < y1; y++) {
+        var ra = y * N, rb = (y + sy) * N + sx;
+        for (var x = x0; x < x1; x++) {
+          var a = A[ra + x], b = B[rb + x];
+          num += a * b; da += a * a; db += b * b;
+        }
+      }
+      var v = (da > 0 && db > 0) ? num / Math.sqrt(da * db) : 0;
+      var idx = (sy + M) * W + (sx + M);
+      sc[idx] = v;
+      if (v > bs) { bs = v; bi = idx; }
+    }
+  }
+  var bx = (bi % W) - M, by = Math.floor(bi / W) - M;
+  // Ajustement parabolique, uniquement si le maximum n'est pas sur un bord de
+  // la fenetre de recherche (sinon le vrai maximum est hors fenetre et le
+  // sommet interpole serait une extrapolation de plus).
+  function refine(c, l, r) {
+    var den = l - 2 * c + r;
+    if (!den) return 0;
+    var o = 0.5 * (l - r) / den;
+    return (o > 1 || o < -1) ? 0 : o;
+  }
+  var fx = 0, fy = 0;
+  if (bx > -M && bx < M) fx = refine(sc[bi], sc[bi - 1], sc[bi + 1]);
+  if (by > -M && by < M) fy = refine(sc[bi], sc[bi - W], sc[bi + W]);
+  return { sx: bx + fx, sy: by + fy, score: bs, edge: (Math.abs(bx) === M || Math.abs(by) === M) };
+}
+
+// Mesure le vecteur de deplacement et allonge S.rainFrames des echeances
+// futures. Memoisee par horodatage de la derniere mesure : tant que RainViewer
+// n'a pas publie d'image, il n'y a rien de nouveau a mesurer.
+function vzRainAdvectEnsure_() {
+  if (!S.rainFrames || S.rainFrames.length < 3) return Promise.resolve(null);
+  var last = S.rainFrames[S.rainNowIdx];
+  if (S.rainAdvect && S.rainAdvect.base === last.time) return Promise.resolve(S.rainAdvect);
+  // Emprise de la vue : au-dela d'une region, un vecteur unique ne decrit plus
+  // le champ. On rend null, l'appelant n'ajoute simplement pas de futur.
+  var b = S.map.getBounds();
+  var spanKm = b.getNorthWest().distanceTo(b.getNorthEast()) / 1000;
+  if (spanKm > VZ_RAIN_ADV_MAX_SPAN_KM) return Promise.resolve(null);
+  // Zoom des tuiles : plafonne au zoom natif de la source (7 en offre libre).
+  var z = Math.min(Math.round(S.map.getZoom()), 7);
+  if (z < 3) return Promise.resolve(null);
+  var ctr = S.map.project(S.map.getCenter(), z).divideBy(256).floor();
+  var prev = S.rainFrames[S.rainNowIdx - 2];   // 2 pas en arriere : le signal
+  var dt = last.time - prev.time;              // est 2x plus grand que le bruit
+  if (!dt || dt <= 0) return Promise.resolve(null);
+  return Promise.all([
+    vzRainFieldAt_(prev.path, z, ctr.x, ctr.y),
+    vzRainFieldAt_(last.path, z, ctr.x, ctr.y)
+  ]).then(function(r) {
+    var A = r[0], B = r[1];
+    if (!A || !B) return null;
+    if (B.echo < VZ_RAIN_ADV_MIN_ECHO) return null;   // rien a suivre
+    var sh = vzRainBestShift_(A.field, B.field);
+    if (sh.score < VZ_RAIN_ADV_MIN_SCORE) return null;
+    if (sh.edge) return null;   // deplacement hors fenetre : vecteur non borne
+    // 1 px de mosaique = 256/64 = 4 px projetes au zoom z. On ramene le
+    // deplacement a UN pas de radar pour pouvoir le multiplier par l'echeance.
+    var perStep = (S.rainFrames[S.rainNowIdx].time - S.rainFrames[S.rainNowIdx - 1].time) || (dt / 2);
+    var k = (256 / VZ_RAIN_ADV_TILE) * (perStep / dt);
+    S.rainAdvect = {
+      px: sh.sx * k, py: sh.sy * k, tz: z,
+      score: sh.score, base: last.time, step: perStep
+    };
+    return S.rainAdvect;
+  }).catch(function(e) {
+    console.warn('[rain] advection indisponible', e);
+    return null;
+  });
+}
+
+// Allonge la timeline des echeances extrapolees. Idempotent : on retire
+// d'abord toute frame future deja posee, sinon chaque rafraichissement
+// empilerait une nouvelle serie sur la precedente.
+function vzRainBuildFuture_() {
+  if (!S.rainFrames || !S.rainFrames.length) return;
+  S.rainFrames = S.rainFrames.slice(0, S.rainNowIdx + 1);
+  if (!S.rainAdvect) return;
+  var last = S.rainFrames[S.rainNowIdx];
+  for (var k = 1; k <= VZ_RAIN_FUT_STEPS; k++) {
+    S.rainFrames.push({ time: last.time + k * S.rainAdvect.step, future: true, k: k });
+  }
+}
+
+// Calque des echeances extrapolees : la DERNIERE image mesuree, dans un pane
+// distinct qu'on translate. On ne redessine rien et on ne demande rien au
+// reseau, ce qui est aussi la description physique du procede : le champ est
+// suppose se translater sans se deformer.
+// keepBuffer eleve : apres translation, le bord qui entre dans le cadre serait
+// vide. Le buffer le remplit de vraies tuiles au lieu d'un trou qui se lirait
+// comme une eclaircie.
+function vzRainFutureEnsure_() {
+  if (!S.map.getPane('vzRainFuturePane')) {
+    S.map.createPane('vzRainFuturePane');
+    var pn = S.map.getPane('vzRainFuturePane');
+    pn.style.zIndex = 361;
+    pn.style.pointerEvents = 'none';
+  }
+  if (S.rainFutureLayer) return S.rainFutureLayer;
+  var last = S.rainFrames[S.rainNowIdx];
+  S.rainFutureLayer = L.tileLayer(
+    S.rainHost + last.path + '/256/{z}/{x}/{y}/' + VZ_RAIN_COLOR + '/1_1.png',
+    { opacity: 0, maxZoom: 12, maxNativeZoom: 7, keepBuffer: 4,
+      pane: 'vzRainFuturePane', attribution: 'Radar RainViewer.com' }
+  );
+  S.rainFutureLayer.addTo(S.map);
+  // Le decalage est stocke en pixels projetes au zoom de mesure ; a l'ecran il
+  // vaut 2^(zoom courant - zoom de mesure) fois plus. Sans ce recalcul, le
+  // champ extrapole se decalerait d'une quantite fausse a chaque zoom.
+  if (!S.rainZoomHooked) {
+    S.rainZoomHooked = true;
+    S.map.on('zoomend', function() {
+      if (S.timeOwner !== 'rain' || S.rainPos == null) return;
+      var f = S.rainFrames && S.rainFrames[S.rainPos];
+      if (f && f.future) vzRainFutureApply_(f.k);
+    });
+  }
+  return S.rainFutureLayer;
+}
+
+function vzRainFutureApply_(k) {
+  var pn = S.map.getPane('vzRainFuturePane');
+  if (!pn || !S.rainAdvect) return;
+  var sc = Math.pow(2, S.map.getZoom() - S.rainAdvect.tz);
+  pn.style.transform = 'translate3d(' + (S.rainAdvect.px * k * sc).toFixed(1)
+    + 'px,' + (S.rainAdvect.py * k * sc).toFixed(1) + 'px,0)';
+}
+
 // Ne fait plus qu'une chose : montrer la bonne tuile. Le libelle, le curseur,
 // la lecture auto et les chevrons sont desormais ceux du bandeau temporel
 // partage (#vzWindCtrl), pilotes par S.timeOwner === 'rain'. Avant, cette
@@ -2535,8 +2771,19 @@ function vzRainShowFrame(idx) {
   if (!S.rainFrames || !S.rainFrames.length) return;
   if (idx < 0) idx = S.rainFrames.length - 1;
   if (idx >= S.rainFrames.length) idx = 0;
+  // Extinction de la frame precedente, quelle que soit sa nature. Une frame
+  // future n'a pas d'entree dans rainCache : c'est le calque translate qui
+  // porte toutes les echeances.
   if (S.rainPos != null && S.rainCache && S.rainCache[S.rainPos]) S.rainCache[S.rainPos].setOpacity(0);
-  vzRainLayerFor(idx).setOpacity(VZ_RAIN_OPACITY);
+  var f = S.rainFrames[idx];
+  if (f.future) {
+    if (!S.rainAdvect) return;   // futur demande sans vecteur : on ne montre rien
+    vzRainFutureEnsure_().setOpacity(VZ_RAIN_OPACITY);
+    vzRainFutureApply_(f.k);
+  } else {
+    if (S.rainFutureLayer) S.rainFutureLayer.setOpacity(0);
+    vzRainLayerFor(idx).setOpacity(VZ_RAIN_OPACITY);
+  }
   S.rainPos = idx;
 }
 
@@ -2549,6 +2796,15 @@ function vzRainClear() {
   });
   S.rainCache = {};
   S.rainPos = null;
+  // Le calque extrapole et sa translation partent avec le reste, sinon le pane
+  // garde son transform et la prochaine ouverture demarre decalee.
+  if (S.rainFutureLayer) {
+    if (S.map.hasLayer(S.rainFutureLayer)) S.map.removeLayer(S.rainFutureLayer);
+    S.rainFutureLayer = null;
+  }
+  var pn = S.map.getPane('vzRainFuturePane');
+  if (pn) pn.style.transform = '';
+  S.rainAdvect = null;
 }
 
 // Sortie de la couche pluie. Calquee sur la fin de vzCurTeardown_ : si la pluie
@@ -4638,6 +4894,16 @@ function toggleLayer(type) {
         document.body.classList.add('vz-wind-band');
         vzWindPlaceTicks_();
         vzWindSyncCtrl_();
+        // Le passe est affiche immediatement ; les echeances extrapolees
+        // allongent la timeline quand la mesure aboutit. Si elle echoue ou si
+        // la scene ne s'y prete pas, la piste reste celle du passe : pas de
+        // panne visible, juste pas de futur.
+        vzRainAdvectEnsure_().then(function(adv) {
+          if (!S.showRain || S.timeOwner !== 'rain' || !adv) return;
+          vzRainBuildFuture_();
+          vzWindPlaceTicks_();
+          vzWindSyncCtrl_();
+        });
       }).catch(function(e){
         console.warn('[rain] chargement RainViewer echoue', e);
         S.showRain = false;
