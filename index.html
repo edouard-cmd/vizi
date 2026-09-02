@@ -5524,59 +5524,9 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
   </div>
 </div>
 
-<!-- Curseur animation radar pluie -->
-<div id="vzRainCtrl">
-  <button id="vzRainPlay" onclick="vzRainPlayStop()" title="Lecture / pause" aria-label="Lecture">
-    <svg class="vz-rain-ico-play" width="14" height="14" viewBox="0 0 16 16"><path d="M4 3l9 5-9 5z" fill="currentColor"/></svg>
-    <svg class="vz-rain-ico-pause" width="14" height="14" viewBox="0 0 16 16"><rect x="4" y="3" width="3.2" height="10" fill="currentColor"/><rect x="9" y="3" width="3.2" height="10" fill="currentColor"/></svg>
-  </button>
-  <input type="range" id="vzRainSlider" min="0" max="1" value="0" step="1" oninput="vzRainOnSlider(this.value)" aria-label="Frame radar">
-  <span id="vzRainTime">--:--</span>
-</div>
-<style>
-#vzRainCtrl {
-  position:absolute; bottom:22px; left:50%; transform:translateX(-50%);
-  z-index:900; display:none; align-items:center; gap:10px;
-  background:var(--surface); border:1px solid var(--border);
-  border-radius:12px; padding:8px 14px; box-shadow:0 4px 20px rgba(0,0,0,0.08);
-}
-#vzRainPlay {
-  flex:0 0 auto; width:28px; height:28px; border-radius:50%; padding:0;
-  border:1px solid var(--accent,#2DA888); background:transparent; color:var(--accent,#2DA888); cursor:pointer;
-  display:flex; align-items:center; justify-content:center;
-}
-#vzRainPlay:hover { background:rgba(45,168,136,0.12); }
-#vzRainPlay .vz-rain-ico-pause { display:none; }
-#vzRainPlay.playing .vz-rain-ico-play { display:none; }
-#vzRainPlay.playing .vz-rain-ico-pause { display:block; }
-#vzRainSlider {
-  -webkit-appearance:none; appearance:none; width:180px; height:4px;
-  border-radius:2px; background:var(--border); outline:none; cursor:pointer;
-}
-#vzRainSlider::-webkit-slider-thumb {
-  -webkit-appearance:none; appearance:none; width:14px; height:14px;
-  border-radius:50%; background:var(--accent,#2DA888); cursor:pointer;
-}
-#vzRainSlider::-moz-range-thumb {
-  width:14px; height:14px; border:none; border-radius:50%; background:var(--accent,#2DA888); cursor:pointer;
-}
-#vzRainTime {
-  font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-2); min-width:64px; text-align:center;
-}
-#vzRainTime.vz-rain-future { color:var(--accent,#2DA888); }
-/* Mobile : la barre radar etait centree (left:50%) et ancree a 22px du bas,
-   donc sa moitie gauche passait sous le FAB Couches (168px de large, z 1050
-   contre 900) : bouton lecture inatteignable sous 500px de large. On la pose
-   sur la ligne d'ancrage commune, pleine largeur. */
-@media (max-width: 768px) {
-  #vzRainCtrl {
-    left: 12px; right: 12px;
-    transform: none;
-    bottom: calc(var(--vz-fabline) + 64px);
-  }
-  #vzRainSlider { width: auto; flex: 1 1 auto; min-width: 0; }
-}
-</style>
+<!-- Le curseur radar pluie a ete supprime : la couche pluie pilote
+     desormais le bandeau temporel partage #vzWindCtrl (S.timeOwner = "rain"),
+     construit dans vizi-app.js par vzWindEnsureCtrl_. -->
 
 <div id="forecastPanel">
   <div class="forecast-header">
