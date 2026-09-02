@@ -14162,6 +14162,15 @@ function showLandMessage(latlng) {
 var OBS_SUBMITTING = false;
 
 function openObsSheet(forceLatLng) {
+  // POINT D'ENTREE UNIQUE. Les cinq boutons de la carte continuent d'appeler
+  // openObsSheet ; c'est ici que le choix de l'ecran se fait. L'ancienne
+  // feuille reste en place comme repli : si vizi-depot.js ne charge pas, un
+  // chasseur doit quand meme pouvoir deposer.
+  if (typeof VZ_DEPOT !== 'undefined' && VZ_DEPOT && VZ_DEPOT.open) {
+    var pt = forceLatLng || (isMobile() ? S.map.getCenter() : (S.clickLatLng || S.map.getCenter()));
+    VZ_DEPOT.open(pt ? { lat: pt.lat, lon: (pt.lon != null ? pt.lon : pt.lng) } : null);
+    return;
+  }
   var now = new Date();
   // forceLatLng permet a un appelant qui sait deja de quel secteur il parle
   // (l'espace chasseur) d'imposer le point, au lieu de dependre de ce que la
@@ -14306,6 +14315,73 @@ function toggleObsAnon() {
     input.value = '';
   }
 }
+/* ============================================================================
+   vzSubmitObservation - CHEMIN D'ECRITURE UNIQUE D'UN RETOUR
+   ----------------------------------------------------------------------------
+   Partage par l'ancienne feuille #obsSheet et par le module VZ_DEPOT. Deux
+   chemins d'ecriture finiraient par diverger sur ce qui est partage, sur les
+   caches invalides, ou sur l'archivage de predictedVisM.
+
+   Deux ecritures distinctes et non equivalentes :
+     - users/{uid}/retours : l'historique du chasseur, TOUJOURS ecrit s'il est
+       connecte. Il lui appartient et ne doit pas dependre du reseau vers le GAS.
+     - GAS submit_observation : la communaute, ecrit UNIQUEMENT si le partage
+       est accepte, et ne transporte que la visibilite et le pseudo.
+
+   Le succes rendu ne depend que de la partie publique quand le partage est
+   demande : un retour prive ecrit mais non partage n'est pas ce que le
+   chasseur a demande, le lui presenter comme un succes serait mentir.
+   ============================================================================ */
+function vzSubmitObservation(d) {
+  d = d || {};
+  var visiPrevue = null;
+  if (typeof VZ_RETOUR !== 'undefined' && VZ_RETOUR) visiPrevue = VZ_RETOUR.prediction();
+
+  var pPrive = Promise.resolve(null);
+  if (typeof VZ_RETOUR !== 'undefined' && VZ_RETOUR && VZ_RETOUR.isLogged()) {
+    pPrive = VZ_RETOUR.save({
+      date: d.date, heure: d.heure, secteur: d.secteur,
+      lat: d.lat, lon: d.lon,
+      visibilityM: d.visibilityM,
+      eau: d.eau, vie: d.vie, taille: d.taille,
+      notes: d.notes, photos: d.photos,
+      partage: !!d.partage
+    });
+  }
+
+  var pPublic = Promise.resolve(null);
+  if (d.partage) {
+    if (d.pseudo) { try { localStorage.setItem('vizi_pseudo', d.pseudo); } catch (e) {} }
+    pPublic = gasGet('submit_observation', {
+      lat: d.lat, lon: d.lon,
+      date: d.date, time: d.heure,
+      visibility_m: d.visibilityM,
+      visibility_label: (typeof obsVisLabel === 'function') ? obsVisLabel(d.visibilityM) : '',
+      turbidity: d.eau || '',
+      pseudo: d.pseudo || 'Anonyme',
+      comment: d.notes || '',
+      sector: d.secteur || '',
+      // Vide si aucune analyse n'a ete faite sur ce point : un champ vide est
+      // une information honnete, une prevision reconstituee apres coup serait
+      // une donnee fausse qui corromprait la calibration qu'elle sert.
+      predicted_m: (visiPrevue != null ? visiPrevue : '')
+    });
+  }
+
+  return Promise.all([pPrive, pPublic]).then(function (r) {
+    if (!d.partage) return { success: true, partage: false };
+    var pub = r[1];
+    if (!pub || !pub.success) return { success: false, partage: true, prive: !!r[0] };
+    // Meme donnee, deux consommateurs : S_allFeedback (moteur) derive de
+    // S_portCounts. Sans cette ligne le deposant voit son retour dans le
+    // panneau mais le calcul l'ignore jusqu'au rechargement.
+    S_obsCache = null;
+    S_portCounts = null;
+    if (typeof invalidateChainCache === 'function') invalidateChainCache();
+    return { success: true, partage: true };
+  });
+}
+
 function submitObsSheet() {
   if (OBS_SUBMITTING) return;
   OBS_SUBMITTING = true;
@@ -14338,56 +14414,24 @@ if (pseudo) {
     var np = findNearestPort(latlng.lat, latlng.lng);
     if (np && np.spot && np.spot.name) sectorName = np.spot.name;
   }
-  // ---- Retour prive, ecrit d'abord ----------------------------------------
-  // Il appartient au chasseur et ne doit pas dependre du reseau vers le GAS.
-  // predictedVisM y est archive : c'est le seul moment ou l'on dispose a la
-  // fois de ce que le moteur annoncait et de ce que la mer a montre.
-  var visiPrevue = null;
-  if (typeof VZ_RETOUR !== 'undefined' && VZ_RETOUR) {
-    visiPrevue = VZ_RETOUR.prediction();
-    if (VZ_RETOUR.isLogged()) {
-      VZ_RETOUR.save({
-        date: document.getElementById('obsSheetDate').value,
-        heure: document.getElementById('obsSheetTime').value,
-        secteur: sectorName,
-        lat: latlng.lat, lon: latlng.lng,
-        visibilityM: visM,
-        eau: OBS_WATER,
-        // Vie aquatique : historique personnel uniquement. Elle n'est PAS
-        // ajoutee au payload gasGet ci-dessous. Le secteur ne recoit que la
-        // visibilite : c'est la seule donnee qui sert a un autre chasseur, et
-        // publier ce qu'on a vu vivre reviendrait a publier ou ca mord.
-        vie: OBS_LIFE,
-        notes: comment,
-        partage: true
-      });
-    }
-  }
-
-  gasGet('submit_observation', {
+  // Repli seulement : ce chemin ne sert que si vizi-depot.js n'a pas charge.
+  // L'ecriture elle-meme passe par vzSubmitObservation, comme le module.
+  vzSubmitObservation({
     lat: latlng.lat, lon: latlng.lng,
     date: document.getElementById('obsSheetDate').value,
-    time: document.getElementById('obsSheetTime').value,
-    visibility_m: visM,
-    visibility_label: visLabel,
-    turbidity: OBS_WATER,
-    pseudo: pseudo || 'Anonyme',
-    comment: comment,
-    sector: sectorName,
-    // Prevision du moteur au moment du depot. Vide si aucune analyse n'a ete
-    // faite sur ce point : un champ vide est une information honnete, une
-    // prevision reconstituee apres coup serait une donnee fausse qui
-    // corromprait la calibration qu'elle pretend servir.
-    predicted_m: (visiPrevue != null ? visiPrevue : '')
+    heure: document.getElementById('obsSheetTime').value,
+    secteur: sectorName,
+    visibilityM: visM,
+    eau: OBS_WATER,
+    vie: OBS_LIFE,
+    taille: '',
+    notes: comment,
+    photos: [],
+    pseudo: pseudo,
+    partage: true
   }).then(function(result) {
     OBS_SUBMITTING = false;
     if (result && result.success) {
-      S_obsCache = null;  // le prochain panneau / pastille reflete ce depot
-      // Meme donnee, deux consommateurs : S_allFeedback (moteur, doctrine 1) est
-      // derive de S_portCounts. Sans cette ligne le deposant voit son retour
-      // dans le panneau mais le calcul continue de l'ignorer jusqu'au rechargement.
-      S_portCounts = null;
-      if (typeof invalidateChainCache === 'function') invalidateChainCache();
       btn.style.display = 'none';
       document.getElementById('obsSheetSuccessMsg').textContent = 'Merci !';
       // Le chasseur connecte doit savoir que son retour lui reste, sinon il
@@ -22606,6 +22650,30 @@ function vzmInit() {
     return true;
   }
   window.vzSearchGoTo = vzSearchGoTo;
+
+  /* ---------- sortie publique de la precompletion ----------
+     La feuille de depot a besoin de CHERCHER un secteur sans deplacer la
+     camera : le chasseur choisit ou il a plonge, il ne navigue pas. Les
+     sources restent celles de ce module (SPOTS local, communes littorales,
+     dedup, cache) : dupliquer cette logique ailleurs ferait diverger deux
+     listes de secteurs pour le meme produit. */
+  window.VZ_SEARCH = {
+    suggest: function (raw, done) {
+      if (typeof done !== 'function') return;
+      var q = norm(raw);
+      if (!q) { done([]); return; }
+      var locals = collectLocal(q);
+      if (q.length < MIN_API_LEN) { done(locals); return; }
+      // Reponse immediate sur les ports connus, puis complement quand l'API
+      // repond : un champ qui n'affiche rien pendant 300 ms parait casse.
+      done(locals);
+      collectApi(q, function (cities) {
+        if (norm(raw) !== q) return; // la frappe a change entre-temps
+        done(merge(locals, cities));
+      });
+    },
+    goTo: vzSearchGoTo
+  };
 
   /* ---------- rendu de la liste ---------- */
   function closeList() {
