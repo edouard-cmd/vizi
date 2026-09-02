@@ -14161,9 +14161,13 @@ function showLandMessage(latlng) {
 
 var OBS_SUBMITTING = false;
 
-function openObsSheet() {
+function openObsSheet(forceLatLng) {
   var now = new Date();
-  var latlng = isMobile() ? S.map.getCenter() : (S.clickLatLng || S.map.getCenter());
+  // forceLatLng permet a un appelant qui sait deja de quel secteur il parle
+  // (l'espace chasseur) d'imposer le point, au lieu de dependre de ce que la
+  // carte montre a cet instant.
+  var latlng = forceLatLng || (isMobile() ? S.map.getCenter() : (S.clickLatLng || S.map.getCenter()));
+  OBS_LATLNG = latlng;
   document.getElementById('obsSheetDate').value = now.toISOString().split('T')[0];
   document.getElementById('obsSheetTime').value = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
   // Nom du secteur (port le plus proche du centre) au lieu des coordonnees GPS
@@ -14180,6 +14184,9 @@ function openObsSheet() {
   if (coordsEl) coordsEl.style.display = 'none';
   setObsVis(3);
   setObsWater('voilee');
+  // Remis a vide, jamais restaure : la vie observee decrit une sortie datee,
+  // la recycler d'un depot a l'autre produirait de la fausse donnee.
+  setObsLife('');
 // Pseudo activé par défaut, anonyme désactivé (encourage la signature)
   var anonBtn = document.getElementById('obsAnonToggle');
   var pseudoInput = document.getElementById('obsSheetPseudo');
@@ -14225,6 +14232,16 @@ function closeObsSheet() {
 // Etat de la feuille de depot : visi en metres reels + charge en particules
 var OBS_VIS_M = 3;
 var OBS_WATER = 'voilee';
+// Vie aquatique. Sans valeur par defaut, contrairement a la visibilite et a
+// l'etat de l'eau : une pastille prealablement allumee serait une observation
+// que le chasseur n'a pas faite, et elle partirait telle quelle dans son
+// historique. Trois crans, aucune espece, aucune taille, aucun comptage.
+var OBS_LIFE = '';
+// Point du depot, FIGE a l'ouverture de la feuille. Avant, openObsSheet et
+// submitObsSheet relisaient chacun le centre de la carte : deplacer la carte
+// pendant que la feuille etait ouverte faisait diverger le libelle "Secteur X"
+// affiche en haut et le port reellement transmis au backend.
+var OBS_LATLNG = null;
 
 function obsVisLabel(m) {
   if (m <= 1) return 'Faible';
@@ -14262,6 +14279,17 @@ function setObsWater(w) {
   });
 }
 
+function setObsLife(v) {
+  // Second appui sur la pastille active = deselection. Le champ est optionnel,
+  // il doit pouvoir revenir a l'absence de reponse sans rouvrir la feuille.
+  OBS_LIFE = (OBS_LIFE === v) ? '' : (v || '');
+  var row = document.getElementById('obsLifeRow');
+  if (!row) return;
+  row.querySelectorAll('.obs-life').forEach(function(b) {
+    b.classList.toggle('on', b.getAttribute('data-v') === OBS_LIFE);
+  });
+}
+
 function toggleObsAnon() {
   var btn = document.getElementById('obsAnonToggle');
   var input = document.getElementById('obsSheetPseudo');
@@ -14284,7 +14312,9 @@ function submitObsSheet() {
   var btn = document.getElementById('obsSheetSubmit');
   btn.disabled = true;
   btn.textContent = 'Envoi...';
-  var latlng = isMobile() ? S.map.getCenter() : (S.clickLatLng || S.map.getCenter());
+  // Le point fige a l'ouverture fait foi. Repli sur le centre de la carte
+  // uniquement si la feuille a ete ouverte par un chemin qui ne l'a pas pose.
+  var latlng = OBS_LATLNG || (isMobile() ? S.map.getCenter() : (S.clickLatLng || S.map.getCenter()));
   var visM = OBS_VIS_M;
   var visLabel = obsVisLabel(visM);
   var anonBtn = document.getElementById('obsAnonToggle');
@@ -14323,6 +14353,11 @@ if (pseudo) {
         lat: latlng.lat, lon: latlng.lng,
         visibilityM: visM,
         eau: OBS_WATER,
+        // Vie aquatique : historique personnel uniquement. Elle n'est PAS
+        // ajoutee au payload gasGet ci-dessous. Le secteur ne recoit que la
+        // visibilite : c'est la seule donnee qui sert a un autre chasseur, et
+        // publier ce qu'on a vu vivre reviendrait a publier ou ca mord.
+        vie: OBS_LIFE,
         notes: comment,
         partage: true
       });
