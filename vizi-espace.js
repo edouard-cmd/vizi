@@ -181,6 +181,23 @@
     + '#vzEspace .vze-stat .l{font-size:var(--vz-fs-meta);font-weight:700;line-height:1.2;'
     +   'color:var(--vz-ink);}'
 
+    // --- historique annuel -------------------------------------------------
+    // Barres proportionnelles, pas un graphique : aucune echelle, aucun axe,
+    // aucune tendance suggeree. La barre sert a comparer d'un coup d'oeil deux
+    // annees, le chiffre reste la seule donnee lue.
+    + '#vzEspace .vze-yr{display:flex;align-items:center;gap:var(--vz-gap-5);min-height:44px;'
+    +   'padding:6px 10px;background:var(--vz-surface);border-radius:var(--vz-r-row);}'
+    + '#vzEspace .vze-yr .y{font-family:var(--vz-font-num);font-size:var(--vz-fs-meta);'
+    +   'font-weight:700;color:var(--vz-ink);flex:0 0 38px;}'
+    + '#vzEspace .vze-yr .bar{flex:1;min-width:0;height:8px;border-radius:4px;'
+    +   'background:var(--vz-group);overflow:hidden;}'
+    + '#vzEspace .vze-yr .bar i{display:block;height:100%;border-radius:4px;'
+    +   'background:var(--vz-accent-mid);}'
+    + '#vzEspace .vze-yr .n{font-family:var(--vz-font-num);font-size:var(--vz-fs-meta);'
+    +   'font-weight:700;color:var(--vz-ink);flex:0 0 auto;}'
+    + '#vzEspace .vze-yr .m{font-family:var(--vz-font-num);font-size:var(--vz-fs-provenance);'
+    +   'font-weight:500;color:var(--vz-text-2);flex:0 0 44px;text-align:right;}'
+
     // --- etats vides -------------------------------------------------------
     // Un etat vide est une information honnete, pas un chargement deguise ni
     // une faute. Il dit ce qui manque et comment le remplir, sans inciter.
@@ -772,6 +789,62 @@
   }
 
   /* ------------------------------------------------------------------------
+     HISTORIQUE ANNUEL ET SPOTS FAVORIS
+     ------------------------------------------------------------------------
+     Les deux sont DERIVES des retours a chaque rendu, jamais stockes en
+     compteur. Meme regle que les points : un compteur persiste diverge le jour
+     ou un retour est efface ou une regle change, et il faut alors migrer des
+     donnees pour rattraper un chiffre qu'on savait deja calculer.
+
+     L'annee en cours est exclue de l'historique : elle est deja la premiere
+     statistique de l'ecran. La repeter deux blocs plus bas ferait croire a
+     deux mesures differentes du meme fait.
+
+     Un secteur favori porte les coordonnees de son retour le plus recent,
+     pas une moyenne des positions : une moyenne de points GPS tombe en mer
+     entre deux spots, a un endroit ou personne n'a jamais plonge.
+     ------------------------------------------------------------------------ */
+  function histoire() {
+    var rs = _retours || [];
+    var anCourante = new Date().getFullYear();
+    var parAn = {}, parSecteur = {};
+
+    rs.forEach(function (r) {
+      var d = r.date ? new Date(r.date) : null;
+      var t = (d && !isNaN(d.getTime())) ? d.getTime() : 0;
+
+      if (t && d.getFullYear() !== anCourante) {
+        var y = d.getFullYear();
+        if (!parAn[y]) parAn[y] = { an: y, n: 0, somme: 0, mesures: 0 };
+        parAn[y].n++;
+        if (typeof r.visibilityM === 'number' && r.visibilityM > 0) {
+          parAn[y].somme += r.visibilityM;
+          parAn[y].mesures++;
+        }
+      }
+
+      var nom = String(r.secteur || '').trim();
+      if (nom) {
+        if (!parSecteur[nom]) parSecteur[nom] = { nom: nom, n: 0, ts: 0, lat: null, lon: null };
+        parSecteur[nom].n++;
+        if (t >= parSecteur[nom].ts && typeof r.lat === 'number' && typeof r.lon === 'number') {
+          parSecteur[nom].ts = t;
+          parSecteur[nom].lat = r.lat;
+          parSecteur[nom].lon = r.lon;
+        }
+      }
+    });
+
+    var annees = Object.keys(parAn).map(function (k) { return parAn[k]; })
+      .sort(function (a, b) { return b.an - a.an; });
+    var favoris = Object.keys(parSecteur).map(function (k) { return parSecteur[k]; })
+      .sort(function (a, b) { return (b.n - a.n) || a.nom.localeCompare(b.nom); })
+      .slice(0, 3);
+
+    return { annees: annees, favoris: favoris };
+  }
+
+  /* ------------------------------------------------------------------------
      RENDU - ECRAN RACINE
      ------------------------------------------------------------------------ */
   function viewEspace() {
@@ -810,6 +883,49 @@
         +      'celle que tu as vue dans l\'eau, sur ' + em.n + ' sortie'
         +      (em.n > 1 ? 's' : '') + '. Chaque retour que tu d\u00e9poses affine ce chiffre.</span>'
         + '</div>';
+    }
+
+    // Historique par annee et spots favoris, derives des retours a chaque
+    // rendu. Les deux blocs n'apparaissent que quand ils ont de la matiere :
+    // un historique vide n'est pas une information, c'est un cadre vide.
+    var hi = histoire();
+
+    if (hi.annees.length) {
+      var maxAn = 1;
+      hi.annees.forEach(function (a) { if (a.n > maxAn) maxAn = a.n; });
+      h += '<div class="vze-group"><span class="vze-sect">Les ann\u00e9es pr\u00e9c\u00e9dentes</span>';
+      hi.annees.forEach(function (a) {
+        var moy = a.mesures ? (num(a.somme / a.mesures, true) + ' m') : '?';
+        h += '<div class="vze-yr">'
+          +    '<span class="y">' + esc(String(a.an)) + '</span>'
+          +    '<span class="bar"><i style="width:' + Math.round(a.n / maxAn * 100) + '%;"></i></span>'
+          +    '<span class="n">' + esc(String(a.n)) + '</span>'
+          +    '<span class="m">' + esc(moy) + '</span>'
+          + '</div>';
+      });
+      h += '</div>';
+      h += '<span class="vze-gloss" style="padding:0 4px;">nombre de sorties et visibilit\u00e9 '
+        + 'moyenne observ\u00e9e par ann\u00e9e. Un point d\'interrogation veut dire qu\'aucun retour '
+        + 'de cette ann\u00e9e ne porte de visibilit\u00e9.</span>';
+    }
+
+    if (hi.favoris.length) {
+      h += '<div style="display:grid;gap:var(--vz-gap-4);">';
+      h += '<span class="vze-sect" style="padding:0 4px;">Mes spots favoris</span>';
+      h += '<div class="vze-group">';
+      hi.favoris.forEach(function (f) {
+        // Un favori sans coordonnees reste affiche mais n'est pas tapable :
+        // ouvrir la carte sur un point inconnu vaut moins que ne rien faire.
+        var cible = (typeof f.lat === 'number' && typeof f.lon === 'number')
+          ? f.lat + ',' + f.lon : '';
+        h += '<' + (cible ? 'button type="button" data-point="' + esc(cible) + '"' : 'div style="cursor:default;"')
+          +    ' class="vze-row">'
+          +    '<span class="nm">' + esc(f.nom) + '</span>'
+          +    '<span class="val">' + esc(String(f.n)) + ' sortie' + (f.n > 1 ? 's' : '') + '</span>'
+          +    (cible ? ICO.chev : '')
+          + '</' + (cible ? 'button' : 'div') + '>';
+      });
+      h += '</div></div>';
     }
 
     // Mes secteurs
@@ -854,6 +970,12 @@
     // Mes retours
     h += '<div style="display:grid;gap:var(--vz-gap-4);">';
     h += '<span class="vze-sect" style="padding:0 4px;">Mes retours</span>';
+    // Le depot est le SEUL point d'entree de la donnee du chasseur : il
+    // alimente son historique et, pour la seule valeur de visibilite, le
+    // secteur. Il figure donc au-dessus de la liste, atteignable que le
+    // chasseur ait deja depose ou non.
+    h += '<button type="button" class="vze-btn" data-act="depot">'
+      +    ICO.plus + 'D\u00e9poser un retour</button>';
     if (_retours && _retours.length) {
       h += '<div class="vze-group">';
       _retours.slice().sort(function (a, b) {
@@ -1143,6 +1265,68 @@
   // analyser un point situe plus au large, et le chasseur lirait une
   // prevision qui ne parle pas de son secteur. C'est exactement le genre
   // d'ecart silencieux que le produit ne tolere pas.
+  /* Un seul chemin de recadrage pour les trois entrees qui en ont besoin :
+     un secteur suivi, un spot favori, et le depot d'un retour. Trois copies
+     de ce bloc finiraient par diverger sur le decalage mobile. */
+  function allerAuPoint(lat, lon) {
+    if (typeof lat !== 'number' || typeof lon !== 'number') return;
+    close();
+    try {
+      if (typeof window.vzSearchGoTo === 'function') {
+        window.vzSearchGoTo(lat, lon, 0);
+      } else if (typeof S !== 'undefined' && S && S.map) {
+        S.map.setView([lat, lon], 12);
+        if (typeof isMobile === 'function' && isMobile()) {
+          var sz = S.map.getSize();
+          S.map.setView(S.map.containerPointToLatLng([sz.x / 2, sz.y * 2 / 3]), 12,
+                        { animate: false });
+        }
+      }
+
+      var mob = (typeof isMobile === 'function') && isMobile();
+      if (mob && typeof VZM_NAV !== 'undefined' && VZM_NAV && VZM_NAV.open) {
+        if (typeof VZ_SHEET !== 'undefined' && VZ_SHEET && VZ_SHEET.mode === 'cond') {
+          VZ_SHEET.mode = null;
+        }
+        VZM_NAV.open('cond');
+      } else if (typeof openSpotPopup === 'function') {
+        openSpotPopup({ lat: lat, lng: lon }, null);
+      }
+    } catch (e) { console.warn('[espace] recadrage', e); }
+  }
+
+  /* ------------------------------------------------------------------------
+     DEPOT D'UN RETOUR DEPUIS L'ESPACE
+     ------------------------------------------------------------------------
+     openObsSheet lit le centre de la carte. Ouvert depuis l'espace alors que
+     la carte est restee sur la vue France, il rattacherait le retour au port
+     le plus proche du centre du pays. On lui IMPOSE donc le point plutot que
+     de recadrer et d'esperer : vzSearchGoTo decale le centre d'un tiers
+     d'ecran en mobile pour degager le panneau, et ce decalage se retrouverait
+     dans la donnee deposee.
+
+     Sans secteur connu, on ouvre la feuille sur ce que la carte montre : le
+     chasseur voit alors le nom du secteur en haut de la feuille et peut
+     refermer s'il n'est pas au bon endroit.
+     ------------------------------------------------------------------------ */
+  function depotRetour() {
+    var cible = histoire().favoris[0] || null;
+    if (!cible || typeof cible.lat !== 'number') {
+      cible = (_secteurs || []).filter(function (x) {
+        return typeof x.lat === 'number' && typeof x.lon === 'number';
+      })[0] || null;
+    }
+    close();
+    try {
+      if (cible) allerAuPoint(cible.lat, cible.lon);
+    } catch (e) {}
+    if (typeof openObsSheet !== 'function') return;
+    var pt = cible ? { lat: cible.lat, lng: cible.lon } : null;
+    // Laisse le recadrage se poser avant d'ouvrir la feuille : sur mobile,
+    // VZM_NAV.open('cond') deroule le panneau secteur dans le meme tick.
+    setTimeout(function () { openObsSheet(pt); }, cible ? 340 : 0);
+  }
+
   function openSecteur(id) {
     var sec = (_secteurs || []).filter(function (x) { return x.id === id; })[0];
     if (!sec || typeof sec.lat !== 'number' || typeof sec.lon !== 'number') return;
@@ -1210,6 +1394,15 @@
     });
     _body.querySelectorAll('[data-secteur]').forEach(function (b) {
       b.addEventListener('click', function () { openSecteur(b.getAttribute('data-secteur')); });
+    });
+    _body.querySelectorAll('[data-point]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var c = String(b.getAttribute('data-point') || '').split(',');
+        allerAuPoint(parseFloat(c[0]), parseFloat(c[1]));
+      });
+    });
+    _body.querySelectorAll('[data-act="depot"]').forEach(function (b) {
+      b.addEventListener('click', depotRetour);
     });
     _body.querySelectorAll('[data-unit]').forEach(function (b) {
       b.addEventListener('click', function () { setUnit(b.getAttribute('data-unit')); });
@@ -1604,6 +1797,10 @@
       // Etat de l'eau tel que le chasseur l'a qualifie. Jamais synthetise avec
       // la visibilite en une note unique : ce sont deux observations distinctes.
       eau: data.eau || '',
+      // Vie aquatique observee, trois crans. Elle ne quitte JAMAIS
+      // users/{uid}/retours : aucune espece, aucune taille, aucun comptage, et
+      // rien qui puisse etre recoupe pour deduire ou le poisson se tient.
+      vie: data.vie || '',
       notes: data.notes || '',
       predictedVisM: currentPrediction(),
       partage: !!data.partage,
