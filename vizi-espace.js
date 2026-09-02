@@ -1342,13 +1342,22 @@
         return typeof x.lat === 'number' && typeof x.lon === 'number';
       })[0] || null;
     }
-    // Aucun recadrage de carte ici. L'ecran de depot fait CHOISIR le secteur :
-    // le chasseur n'a pas besoin que la carte se soit deplacee derriere, et
-    // deplacer la camera sans qu'il l'ait demande lui ferait perdre sa vue.
-    close();
+    // Aucun recadrage de carte ici, et surtout AUCUNE fermeture de l'espace.
+    //
+    // body.vz-espace-open ne fait que MASQUER les panneaux de carte en CSS, il
+    // ne les ferme pas. Fermer l'espace pour ouvrir le depot redonnait donc
+    // vie au panneau Previsions reste ouvert derriere : il apparaissait une
+    // fraction de seconde avant le formulaire, et se retrouvait seul a l'ecran
+    // quand le chasseur refermait son retour.
+    //
+    // Le depot se superpose a l'espace (z-index 1500 contre 1400). Refermer le
+    // depot rend donc l'espace, c'est-a-dire l'endroit d'ou le chasseur venait.
     if (typeof VZ_DEPOT !== 'undefined' && VZ_DEPOT && VZ_DEPOT.open) {
       VZ_DEPOT.open(cible ? { lat: cible.lat, lon: cible.lon } : null);
     } else if (typeof openObsSheet === 'function') {
+      // Repli seulement. L'ancienne feuille vit dans la carte, elle a donc
+      // besoin que l'espace se retire.
+      close();
       openObsSheet(cible ? { lat: cible.lat, lng: cible.lon } : null);
     }
   }
