@@ -2526,6 +2526,11 @@ function vzRainLayerFor(idx) {
   return layer;
 }
 
+// Ne fait plus qu'une chose : montrer la bonne tuile. Le libelle, le curseur,
+// la lecture auto et les chevrons sont desormais ceux du bandeau temporel
+// partage (#vzWindCtrl), pilotes par S.timeOwner === 'rain'. Avant, cette
+// fonction ecrivait aussi dans #vzRainTime et #vzRainSlider, deux elements d'un
+// second bandeau qui entrait en collision avec le FAB sonar et l'attribution.
 function vzRainShowFrame(idx) {
   if (!S.rainFrames || !S.rainFrames.length) return;
   if (idx < 0) idx = S.rainFrames.length - 1;
@@ -2533,42 +2538,36 @@ function vzRainShowFrame(idx) {
   if (S.rainPos != null && S.rainCache && S.rainCache[S.rainPos]) S.rainCache[S.rainPos].setOpacity(0);
   vzRainLayerFor(idx).setOpacity(VZ_RAIN_OPACITY);
   S.rainPos = idx;
-  var f = S.rainFrames[idx];
-  var lbl = document.getElementById('vzRainTime');
-  if (lbl) {
-    var dt = new Date(f.time * 1000);
-    var hh = ('0' + dt.getHours()).slice(-2), mm = ('0' + dt.getMinutes()).slice(-2);
-    lbl.textContent = (f.future ? '+' : '') + hh + ':' + mm + (f.future ? ' prevu' : '');
-    lbl.classList.toggle('vz-rain-future', !!f.future);
-  }
-  var sl = document.getElementById('vzRainSlider');
-  if (sl) { sl.max = S.rainFrames.length - 1; if (+sl.value !== idx) sl.value = idx; }
 }
 
-function vzRainStop() {
-  if (S.rainTimer) { clearInterval(S.rainTimer); S.rainTimer = null; }
-  var b = document.getElementById('vzRainPlay');
-  if (b) b.classList.remove('playing');
-}
-
-function vzRainPlayStop() {
-  if (S.rainTimer) { vzRainStop(); return; }
-  var b = document.getElementById('vzRainPlay');
-  if (b) b.classList.add('playing');
-  S.rainTimer = setInterval(function(){
-    vzRainShowFrame((S.rainPos == null ? S.rainNowIdx : S.rainPos) + 1);
-  }, VZ_RAIN_ANIM_MS);
-}
-
-function vzRainOnSlider(val) { vzRainStop(); vzRainShowFrame(+val); }
-
+// Retrait des tuiles et de leur cache. N'arrete PAS la lecture auto : c'est
+// vzRainTeardown_ qui s'en charge, via vzWindStop_, parce que le minuteur
+// appartient maintenant au bandeau partage (S.windTimer) et non a la couche.
 function vzRainClear() {
-  vzRainStop();
   if (S.rainCache) Object.keys(S.rainCache).forEach(function(k){
     if (S.map.hasLayer(S.rainCache[k])) S.map.removeLayer(S.rainCache[k]);
   });
   S.rainCache = {};
   S.rainPos = null;
+}
+
+// Sortie de la couche pluie. Calquee sur la fin de vzCurTeardown_ : si la pluie
+// tenait le curseur, on le rend a une couche encore active, sinon on efface le
+// bandeau ET la classe vz-wind-band, faute de quoi l'attribution Leaflet et le
+// FAB sonar resteraient repousses dans le vide.
+function vzRainTeardown_() {
+  vzRainClear();
+  if (S.timeOwner !== 'rain') return;
+  vzWindStop_();
+  S.timeOwner = S.showWindFlow ? 'wind' : (S.showCurrent ? 'cur' : null);
+  var ctl = document.getElementById('vzWindCtrl');
+  if (S.timeOwner) {
+    vzWindPlaceTicks_();
+    vzWindSyncCtrl_();
+  } else {
+    if (ctl) ctl.classList.remove('on');
+    document.body.classList.remove('vz-wind-band');
+  }
 }
 
 /* ============================================================
@@ -2725,9 +2724,10 @@ function vzWindNowIndex_() {
   var now = Date.now();
   var best = 0, bestDiff = Infinity;
   for (var i = 0; i < fr.length; i++) {
-    var iso = fr[i].time;
-    if (iso.length === 16) iso += ':00';   // "..T14:00" -> "..T14:00:00"
-    var d = Math.abs(new Date(iso + 'Z').getTime() - now);
+    // Le parsing passe par vzWindDate_ : les frames pluie portent un epoch en
+    // secondes la ou les frames vent portent une chaine ISO. Parser en dur ici
+    // levait un TypeError des que la pluie prenait le curseur.
+    var d = Math.abs(vzWindDate_(fr[i].time).getTime() - now);
     if (d < bestDiff) { bestDiff = d; best = i; }
   }
   return best;
@@ -2773,6 +2773,9 @@ function vzWindShowFrame_(i) {
   // Aiguillage vers la source active. Le courant n'a pas de grille en
   // memoire : son "frame" est une echeance envoyee au service dans TIME.
   if (S.timeOwner === 'cur') { vzCurShowFrame_(i); return; }
+  // La pluie n'a ni grille ni echeance a demander : sa frame est une tuile
+  // deja en cache, on ne fait que basculer l'opacite.
+  if (S.timeOwner === 'rain') { vzRainShowFrame(i); return; }
   if (!S.windFrames || !S.windFrames.length) return;
   i = Math.max(0, Math.min(i, S.windFrames.length - 1));
   S.windPos = i;
@@ -2903,7 +2906,7 @@ function vzWindHiDpiEnsure_(tries, layer) {
 }
 
 // --- A2 : curseur temporel (jour/heure, lecture auto) ---
-// Panneau calque sur vzRainCtrl. Les frames sont deja chargees (S.windFrames) :
+// Bandeau unique du bas. Les frames sont deja chargees (S.windFrames) :
 // le defilement est purement local (vzWindShowFrame_), aucun reseau.
 var VZ_WIND_JOURS = ['Dim.', 'Lun.', 'Mar.', 'Mer.', 'Jeu.', 'Ven.', 'Sam.'];
 var VZ_WIND_ANIM_MS = 550;
@@ -2915,26 +2918,37 @@ var VZ_CUR_ANIM_MS = 1100;
    PROPRIETAIRE DU CURSEUR TEMPOREL
    Le bandeau #vzWindCtrl est desormais partage entre la couche vent et
    la couche courant de maree. Plutot que de dupliquer un second curseur
-   en bas d'ecran (collision garantie avec le FAB sonar et le curseur
-   pluie, et deux jeux de reglages a maintenir), on introduit une source
-   active. Les deux couches s'excluent, il n'y a donc jamais d'ambiguite
+   en bas d'ecran (collision garantie avec le FAB sonar, et deux jeux de
+   reglages a maintenir), on introduit une source active. Les deux couches s'excluent, il n'y a donc jamais d'ambiguite
    sur ce que le curseur pilote.
-   S.timeOwner vaut 'wind', 'cur' ou null. Quand il vaut 'wind', toutes
-   les fonctions ci-dessous se comportent exactement comme avant.
+   S.timeOwner vaut 'wind', 'cur', 'rain' ou null. Quand il vaut 'wind',
+   toutes les fonctions ci-dessous se comportent exactement comme avant.
+   'rain' a rejoint la liste en supprimant #vzRainCtrl : ce second bandeau
+   partageait exactement le meme bottom que le FAB sonar et l'attribution
+   Leaflet (calc(var(--vz-fabline) + 8px) des deux cotes), donc il etait
+   recouvert a droite et traverse par le texte d'attribution. La collision
+   n'est pas deplacee, elle est supprimee : il n'y a plus qu'un seul objet
+   ancre en bas d'ecran.
    ------------------------------------------------------------ */
 function vzTimeFrames_() {
+  if (S.timeOwner === 'rain') return S.rainFrames;
   return (S.timeOwner === 'cur') ? S.curFrames : S.windFrames;
 }
 
 function vzTimePos_() {
-  var p = (S.timeOwner === 'cur') ? S.curPos : S.windPos;
+  var p;
+  if (S.timeOwner === 'rain') p = S.rainPos;
+  else p = (S.timeOwner === 'cur') ? S.curPos : S.windPos;
   return p || 0;
 }
 
-// Parse un time de frame (UTC, "YYYY-MM-DDTHH:MM") en Date.
-function vzWindDate_(iso) {
-  if (iso && iso.length === 16) iso += ':00';
-  return new Date(iso + 'Z');
+// Parse un time de frame en Date. Deux formes coexistent selon la source :
+// le vent et le courant portent une chaine ISO UTC ("YYYY-MM-DDTHH:MM"), la
+// pluie porte l'epoch en SECONDES renvoye par RainViewer.
+function vzWindDate_(t) {
+  if (typeof t === 'number') return new Date(t * 1000);
+  if (t && t.length === 16) t += ':00';
+  return new Date(t + 'Z');
 }
 
 // Libelle d'une frame : "Lundi 8 juin, 14h" (jour en toutes lettres, heure locale).
@@ -2952,6 +2966,25 @@ function vzWindFrameLabelShort_(iso) {
   var d = vzWindDate_(iso);
   var h = d.getHours();
   return VZ_WIND_JOURS[d.getDay()] + ' ' + d.getDate() + ', ' + (h < 10 ? '0' + h : h) + 'h';
+}
+
+// Libelles du bandeau quand la couche pluie tient le curseur. Le radar est au
+// pas 10 min : reprendre la forme du vent ("Jeu. 3, 13h") ferait croire que les
+// six images d'une meme heure sont la meme. Les minutes sont donc obligatoires.
+// La forme courte donne le delai relatif sur le futur, qui est la seule chose
+// qu'on lit vraiment sur un nowcast, et l'heure absolue sur le passe.
+function vzRainFrameLabel_(f) {
+  var d = vzWindDate_(f.time);
+  var mm = ('0' + d.getMinutes()).slice(-2);
+  return (f.future ? 'Prevu a ' : 'Mesure de ') + d.getHours() + 'h' + mm;
+}
+
+function vzRainFrameLabelShort_(f) {
+  var d = vzWindDate_(f.time);
+  var mm = ('0' + d.getMinutes()).slice(-2);
+  if (!f.future) return d.getHours() + 'h' + mm;
+  var dm = Math.round((d.getTime() - Date.now()) / 60000);
+  return '+' + (dm < 1 ? 1 : dm) + ' min';
 }
 
 /* ============================================================
@@ -3170,14 +3203,14 @@ function vzWindEnsureCtrl_() {
     // env() recoit une valeur de repli, sinon toute la declaration est invalidee
     // sur un navigateur qui ne la connait pas.
     // RELEVE COMPLET des elements ancres en bas sur mobile, pour ne plus en
-    // oublier un : .vzm-sonar-fab, .vzm-sonar-menu, #vzRainCtrl, #vzHuntBar,
+    // oublier un : .vzm-sonar-fab, .vzm-sonar-menu, #vzHuntBar,
     // .leaflet-control-attribution, .vz-layers-fab, .vz-layers-popover,
     // #mobileAnalyzeBtn, #mobileShareBtn. Hauteur du bandeau = 4 + 36 + 2 + 44
     // + 8 = 94px, plus la safe-area.
     // .vz-layers-fab est CRITIQUE : #vzBtnLayers de la barre laterale est
     // masque sur mobile, donc c'est le SEUL point d'entree du menu Couches et
     // donc le seul moyen de couper la couche vent.
-    // La zone bas-gauche (.vz-layers-fab, #vzRainCtrl, #vzHuntBar) n'a plus
+    // La zone bas-gauche (.vz-layers-fab, #vzHuntBar) n'a plus
     // qu'une seule valeur a redefinir : --vz-fabline, declaree dans la media
     // query mobile d'index.html. Les deux autres se calculent au-dessus.
     // Avant : trois valeurs absolues independantes qui deplacaient la
@@ -3232,8 +3265,8 @@ function vzWindEnsureCtrl_() {
   document.getElementById('vzWindNext').addEventListener('click', function(){ vzWindStep_(1); });
   document.getElementById('vzWindNow').addEventListener('click', vzWindGoNow_);
   // Hauteur reelle du bandeau -> --vzm-windh. Tout ce qui flotte au-dessus de
-  // lui (FAB sonar, menu sonar, popover Couches, analyse, partage, curseur
-  // pluie, attribution) en derive par CSS via --vz-fabline.
+  // lui (FAB sonar, menu sonar, popover Couches, analyse, partage,
+  // attribution) en derive par CSS via --vz-fabline.
   vzMeasureVar_(pan, '--vzm-windh');
   return pan;
 }
@@ -3361,7 +3394,16 @@ function vzWindPlaceTicks_() {
     var gap = vzWindDate_(fr[i].time).getTime() - vzWindDate_(fr[i-1].time).getTime();
     if (gap > 3700000) { sw = i; break; }   // premier saut > ~1h = passage au pas 3h
   }
-  var nowPct = vzWindNowIndex_() / n * 100;
+  // Pour la pluie, la frontiere presente/futur n'est pas la frame la plus
+  // proche de maintenant mais S.rainNowIdx, que RainViewer definit lui-meme
+  // (derniere image MESUREE). Les deux coincident presque toujours, mais c'est
+  // la source qui doit trancher ou s'arrete la mesure, pas une comparaison
+  // d'horloge. Le radar etant a pas constant, aucun saut > 1h n'est trouve :
+  // sw reste a -1, le segment grossier tombe a 0 et la piste affiche bien
+  // deux segments au lieu de trois.
+  var nowIdx = (S.timeOwner === 'rain' && typeof S.rainNowIdx === 'number')
+    ? S.rainNowIdx : vzWindNowIndex_();
+  var nowPct = nowIdx / n * 100;
   var swPct = (sw > 0) ? (sw / n * 100) : 100;
   if (swPct < nowPct) swPct = nowPct;       // garde-fou : bascule deja depassee
   var past = document.getElementById('vzWindSegPast');
@@ -3386,11 +3428,12 @@ function vzWindSyncCtrl_() {
     var _sh = document.getElementById('vzWindLabelShort');
     // Garde-fou : si les spans manquent (DOM ancien en cache), on retombe sur
     // l'ecriture directe plutot que de laisser le libelle vide.
+    var _rain = (S.timeOwner === 'rain');
     if (_lg && _sh) {
-      _lg.textContent = vzWindFrameLabel_(_t);
-      _sh.textContent = vzWindFrameLabelShort_(_t);
+      _lg.textContent = _rain ? vzRainFrameLabel_(fr[pos]) : vzWindFrameLabel_(_t);
+      _sh.textContent = _rain ? vzRainFrameLabelShort_(fr[pos]) : vzWindFrameLabelShort_(_t);
     } else {
-      lb.textContent = vzWindFrameLabel_(_t);
+      lb.textContent = _rain ? vzRainFrameLabel_(fr[pos]) : vzWindFrameLabel_(_t);
     }
   }
 }
@@ -3441,7 +3484,9 @@ function vzWindPlayStop_() {
   // tuiles a rapatrier : meme cadence, ce serait bombarder Copernicus a
   // chaque cran. La premiere boucle est donc plus lente, les suivantes
   // profitent du cache HTTP du navigateur.
-  var ms = (S.timeOwner === 'cur') ? VZ_CUR_ANIM_MS : VZ_WIND_ANIM_MS;
+  var ms = (S.timeOwner === 'cur') ? VZ_CUR_ANIM_MS
+         : (S.timeOwner === 'rain') ? VZ_RAIN_ANIM_MS
+         : VZ_WIND_ANIM_MS;
   S.windTimer = setInterval(function(){
     var f = vzTimeFrames_();
     if (!f || !f.length) { vzWindStop_(); return; }
@@ -4140,9 +4185,9 @@ function vzCurTeardown_() {
   if (leg) leg.classList.remove('on');
   if (S.timeOwner === 'cur') {
     vzWindStop_();
-    S.timeOwner = S.showWindFlow ? 'wind' : null;
+    S.timeOwner = S.showWindFlow ? 'wind' : (S.showRain ? 'rain' : null);
     var ctl = document.getElementById('vzWindCtrl');
-    if (S.timeOwner === 'wind') {
+    if (S.timeOwner) {
       vzWindPlaceTicks_();
       vzWindSyncCtrl_();
     } else {
@@ -4578,16 +4623,28 @@ function toggleLayer(type) {
     S.showRain = !S.showRain;
     var _rowRain = document.getElementById('vzRowRain');
     if (_rowRain) _rowRain.classList.toggle('active', S.showRain);
-    var _panRain = document.getElementById('vzRainCtrl');
     if (S.showRain) {
-      if (_panRain) _panRain.style.display = 'flex';
+      // Un seul bandeau temporel en bas d'ecran, donc un seul proprietaire :
+      // meme exclusion que celle qui existait deja entre vent et courant. Sans
+      // elle, le curseur piloterait une couche et en figerait une autre sans
+      // que rien a l'ecran ne dise laquelle.
+      if (S.showWindFlow) toggleLayer('windflow');
+      if (S.showCurrent) toggleLayer('current');
       vzRainEnsureData().then(function(){
         if (!S.showRain) return;   // re-toggle off pendant le fetch
+        S.timeOwner = 'rain';
         vzRainShowFrame(S.rainPos != null ? S.rainPos : S.rainNowIdx);
-      }).catch(function(e){ console.warn('[rain] chargement RainViewer echoue', e); });
+        vzWindEnsureCtrl_().classList.add('on');
+        document.body.classList.add('vz-wind-band');
+        vzWindPlaceTicks_();
+        vzWindSyncCtrl_();
+      }).catch(function(e){
+        console.warn('[rain] chargement RainViewer echoue', e);
+        S.showRain = false;
+        if (_rowRain) _rowRain.classList.remove('active');
+      });
     } else {
-      vzRainClear();
-      if (_panRain) _panRain.style.display = 'none';
+      vzRainTeardown_();
     }
   } else if (type === 'windflow') {
     S.showWindFlow = !S.showWindFlow;
@@ -4600,6 +4657,8 @@ function toggleLayer(type) {
       // colores pilotes par le meme curseur. Superposes, ni la couleur ni
       // le curseur ne voudraient dire quoi que ce soit.
       if (S.showCurrent) toggleLayer('current');
+      // Meme raison : le bandeau temporel n'a qu'un proprietaire.
+      if (S.showRain) toggleLayer('rain');
       S.timeOwner = 'wind';
       // Plus d'exclusion mutuelle avec Litto3D : les deux couches peuvent etre
       // actives ensemble, c'est vzWindColorArbitrate_ qui tranche ce qui est
@@ -4612,8 +4671,8 @@ function toggleLayer(type) {
         vzWindEnsureCtrl_().classList.add('on');   // A2 : curseur temporel
         vzWindEnsureLegend_();                     // creee ici, AFFICHEE par l'arbitrage
         vzWindColorArbitrate_();                   // fond colore + legende
-        // Bandeau mobile en place : on repousse FAB sonar, curseur pluie et
-        // attribution Leaflet. Classe explicite, retiree DANS LES DEUX sorties
+        // Bandeau mobile en place : on repousse FAB sonar et attribution
+        // Leaflet. Classe explicite, retiree DANS LES DEUX sorties
         // (toggle off ET echec de chargement) sinon l'attribution reste masquee.
         document.body.classList.add('vz-wind-band');
         vzWindPlaceTicks_();
@@ -4627,10 +4686,18 @@ function toggleLayer(type) {
       });
     } else {
       vzWindStop_();
-      if (S.timeOwner === 'wind') S.timeOwner = null;
+      // Le bandeau ne se ferme QUE si plus aucune couche ne le pilote. Sinon on
+      // le rend a son nouveau proprietaire : couper le vent pendant que la pluie
+      // est active effacait le bandeau sous une couche qui en depend.
+      if (S.timeOwner === 'wind') S.timeOwner = S.showRain ? 'rain' : null;
       var _wc = document.getElementById('vzWindCtrl');
-      if (_wc) _wc.classList.remove('on');
-      document.body.classList.remove('vz-wind-band');
+      if (S.timeOwner) {
+        vzWindPlaceTicks_();
+        vzWindSyncCtrl_();
+      } else {
+        if (_wc) _wc.classList.remove('on');
+        document.body.classList.remove('vz-wind-band');
+      }
       if (S.windFlowLayer && S.map.hasLayer(S.windFlowLayer)) S.map.removeLayer(S.windFlowLayer);
       // Fond colore et legende : meme point d'entree qu'a l'activation.
       // showWindFlow vient de passer a false, donc l'arbitrage retire les deux.
@@ -4668,6 +4735,8 @@ function toggleLayer(type) {
       // toggleLayer, donc par le chemin normal de chaque couche.
       if (S.showWindFlow) toggleLayer('windflow');
       if (S.showZsd) toggleLayer('zsd');
+      // Le courant prend aussi le bandeau temporel : la pluie doit le lacher.
+      if (S.showRain) toggleLayer('rain');
       vzCurEnsure_().then(function(layers){
         if (!S.showCurrent) return;   // re-toggle off pendant la resolution
         for (var k = 0; k < layers.length; k++) {
@@ -22698,7 +22767,6 @@ var VZ_ACCOUNT = (function () {
     + 'body.vzm-nav .vzm-sonar-menu{bottom:calc(var(--vz-fabline) + 84px);}'
     + 'body.vzm-nav #mobileAnalyzeBtn{bottom:calc(var(--vz-fabline) + 62px);}'
     + 'body.vzm-nav #mobileShareBtn{bottom:calc(var(--vz-fabline) + 10px);}'
-    + 'body.vzm-nav #vzRainCtrl{bottom:calc(var(--vz-fabline) + 8px);}'
     + 'body.vzm-nav #vzHuntBar{bottom:calc(var(--vz-fabline) + 8px);}'
     + 'body.vzm-nav .vz-layers-popover{bottom:calc(var(--vz-fabline) + 8px);}'
     + 'body.vzm-nav .leaflet-control-attribution{margin-bottom:calc(var(--vzm-navline,94px) + 2px);}'
@@ -22743,7 +22811,7 @@ var VZ_ACCOUNT = (function () {
     + 'body.vzm-nav.vzm-full .vzsp-close-lb{display:inline;}'
     + 'body.vzm-nav .vzsp-body{padding:18px 16px 18px;}'
     // Panneau ouvert : tout le flottant s'efface, un seul objet a la fois.
-    + 'body.vzm-open .vzm-sonar-fab,body.vzm-open .vzm-sonar-menu,body.vzm-open #vzRainCtrl,'
+    + 'body.vzm-open .vzm-sonar-fab,body.vzm-open .vzm-sonar-menu,'
     +   'body.vzm-open #vzHuntBar,body.vzm-open #vzWindCtrl,body.vzm-open #mobileAnalyzeBtn,'
     +   'body.vzm-open #mobileShareBtn,body.vzm-open .leaflet-control-attribution{display:none !important;}'
     + '}';
