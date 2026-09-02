@@ -58,9 +58,13 @@
     +   'body.vz-depot-open .leaflet-control-attribution{display:none !important;}'
     // Desktop : la feuille est centree et laisse la carte visible derriere, on
     // ne masque donc que ce qui passerait par dessus le scrim.
+    // Le :not est indispensable : quand le depot est ouvert PAR-DESSUS l'espace,
+    // ce revert defaisait le masquage pose par body.vz-espace-open et faisait
+    // reapparaitre la recherche et la pastille de profil derriere la feuille.
     + '@media (min-width:900px){'
-    +   'body.vz-depot-open #vzmNavBar,body.vz-depot-open #vzSearch,'
-    +   'body.vz-depot-open #vzmIdent{display:revert !important;}'
+    +   'body.vz-depot-open:not(.vz-espace-open) #vzmNavBar,'
+    +   'body.vz-depot-open:not(.vz-espace-open) #vzSearch,'
+    +   'body.vz-depot-open:not(.vz-espace-open) #vzmIdent{display:revert !important;}'
     + '}'
 
     // --- barre de titre ----------------------------------------------------
@@ -1010,7 +1014,15 @@
   }
 
   function fermerVersEspace() {
+    // Le depot ouvert DEPUIS l'espace se superpose a lui : le refermer suffit,
+    // l'espace est deja dessous. Le rouvrir relancerait build() et un rendu
+    // complet pour rien, et ferait clignoter l'ecran.
+    var dejaLa = false;
+    try {
+      dejaLa = (typeof VZ_ESPACE !== 'undefined' && VZ_ESPACE && VZ_ESPACE.isOpen && VZ_ESPACE.isOpen());
+    } catch (e) {}
     close();
+    if (dejaLa) return;
     try {
       if (typeof VZ_ESPACE !== 'undefined' && VZ_ESPACE && VZ_ESPACE.open) VZ_ESPACE.open('espace');
     } catch (e) {}
