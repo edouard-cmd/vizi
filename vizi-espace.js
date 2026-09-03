@@ -621,13 +621,44 @@
     var av = document.getElementById('vzeAvatar');
     if (av) av.style.opacity = '.5';
 
+    // Le SDK Storage reessaie EN SILENCE pendant deux minutes avant de rendre
+    // la main. Pendant ce temps l'avatar reste grise et rien d'autre n'arrive :
+    // un bucket absent, une regle qui refuse et une coupure reseau produisent
+    // tous les trois le meme ecran fige. Vingt secondes suffisent largement a
+    // un avatar de 512px, et l'echec redevient une erreur exploitable.
+    try {
+      window.fbStorage.maxUploadRetryTime = 20000;
+      window.fbStorage.maxOperationRetryTime = 20000;
+    } catch (e) {}
+
+    // Etape courante. Sans elle, une compression qui ne rend jamais la main et
+    // un envoi refuse par les regles donnent exactement le meme message.
+    var etape = 'compression de l\'image';
+    var fini = false;
+    function termine() { fini = true; clearTimeout(garde); }
+
+    // Filet dur. compressImage repose sur img.onload et canvas.toBlob : si l'un
+    // des deux ne rappelle jamais, aucune branche de la chaine ne s'execute et
+    // l'avatar reste grise indefiniment. Aucun chemin ne doit finir sans reponse.
+    var garde = setTimeout(function () {
+      if (fini) return;
+      fini = true;
+      if (av) av.style.opacity = '';
+      alert('Envoi interrompu a l\'etape : ' + etape);
+    }, 45000);
+
     compressImage(file, 512, 0.82).then(function (blob) {
+      etape = 'envoi vers Storage (' + Math.round(blob.size / 1024) + ' ko)';
       // Chemin fixe : une seule photo de profil par compte, ecrasee a chaque
       // changement. Pas d'accumulation de fichiers orphelins dans Storage.
       var ref = window.fbStorageRef(window.fbStorage, 'users/' + u.uid + '/profil.jpg');
       return window.fbUploadBytes(ref, blob, { contentType: 'image/jpeg' })
-        .then(function () { return window.fbGetDownloadURL(ref); });
+        .then(function () {
+          etape = 'lecture de l\'URL de telechargement';
+          return window.fbGetDownloadURL(ref);
+        });
     }).then(function (url) {
+      etape = 'enregistrement du profil';
       // Deux ecritures : le profil Auth porte photoURL pour la trombine, le
       // document Firestore le porte pour l'espace. Les deux doivent rester
       // alignes, sinon la trombine et le profil montrent des images differentes.
@@ -639,13 +670,17 @@
         if (typeof VZ_ACCOUNT !== 'undefined' && VZ_ACCOUNT && VZ_ACCOUNT.sync) {
           VZ_ACCOUNT.sync(user());
         }
+        termine();
         render();
       });
     }).catch(function (err) {
+      if (fini) return;
+      termine();
       if (av) av.style.opacity = '';
-      console.warn('[espace] photo', err);
+      console.warn('[espace] photo', etape, err);
       var code = (err && err.code) ? err.code : '';
       alert('Envoi de la photo impossible.'
+        + '\netape : ' + etape
         + (code ? '\n' + code : '')
         + (err && err.message ? '\n' + err.message : ''));
     });
