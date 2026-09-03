@@ -682,7 +682,7 @@
   function labelCta() {
     if (_sending) return 'Envoi...';
     if (_error)   return 'R\u00e9essayer';
-    return _consent ? 'D\u00e9poser et partager' : 'Enregistrer sans partager';
+    return _consent ? 'Enregistrer et partager' : 'Enregistrer sans partager';
   }
 
   function render() {
@@ -982,7 +982,7 @@
     _el.id = 'vzDepot';
     _el.innerHTML = '<div class="vzd-head">'
       +   '<button type="button" class="vzd-x" aria-label="Fermer">' + ICO.x + '</button>'
-      +   '<h2 id="vzdTitre">D\u00e9poser un retour</h2>'
+      +   '<h2 id="vzdTitre">Enregistrer ma sortie</h2>'
       + '</div>'
       + '<div class="vzd-body" id="vzdBody"></div>'
       + '<div class="vzd-foot" id="vzdFoot"></div>';
@@ -1020,7 +1020,7 @@
     build();
     reset(pt);
     var t = document.getElementById('vzdTitre');
-    if (t) t.textContent = 'D\u00e9poser un retour';
+    if (t) t.textContent = 'Enregistrer ma sortie';
     _el.classList.add('open');
     _scrim.classList.add('open');
     document.body.classList.add('vz-depot-open');
