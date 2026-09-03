@@ -972,9 +972,6 @@
           + '</div>';
       });
       h += '</div>';
-      h += '<span class="vze-gloss" style="padding:0 4px;">nombre de sorties et visibilit\u00e9 '
-        + 'moyenne observ\u00e9e par ann\u00e9e. Un point d\'interrogation veut dire qu\'aucun retour '
-        + 'de cette ann\u00e9e ne porte de visibilit\u00e9.</span>';
     }
 
     if (hi.favoris.length) {
@@ -1002,7 +999,7 @@
     // enterre sous les secteurs et l'historique, l'action principale de l'app
     // demandait un defilement pour etre atteinte.
     h += '<button type="button" class="vze-btn" data-act="depot">'
-      +    ICO.plus + 'D\u00e9poser un retour</button>';
+      +    ICO.plus + 'Enregistrer ma sortie</button>';
 
     // Mes secteurs
     h += '<div style="display:grid;gap:var(--vz-gap-4);">';
@@ -1032,13 +1029,10 @@
           + '</button>';
       });
       h += '</div>';
-      h += '<span class="vze-gloss" style="padding:0 4px;">visibilit\u00e9 observ\u00e9e par un chasseur '
-        + 'dans les 12 km, sur les 7 derniers jours. Un point d\'interrogation veut dire '
-        + 'qu\'aucune mesure r\u00e9cente n\'existe : la carte reste la seule \u00e0 montrer une pr\u00e9vision.</span>';
     } else {
       h += '<div class="vze-empty">'
         +    '<span class="t">Aucun secteur suivi</span>'
-        +    '<span class="g">L\'\u00e9toile du panneau secteur permet de suivre un point et de le retrouver ici.</span>'
+        +    '<span class="g">L\'\u00e9toile d\'un secteur le suit.</span>'
         + '</div>';
     }
     h += '</div>';
@@ -1072,7 +1066,7 @@
     } else {
       h += '<div class="vze-empty">'
         +    '<span class="t">Aucun retour</span>'
-        +    '<span class="g">Un retour garde ce que tu as vu sous l\'eau : la visibilit\u00e9 observ\u00e9e, tes notes, tes photos. Il reste priv\u00e9. Seule la valeur de visibilit\u00e9 peut \u00eatre partag\u00e9e, si tu le d\u00e9cides.</span>'
+        +    '<span class="g">Priv\u00e9. Seule la visibilit\u00e9 peut \u00eatre partag\u00e9e.</span>'
         + '</div>';
     }
     h += '</div>';
