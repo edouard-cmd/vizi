@@ -996,6 +996,14 @@
       h += '</div></div>';
     }
 
+    // Le depot est le SEUL point d'entree de la donnee du chasseur : il
+    // alimente son historique et, pour la seule valeur de visibilite, le
+    // secteur. Il est donc remonte juste sous les chiffres, avant les listes :
+    // enterre sous les secteurs et l'historique, l'action principale de l'app
+    // demandait un defilement pour etre atteinte.
+    h += '<button type="button" class="vze-btn" data-act="depot">'
+      +    ICO.plus + 'D\u00e9poser un retour</button>';
+
     // Mes secteurs
     h += '<div style="display:grid;gap:var(--vz-gap-4);">';
     h += '<span class="vze-sect" style="padding:0 4px;">Mes secteurs</span>';
@@ -1038,12 +1046,6 @@
     // Mes retours
     h += '<div style="display:grid;gap:var(--vz-gap-4);">';
     h += '<span class="vze-sect" style="padding:0 4px;">Mes retours</span>';
-    // Le depot est le SEUL point d'entree de la donnee du chasseur : il
-    // alimente son historique et, pour la seule valeur de visibilite, le
-    // secteur. Il figure donc au-dessus de la liste, atteignable que le
-    // chasseur ait deja depose ou non.
-    h += '<button type="button" class="vze-btn" data-act="depot">'
-      +    ICO.plus + 'D\u00e9poser un retour</button>';
     if (_retours && _retours.length) {
       h += '<div class="vze-group">';
       _retours.slice().sort(function (a, b) {
