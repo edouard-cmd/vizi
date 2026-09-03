@@ -23090,8 +23090,14 @@ var VZ_ACCOUNT = (function () {
 
   function onClick() {
     closeMenu();
-    if (!S_currentUser) { openLogin(); return; }
-    if (typeof VZ_ESPACE !== 'undefined' && VZ_ESPACE) VZ_ESPACE.open();
+    // Un SEUL point d'entree : VZ_ESPACE.open gere lui-meme l'absence de
+    // session, met la route demandee de cote et rouvre l'espace une fois la
+    // connexion faite. L'ancien court-circuit vers openLogin sautait cette
+    // mise de cote : le chasseur se connectait puis atterrissait sur la carte
+    // et devait retaper sur la trombine. Le repli openLogin ne sert plus que
+    // si vizi-espace.js n'a pas charge.
+    if (typeof VZ_ESPACE !== 'undefined' && VZ_ESPACE) { VZ_ESPACE.open(); return; }
+    if (!S_currentUser) openLogin();
   }
 
   // Rend l'etat de session visible. Appelee par handleAuthStateChange, donc a
