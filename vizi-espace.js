@@ -585,13 +585,23 @@
     });
   }
 
+  // WebKit refuse d'ouvrir le selecteur de fichiers sur un input rendu
+  // invisible par display:none ou visibility:hidden : le .click() part, et il
+  // ne se passe strictement rien, sans erreur ni message. C'etait le bug.
+  // L'input doit rester rendu ET dans le flux : on le sort de l'ecran par
+  // position absolue plutot que de le masquer.
   function pickPhoto() {
     var u = user();
     if (!u || !window.fbStorage) { alert('Envoi indisponible pour le moment.'); return; }
     var inp = document.createElement('input');
     inp.type = 'file';
     inp.accept = 'image/*';
-    inp.style.display = 'none';
+    inp.style.position = 'fixed';
+    inp.style.left = '-9999px';
+    inp.style.top = '0';
+    inp.style.opacity = '0';
+    inp.style.width = '1px';
+    inp.style.height = '1px';
     document.body.appendChild(inp);
     inp.addEventListener('change', function () {
       var f = inp.files && inp.files[0];
@@ -599,6 +609,10 @@
       if (!f) return;
       uploadPhoto(f);
     });
+    // Annulation du selecteur : l'evenement change ne part jamais et l'input
+    // resterait dans le DOM a chaque tentative. Nettoyage differe, sans effet
+    // si le change a deja retire l'element.
+    setTimeout(function () { if (inp.parentNode) inp.remove(); }, 120000);
     inp.click();
   }
 
@@ -630,7 +644,10 @@
     }).catch(function (err) {
       if (av) av.style.opacity = '';
       console.warn('[espace] photo', err);
-      alert('Envoi de la photo impossible : ' + (err && err.message ? err.message : 'erreur'));
+      var code = (err && err.code) ? err.code : '';
+      alert('Envoi de la photo impossible.'
+        + (code ? '\n' + code : '')
+        + (err && err.message ? '\n' + err.message : ''));
     });
   }
 
