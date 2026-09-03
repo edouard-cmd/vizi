@@ -1487,10 +1487,24 @@
   /* ------------------------------------------------------------------------
      OUVERTURE ET FERMETURE
      ------------------------------------------------------------------------ */
+  // Route demandee avant que la connexion soit faite. Sans elle, le chasseur
+  // qui tape sur le compte voyait la modale, se connectait, et atterrissait sur
+  // la carte : l'intention etait perdue et il fallait retaper sur le compte.
+  // L'horodatage evite qu'une intention oubliee ouvre l'espace des heures plus
+  // tard, quand la connexion vient d'ailleurs (suivi de secteur, lien magique).
+  var _pendingRoute = null;
+  var _pendingAt = 0;
+  var PENDING_MS = 15 * 60 * 1000;
+
   function open(route) {
     // Sans compte, l'espace n'a rien a montrer : on demande la connexion, et
     // le chasseur revient exactement ou il etait. Jamais un ecran de bienvenue.
-    if (!user()) { if (typeof openLogin === 'function') openLogin(); return; }
+    if (!user()) {
+      _pendingRoute = ROUTES[route] ? route : 'espace';
+      _pendingAt = Date.now();
+      if (typeof openLogin === 'function') openLogin();
+      return;
+    }
     build();
     _route = ROUTES[route] ? route : 'espace';
     _el.classList.add('open');
@@ -1653,6 +1667,15 @@
     if (_el && _el.classList.contains('open')) {
       if (!user()) close();
       else { render(); loadData(); }
+    }
+    // L'espace n'etait PAS ouvert : la demande avait ete interrompue par la
+    // modale de connexion. On la reprend maintenant que la session existe.
+    if (user() && _pendingRoute && (Date.now() - _pendingAt) < PENDING_MS) {
+      var r = _pendingRoute;
+      _pendingRoute = null; _pendingAt = 0;
+      open(r);
+    } else if (_pendingRoute && (Date.now() - _pendingAt) >= PENDING_MS) {
+      _pendingRoute = null; _pendingAt = 0;
     }
   };
 
