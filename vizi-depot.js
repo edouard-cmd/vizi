@@ -380,6 +380,7 @@
   var _error = false;
   var _sending = false;
   var _done = null;           // recapitulatif apres envoi
+  var _photosPerdues = 0;     // photos selectionnees qui n'ont pas pu etre envoyees
   var _searchTimer = null;
   var _searchItems = [];
   var _calOpen = false;
@@ -662,7 +663,19 @@
       +          '<span class="v">' + esc(d.vis != null ? d.vis + ' m' : '?') + '</span></div>'
       +        '<div class="r"><span class="k">Sortie</span>'
       +          '<span class="v">' + esc(dateCourteFr(d.date)) + '</span></div>'
+      +        (d.photosPerdues
+             ? '<div class="r"><span class="k">Photos</span>'
+               + '<span class="v">' + d.photosOk + ' sur '
+               + (d.photosOk + d.photosPerdues) + '</span></div>'
+             : '')
       +      '</div>'
+      +      (d.photosPerdues
+             ? '<div class="s">' + (d.photosPerdues > 1
+                 ? d.photosPerdues + ' photos n\'ont pas pu partir'
+                 : 'Une photo n\'a pas pu partir')
+               + ', souvent un reseau trop faible. Ton retour, lui, est bien '
+               + 'enregistre. Tu peux les redeposer depuis ton espace.</div>'
+             : '')
       +    '</div>';
   }
 
@@ -889,7 +902,14 @@
         return null;
       });
     })).then(function (urls) {
-      return urls.filter(Boolean);
+      var ok = urls.filter(Boolean);
+      // Le nombre de photos perdues remonte AVEC les URL. Avant, le
+      // filter(Boolean) les effacait sans laisser de trace : le chasseur
+      // recevait le meme ecran de confirmation qu'un envoi complet et croyait
+      // ses photos enregistrees. Un retour reussi ne doit jamais raconter
+      // quelque chose de faux sur ce qu'il contient.
+      _photosPerdues = _photos.length - ok.length;
+      return ok;
     });
   }
 
@@ -909,7 +929,9 @@
     _sending = true; _error = false; render();
 
     var now = new Date();
+    var urlsEnvoyees = null;
     monterPhotos().then(function (urls) {
+      urlsEnvoyees = urls;
       return vzSubmitObservation({
         lat: _secteur.lat, lon: _secteur.lon,
         secteur: _secteur.nom,
@@ -928,7 +950,8 @@
     }).then(function (res) {
       _sending = false;
       if (!res || !res.success) { _error = true; render(); return; }
-      _done = { secteur: _secteur.nom, vis: _vis, date: _date, partage: !!_consent };
+      _done = { secteur: _secteur.nom, vis: _vis, date: _date, partage: !!_consent,
+                photosOk: (urlsEnvoyees || []).length, photosPerdues: _photosPerdues };
       render();
       // L'espace doit refleter le depot sans rechargement complet.
       try {
@@ -975,6 +998,7 @@
     _secteur = null;
     _vis = null; _eau = null; _vie = null; _taille = null;
     _notes = ''; _consent = true; _error = false; _sending = false; _done = null;
+    _photosPerdues = 0;
     _photos.forEach(function (p) { try { URL.revokeObjectURL(p.url); } catch (e) {} });
     _photos = [];
     _date = new Date().toISOString().slice(0, 10);
