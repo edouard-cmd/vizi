@@ -14499,6 +14499,16 @@ function analyzeCenterPoint() {
 var S_currentUser = null;
 var S_userProfile = null;          // document users/{uid}, null si non charge
 var S_loginMode = 'signin';
+
+// Depart en redirection Google memorise cote session. Au retour, la page a ete
+// rechargee : plus aucune variable JS ne survit, seul ce drapeau permet de
+// distinguer un chargement normal d'une redirection revenue sans session.
+var VZ_AUTH_REDIRECT_KEY = 'vizi_auth_redirect_pending';
+
+// Seuil qui separe une popup fermee a la main d'une popup avalee par le
+// navigateur. Firebase remonte le MEME code (auth/popup-closed-by-user) dans
+// les deux cas, seule la duree les distingue.
+var VZ_AUTH_POPUP_CANCEL_MS = 4000;
 var S_currentMood = 3;
 var S_sessionContext = null;
 
@@ -14615,8 +14625,21 @@ window.handleAuthStateChange = function(user) {
 
 // Appele par le socle quand la session revient d'une redirection Google.
 window.vzAuthOnRedirectBack = function() {
+  try { sessionStorage.removeItem(VZ_AUTH_REDIRECT_KEY); } catch (e) {}
   closeLogin();
   vzAuthTrack('google_redirect');
+};
+
+// Appele par la chaine window.fbReady quand getRedirectResult n'a ramene aucune
+// session. C'est le SEUL endroit du code ou l'on peut constater qu'une
+// redirection Google est partie et n'est jamais revenue.
+window.vzAuthCheckPendingRedirect = function() {
+  var pending = '';
+  try { pending = sessionStorage.getItem(VZ_AUTH_REDIRECT_KEY) || ''; } catch (e) {}
+  if (!pending) return;                                   // chargement normal
+  try { sessionStorage.removeItem(VZ_AUTH_REDIRECT_KEY); } catch (e) {}
+  if (window.fbAuth && window.fbAuth.currentUser) return;  // la session est bien revenue
+  vzAuthGoogleFailed('redirect_lost');
 };
 
 // --- Modale -------------------------------------------------------------
@@ -14667,10 +14690,41 @@ function showLoginOk(msg) {
 
 // --- Google ---------------------------------------------------------------
 
+// Point d'entree UNIQUE de tous les echecs Google. Trois chemins y menent : la
+// popup avalee par le navigateur, la redirection revenue sans session, une
+// erreur Firebase explicite. Avant ce correctif, les deux premiers etaient
+// silencieux (un 'return' nu sur popup-closed-by-user, et aucune branche else
+// apres getRedirectResult) : le chasseur voyait defiler Google, revenait sur la
+// meme modale et n'avait aucun message. C'etait le bug.
+//
+// Cause de fond, NON corrigeable en JS : authDomain vaut visimer.firebaseapp.com
+// alors que le site est servi depuis visimer.fr. Safari 16.1+, Firefox 109+ et
+// Chrome M115+ cloisonnent le stockage tiers, donc l'iframe d'aide Firebase
+// chargee dans visimer.fr ne lit jamais le jeton ecrit par l'onglet Google sur
+// firebaseapp.com. Tant que /__/auth/ n'est pas servi depuis visimer.fr, Google
+// ne peut pas aboutir sur Safari mobile, ni en popup ni en redirection.
+// Reference : firebase.google.com/docs/auth/web/redirect-best-practices
+//
+// Le lien magique ne depend d'aucun stockage tiers : c'est le chemin qui marche
+// aujourd'hui, et cette fonction y conduit explicitement.
+function vzAuthGoogleFailed(reason, msg) {
+  vzAuthTrack('google', false);
+  try { sessionStorage.removeItem(VZ_AUTH_REDIRECT_KEY); } catch (e) {}
+  // openLogin AVANT showLoginError : au retour d'une redirection la page a ete
+  // rechargee, la modale est fermee, et showLoginError ecrirait dans le vide.
+  if (typeof openLogin === 'function') openLogin();
+  showLoginError(msg || 'Google n\'aboutit pas dans ce navigateur. Utilise le lien de connexion par email ci-dessous : aucun mot de passe a retenir.');
+  // Le secours doit se voir sans etre cherche. Teal Talisker, pas de couleur
+  // d'alerte : ce n'est pas une erreur du chasseur, c'est la sortie de secours.
+  var mb = document.getElementById('loginMagicBtn');
+  if (mb) { mb.style.color = '#4DD4A8'; mb.style.fontWeight = '600'; }
+}
+
 function vzAuthGoogleRedirect() {
-  if (!window.fbSignInWithRedirect) { showLoginError('Connexion Google indisponible ici. Utilise le lien par email.'); return; }
+  if (!window.fbSignInWithRedirect) { vzAuthGoogleFailed('no_redirect_fn'); return; }
+  try { sessionStorage.setItem(VZ_AUTH_REDIRECT_KEY, String(Date.now())); } catch (e) {}
   window.fbSignInWithRedirect(window.fbAuth, window.fbGoogleProvider)
-    .catch(function(err) { showLoginError(vzAuthMessage(err)); });
+    .catch(function(err) { vzAuthGoogleFailed('redirect_start', vzAuthMessage(err)); });
 }
 
 function loginGoogle() {
@@ -14681,18 +14735,30 @@ function loginGoogle() {
   // redirection sans faire perdre un aller-retour au chasseur.
   if (vzAuthIsStandalone()) { vzAuthGoogleRedirect(); return; }
 
+  // Horodatage du depart. Sur Safari, une popup avalee par le cloisonnement de
+  // stockage remonte le meme code qu'une popup fermee a la main. Fermer la
+  // fenetre soi-meme prend quelques secondes ; faire tout le parcours Google
+  // (choix du compte, consentement) en prend bien plus. Sous le seuil on se
+  // tait, c'est une annulation assumee. Au-dessus, le chasseur a fait le
+  // travail et n'a rien obtenu : il doit etre prevenu.
+  var t0 = Date.now();
+
   window.fbSignInWithPopup(window.fbAuth, window.fbGoogleProvider).then(function() {
     closeLogin();
   }).catch(function(err) {
     var c = (err && err.code) || '';
-    // Fermeture volontaire de la popup : ce n'est pas un echec, on se tait.
-    if (c === 'auth/popup-closed-by-user' || c === 'auth/cancelled-popup-request') return;
+    // Double clic sur le bouton : la premiere popup est annulee par la seconde.
+    // Aucun echec reel, aucun message.
+    if (c === 'auth/cancelled-popup-request') return;
+    if (c === 'auth/popup-closed-by-user') {
+      if (Date.now() - t0 < VZ_AUTH_POPUP_CANCEL_MS) return;  // annulation volontaire
+      vzAuthGoogleFailed('popup_swallowed'); return;          // Safari a mange le jeton
+    }
     // Popup bloquee ou environnement qui ne la supporte pas : on bascule.
     if (c === 'auth/popup-blocked' || c === 'auth/operation-not-supported-in-this-environment') {
       vzAuthGoogleRedirect(); return;
     }
-    vzAuthTrack('google', false);
-    showLoginError(vzAuthMessage(err));
+    vzAuthGoogleFailed(c || 'unknown', vzAuthMessage(err));
   });
 }
 
