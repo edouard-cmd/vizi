@@ -6329,6 +6329,12 @@ window.fbReady = setPersistence(auth, browserLocalPersistence)
     if (res && res.user) {
       window.VZ_AUTH_LAST_METHOD = 'google_redirect';
       if (window.vzAuthOnRedirectBack) window.vzAuthOnRedirectBack(res.user);
+    } else if (window.vzAuthCheckPendingRedirect) {
+      /* Aucune session ramenee. Sur un chargement normal c'est attendu et la
+         fonction ne fait rien. Mais si un depart en redirection Google avait
+         ete enregistre, alors la redirection a echoue : c'est le seul point du
+         code ou on peut le constater, et il ne doit plus rester muet. */
+      window.vzAuthCheckPendingRedirect();
     }
   })
   .catch((err) => { console.warn('[fb] getRedirectResult', err); })
