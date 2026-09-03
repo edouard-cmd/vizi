@@ -17962,17 +17962,32 @@ function vzSkyKey(cloud, rain){
   if (cloud < 85) return 'cloud';
   return 'overc';
 }
+// CONVENTION UNIQUE des fleches de vent, valable dans TOUTE l'application :
+// le glyphe pointe vers le BAS au repos (pointe en bas du trace), et la
+// rotation vaut la direction brute d'Open-Meteo, qui est une direction
+// d'ORIGINE. Une rotation de d degres amene donc la pointe sur (180 + d),
+// c'est-a-dire la direction d'ARRIVEE, la ou le vent va. C'est la convention
+// de Windy, de windy.app et des routeurs : la fleche suit le vent.
+//
+// Bug corrige ici : ce glyphe-ci pointait vers le HAUT (chevron "^" en tete du
+// trace) alors qu'il subissait la meme rotation brute. Il affichait donc la
+// direction d'origine, soit exactement 180 degres de trop. L'application
+// portait deux glyphes opposes rotates a l'identique : le panneau spot et la
+// statistique mobile montraient ou le vent va, le tableau de previsions
+// montrait d'ou il vient, pour la meme donnee et au meme instant.
 function vzDirArrow(deg){
   if (deg == null) return '<span class="vz-dash">-</span>';
   return '<span class="vz-dir" style="display:block;transform:rotate(' + deg + 'deg)">'
-    + '<svg viewBox="0 0 24 24"><path d="M12 4v16"/><path d="M7 9l5-5 5 5"/></svg></span>';
+    + '<svg viewBox="0 0 24 24"><path d="M12 20V4"/><path d="M7 15l5 5 5-5"/></svg></span>';
 }
 
 /* ---- Constantes de rendu. Elles doivent voyager avec les fonctions :
    sans elles, la premiere ligne rendue jette une ReferenceError. ---- */
 var VZM_ARROW_UP = '<svg viewBox="0 0 24 24"><path d="M12 20V6"/><path d="M6 12l6-6 6 6"/></svg>';
 var VZM_ARROW_DN = '<svg viewBox="0 0 24 24"><path d="M12 4v14"/><path d="M6 12l6 6 6-6"/></svg>';
-var VZM_ARROW_DIR = '<svg viewBox="0 0 24 24"><path d="M12 4v16"/><path d="M7 9l5-5 5 5"/></svg>';
+// Pointe en BAS, voir la convention documentee sur vzDirArrow : rotate(deg)
+// amene la pointe sur la direction d'arrivee du vent.
+var VZM_ARROW_DIR = '<svg viewBox="0 0 24 24"><path d="M12 20V4"/><path d="M7 15l5 5 5-5"/></svg>';
 
 var VZM_SKY = {
   sun:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M6 6l1.4 1.4M16.6 16.6L18 18M18 6l-1.4 1.4M7.4 16.6L6 18"/></svg>',
