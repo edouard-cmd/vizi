@@ -1,0 +1,16 @@
+# Visimer - https://visimer.fr
+# L'application pour la chasse sous-marine
+
+User-agent: *
+Allow: /
+
+# Ressources de rendu : ne jamais bloquer, Google en a besoin
+# pour evaluer correctement la page.
+Allow: /vizi-app.js
+Allow: /brand/
+
+# Deep links de partage de point : meme contenu que l'accueil,
+# consolides par le canonical. Inutile de les faire explorer.
+Disallow: /*?p=
+
+Sitemap: https://visimer.fr/sitemap.xml
