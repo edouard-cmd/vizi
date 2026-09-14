@@ -12,11 +12,27 @@
    par hasard. Ici le secteur est CHOISI : chips des secteurs suivis, ou
    recherche nationale. Le point depose ne depend plus de la camera.
 
-   UN SEUL POINT D'ENTREE. openObsSheet delegue a VZ_DEPOT.open. Les cinq
-   boutons de la carte n'ont pas une ligne a changer, exactement le principe
-   qui a permis a VZ_AUTH de reutiliser les identifiants de l'ancienne modale.
-   L'ancienne feuille reste en place comme repli si ce module ne charge pas :
-   un chasseur ne doit jamais se retrouver sans moyen de deposer.
+   UN SEUL POINT D'ENTREE, DEUX FORMULAIRES. openObsSheet delegue a
+   VZ_DEPOT.open(pt, mode). Les boutons de la carte n'ont pas une ligne a
+   changer, exactement le principe qui a permis a VZ_AUTH de reutiliser les
+   identifiants de l'ancienne modale. L'ancienne feuille reste en place comme
+   repli si ce module ne charge pas : un chasseur ne doit jamais se retrouver
+   sans moyen de deposer.
+
+   C'EST LA SESSION QUI CHOISIT L'ECRAN, PAS LE BOUTON CLIQUE.
+     mode 'sortie'  - chasseur connecte. Journal complet : date, visibilite,
+                      eau, vie aquatique, taille, commentaire, photos, et la
+                      case "Partager la visibilite avec la communaute".
+     mode 'partage' - pas de session. Depot public : secteur, date,
+                      visibilite, eau, un mot sur les conditions, signature
+                      pseudo ou anonyme. Le partage est l'intention meme du
+                      bouton, il n'y a donc pas de case a cocher.
+
+   POURQUOI AUCUNE QUESTION SUR LE POISSON EN MODE PARTAGE
+   Un chasseur qui partage une visibilite ne dit pas s'il y avait du poisson.
+   Le lui demander casse la confiance qui fait tenir la communaute. Et la
+   reponse serait de toute facon perdue : vie et taille ne partent jamais au
+   GAS, et VZ_RETOUR.save ne s'execute pas sans session. Collecter puis jeter.
 
    CE QUI PART, CE QUI RESTE
    Le secteur ne recoit QUE la valeur de visibilite et le pseudo. La date, le
@@ -219,6 +235,27 @@
     + '#vzDepot .vzd-priv svg{width:13px;height:13px;flex-shrink:0;margin-top:1px;fill:none;'
     +   'stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}'
 
+    // --- signature, mode partage -------------------------------------------
+    // Le connecte signe avec le pseudo de son compte. L'anonyme n'a rien :
+    // sans ce bloc il publie 'Anonyme' sans qu'on le lui ait demande, alors
+    // que la signature est ce qui fait tenir la confiance entre chasseurs.
+    + '#vzDepot .vzd-sign{display:flex;gap:8px;}'
+    + '#vzDepot .vzd-sign input{flex:1;min-width:0;min-height:56px;padding:0 14px;'
+    +   'background:var(--vz-surface,#fff);border:var(--vz-bd,2px) solid var(--vz-line,#C3D0DA);'
+    +   'border-radius:var(--vz-r-card,14px);font-family:inherit;font-size:15px;font-weight:600;'
+    +   'color:var(--vz-ink,#0A1520);outline:none;box-sizing:border-box;}'
+    + '#vzDepot .vzd-sign input:focus{border-color:var(--vz-ink,#0A1520);}'
+    + '#vzDepot .vzd-sign input:disabled{opacity:.45;}'
+    + '#vzDepot .vzd-anon{display:flex;align-items:center;gap:7px;flex-shrink:0;min-height:56px;'
+    +   'padding:0 14px;background:var(--vz-surface,#fff);'
+    +   'border:var(--vz-bd,2px) solid var(--vz-line,#C3D0DA);border-radius:var(--vz-r-card,14px);'
+    +   'cursor:pointer;font-family:inherit;font-size:14px;font-weight:700;'
+    +   'color:var(--vz-text-2,#33475A);-webkit-tap-highlight-color:transparent;}'
+    + '#vzDepot .vzd-anon svg{width:17px;height:17px;fill:none;stroke:currentColor;'
+    +   'stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}'
+    + '#vzDepot .vzd-anon.on{background:var(--vz-accent,#4DD4A8);'
+    +   'border-color:var(--vz-ink,#0A1520);color:var(--vz-ink,#0A1520);}'
+
     // --- consentement et transparence --------------------------------------
     + '#vzDepot .vzd-consent{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;'
     +   'padding:8px 14px;background:var(--vz-surface,#fff);'
@@ -312,7 +349,9 @@
     cam:    '<svg viewBox="0 0 24 24"><path d="M3 8.5 A2 2 0 0 1 5 6.5 h2.2 l1.3-2 h7 l1.3 2 H19 a2 2 0 0 1 2 2 V18 a2 2 0 0 1-2 2 H5 a2 2 0 0 1-2-2 Z"/><circle cx="12" cy="13" r="3.6"/></svg>',
     chev:   '<svg class="chev" viewBox="0 0 24 24"><path d="M9 6 l6 6 -6 6"/></svg>',
     prev:   '<svg viewBox="0 0 24 24"><path d="M15 5 l-7 7 7 7"/></svg>',
-    next:   '<svg viewBox="0 0 24 24"><path d="M9 5 l7 7 -7 7"/></svg>'
+    next:   '<svg viewBox="0 0 24 24"><path d="M9 5 l7 7 -7 7"/></svg>',
+    user:   '<svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>'
+          + '<circle cx="12" cy="7" r="4"/></svg>'
   };
 
   /* ------------------------------------------------------------------------
@@ -386,6 +425,19 @@
   var _calOpen = false;
   var _calMois = null;        // Date positionnee au 1er du mois affiche
 
+  // Mode d'ouverture. Deux formulaires a l'ecran, un seul moteur de rendu.
+  //   'sortie'  : journal du chasseur connecte. Ecran complet, case de partage.
+  //   'partage' : depot public d'un non connecte. Visibilite, eau, un mot,
+  //               signature. Ni vie, ni taille, ni photos.
+  // Ces trois champs ne partent JAMAIS au GAS et VZ_RETOUR.save ne s'execute
+  // pas sans session : les demander a un anonyme, c'est collecter puis jeter,
+  // et surtout poser sur le poisson une question qui casse la confiance.
+  // Defaut 'sortie' : un appelant qui oublie l'argument garde l'ecran
+  // d'origine, jamais une degradation silencieuse.
+  var _mode = 'sortie';
+  var _pseudo = '';           // mode partage uniquement
+  var _anon = false;          // mode partage uniquement
+
   function esc(s) {
     return String(s == null ? '' : s)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -405,6 +457,10 @@
   }
 
   function pseudo() {
+    // En mode partage le pseudo vient du champ, pas du compte : il n'y a pas
+    // de compte. Anonyme rend une chaine vide, que vzSubmitObservation traduit
+    // en 'Anonyme' au moment de l'envoi.
+    if (_mode === 'partage') return _anon ? '' : String(_pseudo || '').trim();
     try {
       if (typeof VZ_RETOUR !== 'undefined' && VZ_RETOUR && VZ_RETOUR.isLogged()) {
         var p = VZ_RETOUR.pseudo();
@@ -447,6 +503,14 @@
 
     // --- secteur ---
     var suivis = secteursSuivis();
+    // En mode partage, secteursSuivis() est vide : pas de compte, pas de
+    // secteurs suivis. Le point pose par la carte devient donc un chip actif,
+    // et le chasseur lit ou il depose des l'ouverture au lieu de faire face a
+    // un champ de recherche vide alors qu'il vient de cliquer sur un secteur.
+    if (_mode === 'partage' && _secteur
+        && !suivis.some(function (s) { return s.nom === _secteur.nom; })) {
+      suivis = [_secteur].concat(suivis);
+    }
     h += '<div class="vzd-f"><span class="vzd-k">Secteur</span>';
     if (suivis.length) {
       h += '<div class="vzd-chips">';
@@ -505,18 +569,54 @@
     });
     h += '</div></div>';
 
-    // --- vie aquatique et taille ---
+    // --- vie aquatique et taille : journal uniquement ---
     // Aucune couleur d'echelle sur ces deux champs : une vie faible ou des
     // poissons petits ne sont pas un mauvais resultat. Les colorer en orange
     // transformerait une observation en jugement.
-    h += triBloc('Vie aquatique', 'vie', VIE, _vie);
-    h += triBloc('Taille des poissons', 'taille', TAILLE, _taille);
+    //
+    // Absents du mode partage. Un chasseur qui partage une visibilite ne dit
+    // pas s'il y avait du poisson : le lui demander casse la confiance, et la
+    // reponse ne quitterait de toute facon jamais le formulaire sans compte.
+    if (_mode === 'sortie') {
+      h += triBloc('Vie aquatique', 'vie', VIE, _vie);
+      h += triBloc('Taille des poissons', 'taille', TAILLE, _taille);
+    }
 
     // --- commentaire ---
-    h += '<div class="vzd-f"><span class="vzd-k">Commentaire</span>'
-      +    '<textarea class="vzd-note" id="vzdNotes" maxlength="180" '
-      +    'placeholder="Optionnel">' + esc(_notes) + '</textarea>'
+    // Meme champ, meme limite de 180 caracteres, autre intention. Le journal
+    // demande une note personnelle ; le partage demande un recit adresse aux
+    // autres chasseurs, sans vocabulaire technique.
+    h += '<div class="vzd-f"><span class="vzd-k">'
+      +    (_mode === 'partage' ? 'Un mot sur les conditions' : 'Commentaire')
+      +  '</span>'
+      +    '<textarea class="vzd-note" id="vzdNotes" maxlength="180" placeholder="'
+      +    (_mode === 'partage'
+           ? 'Ce que tu dirais \u00e0 un pote qui y va demain'
+           : 'Optionnel')
+      +    '">' + esc(_notes) + '</textarea>'
       +  '</div>';
+
+    // --- signature, et fin du mode partage ---
+    // Sortie anticipee : photos, case de consentement et bloc de transparence
+    // n'existent pas ici. Cocher "partager" dans un ecran intitule "Partager
+    // la visibilite" serait une friction sans objet, et blocPartage() parle
+    // d'un historique que l'anonyme n'a pas.
+    if (_mode === 'partage') {
+      h += '<div class="vzd-f"><span class="vzd-k">Signer mon retour</span>'
+        +    '<div class="vzd-sign">'
+        +      '<input type="text" id="vzdPseudo" maxlength="20" autocomplete="nickname" '
+        +      'placeholder="Mon pseudo"' + (_anon ? ' disabled' : '')
+        +      ' value="' + esc(_anon ? '' : _pseudo) + '" />'
+        +      '<button type="button" id="vzdAnon" class="vzd-anon' + (_anon ? ' on' : '') + '">'
+        +        ICO.user + '<span>Anonyme</span></button>'
+        +    '</div>'
+        +    '<div class="vzd-priv">' + ICO.lock
+        +      '<span>Ta visibilit\u00e9, l\'\u00e9tat de l\'eau et ton mot sont affich\u00e9s '
+        +      'au secteur. Jamais ton spot pr\u00e9cis.</span>'
+        +    '</div>'
+        +  '</div>';
+      return h;
+    }
 
     // --- photos ---
     h += '<div class="vzd-f"><span class="vzd-k">Mes photos</span><div class="vzd-album">';
@@ -682,6 +782,12 @@
   function labelCta() {
     if (_sending) return 'Envoi...';
     if (_error)   return 'R\u00e9essayer';
+    // Libelle FIXE, jamais le nom du secteur. "Partager au secteur de
+    // Port-en-Bessin-Huppain" passe sur deux lignes en 380 px et fait varier
+    // la hauteur du pied selon le toponyme : un bouton dont la geometrie
+    // depend d'une donnee finit toujours par casser. Le nom est deja lu dans
+    // le chip en haut de l'ecran.
+    if (_mode === 'partage') return 'Partager au secteur';
     return _consent ? 'Enregistrer et partager' : 'Enregistrer sans partager';
   }
 
@@ -690,9 +796,13 @@
     if (_done) {
       _body.className = '';
       _body.innerHTML = vueDone();
-      _foot.innerHTML = '<button type="button" class="vzd-cta" id="vzdBack">Revenir \u00e0 mon espace</button>';
+      // Sans compte, "Revenir a mon espace" enverrait le chasseur sur l'ecran
+      // de connexion : VZ_ESPACE.open() appelle openLogin() quand user() est nul.
+      _foot.innerHTML = (_mode === 'partage')
+        ? '<button type="button" class="vzd-cta" id="vzdBack">Fermer</button>'
+        : '<button type="button" class="vzd-cta" id="vzdBack">Revenir \u00e0 mon espace</button>';
       var b = document.getElementById('vzdBack');
-      if (b) b.addEventListener('click', fermerVersEspace);
+      if (b) b.addEventListener('click', (_mode === 'partage') ? close : fermerVersEspace);
       return;
     }
     // Chaque appui sur une pastille reconstruit tout le formulaire. Sans cette
@@ -771,6 +881,20 @@
     // Pas de re-rendu a la frappe : il detruirait le champ et ferait perdre le
     // curseur a chaque caractere.
     if (nt) nt.addEventListener('input', function () { _notes = nt.value; });
+
+    var ps = document.getElementById('vzdPseudo');
+    // Pas de re-rendu a la frappe, meme raison que le commentaire : le champ
+    // serait detruit et le curseur perdu a chaque caractere.
+    if (ps) ps.addEventListener('input', function () { _pseudo = ps.value; });
+
+    var an = document.getElementById('vzdAnon');
+    if (an) an.addEventListener('click', function () {
+      // La saisie est conservee en memoire au passage en anonyme : se tromper
+      // de bouton ne doit pas effacer un pseudo deja tape.
+      if (!_anon && ps) _pseudo = ps.value;
+      _anon = !_anon;
+      render();
+    });
 
     var cs = document.getElementById('vzdConsent');
     if (cs) cs.addEventListener('click', function () { _consent = !_consent; render(); });
@@ -998,6 +1122,11 @@
     _secteur = null;
     _vis = null; _eau = null; _vie = null; _taille = null;
     _notes = ''; _consent = true; _error = false; _sending = false; _done = null;
+    // Le pseudo se reprend du dernier depot : un chasseur regulier ne doit pas
+    // le retaper. L'anonymat, lui, ne se recycle JAMAIS : c'est une decision
+    // qui porte sur UNE sortie, la reconduire en silence trahirait l'intention.
+    _anon = false;
+    try { _pseudo = localStorage.getItem('vizi_pseudo') || ''; } catch (e) { _pseudo = ''; }
     _photosPerdues = 0;
     _photos.forEach(function (p) { try { URL.revokeObjectURL(p.url); } catch (e) {} });
     _photos = [];
@@ -1016,11 +1145,16 @@
     }
   }
 
-  function open(pt) {
+  function open(pt, mode) {
     build();
+    // Le mode est pose AVANT reset : reset initialise le pseudo, dont la
+    // source depend de la presence d'une session.
+    _mode = (mode === 'partage') ? 'partage' : 'sortie';
     reset(pt);
     var t = document.getElementById('vzdTitre');
-    if (t) t.textContent = 'Enregistrer ma sortie';
+    if (t) t.textContent = (_mode === 'partage')
+      ? 'Partager la visibilit\u00e9'
+      : 'Enregistrer ma sortie';
     _el.classList.add('open');
     _scrim.classList.add('open');
     document.body.classList.add('vz-depot-open');
