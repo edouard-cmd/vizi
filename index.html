@@ -2409,8 +2409,13 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
 #header { display: none !important; }
     .vz-layers-popover {
   position: fixed;
-  top: 168px;
-  left: 64px;
+  /* Positions DERIVEES des tokens, jamais en dur. Les valeurs precedentes
+     (top 168, left 64) reprenaient --vz-rail, qui est la LARGEUR du rail et
+     non son bord droit : le rail va de --vz-gut a --vz-gut + --vz-rail, soit
+     16 a 80. Le panneau mordait donc 16 px dessus et tronquait les libelles
+     Couches, Mesure, Cap, Partage, Export. */
+  top: var(--vz-row3);
+  left: calc(var(--vz-gut) + var(--vz-rail) + var(--vz-gap));
   z-index: 1300;
   width: 300px;
   max-width: calc(100vw - 32px);
