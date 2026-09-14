@@ -137,9 +137,16 @@
     +   'color:var(--vz-text-2,#33475A);}'
 
     // --- date : libelle stylise, input natif transparent par-dessus --------
+    // color, font-family et cursor sont OBLIGATOIRES ici. Un <button> n'herite
+    // ni de la police ni de la couleur du parent : sans declaration, il prend
+    // buttontext du user-agent. La page annonce color-scheme "dark light", donc
+    // sous un OS en mode sombre buttontext devient BLANC, sur ce fond blanc.
+    // Mesure au banc : contraste 1:1, libelle de date invisible sur desktop.
     + '#vzDepot .vzd-date{position:relative;display:flex;align-items:center;gap:12px;'
     +   'min-height:56px;padding:0 14px;background:var(--vz-surface,#fff);'
-    +   'border:var(--vz-bd,2px) solid var(--vz-ink,#0A1520);border-radius:var(--vz-r-card,14px);}'
+    +   'border:var(--vz-bd,2px) solid var(--vz-ink,#0A1520);border-radius:var(--vz-r-card,14px);'
+    +   'font-family:inherit;color:var(--vz-ink,#0A1520);cursor:pointer;'
+    +   '-webkit-tap-highlight-color:transparent;}'
     + '#vzDepot .vzd-date svg{width:20px;height:20px;flex-shrink:0;fill:none;'
     +   'stroke:var(--vz-ink,#0A1520);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}'
     + '#vzDepot .vzd-date .d{flex:1;min-width:0;font-size:16px;font-weight:700;}'
