@@ -17801,6 +17801,13 @@ function loadSheetConditions(spot) {
     { k: 'sat', lb: '' }, { k: 'fb', lb: '' }, { k: 'meteo', lb: '' },
     { k: 'maree', lb: '' }, { k: 'depth', lb: '' }, { k: 'sed', lb: '' }
   ]);
+
+  // Generation. Un clic sur un autre point pendant le chargement doit rendre
+  // inoffensives les promesses encore en vol : sans ce jeton, une source lente
+  // du point precedent repeindrait le tableau du point courant. Le test
+  // VZ_SHEET.mode seul ne suffisait pas, il ne distingue pas deux points.
+  var gen = (VZ_SHEET._condGen = (VZ_SHEET._condGen || 0) + 1);
+
   // Une source qui echoue a repondu, elle aussi : les deux branches cochent.
   // Fournir le second callback n'est pas cosmetique - fetchSheetMeteo n'a pas
   // de .catch propre, et une chaine derivee sans handler de rejet produirait
@@ -17835,27 +17842,156 @@ function loadSheetConditions(spot) {
     ? ensurePortCounts_().catch(function(){ return null; })
     : Promise.resolve(null), 'fb');
 
-  Promise.all([meteoPromise, depthPromise, tidesPromise, satPromise, sedimentPromise, feedbackPromise]).then(function(results) {
+  // ============================================================
+  // RENDU PROGRESSIF - le tableau n'est plus l'otage de la source la plus lente
+  // ------------------------------------------------------------
+  // Le Promise.all des SIX sources verrouillait l'affichage : une source qui
+  // trainait (mesure du 14/09 : le satellite a 5-6 s, onze tentatives cote GAS
+  // pour finir en no_data_extended) gelait l'ecran de chargement alors que
+  // meteo, maree, profondeur et sediment etaient deja la depuis longtemps.
+  //
+  // Le SOCLE est desormais tout sauf le satellite. Il porte l'integralite de
+  // ce que le chasseur lit - vent, rafales, direction, vagues, ciel, maree,
+  // profondeur - et le sediment, sans lequel la chaine 9 briques tombe en
+  // repli empirique et affiche des "?" partout (pre-condition 1 du moteur).
+  //
+  // Le satellite n'est PAS sorti de la doctrine : il reste le niveau 1. Il est
+  // simplement differe. S'il arrive avec une image exploitable, on invalide les
+  // caches du moteur et on repeint : la voie satellite reprend alors la main,
+  // exactement comme avant. S'il arrive vide - le cas actuel - on ne repeint
+  // pas, car le moteur jetterait sa reponse (cf. le test de statut de la voie
+  // satellite dans computeVisibilityScore_V4) et on paierait un recalcul
+  // complet des 32 creneaux pour rien.
+  // ============================================================
+  var got = { meteo: null, depth: null, tides: null, satellite: null, sediment: null };
+  var painted = false;
+
+  function keep(p, field) {
+    p.then(function(v){ got[field] = v; }, function(){ got[field] = null; });
+    return p;
+  }
+  keep(meteoPromise, 'meteo');
+  keep(depthPromise, 'depth');
+  keep(tidesPromise, 'tides');
+  keep(sedimentPromise, 'sediment');
+  keep(satPromise, 'satellite');
+
+  // Meme test de recevabilite que la voie satellite du moteur : un statut hors
+  // de cette liste, ou une image de plus de 72 h, n'ouvre pas le niveau 1.
+  function satUsable(s) {
+    return !!(s && s.status
+      && (s.status === 'ok' || s.status === 'cloudy_J1' || s.status === 'cloudy_J2')
+      && (typeof s.age_hours !== 'number' || s.age_hours <= 72));
+  }
+
+  // POINT D'ENTREE UNIQUE du rendu du tableau. Les trois declencheurs
+  // (socle complet, echeance, arrivee du satellite) passent tous par ici.
+  function paint() {
+    if (gen !== VZ_SHEET._condGen) return;        // un autre point a pris la main
     if (VZ_SHEET.mode !== 'cond') return;
-    var meteo = results[0];
-    var depth = results[1];
-    var tides = results[2];
-    var sat = results[3];
-    var sediment = results[4];
-    if (!meteo || !meteo.time) {
-      document.getElementById('vzSheetBody').innerHTML = vzCondMessage('Données météo indisponibles');
-      return;
-    }
-    VZ_SHEET.data = { meteo: meteo, depth: depth, tides: tides, spot: spot, satellite: sat, sediment: sediment };
+    if (!got.meteo || !got.meteo.time) return;    // rien de peignable sans meteo
+    VZ_SHEET.data = {
+      meteo: got.meteo, depth: got.depth, tides: got.tides,
+      spot: spot, satellite: got.satellite, sediment: got.sediment
+    };
+    // Les caches du moteur portent le resultat calcule AVEC les sources
+    // presentes au moment du calcul. Sans cette invalidation, la repeinture
+    // qui suit l'arrivee du satellite reservirait les memes valeurs que le
+    // premier passage : le cache est indexe sur le creneau, pas sur les
+    // sources disponibles.
+    if (typeof invalidateChainCache === 'function') invalidateChainCache();
     // renderSheetTable appelle elle-meme vzRenderCondVerdict en fin de rendu :
     // c'est ce qui garantit que le bloc source survit aux re-renders declenches
     // ailleurs (retour de fetchVisiFeedback, changement d'unite de vent).
     renderSheetTable();
     if (typeof vzCondScrollIcons === 'function') vzCondScrollIcons();
-  }).catch(function(err) {
-    console.error('[Sheet] erreur chargement', err);
-    document.getElementById('vzSheetBody').innerHTML = vzCondMessage('Erreur de chargement');
-  });
+    painted = true;
+    paintedWithFb = fbSettled;   // trace doctrine 1 : cette peinture avait-elle le terrain ?
+  }
+
+  function failMessage(txt) {
+    if (painted) return;                          // le tableau est deja a l'ecran
+    if (gen !== VZ_SHEET._condGen || VZ_SHEET.mode !== 'cond') return;
+    var host = document.getElementById('vzSheetBody');
+    if (host) host.innerHTML = vzCondMessage(txt);
+  }
+
+  // DOCTRINE 1 - le retour terrain est PRIORITE 0 dans le moteur, et il n'entre
+  // pas par opts : computeVisibilityScore_V4 le lit via vzNearestFeedback, donc
+  // via la globale S_allFeedback, peuplee uniquement par ensurePortCounts_.
+  // paint() n'a aucun moyen de savoir si elle est chargee : il faut le suivre
+  // ici, sinon une peinture anticipee afficherait une valeur de chaine alors
+  // qu'un chasseur a depose un retour frais a moins de 5 km. C'est exactement
+  // la violation que le commentaire de feedbackPromise ci-dessus decrit.
+  var fbSettled = false;
+  var paintedWithFb = false;
+  var depthSettled = false;
+  feedbackPromise.then(function(){ fbSettled = true; }, function(){ fbSettled = true; });
+  depthPromise.then(function(){ depthSettled = true; }, function(){ depthSettled = true; });
+
+  // Les DEUX conditions sans lesquelles une peinture anticipee mentirait.
+  //
+  // MAREE : sans points de maree exploitables, renderSheetTable ne peut pas
+  // substituer TIDES.data, depthAtTime retombe sur le LAT brut, la houle ne
+  // touche jamais le fond et TOUTES les cases sortent au plafond de zone
+  // (cf. le commentaire de la substitution dans renderSheetTable). Ce n'est
+  // pas un trou honnete, c'est une surestimation silencieuse.
+  //
+  // PROFONDEUR : la voie observation exige depth > 0 pour s'ouvrir. Sans elle,
+  // le retour du chasseur est ignore et on retombe sur la chaine - doctrine 1
+  // court-circuitee sans que rien ne le signale.
+  //
+  // Le sediment, lui, peut manquer : son absence bascule le moteur en repli
+  // empirique, donc en "?" declares. Un trou visible, pas un mensonge.
+  function safeToPaintEarly() {
+    return !!(got.meteo && got.meteo.time
+      && got.tides && got.tides.points && got.tides.points.length
+      && fbSettled && depthSettled);
+  }
+
+  // Filet de securite : aucune source du socle n'a de timeout propre. Si l'une
+  // ne repond jamais, on peint avec ce qui est arrive plutot que de geler.
+  // MAIS on ne peint pas une visibilite sans avoir laisse le retour terrain
+  // rendre son verdict : il est leger (lecture de Sheet, cache par session), et
+  // un chiffre de chaine qui contredit un retour frais pendant quelques
+  // secondes est pire qu'une seconde d'attente de plus.
+  var deadline = setTimeout(function(){
+    if (!painted && safeToPaintEarly()) paint();
+  }, 9000);
+
+  // Cap dur : si le retour terrain lui-meme ne repond jamais (gasGet n'a pas de
+  // timeout), on peint sans lui a 15 s - et la repeinture ci-dessous le
+  // reintegrera s'il finit par arriver. Jamais de gel, jamais de retour perdu.
+  var hardCap = setTimeout(function(){ if (!painted) paint(); }, 15000);
+
+  // Arrivee tardive du retour terrain : si la peinture s'est faite sans lui,
+  // on invalide et on repeint pour que la voie observation reprenne la main.
+  // Dans le chemin nominal, paintedWithFb est vrai et il ne se passe rien.
+  feedbackPromise.then(function() {
+    if (!painted || paintedWithFb) return;
+    if (gen !== VZ_SHEET._condGen) return;
+    paint();
+  }, function(){});
+
+  Promise.all([meteoPromise, depthPromise, tidesPromise, sedimentPromise, feedbackPromise])
+    .then(function() {
+      clearTimeout(deadline); clearTimeout(hardCap);
+      paint();
+      failMessage('Données météo indisponibles');
+    })
+    .catch(function(err) {
+      clearTimeout(deadline); clearTimeout(hardCap);
+      console.error('[Sheet] erreur chargement', err);
+      paint();
+      failMessage('Erreur de chargement');
+    });
+
+  // Satellite differe : ne repeint que s'il apporte reellement le niveau 1.
+  satPromise.then(function(sat) {
+    if (!painted || !satUsable(sat)) return;
+    if (gen !== VZ_SHEET._condGen) return;
+    paint();
+  }, function(){});
 }
 
 // Récupère les hauteurs de marée sur 5 jours via le GAS proxy existant
