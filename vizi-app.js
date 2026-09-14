@@ -6775,6 +6775,16 @@ var VZ_CMEMS_LS_KEY = 'vz_cmems_v1';
 var VZ_CMEMS_TTL = 6 * 3600 * 1000;
 var VZ_CMEMS_MAX = 400;              // garde-fou quota localStorage (~400 Ko)
 
+// Requetes EN VOL, table SEPAREE du cache de donnees.
+// _cmemsCache ne retient que les reponses ARRIVEES. Deux appelants partis
+// avant la premiere reponse ne se voyaient donc pas : la pastille de visi et
+// le pipeline du drawer lancent chacun leur fetchCmemsZSD au meme clic, plus
+// un troisieme si le tableau s'ouvre derriere. Chacun payait ses 11 tentatives
+// Copernicus pour le meme pixel (mesure : 4,73 s et 6,34 s en parallele).
+// Table separee et NON fusionnee dans _cmemsCache : vzCmemsCacheSave()
+// serialise ce cache vers localStorage, et une promesse ne se serialise pas.
+var _cmemsInflight = {};
+
 (function vzCmemsCacheLoad(){
   try {
     var raw = localStorage.getItem(VZ_CMEMS_LS_KEY);
@@ -6820,8 +6830,14 @@ function fetchCmemsZSD(lat, lon) {
     }
   }
 
+  // Une requete deja en vol pour ce pixel : tout le monde attend la MEME.
+  // Place APRES le cache de donnees (un cache chaud repond toujours sans
+  // reseau) et AVANT le fetch. Meme patron que vzWindGridEnsure_ et sa
+  // S.windGridPromise memoisee.
+  if (_cmemsInflight[cacheKey]) return _cmemsInflight[cacheKey];
+
   var url = GAS_URL + '?action=cmems_zsd_v5_test&lat=' + lat + '&lon=' + lon;
-  return fetch(url)
+  var p = fetch(url)
     .then(function(r) {
       if (!r.ok) throw new Error('CMEMS HTTP ' + r.status);
       return r.json();
@@ -6841,7 +6857,16 @@ function fetchCmemsZSD(lat, lon) {
     .catch(function(err) {
       console.warn('[VIZI] CMEMS fetch failed:', err);
       return null;
-    });
+    })
+    // Liberation succes COMME echec : sans ca un couac reseau condamnerait le
+    // pixel pour toute la session. Meme garde-fou que le
+    // S.windGridPromise = null du catch de vzWindGridEnsure_.
+    .then(function(res){ delete _cmemsInflight[cacheKey]; return res; });
+
+  // La table est peuplee AVANT que la promesse soit rendue : le fetch etant
+  // asynchrone, aucun appelant concurrent ne peut passer entre les deux.
+  _cmemsInflight[cacheKey] = p;
+  return p;
 }
 // ============================================================
 // SPRINT 3 — FETCH CORIOLIS COTIER (bouée IFREMER COAST-HF)
