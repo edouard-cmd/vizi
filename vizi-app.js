@@ -17407,44 +17407,23 @@ function vzNearestPortLabel(lat, lng, withDist) {
 }
 window.vzNearestPortLabel = vzNearestPortLabel;
 
-// Croix de visee desktop. Injectee une fois, purement CSS ensuite : elle n'a
-// aucune logique de position puisqu'elle est fixee au centre de l'ecran.
+// Croix de visee desktop : RETIREE le 15 septembre 2026.
+//
+// Elle visait le centre de l'ecran alors que le desktop vise au CLIC. Sur un
+// ordinateur la molette zoome vers le curseur et pas vers le centre : la croix
+// restait donc ou elle etait pendant que la carte partait ailleurs, et il
+// fallait recadrer a la main pour la ramener sur le point voulu. Deux gestes
+// qui se combattent. Le clic direct ne souffre pas de ce defaut, et le ping du
+// point choisi tient deja le role de repere.
+//
+// La fonction est gardee vide plutot que supprimee : son unique appelant,
+// vzPointLabelBoot, continue de l'appeler, et un no-op documente evite qu'un
+// futur passage la reintroduise en croyant reparer un oubli.
+//
+// Le mobile n'est PAS concerne. Son viseur est .vzm-xhair, un autre element,
+// monte par vzmInitCrosshair, et il reste inchange.
 function vzInitDeskXhair() {
-  if (document.getElementById('vzDeskXhair')) return;
-  if (typeof isMobile === 'function' && isMobile()) return;
-
-  var st = document.createElement('style');
-  st.id = 'vzDeskXhairStyle';
-  st.textContent =
-    '.vz-xhair-desk{position:fixed;left:50%;top:50%;width:44px;height:44px;'
-  +   'margin:-22px 0 0 -22px;z-index:1150;pointer-events:none;opacity:0.85;'
-  +   'transition:opacity .2s ease;}'
-  + '.vz-xhair-desk svg{width:100%;height:100%;display:block;overflow:visible;}'
-    // Un point a ete choisi au clic : son ping devient le repere, la croix
-    // s'efface. Deux vises a l'ecran se disputeraient la lecture.
-  + 'body.vz-has-point .vz-xhair-desk{opacity:0;}'
-    // Bandeau deploye : la carte est masquee au centre, la croix ne vise plus
-    // rien et flottait par-dessus le tableau (z-index 1150 contre 1100).
-  + 'body.vz-sheet-open .vz-xhair-desk{opacity:0;}'
-    // Modes ou la carte sert a autre chose qu'a viser.
-  + 'body.vz-edit-mode .vz-xhair-desk,body.vz-measure-mode .vz-xhair-desk,'
-  +   'body.vz-goto .vz-xhair-desk{display:none !important;}'
-  + '@media (max-width:768px){.vz-xhair-desk{display:none !important;}}';
-  document.head.appendChild(st);
-
-  var xh = document.createElement('div');
-  xh.className = 'vz-xhair-desk';
-  xh.id = 'vzDeskXhair';
-  var sh = 'filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6));';
-  xh.innerHTML = '<svg viewBox="0 0 44 44">'
-    + '<circle cx="22" cy="22" r="9" fill="none" stroke="#FFFFFF" stroke-width="2.2" style="' + sh + '"/>'
-    + '<line x1="22" y1="4" x2="22" y2="13" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" style="' + sh + '"/>'
-    + '<line x1="22" y1="31" x2="22" y2="40" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" style="' + sh + '"/>'
-    + '<line x1="4" y1="22" x2="13" y2="22" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" style="' + sh + '"/>'
-    + '<line x1="31" y1="22" x2="40" y2="22" stroke="#FFFFFF" stroke-width="2.4" stroke-linecap="round" style="' + sh + '"/>'
-    + '<circle cx="22" cy="22" r="2" fill="#FFFFFF"/>'
-    + '</svg>';
-  document.body.appendChild(xh);
+  return;
 }
 
 function vzSyncPointLabel() {
