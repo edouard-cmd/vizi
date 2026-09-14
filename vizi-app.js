@@ -14187,13 +14187,28 @@ function showLandMessage(latlng) {
 var OBS_SUBMITTING = false;
 
 function openObsSheet(forceLatLng) {
-  // POINT D'ENTREE UNIQUE. Les cinq boutons de la carte continuent d'appeler
-  // openObsSheet ; c'est ici que le choix de l'ecran se fait. L'ancienne
-  // feuille reste en place comme repli : si vizi-depot.js ne charge pas, un
-  // chasseur doit quand meme pouvoir deposer.
+  // POINT D'ENTREE UNIQUE, DEUX FORMULAIRES. Les boutons de la carte
+  // continuent tous d'appeler openObsSheet ; c'est ici que le choix de l'ecran
+  // se fait, et nulle part ailleurs. L'ancienne feuille #obsSheet reste en
+  // place comme repli : si vizi-depot.js ne charge pas, un chasseur doit quand
+  // meme pouvoir deposer.
   if (typeof VZ_DEPOT !== 'undefined' && VZ_DEPOT && VZ_DEPOT.open) {
     var pt = forceLatLng || (isMobile() ? S.map.getCenter() : (S.clickLatLng || S.map.getCenter()));
-    VZ_DEPOT.open(pt ? { lat: pt.lat, lon: (pt.lon != null ? pt.lon : pt.lng) } : null);
+    // C'est la SESSION qui choisit l'ecran, pas le bouton clique.
+    //   connecte    -> le journal complet, avec sa case de partage
+    //   sans compte -> le depot public, signe, sans question sur le poisson
+    //
+    // Double lecture volontaire. S_currentUser n'est pose qu'au retour de
+    // onAuthStateChanged, alors que fbAuth.currentUser est hydrate plus tot :
+    // sans le second test, un chasseur qui clique dans la seconde suivant le
+    // chargement serait vu anonyme et son retour n'irait pas dans son historique.
+    var logue = false;
+    try {
+      logue = (typeof VZ_RETOUR !== 'undefined' && VZ_RETOUR && VZ_RETOUR.isLogged())
+           || !!(window.fbAuth && window.fbAuth.currentUser);
+    } catch (e) {}
+    VZ_DEPOT.open(pt ? { lat: pt.lat, lon: (pt.lon != null ? pt.lon : pt.lng) } : null,
+                  logue ? 'sortie' : 'partage');
     return;
   }
   var now = new Date();
