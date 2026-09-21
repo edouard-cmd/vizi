@@ -10256,6 +10256,9 @@ function computeVisibilityScore_V4(h, idx, depth, lat, lon, opts) {
   var _obsMs = (typeof fb.obs_ts === 'number' && isFinite(fb.obs_ts))
     ? fb.obs_ts
     : (Date.now() - fb.age_hours * 3600000);   // canal historique : reconstruit depuis l'age
+  // HINDCAST : meme regle que dans le coeur. Une observation posterieure au
+  // creneau n'entre pas dans le melange, elle s'affiche sur SON creneau.
+  if (opts && opts.hindcast && isFinite(_slotMs) && isFinite(_obsMs) && _obsMs > _slotMs) return base;
   var gapH = (isFinite(_slotMs) && isFinite(_obsMs))
     ? Math.abs(_slotMs - _obsMs) / 3600000
     : fb.age_hours;
@@ -10337,7 +10340,7 @@ function _computeVisibilityCore(h, idx, depth, lat, lon, opts) {
   // ----- Cache mémo -----
   // Discriminant de source : les entrées tableau (satellite/sédiment
   // injectés) ne doivent pas télescoper les entrées drawer (globals).
-  var _src = opts.satellite ? 'sheet' : 'drawer';
+  var _src = (opts.satellite ? 'sheet' : 'drawer') + (opts.hindcast ? '|hc' : '');
   var cacheKey = lat.toFixed(4) + '|' + lon.toFixed(4) + '|' + idx + '|' + (depth || 0).toFixed(2) + '|' + _src;
   if (_chainCache[cacheKey]) return _chainCache[cacheKey];
 
@@ -10393,7 +10396,13 @@ function _computeVisibilityCore(h, idx, depth, lat, lon, opts) {
       _satFresher = (_satCache.data.age_hours < _obsAgeH);
     }
 
-    if (!_satFresher) {
+    // HINDCAST : une ancre posterieure au creneau ne dit rien de l'eau d'avant.
+    // propagate0D ne retropropage pas (il rendrait la valeur de l'ancre telle
+    // quelle) : on la neutralise, le creneau retombe sur la chaine 9 briques.
+    var _slotMsHc = Date.parse(h.time[idx]);
+    var _anchorAfterSlot = !!opts.hindcast && isFinite(_slotMsHc) && _anchorMs > _slotMsHc;
+
+    if (!_satFresher && !_anchorAfterSlot) {
       var _zsdEquiv = _obsAnchor.real_m / 0.7;   // visi plongeur -> ZSD Secchi
       var _invObs = inverseBeerLambert_ZSDtoConcentration(_zsdEquiv, lat, lon);
       if (_invObs !== null) {
@@ -10512,7 +10521,15 @@ function _computeVisibilityCore(h, idx, depth, lat, lon, opts) {
   //   - propagate0D : Krone 1962, Mehta 1989, Soulsby 1997 ch.9
   //   - computeConfidence : raisonnement multifactoriel V1
   // ============================================================
-  if (VZ_SATELLITE_ANCHORS && _satCache &&
+  // HINDCAST : meme regle pour la photo satellite, jamais peinte sur un
+  // creneau anterieur a sa prise de vue.
+  var _satAfterSlot = false;
+  if (opts.hindcast && _satCache && _satCache.data && _satCache.data.date_observed) {
+    var _satMsHc = Date.parse(_satCache.data.date_observed);
+    var _slotMsSat = Date.parse(h.time[idx]);
+    _satAfterSlot = isFinite(_satMsHc) && isFinite(_slotMsSat) && _satMsHc > _slotMsSat;
+  }
+  if (VZ_SATELLITE_ANCHORS && !_satAfterSlot && _satCache &&
       typeof _satCache.lat === 'number' && typeof _satCache.lon === 'number' &&
       Math.abs(_satCache.lat - lat) < 0.01 &&
       Math.abs(_satCache.lon - lon) < 0.01 &&
@@ -10629,7 +10646,8 @@ function _computeVisibilityCore(h, idx, depth, lat, lon, opts) {
   //     (visi = 5.6 × NTU^(-0.5)) × facteur 0.7 plongeur
   //   - Propagation 0D : identique voie satellite (Krone 1962)
   // ============================================================
-  if (typeof S_spotCoriolisCache !== 'undefined' && S_spotCoriolisCache &&
+  // HINDCAST : la bouee est une mesure de MAINTENANT, non propagee.
+  if (!opts.hindcast && typeof S_spotCoriolisCache !== 'undefined' && S_spotCoriolisCache &&
       typeof S_spotCoriolisCache.lat === 'number' && typeof S_spotCoriolisCache.lon === 'number' &&
       Math.abs(S_spotCoriolisCache.lat - lat) < 0.01 &&
       Math.abs(S_spotCoriolisCache.lon - lon) < 0.01 &&
@@ -16792,6 +16810,17 @@ var css = `
     .vis-3 { background: #D8C84A; color: #241F02; }
     .vis-4 { background: #4DD4A8; color: #052B20; }
     .vis-5 { background: #2DA888; color: #03211A; }
+    /* ---- Historique : le passe est grise, la mesure garde sa couleur ----
+       grayscale conserve la luminance, donc le contraste du chiffre. Le filtre
+       vit sur CHAQUE td : pose sur la rangee, .is-obs ne pourrait plus en sortir. */
+    .vz-cond-table td.is-past { filter: grayscale(1); }
+    .vz-row-cell.is-past { background: #F2F5F7; color: #51677A; }
+    .vz-row-cell.is-past .gv { color: #51677A; }
+    .vz-cond-dayhead.is-past, .vz-cond-hourhead.is-past, .vz-cond-tideband.is-past { background: #EEF2F5; }
+    .vz-cond-dayhead.is-past .dh-day, .vz-cond-dayhead.is-past .dh-vis { color: #51677A; }
+    .vz-cond-viscell.is-past { cursor: default; }
+    .vz-cond-viscell.is-past:hover { outline: none; }
+    .vz-cond-table td.is-past.is-obs { filter: none; box-shadow: inset 0 0 0 3px #0A1520; }
     /* Hors echelle : ni bon ni mauvais, un trou. */
     .vis-void { background: #5C7285; color: #fff; font-weight: 600; }
 
@@ -16972,6 +17001,14 @@ var css = `
   min-height:56px;border:0;border-bottom:1px solid #EEF2F5;background:#FFFFFF;
   width:100%;text-align:left;cursor:pointer}
 .vzm-slot:active{background:#F7F9FB}
+/* ---- Historique : jours passes grises, mesure chasseur cerclee.
+   Le filtre vit sur les ENFANTS de la ligne : pose sur .vzm-slot, la
+   pastille .is-obs ne pourrait plus en sortir. ---- */
+.vzm-cday.is-past .vzm-dayhead{background:#41535D;border-bottom-color:#41535D}
+.vzm-cday.is-past .vzm-slot{background:#F2F5F7;cursor:default}
+.vzm-cday.is-past .vzm-slot:active{background:#F2F5F7}
+.vzm-cday.is-past .vzm-slot > span{filter:grayscale(1)}
+.vzm-cday.is-past .vzm-slot > .sl-v.is-obs{filter:none;box-shadow:inset 0 0 0 3px #0A1520}
 .vzm-slot.is-now::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;
   background:#0A1520}
 .vzm-slot.is-now .sl-h{color:#0A1520;font-weight:700}
@@ -17989,31 +18026,68 @@ function loadSheetConditions(spot) {
 }
 
 // Récupère les hauteurs de marée sur 5 jours via le GAS proxy existant
+// ============================================================
+// HISTORIQUE DU TABLEAU - VZ_HIST_DAYS jours avant aujourd'hui
+// ------------------------------------------------------------
+// Deux natures de chiffre, jamais melangees :
+//   - le REJEU : moteur en mode hindcast, meteo reellement mesuree, aucune
+//     ancre posterieure au creneau (propagate0D ne retropropage pas, il
+//     rendrait la valeur de l'ancre telle quelle sur tout le passe) ;
+//   - la MESURE : un retour chasseur tombe sur le creneau. Elle prime sur le
+//     rejeu et garde sa couleur, cerclee. Le reste du passe est grise.
+// ============================================================
+var VZ_HIST_DAYS = 5;
+
+// Retour chasseur tombe DANS un creneau de 3 h (centre +/- 1 h 30), sous
+// maxKm. S'il y en a plusieurs, le plus proche du point analyse gagne.
+function vzObsForSlot(lat, lon, slotMs, maxKm) {
+  if (!S_allFeedback || !S_allFeedback.length || typeof haversineKm !== 'function') return null;
+  var best = null;
+  S_allFeedback.forEach(function(f) {
+    if (!f || typeof f.lat !== 'number' || typeof f.lon !== 'number') return;
+    if (typeof f.real_m !== 'number' || !isFinite(f.real_m) || f.real_m <= 0) return;
+    var ts = (typeof f.obs_ts === 'number' && isFinite(f.obs_ts)) ? f.obs_ts
+      : ((typeof f.age_hours === 'number' && isFinite(f.age_hours)) ? (Date.now() - f.age_hours * 3600000) : NaN);
+    if (!isFinite(ts) || Math.abs(ts - slotMs) > 5400000) return;
+    var d = haversineKm(lat, lon, f.lat, f.lon);
+    if (d > maxKm) return;
+    if (!best || d < best.dist_km) best = { real_m: f.real_m, dist_km: d, pseudo: f.pseudo || null, ts: ts };
+  });
+  return best;
+}
+
 function fetchSheetTides(spot) {
   var near = (typeof findApiMareeSiteNear === 'function') ? findApiMareeSiteNear(spot.lat, spot.lng) : null;
   if (!near) return Promise.resolve(null);
-  var today = new Date();
-  var fromStr = today.toISOString().slice(0, 10);
-  var url = GAS_URL + '?action=tides_range&site=' + near.siteId + '&from=' + fromStr + '&days=5';
-  return fetch(url).then(function(r) { return r.json(); }).then(function(data) {
-    if (!data || !data.data) return null;
-    return { points: data.data, extremes: data.extremes || [], port: near };
-  }).catch(function() { return null; });
+  // Fenetre = VZ_HIST_DAYS jours passes + 5 jours a venir. Si le GAS refuse la
+  // fenetre etendue, repli sur l'ancienne (aujourd'hui + 5 j) : l'historique
+  // perd sa maree, le tableau du jour ne perd rien.
+  function ask(backDays) {
+    var start = new Date();
+    start.setDate(start.getDate() - backDays);
+    var url = GAS_URL + '?action=tides_range&site=' + near.siteId
+      + '&from=' + start.toISOString().slice(0, 10) + '&days=' + (5 + backDays);
+    return fetch(url).then(function(r) { return r.json(); }).then(function(data) {
+      if (!data || !data.data || !data.data.length) return null;
+      return { points: data.data, extremes: data.extremes || [], port: near };
+    }).catch(function() { return null; });
+  }
+  return ask(VZ_HIST_DAYS).then(function(res) { return res || ask(0); });
 }
 
 // Réutilise AROME + ARPEGE comme dans loadForecast (haute res 0-48h + ARPEGE 48h-5j)
 function fetchSheetMeteo(lat, lon) {
   var aromeUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon
     + '&hourly=windspeed_10m,winddirection_10m,windgusts_10m,wave_height,temperature_2m,precipitation,cloud_cover'
-    + '&wind_speed_unit=kmh&timezone=Europe/Paris&past_days=7&forecast_days=2'
+    + '&wind_speed_unit=kmh&timezone=Europe/Paris&past_days=8&forecast_days=2'
     + '&models=meteofrance_arome_france';
 var arpegeUrl = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat + '&longitude=' + lon
     + '&hourly=windspeed_10m,winddirection_10m,windgusts_10m,wave_height,temperature_2m,precipitation,cloud_cover'
     + '&daily=sunrise,sunset'
-    + '&wind_speed_unit=kmh&timezone=Europe/Paris&past_days=7&forecast_days=5'
+    + '&wind_speed_unit=kmh&timezone=Europe/Paris&past_days=8&forecast_days=5'
     + '&models=meteofrance_arpege_europe';
 var marineUrl = 'https://marine-api.open-meteo.com/v1/marine?latitude=' + lat + '&longitude=' + lon
-    + '&hourly=wave_height,wave_period,wind_wave_peak_period&timezone=Europe/Paris&past_days=7&forecast_days=5';
+    + '&hourly=wave_height,wave_period,wind_wave_peak_period&timezone=Europe/Paris&past_days=8&forecast_days=5';
   // past_days=7 : le moteur DOIT disposer de l'histoire entre la photo satellite
   // (J-2 a J-6 selon la couverture nuageuse) et maintenant. Sans elle, h demarrait
   // aujourd'hui a 00h et la photo tombait 142 h HORS FENETRE : la propagation
@@ -18185,11 +18259,12 @@ function vzmNum(v){ return v.toFixed(1).replace('.', ','); }
    pas une exception a traiter en amont. */
 function vzmSlotRow(slot, isNow){
   var v = slot.vis;
+  // Creneau du passe : pas de data-ts, donc pas de clic (cf. vzmWirePanel).
   var h = '<button class="vzm-slot' + (isNow ? ' is-now' : '') + '" type="button"'
-    + ' data-ts="' + slot.ts + '"'
+    + (slot.past ? '' : ' data-ts="' + slot.ts + '"')
     + ' title="' + (v === null ? 'Aucune donnée exploitable sur ce créneau' : slot.source) + '">';
   h += '<span class="sl-h">' + slot.hour + '</span>';
-  h += '<span class="sl-v ' + vzmVisClass(v) + '">'
+  h += '<span class="sl-v ' + vzmVisClass(v) + (slot.obs ? ' is-obs' : '') + '">'
     + (v === null ? '?' : vzmNum(v) + 'm') + '</span>';
 
   h += '<span class="sl-d">';
@@ -18238,7 +18313,7 @@ function vzmSlackRow(ex){
    Les extremes sont ranges apres le creneau qui les precede : un seul
    passage, pas de tri a chaque ligne. */
 function vzmDayBlock(day){
-  var h = '<div class="vzm-cday">';
+  var h = '<div class="vzm-cday' + (day.past ? ' is-past' : '') + '">';
   h += '<div class="vzm-dayhead">'
     + '<span class="dh-d">' + day.label + '</span>'
     + '<span class="dh-c' + (day.coef >= 80 ? ' is-vives' : '') + '">coef ' + day.coef + '</span>'
@@ -18323,13 +18398,14 @@ function vzLabelColWidth(scrolled, isMob){
   if (isMob) return scrolled ? 36 : 46;
   return scrolled ? 46 : 138;
 }
-function vzBindScroll(scrollEl, isMob){
+function vzBindScroll(scrollEl, isMob, home){
   if (!scrollEl || scrollEl._vzBound) return;
   scrollEl._vzBound = true;
   var on = false;
   var firstCol = scrollEl.querySelector('.vz-cond-table col');
   scrollEl.addEventListener('scroll', function(){
-    var next = scrollEl.scrollLeft > 24;
+    // home = position de repos (aujourd'hui). 0 par defaut : comportement inchange.
+    var next = Math.abs(scrollEl.scrollLeft - (home || 0)) > 24;
     if (next === on) return;
     on = next;
     if (on) scrollEl.className += ' is-scrolled';
@@ -18445,7 +18521,12 @@ function vzmBuildPanel(ctx) {
         wave: wv,
         sky: vzSkyKey(h.cloud_cover ? h.cloud_cover[sl.i] : null,
                       h.precipitation ? h.precipitation[sl.i] : null) || 'cloud',
-        source: vzmSlotSource(c ? c.sObj : null),
+        source: (c && c.obs)
+          ? ('vu par ' + ((c.obs.pseudo && c.obs.pseudo !== 'Anonyme') ? vzEscHtml(c.obs.pseudo) : 'un chasseur')
+             + ' a ' + (Math.round(c.obs.dist_km * 10) / 10) + ' km')
+          : (sl.past ? 'rejeu du modele sur la meteo mesuree' : vzmSlotSource(c ? c.sObj : null)),
+        past: !!sl.past,
+        obs: (c && c.obs) ? c.obs : null,
         isNow: (si === ctx.nowIdx)
       });
     }
@@ -18468,7 +18549,8 @@ function vzmBuildPanel(ctx) {
       label: g.label.charAt(0) + g.label.slice(1).toLowerCase(),
       coef: getCoefForDate(dkey),
       sunrise: sr, sunset: ss,
-      slots: daySlots, extremes: dayEx
+      slots: daySlots, extremes: dayEx,
+      past: !!g.past
     });
   });
 
@@ -18477,9 +18559,23 @@ function vzmBuildPanel(ctx) {
   out += vzmTopbar(vzmIdentity(place));
   out += vzmSourceBand(satM, fbM);
   out += '<div class="vzm-scroll" id="vzmCondScroll">';
-  if (voidCount === slots.length) out += vzmVoidNote();
-  if (!data.tides || !data.tides.points || !data.tides.points.length) out += vzmTideNone();
-  for (var d = 0; d < days.length; d++) out += vzmDayBlock(days[d]);
+  // Les notes d'etat precedent AUJOURD'HUI, pas l'historique : le panneau
+  // s'ouvre cale sur le repere data-vzm-today, elles doivent etre dessous.
+  var tIdx = 0;
+  for (var t = 0; t < days.length; t++) { if (!days[t].past) { tIdx = t; break; } }
+  if (tIdx > 0) {
+    out += '<div class="vzm-note"><span class="nd"></span><p><b>Historique.</b> Jours gris\u00e9s : '
+      + 'recalcul sur la m\u00e9t\u00e9o r\u00e9ellement mesur\u00e9e. Pastille cercl\u00e9e : '
+      + 'visibilit\u00e9 vue par un chasseur sur ce cr\u00e9neau.</p></div>';
+  }
+  for (var d = 0; d < days.length; d++) {
+    if (d === tIdx) {
+      out += '<div data-vzm-today="1"></div>';
+      if (voidCount === slots.length) out += vzmVoidNote();
+      if (!data.tides || !data.tides.points || !data.tides.points.length) out += vzmTideNone();
+    }
+    out += vzmDayBlock(days[d]);
+  }
   out += '</div>';
   out += '<div class="vzm-foot"><span class="fl">Sources</span>'
     + '<span class="fs">AROME 1,3 km</span><span class="fs">SHOM</span>'
@@ -18556,18 +18652,28 @@ function renderSheetTable() {
   // puisse propager depuis la photo satellite. Le chasseur, lui, n'a que faire
   // de la semaine passee : on ne construit les creneaux qu'a partir
   // d'aujourd'hui 00h. Sans ce decalage, le tableau afficherait le passe.
-  var _todayKey = new Date().toDateString();
-  var _startIdx = 0;
-  for (var i0 = 0; i0 < h.time.length; i0++) {
-    if (new Date(h.time[i0]).toDateString() === _todayKey) { _startIdx = i0; break; }
-  }
-  var slots = [];
-  for (var i = _startIdx; i < h.time.length; i++) {
+  // ----- HISTORIQUE : VZ_HIST_DAYS jours passes + 40 creneaux a venir -----
+  // Les jours AVANT aujourd'hui sont l'historique (past:true) : grises, et
+  // calcules en hindcast. Aujourd'hui garde ses creneaux ecoules tels quels.
+  var _today0 = new Date(); _today0.setHours(0, 0, 0, 0);
+  var _todayMs = _today0.getTime();
+  var _hist0 = new Date(_today0); _hist0.setDate(_hist0.getDate() - VZ_HIST_DAYS);
+  var _histMs = _hist0.getTime();
+  // Maree absente sur le passe (repli de fetchSheetTides) : pas d'historique.
+  // Le rejeu lirait une profondeur figee et sortirait un chiffre faux ; un
+  // trou vaut mieux. Sans port de reference (Mediterranee) la question ne se
+  // pose pas : le moteur travaille au LAT, passe comme futur.
+  var _tp = (data.tides && data.tides.points && data.tides.points.length) ? data.tides.points : null;
+  if (_tp && new Date(_tp[0].time).getTime() > _histMs + 6 * 3600000) _histMs = _todayMs;
+  var slots = [], _nPast = 0, _nLive = 0;
+  for (var i = 0; i < h.time.length; i++) {
     var dt = new Date(h.time[i]);
-    if (dt.getHours() % 3 === 0) {
-      slots.push({ i: i, time: dt, t: h.time[i] });
-    }
-if (slots.length >= 40) break;
+    var _ms = dt.getTime();
+    if (_ms < _histMs || dt.getHours() % 3 !== 0) continue;
+    var _past = _ms < _todayMs;
+    slots.push({ i: i, time: dt, t: h.time[i], past: _past });
+    if (_past) _nPast++;
+    else if (++_nLive >= 40) break;
   }
   if (slots.length === 0) {
     body.innerHTML = vzCondMessage('Pas de données disponibles');
@@ -18589,7 +18695,7 @@ if (slots.length >= 40) break;
     var dKey = s.time.toDateString();
     if (dKey !== lastDay) {
       lastDay = dKey;
-      dayGroups.push({ label: formatSheetDayLabel(s.time), count: 1, date: s.time });
+      dayGroups.push({ label: formatSheetDayLabel(s.time), count: 1, date: s.time, past: !!s.past });
     } else {
       dayGroups[dayGroups.length - 1].count++;
     }
@@ -18666,6 +18772,7 @@ html += '<div class="vz-cond-daybar" id="vzCondDaybar">'
   var _dayRange = {};       // par gIdx : {min,max,n} ou null
   (function() {
     var optsC = { satellite: VZ_SHEET.data.satellite, sediment: VZ_SHEET.data.sediment };
+    var optsH = { satellite: VZ_SHEET.data.satellite, sediment: VZ_SHEET.data.sediment, hindcast: true };
     // Maree du tableau injectee AVANT le calcul : sans elle, depthAtTime lit le
     // global TIDES (vide en contexte tableau), la profondeur reste au LAT brut,
     // la houle ne touche jamais le fond et TOUTES les cases sortent au plafond
@@ -18684,12 +18791,16 @@ html += '<div class="vz-cond-daybar" id="vzCondDaybar">'
         var f0 = cur, l0 = cur + g.count - 1; cur += g.count;
         var mn = Infinity, mx = -Infinity, nn = 0;
         for (var si = f0; si <= l0; si++) {
-          var o = computeVisibilityScore_V4(h, slots[si].i, depth, spot.lat, spot.lng, optsC);
-          if (o.insufficient || typeof o.visi_m !== 'number' || !isFinite(o.visi_m) || o.visi_m <= 0) {
-            _visiCells[si] = { vm: null, sObj: o }; continue;
+          var o = computeVisibilityScore_V4(h, slots[si].i, depth, spot.lat, spot.lng, slots[si].past ? optsH : optsC);
+          // Historique : la mesure prime sur le rejeu. Un retour chasseur tombe
+          // sur ce creneau remplace le chiffre recalcule, et la case le dit.
+          var ob = slots[si].past
+            ? vzObsForSlot(spot.lat, spot.lng, slots[si].time.getTime(), VZ_OBS_MAX_KM) : null;
+          if (!ob && (o.insufficient || typeof o.visi_m !== 'number' || !isFinite(o.visi_m) || o.visi_m <= 0)) {
+            _visiCells[si] = { vm: null, sObj: o, obs: null }; continue;
           }
-          var vm = Math.round(o.visi_m * 10) / 10;
-          _visiCells[si] = { vm: vm, sObj: o };
+          var vm = Math.round((ob ? ob.real_m : o.visi_m) * 10) / 10;
+          _visiCells[si] = { vm: vm, sObj: o, obs: ob };
           if (vm < mn) mn = vm; if (vm > mx) mx = vm; nn++;
         }
         _dayRange[gi] = nn ? { min: mn, max: mx, n: nn } : null;
@@ -18741,6 +18852,13 @@ html += '<div class="vz-cond-daybar" id="vzCondDaybar">'
       conv: conv, nowIdx: nowIdx
     });
     vzmWirePanel();
+    // L'historique est empile AU-DESSUS d'aujourd'hui : on ouvre cale sur
+    // aujourd'hui, le passe se decouvre en remontant.
+    (function() {
+      var scM = document.getElementById('vzmCondScroll');
+      var mk = scM ? scM.querySelector('[data-vzm-today="1"]') : null;
+      if (scM && mk) scM.scrollTop += mk.getBoundingClientRect().top - scM.getBoundingClientRect().top;
+    })();
     return;
   }
 
@@ -18763,7 +18881,7 @@ html += '<div class="vz-cond-daybar" id="vzCondDaybar">'
   function isDayStart(idx) {
     return idx === 0 || slots[idx].time.toDateString() !== slots[idx - 1].time.toDateString();
   }
-  function edge(idx) { return isDayStart(idx) ? ' vz-day-edge' : ''; }
+  function edge(idx) { return (isDayStart(idx) ? ' vz-day-edge' : '') + (slots[idx].past ? ' is-past' : ''); }
 
   html += '<div class="vz-cond-scroll" id="vzCondScroll">';
   html += '<table class="vz-cond-table" style="width:' + TOTW + 'px">';
@@ -18789,7 +18907,7 @@ html += '<div class="vz-cond-daybar" id="vzCondDaybar">'
         if (sr && ss) sunTxt = sr + ' / ' + ss;
       }
     }
-    html += '<td class="vz-cond-dayhead" colspan="' + g.count + '" data-vzday="' + gIdx + '"><div class="dh">'
+    html += '<td class="vz-cond-dayhead' + (g.past ? ' is-past' : '') + '" colspan="' + g.count + '" data-vzday="' + gIdx + '"><div class="dh">'
       + '<span class="dh-day">' + g.label + '</span>'
       + '<span class="dh-coef ' + kc + '">coef ' + dayCoef + '</span>'
       + '<span class="dh-vis">' + _fmtRange(_dayRange[gIdx]) + '</span>'
@@ -18822,7 +18940,12 @@ html += '<div class="vz-cond-daybar" id="vzCondDaybar">'
     } else {
       inner = c.vm.toFixed(1).replace('.', ',') + 'm';
       var o = c.sObj, srcTxt;
-      if (o && o.observation) {
+      if (c.obs) {
+        srcTxt = 'vu par ' + ((c.obs.pseudo && c.obs.pseudo !== 'Anonyme') ? vzEscHtml(c.obs.pseudo) : 'un chasseur')
+          + ' a ' + (Math.round(c.obs.dist_km * 10) / 10) + ' km';
+      } else if (sl.past) {
+        srcTxt = 'rejeu du modele sur la meteo mesuree, aucune mesure sur ce creneau';
+      } else if (o && o.observation) {
         srcTxt = 'retour chasseur ' + o.observation.real_m + ' m il y a '
           + Math.round(o.observation.age_hours) + ' h a '
           + (Math.round(o.observation.dist_km * 10) / 10) + ' km + modele';
@@ -18837,9 +18960,11 @@ html += '<div class="vz-cond-daybar" id="vzCondDaybar">'
       }
       title = sl.t.substr(11, 5) + ' - ' + srcTxt;
     }
-    html += '<td class="vz-cond-viscell ' + vzVisClass(c ? c.vm : null) + edge(si) + '"'
+    // Case du passe : pas de clic. Le drawer recalculerait ce creneau SANS
+    // hindcast et afficherait un autre chiffre que la case.
+    html += '<td class="vz-cond-viscell ' + vzVisClass(c ? c.vm : null) + edge(si) + ((c && c.obs) ? ' is-obs' : '') + '"'
       + ' title="' + title + '"'
-      + ' onclick="vzSheetCellClick(\'' + sl.t + '\')">' + inner + '</td>';
+      + (sl.past ? '' : ' onclick="vzSheetCellClick(\'' + sl.t + '\')"') + '>' + inner + '</td>';
   });
   html += '</tr>';
 
@@ -18849,7 +18974,8 @@ html += '<div class="vz-cond-daybar" id="vzCondDaybar">'
     var cur = 0;
     dayGroups.forEach(function(g) {
       var f0 = cur, l0 = cur + g.count - 1; cur += g.count;
-      html += buildTideBandCell(slots, f0, l0, VZ_SHEET.data.tides);
+      var _tb = buildTideBandCell(slots, f0, l0, VZ_SHEET.data.tides);
+      html += g.past ? _tb.replace('vz-cond-tideband', 'vz-cond-tideband is-past') : _tb;
     });
   })();
   html += '</tr>';
@@ -18909,6 +19035,13 @@ html += '<div class="vz-cond-daybar" id="vzCondDaybar">'
       + 'Les conditions météo et de marée ci-dessus restent valables.</span></div>';
   }
 
+  if (_nPast) {
+    html += '<div class="vz-cond-note"><span class="nd"></span>'
+      + '<span>D\u00e9file \u00e0 gauche : ' + VZ_HIST_DAYS + ' jours d\'historique, gris\u00e9s, recalcul\u00e9s sur la '
+      + 'm\u00e9t\u00e9o r\u00e9ellement mesur\u00e9e. Case cercl\u00e9e : visibilit\u00e9 vue par un chasseur '
+      + 'sur ce cr\u00e9neau.</span></div>';
+  }
+
   html += '<div class="vz-cond-footer">'
     + '<span class="fl">Sources</span>'
     + '<span class="fs">AROME 1,3 km</span>'
@@ -18923,7 +19056,13 @@ html += '<div class="vz-cond-daybar" id="vzCondDaybar">'
   body.innerHTML = html;
 
   // Retraction de la colonne d'intitules au defile (classe + colgroup).
-  vzBindScroll(document.getElementById('vzCondScroll'), _isMob);
+  // Ouverture calee sur aujourd'hui : le passe se decouvre en defilant a
+  // gauche. _home est relu APRES affectation, le navigateur borne scrollLeft
+  // sur un ecran plus large que le reste du tableau.
+  var _scEl = document.getElementById('vzCondScroll');
+  var _home = 0;
+  if (_scEl && _nPast) { _scEl.scrollLeft = _nPast * COLW; _home = _scEl.scrollLeft; }
+  vzBindScroll(_scEl, _isMob, _home);
 
   // Bloc source : construit ICI, dans le rendu, et non plus insere apres coup
   // par loadSheetConditions. renderSheetTable ayant deux appelants dont un qui
