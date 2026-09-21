@@ -20,7 +20,9 @@ const REPO = path.resolve(__dirname, '..');
 const PORT = 8123;
 const argv = process.argv.slice(2);
 const arg = (k, d) => { const i = argv.indexOf('--' + k); return i >= 0 && argv[i + 1] !== undefined ? argv[i + 1] : d; };
-const ONLY = String(arg('only', '')).split(',').map(s => s.trim()).filter(Boolean);
+// Tolerant : "only = courseulles", majuscules, espaces ou virgules en separateur.
+const ONLY = String(arg('only', '')).replace(/^\s*only\s*[:=]\s*/i, '')
+  .split(/[,\s]+/).map(s => s.trim().toLowerCase()).filter(Boolean);
 const OFFSET_M = parseFloat(arg('offset', '800'));
 const PER_PORT_TIMEOUT = 45000;
 
@@ -56,7 +58,9 @@ async function main(opts) {
   await page.waitForTimeout(4000);
 
   const ports = await page.evaluate(() => SPOTS.map(s => ({ id: s.id, name: s.name, lat: s.lat, lon: s.lon })));
-  const todo = ONLY.length ? ports.filter(p => ONLY.includes(p.id)) : ports;
+  const todo = ONLY.length ? ports.filter(p => ONLY.includes(p.id.toLowerCase())) : ports;
+  const unknown = ONLY.filter(id => !ports.some(p => p.id.toLowerCase() === id));
+  if (unknown.length) console.log(`[robot] ids inconnus ignores : ${unknown.join(', ')} (ids valides : ${ports.map(p => p.id).join(', ')})`);
   console.log(`[robot] ${todo.length} port(s) a archiver`);
 
   for (const p of todo) {
