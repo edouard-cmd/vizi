@@ -1,0 +1,31 @@
+# Archive quotidienne des previsions annoncees, pour tous les secteurs.
+# Ouvre chaque matin le tableau Previsions de chaque port de SPOTS dans la
+# vraie app (Chromium headless) : c'est le moteur du navigateur qui calcule,
+# et le tableau lui-meme qui ecrit dans le GAS (action hist_submit).
+name: visimer-archive
+on:
+  schedule:
+    - cron: '30 4 * * *'     # 06h30 Paris en ete, 05h30 en hiver
+  workflow_dispatch:
+    inputs:
+      only:
+        description: 'ids de ports separes par des virgules (vide = tous)'
+        required: false
+        default: ''
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm i --no-save playwright@1.56.0
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/hist-robot.js --only "${{ github.event.inputs.only }}"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: hist-robot-log
+          path: hist-robot-log.json
