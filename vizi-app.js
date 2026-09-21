@@ -17860,8 +17860,19 @@ function loadSheetConditions(spot) {
     : Promise.resolve(null), 'sat');
   // Sédiment : requis pour que la chaîne de resuspension tourne dans le
   // tableau (le tableau ne peuple pas S._spotSediment via le clic drawer).
+  // Zone sedimentaire : le moteur sait remplacer un point classe roche par le
+  // sable dominant autour (mode B), mais il lit S_spotZoneCache, que seul le
+  // pipeline du drawer remplissait. Le tableau la charge donc lui aussi, une
+  // fois la profondeur connue, pour voir le fond comme le drawer le voit.
   var sedimentPromise = mark((typeof fetchSedimentType === 'function')
     ? fetchSedimentType(spot.lat, spot.lng).catch(function(){ return null; })
+        .then(function(sed) {
+          if (typeof fetchSedimentZone !== 'function') return sed;
+          return depthPromise.then(function(dp) {
+            if (!(dp > 0)) return sed;
+            return fetchSedimentZone(spot.lat, spot.lng, dp).then(function(){ return sed; }, function(){ return sed; });
+          }, function(){ return sed; });
+        })
     : Promise.resolve(null), 'sed');
   // Retours chasseurs : DOCTRINE 1. S_allFeedback n'etait peuple que par le clic
   // sur un PORT (fetchPortCounts_) ; en ouvrant le tableau sur un point en mer,
@@ -17872,6 +17883,11 @@ function loadSheetConditions(spot) {
   var feedbackPromise = mark((typeof ensurePortCounts_ === 'function')
     ? ensurePortCounts_().catch(function(){ return null; })
     : Promise.resolve(null), 'fb');
+  // Archive des previsions annoncees (jours passes). Hors du socle : elle ne
+  // retarde pas la premiere peinture, elle la complete quand elle arrive.
+  var histPromise = (typeof vzHistFetch_ === 'function')
+    ? vzHistFetch_(vzHistSectorKey_(spot.lat, spot.lng)).catch(function(){ return null; })
+    : Promise.resolve(null);
 
   // ============================================================
   // RENDU PROGRESSIF - le tableau n'est plus l'otage de la source la plus lente
@@ -17894,7 +17910,7 @@ function loadSheetConditions(spot) {
   // satellite dans computeVisibilityScore_V4) et on paierait un recalcul
   // complet des 32 creneaux pour rien.
   // ============================================================
-  var got = { meteo: null, depth: null, tides: null, satellite: null, sediment: null };
+  var got = { meteo: null, depth: null, tides: null, satellite: null, sediment: null, hist: null };
   var painted = false;
 
   function keep(p, field) {
@@ -17905,6 +17921,7 @@ function loadSheetConditions(spot) {
   keep(depthPromise, 'depth');
   keep(tidesPromise, 'tides');
   keep(sedimentPromise, 'sediment');
+  keep(histPromise, 'hist');
   keep(satPromise, 'satellite');
 
   // Meme test de recevabilite que la voie satellite du moteur : un statut hors
@@ -17923,7 +17940,7 @@ function loadSheetConditions(spot) {
     if (!got.meteo || !got.meteo.time) return;    // rien de peignable sans meteo
     VZ_SHEET.data = {
       meteo: got.meteo, depth: got.depth, tides: got.tides,
-      spot: spot, satellite: got.satellite, sediment: got.sediment
+      spot: spot, satellite: got.satellite, sediment: got.sediment, hist: got.hist
     };
     // Les caches du moteur portent le resultat calcule AVEC les sources
     // presentes au moment du calcul. Sans cette invalidation, la repeinture
@@ -18017,6 +18034,13 @@ function loadSheetConditions(spot) {
       failMessage('Erreur de chargement');
     });
 
+  // Archive arrivee apres la peinture : on repeint pour remplir les jours passes.
+  histPromise.then(function(hist) {
+    if (!painted || !hist) return;
+    if (gen !== VZ_SHEET._condGen) return;
+    paint();
+  }, function(){});
+
   // Satellite differe : ne repeint que s'il apporte reellement le niveau 1.
   satPromise.then(function(sat) {
     if (!painted || !satUsable(sat)) return;
@@ -18037,6 +18061,83 @@ function loadSheetConditions(spot) {
 //     rejeu et garde sa couleur, cerclee. Le reste du passe est grise.
 // ============================================================
 var VZ_HIST_DAYS = 5;
+
+// ------------------------------------------------------------
+// ARCHIVE DES PREVISIONS ANNONCEES, PAR SECTEUR - PARTAGEE (GAS)
+// ------------------------------------------------------------
+// Le moteur tourne dans le navigateur : rien n'archivait ce que Visimer a
+// annonce. L'archive vit sur le GAS (feuille forecast_history), pour TOUS les
+// secteurs : un robot ouvre chaque matin le tableau de chaque port de SPOTS
+// (scripts/hist-robot.js, GitHub Actions) et chaque ouverture humaine ecrit
+// aussi. Un enregistrement par secteur (port de reference sous 20 km, comme
+// les retours) et par jour : horodatage, jour de prise, point, profondeur,
+// visi des 8 creneaux. Regle de lecture, cote GAS : la prevision faite LE
+// JOUR MEME, la premiere de la journee ; a defaut la plus recente d'avant.
+// Les jours passes du tableau relisent cette archive.
+// ------------------------------------------------------------
+var VZ_HIST_SLOTS = ['00', '03', '06', '09', '12', '15', '18', '21'];
+var _histSent = {};   // sector|day|todayKey deja envoye dans cette session
+
+function vzHistDayKey_(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function vzHistSectorKey_(lat, lon) {
+  // Le robot force la cle du port qu'il traite : deux ports voisins ne
+  // doivent pas se voler leur archive.
+  if (typeof window !== 'undefined' && window.VZ_HIST_FORCE_SECTOR) return String(window.VZ_HIST_FORCE_SECTOR);
+  var np = (typeof findNearestPort === 'function') ? findNearestPort(lat, lon) : null;
+  if (np && np.spot && np.spot.id && np.distanceKm <= 20) return 'p:' + np.spot.id;
+  return 'c:' + lat.toFixed(2) + '|' + lon.toFixed(2);
+}
+// Lecture : VZ_HIST_DAYS jours avant aujourd'hui. Ne rejette jamais.
+function vzHistFetch_(sectorKey) {
+  var from = new Date(); from.setHours(0, 0, 0, 0); from.setDate(from.getDate() - VZ_HIST_DAYS);
+  return gasGet('hist_get', { sector: sectorKey, from: vzHistDayKey_(from), days: VZ_HIST_DAYS })
+    .then(function(res) {
+      if (!res || !res.days || typeof res.days !== 'object') return null;
+      return { sector: sectorKey, days: res.days };
+    }).catch(function() { return null; });
+}
+function vzHistGet_(arch, sectorKey, dayKey) {
+  if (!arch || arch.sector !== sectorKey || !arch.days) return null;
+  var r = arch.days[dayKey];
+  return (r && r.v && typeof r.v === 'object') ? r : null;
+}
+// Ecriture : les jours NON passes (aujourd'hui inclus), une fois par secteur
+// et par jour par session. Le GAS garde la premiere prise de la journee.
+function vzHistSubmit_(sectorKey, dayGroups, slots, visiCells, spot, depth) {
+  if (typeof gasGet !== 'function') return;
+  var todayKey = vzHistDayKey_(new Date());
+  var src = (typeof window !== 'undefined' && window.VZ_HIST_SOURCE) ? String(window.VZ_HIST_SOURCE) : 'user';
+  var cur = 0;
+  dayGroups.forEach(function(g) {
+    var f0 = cur, l0 = cur + g.count - 1; cur += g.count;
+    if (g.past) return;
+    var dk = vzHistDayKey_(g.date);
+    var sk = sectorKey + '|' + dk + '|' + todayKey;
+    if (_histSent[sk]) return;
+    _histSent[sk] = true;
+    var byH = {};
+    for (var si = f0; si <= l0; si++) {
+      var c = visiCells[si];
+      byH[String(slots[si].time.getHours()).padStart(2, '0')] = (c && typeof c.vm === 'number') ? c.vm : '';
+    }
+    var v = VZ_HIST_SLOTS.map(function(hh) { return (hh in byH) ? byH[hh] : ''; }).join(',');
+    gasGet('hist_submit', {
+      sector: sectorKey, day: dk, taken_day: todayKey, taken_ts: Date.now(),
+      lat: spot.lat, lon: spot.lng, depth: (depth != null ? depth : ''),
+      v: v, source: src
+    }).then(function(res) {
+      if (!res || !res.ok) delete _histSent[sk];   // on retentera au prochain rendu
+    }, function() { delete _histSent[sk]; });
+  });
+}
+function vzHistAnnLabel_(rec) {
+  if (!rec || !rec.t) return 'annonc\u00e9';
+  var d = new Date(rec.t);
+  return 'annonc\u00e9 le ' + String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0')
+    + ' \u00e0 ' + String(d.getHours()).padStart(2, '0') + 'h' + String(d.getMinutes()).padStart(2, '0');
+}
 
 // Retour chasseur tombe DANS un creneau de 3 h (centre +/- 1 h 30), sous
 // maxKm. S'il y en a plusieurs, le plus proche du point analyse gagne.
@@ -18524,7 +18625,8 @@ function vzmBuildPanel(ctx) {
         source: (c && c.obs)
           ? ('vu par ' + ((c.obs.pseudo && c.obs.pseudo !== 'Anonyme') ? vzEscHtml(c.obs.pseudo) : 'un chasseur')
              + ' a ' + (Math.round(c.obs.dist_km * 10) / 10) + ' km')
-          : (sl.past ? 'rejeu du modele sur la meteo mesuree' : vzmSlotSource(c ? c.sObj : null)),
+          : ((c && c.rec) ? vzHistAnnLabel_(c.rec)
+            : (sl.past ? 'rejeu du modele sur la meteo mesuree' : vzmSlotSource(c ? c.sObj : null))),
         past: !!sl.past,
         obs: (c && c.obs) ? c.obs : null,
         isNow: (si === ctx.nowIdx)
@@ -18564,9 +18666,9 @@ function vzmBuildPanel(ctx) {
   var tIdx = 0;
   for (var t = 0; t < days.length; t++) { if (!days[t].past) { tIdx = t; break; } }
   if (tIdx > 0) {
-    out += '<div class="vzm-note"><span class="nd"></span><p><b>Historique.</b> Jours gris\u00e9s : '
-      + 'recalcul sur la m\u00e9t\u00e9o r\u00e9ellement mesur\u00e9e. Pastille cercl\u00e9e : '
-      + 'visibilit\u00e9 vue par un chasseur sur ce cr\u00e9neau.</p></div>';
+    out += '<div class="vzm-note"><span class="nd"></span><p><b>Historique.</b> Gris\u00e9 : ce que Visimer '
+      + 'annon\u00e7ait ce jour-l\u00e0 sur ce secteur, archiv\u00e9 chaque matin. '
+      + 'Pastille cercl\u00e9e : visibilit\u00e9 vue par un chasseur sur ce cr\u00e9neau.</p></div>';
   }
   for (var d = 0; d < days.length; d++) {
     if (d === tIdx) {
@@ -18770,9 +18872,12 @@ html += '<div class="vz-cond-daybar" id="vzCondDaybar">'
   // l'en-tete du jour resume par une FOURCHETTE min-max, pas une moyenne.
   var _visiCells = [];      // par slot global : {vm, sObj} (vm null si insuffisant)
   var _dayRange = {};       // par gIdx : {min,max,n} ou null
+  var _dayHist = {};        // par gIdx passe archive : {ann:{min,max}|null, obs:{min,max}|null}
   (function() {
     var optsC = { satellite: VZ_SHEET.data.satellite, sediment: VZ_SHEET.data.sediment };
     var optsH = { satellite: VZ_SHEET.data.satellite, sediment: VZ_SHEET.data.sediment, hindcast: true };
+    var _histArch = VZ_SHEET.data.hist || null;
+    var _histKey = vzHistSectorKey_(spot.lat, spot.lng);
     // Maree du tableau injectee AVANT le calcul : sans elle, depthAtTime lit le
     // global TIDES (vide en contexte tableau), la profondeur reste au LAT brut,
     // la houle ne touche jamais le fond et TOUTES les cases sortent au plafond
@@ -18790,24 +18895,45 @@ html += '<div class="vz-cond-daybar" id="vzCondDaybar">'
       dayGroups.forEach(function(g, gi) {
         var f0 = cur, l0 = cur + g.count - 1; cur += g.count;
         var mn = Infinity, mx = -Infinity, nn = 0;
+        // Jour passe archive : on affiche ce qui a ete ANNONCE, le moteur ne
+        // tourne pas. Sans archive, rejeu en hindcast.
+        var rec = g.past ? vzHistGet_(_histArch, _histKey, vzHistDayKey_(g.date)) : null;
+        var amn = Infinity, amx = -Infinity, omn = Infinity, omx = -Infinity;
         for (var si = f0; si <= l0; si++) {
-          var o = computeVisibilityScore_V4(h, slots[si].i, depth, spot.lat, spot.lng, slots[si].past ? optsH : optsC);
+          var o = rec ? null
+            : computeVisibilityScore_V4(h, slots[si].i, depth, spot.lat, spot.lng, slots[si].past ? optsH : optsC);
           // Historique : la mesure prime sur le rejeu. Un retour chasseur tombe
           // sur ce creneau remplace le chiffre recalcule, et la case le dit.
           var ob = slots[si].past
             ? vzObsForSlot(spot.lat, spot.lng, slots[si].time.getTime(), VZ_OBS_MAX_KM) : null;
-          if (!ob && (o.insufficient || typeof o.visi_m !== 'number' || !isFinite(o.visi_m) || o.visi_m <= 0)) {
-            _visiCells[si] = { vm: null, sObj: o, obs: null }; continue;
+          var ann = null;
+          if (rec) {
+            var av = rec.v[String(slots[si].time.getHours()).padStart(2, '0')];
+            ann = (typeof av === 'number' && isFinite(av) && av > 0) ? av : null;
+            if (ann !== null) { if (ann < amn) amn = ann; if (ann > amx) amx = ann; }
           }
-          var vm = Math.round((ob ? ob.real_m : o.visi_m) * 10) / 10;
-          _visiCells[si] = { vm: vm, sObj: o, obs: ob };
+          if (ob) { if (ob.real_m < omn) omn = ob.real_m; if (ob.real_m > omx) omx = ob.real_m; }
+          var raw = ob ? ob.real_m
+            : (rec ? ann
+              : ((o && !o.insufficient && typeof o.visi_m === 'number' && isFinite(o.visi_m) && o.visi_m > 0) ? o.visi_m : null));
+          if (raw === null) {
+            _visiCells[si] = { vm: null, sObj: o, obs: null, ann: null, rec: rec }; continue;
+          }
+          var vm = Math.round(raw * 10) / 10;
+          _visiCells[si] = { vm: vm, sObj: o, obs: ob, ann: ann, rec: rec };
           if (vm < mn) mn = vm; if (vm > mx) mx = vm; nn++;
         }
         _dayRange[gi] = nn ? { min: mn, max: mx, n: nn } : null;
+        _dayHist[gi] = rec ? {
+          ann: isFinite(amn) ? { min: amn, max: amx } : null,
+          obs: isFinite(omn) ? { min: omn, max: omx } : null
+        } : null;
       });
     } finally {
       if (_tSwap) { TIDES.data = _tSave; _depthAtTimeCache = {}; }
     }
+    // Fige les jours a venir : c'est ce que les jours passes reliront.
+    vzHistSubmit_(_histKey, dayGroups, slots, _visiCells, spot, depth);
   })();
   function _fmtRange(r) {
     if (!r) return 'visi indisponible';
@@ -18910,7 +19036,10 @@ html += '<div class="vz-cond-daybar" id="vzCondDaybar">'
     html += '<td class="vz-cond-dayhead' + (g.past ? ' is-past' : '') + '" colspan="' + g.count + '" data-vzday="' + gIdx + '"><div class="dh">'
       + '<span class="dh-day">' + g.label + '</span>'
       + '<span class="dh-coef ' + kc + '">coef ' + dayCoef + '</span>'
-      + '<span class="dh-vis">' + _fmtRange(_dayRange[gIdx]) + '</span>'
+      + '<span class="dh-vis">' + (_dayHist[gIdx]
+          ? ('annonc\u00e9 ' + (_dayHist[gIdx].ann ? _fmtRange(_dayHist[gIdx].ann) : '?')
+             + (_dayHist[gIdx].obs ? ', vu ' + _fmtRange(_dayHist[gIdx].obs) : ''))
+          : _fmtRange(_dayRange[gIdx])) + '</span>'
       + (sunTxt ? '<span class="dh-meta">' + sunTxt + '</span>' : '')
       + '</div></td>';
   });
@@ -18935,7 +19064,8 @@ html += '<div class="vz-cond-daybar" id="vzCondDaybar">'
     if (!c || c.vm === null) {
       _voidCount++;
       inner = '?';
-      title = 'Aucune donnée exploitable sur ce créneau'
+      title = (c && c.rec) ? (vzHistAnnLabel_(c.rec) + ' : aucune visibilit\u00e9 calculable ce jour-l\u00e0')
+        : 'Aucune donnée exploitable sur ce créneau'
         + ((c && c.sObj && c.sObj.trace && c.sObj.trace.fallback_reason) ? ' : ' + c.sObj.trace.fallback_reason : '');
     } else {
       inner = c.vm.toFixed(1).replace('.', ',') + 'm';
@@ -18943,6 +19073,8 @@ html += '<div class="vz-cond-daybar" id="vzCondDaybar">'
       if (c.obs) {
         srcTxt = 'vu par ' + ((c.obs.pseudo && c.obs.pseudo !== 'Anonyme') ? vzEscHtml(c.obs.pseudo) : 'un chasseur')
           + ' a ' + (Math.round(c.obs.dist_km * 10) / 10) + ' km';
+      } else if (c.rec) {
+        srcTxt = vzHistAnnLabel_(c.rec) + ', aucune mesure sur ce creneau';
       } else if (sl.past) {
         srcTxt = 'rejeu du modele sur la meteo mesuree, aucune mesure sur ce creneau';
       } else if (o && o.observation) {
@@ -19037,9 +19169,9 @@ html += '<div class="vz-cond-daybar" id="vzCondDaybar">'
 
   if (_nPast) {
     html += '<div class="vz-cond-note"><span class="nd"></span>'
-      + '<span>D\u00e9file \u00e0 gauche : ' + VZ_HIST_DAYS + ' jours d\'historique, gris\u00e9s, recalcul\u00e9s sur la '
-      + 'm\u00e9t\u00e9o r\u00e9ellement mesur\u00e9e. Case cercl\u00e9e : visibilit\u00e9 vue par un chasseur '
-      + 'sur ce cr\u00e9neau.</span></div>';
+      + '<span>D\u00e9file \u00e0 gauche : ' + VZ_HIST_DAYS + ' jours d\'historique. Gris\u00e9 : ce que Visimer '
+      + 'annon\u00e7ait ce jour-l\u00e0 sur ce secteur, archiv\u00e9 chaque matin. '
+      + 'Case cercl\u00e9e : visibilit\u00e9 vue par un chasseur sur ce cr\u00e9neau.</span></div>';
   }
 
   html += '<div class="vz-cond-footer">'
