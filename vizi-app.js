@@ -3,6 +3,79 @@
 
 var GAS_URL = 'https://script.google.com/macros/s/AKfycbxyjkavoaEJ6AdhK1MKzph68IH3ZKL8QadDGuU_GyzruxqUsXRv6nP9dJqenTCf6u7Z/exec';
 
+/* ============================================================
+   MESURE - POINT D'ENTREE UNIQUE (GA4 + Microsoft Clarity)
+   ------------------------------------------------------------
+   Tout ce que l'app mesure passe par vzTrack (une action) et vzTag
+   (une etiquette de session). Aucun autre endroit n'appelle gtag ni
+   clarity : un seul bloc a lire pour savoir ce qui est mesure, un seul
+   a corriger.
+   - vzTrack envoie le MEME nom aux deux outils. Clarity ne lit que le
+     nom (filtres, funnels), GA4 lit aussi les parametres.
+   - Anti-doublon 2 s sur nom + parametres : plusieurs chemins menent au
+     meme geste (analyse d'un spot desktop / mobile / viseur), il ne
+     compte qu'une fois. Deux methodes de connexion differentes restent
+     deux evenements distincts.
+   - Tout est sous try/catch : un bloqueur de pub qui tue gtag ou
+     clarity ne doit jamais casser un clic.
+   - Le trafic interne (window.VZ_INTERNE, pose dans le head) est
+     etiquete, jamais bloque : tes sessions restent visibles dans Clarity
+     si tu veux les regarder, et filtrables pour tout le reste.
+   Aucune coordonnee, aucun email, aucun nom de spot n'est envoye.
+   ============================================================ */
+var VZ_TRACK_DEDUP_MS = 2000;
+var VZ_TRACK_LAST = {};
+var VZ_TRACK_TAGS = {};
+
+function vzTrack(name, params) {
+  if (!name) return;
+  try {
+    var key = name + '|' + (params ? JSON.stringify(params) : '');
+    var now = Date.now();
+    if (VZ_TRACK_LAST[key] && now - VZ_TRACK_LAST[key] < VZ_TRACK_DEDUP_MS) return;
+    VZ_TRACK_LAST[key] = now;
+  } catch (e) {}
+  try { if (typeof gtag === 'function') gtag('event', name, params || {}); } catch (e) {}
+  try { if (typeof window.clarity === 'function') window.clarity('event', name); } catch (e) {}
+}
+
+// Etiquette de session : Clarity (filtre de sessions) + propriete
+// utilisateur GA4. Ne renvoie rien si la valeur n'a pas change.
+function vzTag(key, value) {
+  if (!key || value == null) return;
+  value = String(value);
+  if (VZ_TRACK_TAGS[key] === value) return;
+  VZ_TRACK_TAGS[key] = value;
+  try { if (typeof window.clarity === 'function') window.clarity('set', key, value); } catch (e) {}
+  try {
+    if (typeof gtag === 'function') { var up = {}; up[key] = value; gtag('set', 'user_properties', up); }
+  } catch (e) {}
+}
+
+// Etat de compte et creation de compte. Appele par handleAuthStateChange,
+// seul endroit par lequel passent Google, email et lien magique. Un compte
+// est neuf si Firebase l'a cree il y a moins de 10 min ; le drapeau local
+// par uid empeche de le recompter au rechargement.
+function vzTrackAuth_(user) {
+  vzTag('compte', user ? 'oui' : 'non');
+  if (!user || !user.metadata || !user.uid) return;
+  var created = Date.parse(user.metadata.creationTime);
+  if (!isFinite(created) || Date.now() - created > 10 * 60 * 1000) return;
+  var flag = 'vz_signup_' + user.uid;
+  try {
+    if (localStorage.getItem(flag)) return;
+    localStorage.setItem(flag, '1');
+  } catch (e) {}
+  var pid = (user.providerData && user.providerData[0] && user.providerData[0].providerId) || '';
+  vzTrack('sign_up', { method: pid === 'google.com' ? 'google' : (pid === 'password' ? 'email' : (pid || 'inconnu')) });
+}
+
+(function vzTrackBoot() {
+  // PWA installee ou navigateur : separe le trafic "direct" des fideles installes.
+  vzTag('display', vzAuthIsStandalone() ? 'pwa' : 'navigateur');
+  if (window.VZ_INTERNE) vzTag('interne', '1');
+})();
+
 // ============================================================
 // ORIENTATION DE COTE - meme source que arome_scores.gs
 // Retourne la normale sortante (vers le large) en degres
@@ -690,6 +763,7 @@ function hideWebcamsLayer() {
 
 function openWebcamPopup(wc) {
   closeWebcamPopup();
+  vzTrack('webcam_view');
   var html =
     '<div id="webcamPopup">' +
       '<div class="webcam-popup-header">' +
@@ -2324,6 +2398,7 @@ function vzPointVisiAt(lat, lon, opts) {
 }
 
 function vzDesktopPointSelect(latlng) {
+  vzTrack('spot_view');
   if (typeof vzHideSector === 'function') vzHideSector();  // un clic libre ferme le secteur communautaire
   if (typeof vzShareClose === 'function') vzShareClose();  // et le panneau de partage
   S.clickLatLng = latlng;
@@ -5161,6 +5236,14 @@ function toggleLayer(type) {
     }
   }
   vzUpdateLayersBadge();
+  // Mesure : seule l'ACTIVATION compte. Les extinctions programmatiques
+  // (exclusivites entre couches) laissent l'etat a false et ne comptent pas.
+  var _vzOn = {
+    heatmap: S.showHeatmap, iso: S.showIso, sed: S.showSed, rain: S.showRain,
+    windflow: S.showWindFlow, litto3d: S.showLitto3d, current: S.showCurrent,
+    zsd: S.showZsd, spots: S.spotMode, measure: S.measureMode, wrecks: S.showWrecks
+  }[type];
+  if (_vzOn) vzTrack('layer_' + type);
 }
 /* ============================================================
    COUCHE EPAVES - SHOM "Epaves et obstructions" (CC BY-SA 4.0)
@@ -5589,8 +5672,13 @@ function vzFormatDDM(lat, lon) {
      exclusif avec mesure et spots, Echap ou re-clic desarme).
    Lecture du lien au boot : vzApplyDeepLink() dans boot().
    ============================================================ */
-function vzShareUrl_(lat, lon) {
-  return location.origin + location.pathname + '?p=' + lat.toFixed(5) + ',' + lon.toFixed(5);
+function vzShareUrl_(lat, lon, ch) {
+  var u = location.origin + location.pathname + '?p=' + lat.toFixed(5) + ',' + lon.toFixed(5);
+  // utm APRES p : le lecteur du lien profond cherche [?&]p= et ignore la
+  // suite. Sans utm, un lien ouvert depuis WhatsApp ou un SMS arrive sans
+  // referent et se fond dans le trafic direct.
+  if (ch) u += '&utm_source=partage&utm_medium=' + encodeURIComponent(ch);
+  return u;
 }
 
 function vzShareEnsureCSS_() {
@@ -5640,9 +5728,9 @@ function vzShareOpenAt(lat, lon, withSonar) {
       interactive: false
     }).addTo(S.map);
   }
-  var url = vzShareUrl_(lat, lon);
-  var msg = 'Regarde ce point sur Visimer : ' + url;
-  var enc = encodeURIComponent(msg);
+  function urlFor(ch) { return vzShareUrl_(lat, lon, ch); }
+  function msgFor(ch) { return 'Regarde ce point sur Visimer : ' + urlFor(ch); }
+  function encFor(ch) { return encodeURIComponent(msgFor(ch)); }
   function ic(paths) {
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + paths + '</svg>';
   }
@@ -5655,18 +5743,24 @@ function vzShareOpenAt(lat, lon, withSonar) {
   var el = document.createElement('div');
   el.id = 'vzSharePanel';
   el.innerHTML =
-      '<a class="vz-share-item" href="sms:?&body=' + enc + '">' + icSms + '<span>SMS</span></a>'
-    + '<a class="vz-share-item" href="https://wa.me/?text=' + enc + '" target="_blank" rel="noopener">' + icWa + '<span>WhatsApp</span></a>'
-    + '<a class="vz-share-item" href="mailto:?subject=' + encodeURIComponent('Un point sur Visimer') + '&body=' + enc + '">' + icMail + '<span>Mail</span></a>'
-    + '<button class="vz-share-item" id="vzShareCopy" type="button">' + icCopy + '<span>Copier</span></button>'
-    + (navigator.share ? '<button class="vz-share-item" id="vzShareNative" type="button">' + icMore + '<span>Plus</span></button>' : '')
+      '<a class="vz-share-item" data-vzch="sms" href="sms:?&body=' + encFor('sms') + '">' + icSms + '<span>SMS</span></a>'
+    + '<a class="vz-share-item" data-vzch="whatsapp" href="https://wa.me/?text=' + encFor('whatsapp') + '" target="_blank" rel="noopener">' + icWa + '<span>WhatsApp</span></a>'
+    + '<a class="vz-share-item" data-vzch="mail" href="mailto:?subject=' + encodeURIComponent('Un point sur Visimer') + '&body=' + encFor('mail') + '">' + icMail + '<span>Mail</span></a>'
+    + '<button class="vz-share-item" data-vzch="copie" id="vzShareCopy" type="button">' + icCopy + '<span>Copier</span></button>'
+    + (navigator.share ? '<button class="vz-share-item" data-vzch="natif" id="vzShareNative" type="button">' + icMore + '<span>Plus</span></button>' : '')
     + '<button class="vz-share-close" type="button" aria-label="Fermer">' + icX + '</button>';
   document.body.appendChild(el);
   el.querySelector('.vz-share-close').addEventListener('click', vzShareClose);
+  // Mesure : un evenement par canal reellement choisi (delegation, la
+  // croix de fermeture n'a pas de data-vzch et ne compte pas).
+  el.addEventListener('click', function(e) {
+    var it = e.target && e.target.closest ? e.target.closest('[data-vzch]') : null;
+    if (it) vzTrack('share', { method: it.getAttribute('data-vzch') });
+  });
   var cp = document.getElementById('vzShareCopy');
   if (cp) cp.addEventListener('click', function() {
     if (!(navigator.clipboard && navigator.clipboard.writeText)) return;
-    navigator.clipboard.writeText(url).then(function() {
+    navigator.clipboard.writeText(urlFor('copie')).then(function() {
       var lbl = cp.querySelector('span');
       if (lbl) { lbl.textContent = 'Copie !'; setTimeout(function() { lbl.textContent = 'Copier'; }, 1200); }
     }).catch(function() {});
@@ -5674,7 +5768,7 @@ function vzShareOpenAt(lat, lon, withSonar) {
   var nat = document.getElementById('vzShareNative');
   if (nat) nat.addEventListener('click', function() {
     // Appel synchrone dans la pile du geste utilisateur (contrainte iOS)
-    navigator.share({ title: 'Visimer', text: msg, url: url }).then(vzShareClose).catch(function() {});
+    navigator.share({ title: 'Visimer', text: msgFor('natif'), url: urlFor('natif') }).then(vzShareClose).catch(function() {});
   });
 }
 
@@ -5788,6 +5882,7 @@ function vzSubmitHunt() {
     if (msg) { msg.textContent = 'Coche le consentement pour recevoir tes spots.'; msg.style.color = '#E89B3C'; }
     return;
   }
+vzTrack('gpx_export');
 downloadHuntGPX();
   sendHuntSpots(email);
   if (msg) { msg.textContent = 'Points téléchargés et envoyés à ' + email + '.'; msg.style.color = '#4DD4A8'; }
@@ -6337,6 +6432,7 @@ function openSpotPopup(latlng, name) {
     vzDesktopPointSelect(latlng);
     return;
   }
+  vzTrack('spot_view');
   // ============================================================
   // CHANTIER 1 — Pipeline séquentiel avec compteur génération
   // ------------------------------------------------------------
@@ -14437,6 +14533,10 @@ function vzSubmitObservation(d) {
     S_portCounts = null;
     if (typeof invalidateChainCache === 'function') invalidateChainCache();
     return { success: true, partage: true };
+  }).then(function (res) {
+    // Mesure : succes reel uniquement, partage ou carnet prive.
+    if (res && res.success) vzTrack('depot_submit', { partage: res.partage ? 'oui' : 'non' });
+    return res;
   });
 }
 
@@ -14584,11 +14684,9 @@ function vzAuthIsStandalone() {
 }
 
 function vzAuthTrack(method, ok) {
-  try {
-    if (typeof gtag === 'function') {
-      gtag('event', ok === false ? 'login_failed' : 'login', { method: method });
-    }
-  } catch (e) {}
+  // Noms et sens inchanges pour l'historique GA4 : 'login' = tentative.
+  // La creation de compte reussie est mesuree a part (sign_up, vzTrackAuth_).
+  vzTrack(ok === false ? 'login_failed' : 'login', { method: method });
 }
 
 // Traduction des codes Firebase. Un code brut affiche a l'ecran fait fuir.
@@ -14666,6 +14764,7 @@ function vzAuthEnsureUserDoc(user) {
 // leverait et l'etat d'auth cesserait de se propager, silencieusement.
 window.handleAuthStateChange = function(user) {
   S_currentUser = user;
+  vzTrackAuth_(user);
   if (!user) S_userProfile = null;
 
   // Le document utilisateur porte les unites : on le lit AVANT de prevenir
@@ -16320,6 +16419,7 @@ function vzNavWake_(on) {
 
 function vzNavToggle() {
   if (VZ_NAV.on) { vzNavStop(); return; }
+  vzTrack('nav_start');
   vzNavStart();
 }
 
@@ -17395,6 +17495,7 @@ window.openCondDrawer = function() {
       && !(typeof VZ_SHEET !== 'undefined' && VZ_SHEET && VZ_SHEET.mode === 'cond')) {
     S.clickLatLng = vzmAimLatLng();
     S._spotDepth = null;
+    vzTrack('spot_view');
     if (typeof window.vzmFlashXhair === 'function') window.vzmFlashXhair();
   }
   openConditionsInSheet(); 
@@ -19229,6 +19330,21 @@ html += '<div class="vz-cond-daybar" id="vzCondDaybar">'
       }
     }
 
+    // Mesure : jusqu'ou le chasseur regarde. Ecart en jours calendaires avec
+    // aujourd'hui, pas l'index du bouton (la barre peut commencer par des
+    // jours passes). On envoie chaque palier atteint une fois par rendu :
+    // horizon_j3 veut dire "a regarde au moins J+3".
+    var maxH = 0;
+    function trackHorizon(i){
+      var g = dayGroups[i];
+      if (!g || !g.date) return;
+      var t0 = new Date(); t0.setHours(0, 0, 0, 0);
+      var d0 = new Date(g.date); d0.setHours(0, 0, 0, 0);
+      var j = Math.round((d0 - t0) / 86400000);
+      for (var n = maxH + 1; n <= j; n++) vzTrack('horizon_j' + n);
+      if (j > maxH) maxH = j;
+    }
+
     // Le jour actif est celui dont la colonne occupe le bord gauche du champ
     // de vision, avec une tolerance : sinon le libelle bascule trop tot quand
     // on effleure la frontiere entre deux jours.
@@ -19243,7 +19359,7 @@ html += '<div class="vz-cond-daybar" id="vzCondDaybar">'
     var raf = 0;
     sc.addEventListener('scroll', function(){
       if (raf) return;
-      raf = requestAnimationFrame(function(){ raf = 0; markActive(currentDay()); });
+      raf = requestAnimationFrame(function(){ raf = 0; var d = currentDay(); markActive(d); trackHorizon(d); });
     }, { passive: true });
 
     barEl.addEventListener('click', function(e){
@@ -19257,6 +19373,7 @@ html += '<div class="vz-cond-daybar" id="vzCondDaybar">'
       // gauche et la colonne d'intitules se decolle du bord.
       sc.scrollTo({ left: i === 0 ? 0 : offs[i], behavior: 'smooth' });
       markActive(i);
+      trackHorizon(i);
     });
 
     setTimeout(function(){ computeOffsets(); markActive(currentDay()); }, 60);
@@ -22839,6 +22956,7 @@ function vzmInit() {
   // Sans arguments (menu du FAB), le comportement d'origine est conserve.
   function actionAlerts(optLat, optLon, optName) {
     setMenu(false);
+    vzTrack('alert_open');
     // Annule les fetchs du panneau precedent encore en vol : ils ecrivaient
     // dans des noeuds que openPanel vient de remplacer.
     VZSP.token++;
@@ -22872,7 +22990,7 @@ function vzmInit() {
         + '<div class="vzm-sonar-h" style="text-align:center;">C\u2019est note</div>'
         + '<div class="vzm-sonar-sub" style="text-align:center;">Dès qu\u2019un chasseur poste une visi vers ' + escapeH(name || 'ton secteur') + ', tu reçois un email. Jamais plus d\u2019un par jour.</div>';
       panel.querySelector('[data-close]').addEventListener('click', closePanel);
-      if (typeof gtag === 'function') { try { gtag('event', 'sector_alert_optin'); } catch (e) {} }
+      vzTrack('sector_alert_optin');
     });
   }
 
@@ -23210,6 +23328,7 @@ function vzmInit() {
     var it = _items[i];
     if (!it) return;
     vzSearchGoTo(it.lat, it.lon, it.dist);
+    vzTrack('search');
     closeList();
     if (input) input.blur();
     // Mobile : on referme le champ pour rendre la vue au viseur.
@@ -23936,6 +24055,7 @@ var VZ_ACCOUNT = (function () {
     open: function(k){
       if (typeof VZ_SHEET === 'undefined' || !VZ_SHEET) return;
       if (VZ_SHEET.mode === k) { this.close(); return; }
+      vzTrack('tab_' + k);
       closeEverythingElse();
       syncTabs(k);
       // Observations et Maree sont les DEUX onglets d'un seul panneau, celui du
