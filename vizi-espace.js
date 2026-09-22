@@ -1070,9 +1070,10 @@
     }
     h += '</div>';
 
-    // Mes retours
+    // Mes sorties (le libelle "retours" est garde pour le partage : une
+    // sortie est ce que le chasseur a vecu, un retour est ce qu'il en depose).
     h += '<div style="display:grid;gap:var(--vz-gap-4);">';
-    h += '<span class="vze-sect" style="padding:0 4px;">Mes retours</span>';
+    h += '<span class="vze-sect" style="padding:0 4px;">Mes sorties</span>';
     if (_retours && _retours.length) {
       h += '<div class="vze-group">';
       _retours.slice().sort(function (a, b) {
@@ -1102,7 +1103,7 @@
       h += '</div>';
     } else {
       h += '<div class="vze-empty">'
-        +    '<span class="t">Aucun retour</span>'
+        +    '<span class="t">Aucune sortie</span>'
         +    '<span class="g">Priv\u00e9. Seule la visibilit\u00e9 peut \u00eatre partag\u00e9e.</span>'
         + '</div>';
     }
