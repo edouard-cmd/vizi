@@ -26,6 +26,11 @@
    suivi ferme l'espace, recentre la carte et deroule le panneau secteur
    existant. Deux panneaux secteur finiraient par diverger.
 
+   UN ECRAN DE DETAIL DE RETOUR existe (route 'retour', un niveau). Il ne
+   cree aucune donnee : il lit le meme document users/{uid}/retours que la
+   liste, a chaque rendu, et montre tout ce que la feuille de depot a
+   enregistre. Rien d'autre, rien de derive.
+
    INTERDITS ABSOLUS, verifies a chaque ajout :
      aucune synthese, aucune note globale, aucun feu tricolore
      aucun conseil, aucune incitation a sortir
@@ -60,7 +65,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '2.5.0';
+  var VERSION = '2.6.0';
 
   /* ------------------------------------------------------------------------
      TOKENS
@@ -444,6 +449,23 @@
     + '.vz-follow-ask .no{background:transparent;border:var(--vz-bd) solid var(--vz-line);'
     +   'color:var(--vz-text-2);}'
 
+    /* Album d'un retour : vignettes 4/3 sur deux colonnes, et visionneuse
+       plein panneau. La visionneuse vit dans #vzEspace, pas dans le corps :
+       un rendu du corps ne la detruit pas, seules la navigation et la
+       fermeture de l'espace la retirent. */
+    + '#vzEspace .vze-album{display:grid;grid-template-columns:1fr 1fr;gap:var(--vz-gap-3);'
+    +   'padding:0 4px 4px;}'
+    + '#vzEspace .vze-ph{position:relative;padding:0;border:none;border-radius:var(--vz-r-row);'
+    +   'overflow:hidden;background:var(--vz-surface);cursor:pointer;aspect-ratio:4/3;'
+    +   'transition:transform var(--vz-t-press);-webkit-tap-highlight-color:transparent;}'
+    + '#vzEspace .vze-ph:active{transform:var(--vz-press);}'
+    + '#vzEspace .vze-ph img{width:100%;height:100%;object-fit:cover;display:block;}'
+    + '#vzEspace .vze-viewer{position:absolute;inset:0;z-index:5;background:var(--vz-ink);'
+    +   'display:flex;align-items:center;justify-content:center;cursor:pointer;}'
+    + '#vzEspace .vze-viewer img{max-width:100%;max-height:100%;object-fit:contain;display:block;}'
+    + '#vzEspace .vze-viewer .vze-back{position:absolute;left:10px;'
+    +   'top:calc(8px + env(safe-area-inset-top,0px));}'
+
     /* Avatar editable dans le profil */
     + '#vzEspace .vze-av.edit{cursor:pointer;}'
     + '#vzEspace .vze-av .badge{position:absolute;right:-2px;bottom:-2px;width:26px;height:26px;'
@@ -486,13 +508,16 @@
     espace: { titre: 'Mon espace',     racine: true  },
     profil: { titre: 'Mon profil',     racine: false },
     actifs: { titre: 'Les plus actifs', racine: false },
-    neuf:   { titre: 'Quoi de neuf',   racine: false }
+    neuf:   { titre: 'Quoi de neuf',   racine: false },
+    retour: { titre: 'Ma sortie',      racine: false }
   };
 
   /* ------------------------------------------------------------------------
      QUOI DE NEUF - liste antechronologique, la plus recente en tete
      ------------------------------------------------------------------------ */
   var NOUVEAUTES = [
+    { v: '2.6.0', date: '22 septembre 2026', titre: 'Le d\u00e9tail de tes sorties',
+      corps: "Chaque retour s'ouvre depuis ton espace : l'eau, la vie aquatique, la taille, ton commentaire, tes photos, et la visibilit\u00e9 annonc\u00e9e face \u00e0 celle que tu as vue. Tes retours partag\u00e9s sont compt\u00e9s dans les statistiques." },
     { v: '2.5.0', date: '27 aout 2026', titre: 'Ton espace personnel',
       corps: "Tes secteurs suivis, tes retours et tes statistiques se retrouvent d'une session a l'autre. La carte, elle, ne change pas : elle reste identique avec ou sans compte." },
     { v: '2.4.0', date: '28 juillet 2026', titre: 'Le relief du fond couvre la Manche est',
@@ -510,6 +535,7 @@
   var _retours = null;      // null = pas encore lu, [] = lu et vide
   var _secteurs = null;
   var _obs = null;          // retours communautaires nationaux, pour les secteurs
+  var _retourId = null;     // id du retour ouvert dans la vue detail, null sinon
   var _loading = false;
 
   /* ------------------------------------------------------------------------
@@ -819,6 +845,12 @@
      ------------------------------------------------------------------------
      Quatre chiffres, en premier parce que c'est ce qu'on vient chercher.
      Aucune moyenne inventee : sans retour, la visibilite moyenne vaut ?, pas 0.
+
+     Les retours partages ont remplace le total des sorties. Le total faisait
+     doublon avec l'annee en cours toute la premiere annee, et il se relit
+     ensuite dans "Les annees precedentes". Le partage, lui, n'etait compte
+     nulle part alors que c'est la contribution du chasseur a la mesure
+     collective, exactement ce que "Les plus actifs" decompte.
      ------------------------------------------------------------------------ */
   function ecartMoteur() {
     var rs = _retours || [];
@@ -837,7 +869,7 @@
   function stats() {
     var rs = _retours || [];
     var an = new Date().getFullYear();
-    var dansAn = 0, somme = 0, n = 0, derniere = null;
+    var dansAn = 0, somme = 0, n = 0, derniere = null, partages = 0;
     rs.forEach(function (r) {
       var d = r.date ? new Date(r.date) : null;
       if (d && !isNaN(d.getTime())) {
@@ -845,11 +877,12 @@
         if (!derniere || d > derniere) derniere = d;
       }
       if (typeof r.visibilityM === 'number') { somme += r.visibilityM; n++; }
+      if (r.partage === true) partages++;
     });
     return [
       { n: String(dansAn), u: '', l: 'sorties en ' + an },
       { n: n ? num(somme / n, true) : '?', u: n ? 'm' : '', l: 'visibilit\u00e9 moyenne observ\u00e9e' },
-      { n: String(rs.length), u: '', l: 'sorties au total' },
+      { n: String(partages), u: rs.length ? 'sur ' + rs.length : '', l: 'retours partag\u00e9s' },
       derniere
         ? { n: String(derniere.getDate()), u: dateCourte(derniere.toISOString()).split(' ')[1], l: 'derni\u00e8re sortie' }
         : { n: '?', u: '', l: 'derni\u00e8re sortie' }
@@ -1048,11 +1081,14 @@
         // Prevu contre observe, cote a cote. C'est la lecture qui donne son
         // sens au retour : elle montre au chasseur ce que son depot a servi
         // a mesurer, au lieu de lui renvoyer son propre chiffre.
+        // La ligne ouvre le detail du retour (data-retour, lu par bindBody) :
+        // l'eau, la vie, la taille, le commentaire et les photos qu'il a
+        // deposes n'etaient visibles nulle part.
         var sousTitre = dateCourte(r.date);
         if (typeof r.predictedVisM === 'number' && r.predictedVisM > 0) {
           sousTitre += '  \u00b7  annonce ' + num(r.predictedVisM, true) + ' m';
         }
-        h += '<div class="vze-row" style="cursor:default;">'
+        h += '<button type="button" class="vze-row" data-retour="' + esc(r.id) + '">'
           +    '<span style="flex:1;min-width:0;display:grid;gap:2px;">'
           +      '<span class="nm">' + esc(r.secteur || 'Secteur') + '</span>'
           +      '<span class="sub" style="font-family:var(--vz-font-num);">'
@@ -1060,7 +1096,8 @@
           +    '</span>'
           +    '<span class="val" style="font-size:var(--vz-fs-num-m);font-weight:700;color:var(--vz-ink);">'
           +      esc(num(r.visibilityM, true)) + ' m</span>'
-          + '</div>';
+          +    ICO.chev
+          + '</button>';
       });
       h += '</div>';
     } else {
@@ -1083,6 +1120,155 @@
       + '</button>';
     h += '</div>';
     h += '<div class="vze-ver">Visimer ' + VERSION + '</div>';
+
+    return h;
+  }
+
+  /* ------------------------------------------------------------------------
+     RENDU - DETAIL D'UN RETOUR
+     ------------------------------------------------------------------------
+     Reconstruit depuis _retours a chaque rendu, jamais depuis une copie : la
+     liste et le detail lisent le meme document, ils ne peuvent pas diverger.
+     Tout ce que le chasseur a saisi dans la feuille de depot se retrouve ici
+     et rien de plus : aucune note, aucune synthese, aucune comparaison avec
+     d'autres chasseurs. La vie aquatique, la taille, le commentaire et les
+     photos ne sont visibles que de lui, comme la feuille de depot le promet.
+
+     Deux cas particuliers, tranches AVANT d'arriver ici, dans render() :
+       _retours a null : lecture Firestore en cours (refresh apres un depot,
+                         changement de session). La vue rend vide plutot
+                         qu'un "introuvable" faux, le render() qui suit la
+                         lecture complete l'ecran.
+       retour absent   : id perime ou route reprise sans id (_pendingRoute).
+                         render() retombe sur la racine, jamais un ecran vide.
+
+     Les cles et libelles ci-dessous sont ceux de vizi-depot.js (EAU, VIE,
+     TAILLE). Si l'un change, l'autre doit suivre : le chasseur doit relire
+     exactement ce qu'il a coche.
+     ------------------------------------------------------------------------ */
+  var RETOUR_EAU = {
+    claire:  ['Claire',       'var(--vz-accent-mid)'],
+    voilee:  ['Voil\u00e9e', 'var(--vz-warning)'],
+    chargee: ['Charg\u00e9e', 'var(--vz-caution)']
+  };
+  var RETOUR_VIE = {
+    faible:  ['Faible',  'peu de poissons'],
+    moyenne: ['Moyenne', 'quelques bancs'],
+    forte:   ['Forte',   'poisson partout']
+  };
+  var RETOUR_TAILLE = {
+    petits:  ['Petits',  'sous la maille'],
+    normaux: ['Normaux', 'taille courante'],
+    grands:  ['Grands',  'beaux sujets']
+  };
+
+  function retourCourant() {
+    var rs = _retours || [];
+    for (var i = 0; i < rs.length; i++) {
+      if (rs[i].id === _retourId) return rs[i];
+    }
+    return null;
+  }
+
+  function viewRetour() {
+    var r = retourCourant();
+    if (!r) return '';
+    var h = '';
+
+    // En-tete : secteur, date complete, heure. Le nom du secteur est le
+    // premier mot lu, il porte la taille du titre de profil.
+    var d = r.date ? new Date(r.date) : null;
+    var quand = dateCourte(r.date)
+      + ((d && !isNaN(d.getTime())) ? ' ' + d.getFullYear() : '')
+      + (r.heure ? ', ' + r.heure : '');
+    h += '<div style="display:grid;gap:3px;padding:4px;">'
+      +    '<span style="font-size:22px;font-weight:800;line-height:1.05;">' + esc(r.secteur || 'Secteur') + '</span>'
+      +    '<span style="font-family:var(--vz-font-num);font-size:var(--vz-fs-meta);font-weight:500;'
+      +      'color:var(--vz-text-2);">' + esc(quand) + '</span>'
+      + '</div>';
+
+    // Observee contre annoncee, meme gabarit que les statistiques. L'ecart ne
+    // s'ecrit que si la prevision a ete archivee au moment du depot : rien
+    // n'est reconstitue apres coup, une prevision absente reste un ?.
+    var prevu = (typeof r.predictedVisM === 'number' && r.predictedVisM > 0) ? r.predictedVisM : null;
+    h += '<div class="vze-group"><span class="vze-sect">Visibilit\u00e9</span><div class="vze-stats">'
+      +    '<div class="vze-stat"><span class="v"><span class="n">' + esc(num(r.visibilityM, true)) + '</span>'
+      +      '<span class="u">m</span></span><span class="l">observ\u00e9e</span></div>'
+      +    '<div class="vze-stat"><span class="v"><span class="n">' + esc(prevu !== null ? num(prevu, true) : '?') + '</span>'
+      +      (prevu !== null ? '<span class="u">m</span>' : '') + '</span>'
+      +      '<span class="l">annonc\u00e9e par Visimer</span></div>'
+      + '</div>';
+    if (prevu !== null && typeof r.visibilityM === 'number') {
+      h += '<span class="vze-gloss">\u00e9cart avec l\'annonce : '
+        +    esc(num(Math.abs(r.visibilityM - prevu), true)) + ' m</span>';
+    } else if (prevu === null) {
+      h += '<span class="vze-gloss">aucune pr\u00e9vision archiv\u00e9e au moment du d\u00e9p\u00f4t.</span>';
+    }
+    h += '</div>';
+
+    // Ce que le chasseur a coche, avec les libelles de la feuille de depot.
+    // Un cran non coche s'ecrit ?, jamais un tiret : un tiret se lirait
+    // comme "rien vu", alors qu'il n'a simplement rien dit.
+    function ligne(lb, choix) {
+      var val = choix ? choix[0] : '?';
+      var sub = (choix && choix[1] && choix[1].indexOf('var(') !== 0) ? choix[1] : '';
+      var dot = (choix && choix[1] && choix[1].indexOf('var(') === 0) ? choix[1] : '';
+      return '<div class="vze-row" style="cursor:default;">'
+        +    '<span class="nm" style="font-weight:600;color:var(--vz-text-2);">' + esc(lb) + '</span>'
+        +    '<span style="text-align:right;display:grid;gap:1px;flex-shrink:0;">'
+        +      '<span style="font-size:var(--vz-fs-label);font-weight:700;color:var(--vz-ink);'
+        +        'display:inline-flex;align-items:center;justify-content:flex-end;gap:6px;">'
+        +        (dot ? '<i style="width:10px;height:10px;border-radius:50%;flex-shrink:0;background:' + dot + ';"></i>' : '')
+        +        esc(val) + '</span>'
+        +      (sub ? '<span class="sub" style="font-family:var(--vz-font-num);">' + esc(sub) + '</span>' : '')
+        +    '</span>'
+        + '</div>';
+    }
+    h += '<div class="vze-group"><span class="vze-sect">L\'eau et le poisson</span>'
+      +    ligne('L\'eau', RETOUR_EAU[r.eau])
+      +    ligne('Vie aquatique', RETOUR_VIE[r.vie])
+      +    ligne('Taille des poissons', RETOUR_TAILLE[r.taille])
+      + '</div>';
+
+    // Commentaire, seulement s'il existe : un cadre vide n'est pas une
+    // information.
+    if (r.notes) {
+      h += '<div class="vze-group"><span class="vze-sect">Commentaire</span>'
+        +    '<span style="padding:2px 10px 10px;font-size:var(--vz-fs-body);font-weight:500;'
+        +      'line-height:1.45;color:var(--vz-ink);white-space:pre-wrap;">' + esc(r.notes) + '</span>'
+        + '</div>';
+    }
+
+    // Album. Les URL viennent de Storage, dans le document du retour. Un tap
+    // ouvre la visionneuse (data-photo, lu par bindBody).
+    var photos = Array.isArray(r.photos)
+      ? r.photos.filter(function (u) { return typeof u === 'string' && u; }) : [];
+    if (photos.length) {
+      h += '<div class="vze-group"><span class="vze-sect">Mes photos</span><div class="vze-album">';
+      photos.forEach(function (u) {
+        h += '<button type="button" class="vze-ph" data-photo="' + esc(u) + '" aria-label="Agrandir la photo">'
+          +    '<img src="' + esc(u) + '" alt="" loading="lazy" referrerpolicy="no-referrer">'
+          + '</button>';
+      });
+      h += '</div></div>';
+    }
+
+    // Provenance : ce qui a quitte l'espace, en clair. Seules des phrases
+    // vraies quel que soit le chemin de depot : la vie, la taille et les
+    // photos ne partent jamais au GAS, c'est verifie dans vzSubmitObservation.
+    h += '<div class="vze-note">'
+      +    '<span class="h">' + (r.partage ? 'Partag\u00e9 au secteur' : 'Rest\u00e9 dans ton espace') + '</span>'
+      +    '<span class="b">' + (r.partage
+             ? 'Ta visibilit\u00e9 alimente la mesure du secteur. La vie aquatique, la taille et tes photos ne quittent jamais ton espace.'
+             : 'Rien de ce retour n\'est parti au secteur.') + '</span>'
+      + '</div>';
+
+    // Retour a la carte sur le point exact du depot, meme chemin que les
+    // favoris et les secteurs suivis (data-point, allerAuPoint).
+    if (typeof r.lat === 'number' && typeof r.lon === 'number') {
+      h += '<button type="button" class="vze-btn ghost" data-point="' + esc(r.lat + ',' + r.lon) + '">'
+        +    'Voir sur la carte</button>';
+    }
 
     return h;
   }
@@ -1418,11 +1604,53 @@
     allerAuPoint(sec.lat, sec.lon, true);
   }
 
+  // Un retour s'ouvre dans l'espace, un niveau sous la racine. L'id est celui
+  // du document Firestore, pose par loadData ; la vue le retrouve dans
+  // _retours a chaque rendu, il n'y a pas de copie du retour a maintenir.
+  function openRetour(id) {
+    if (!id) return;
+    _retourId = String(id);
+    go('retour');
+  }
+
+  // Visionneuse plein panneau. Elle est posee dans #vzEspace et non dans le
+  // corps : un render() du corps (arrivee des obs communautaires, refresh
+  // apres un depot) ne la ferme pas sous le doigt du chasseur. Seules la
+  // navigation (go) et la fermeture de l'espace (close) la retirent.
+  function openPhoto(url) {
+    if (!_el || !url) return;
+    closePhoto();
+    var v = document.createElement('div');
+    v.className = 'vze-viewer';
+    v.setAttribute('role', 'dialog');
+    v.setAttribute('aria-label', 'Photo');
+    v.innerHTML = '<button type="button" class="vze-back" aria-label="Fermer">' + ICO.x + '</button>'
+      + '<img src="' + esc(url) + '" alt="" referrerpolicy="no-referrer">';
+    v.addEventListener('click', closePhoto);
+    _el.appendChild(v);
+  }
+
+  function closePhoto() {
+    if (!_el) return;
+    var v = _el.querySelector('.vze-viewer');
+    if (v) v.remove();
+  }
+
   /* ------------------------------------------------------------------------
      RENDU ET NAVIGATION
      ------------------------------------------------------------------------ */
   function render() {
     if (!_built || !_el) return;
+    // Vue detail sans retour lisible : aucun id (route reprise par
+    // _pendingRoute, changement de session) ou id perime (retour efface). On
+    // retombe sur la racine AVANT de dessiner, jamais un ecran vide. Un id
+    // pose avec _retours a null n'est PAS ce cas : la lecture est en cours,
+    // l'ecran precedent reste affiche et le render() de fin de lecture tranche.
+    if (_route === 'retour'
+        && (_retourId === null || (_retours !== null && !retourCourant()))) {
+      _route = 'espace';
+      _retourId = null;
+    }
     var meta = ROUTES[_route] || ROUTES.espace;
     _title.textContent = meta.titre;
     _back.innerHTML = meta.racine ? ICO.x : ICO.back;
@@ -1431,6 +1659,7 @@
     if (_route === 'profil')      _body.innerHTML = viewProfil();
     else if (_route === 'actifs') _body.innerHTML = viewActifs();
     else if (_route === 'neuf')   _body.innerHTML = viewNeuf();
+    else if (_route === 'retour') _body.innerHTML = viewRetour();
     else                          _body.innerHTML = viewEspace();
 
     _body.scrollTop = 0;
@@ -1438,6 +1667,7 @@
   }
 
   function go(r) {
+    closePhoto();
     _route = ROUTES[r] ? r : 'espace';
     if (_route === 'neuf') markSeen();
     render();
@@ -1460,6 +1690,12 @@
     });
     _body.querySelectorAll('[data-act="depot"]').forEach(function (b) {
       b.addEventListener('click', depotRetour);
+    });
+    _body.querySelectorAll('[data-retour]').forEach(function (b) {
+      b.addEventListener('click', function () { openRetour(b.getAttribute('data-retour')); });
+    });
+    _body.querySelectorAll('[data-photo]').forEach(function (b) {
+      b.addEventListener('click', function () { openPhoto(b.getAttribute('data-photo')); });
     });
     _body.querySelectorAll('[data-unit]').forEach(function (b) {
       b.addEventListener('click', function () { setUnit(b.getAttribute('data-unit')); });
@@ -1511,9 +1747,11 @@
 
   function close() {
     if (!_el) return;
+    closePhoto();
     _el.classList.remove('open');
     document.body.classList.remove('vz-espace-open');
     _route = 'espace';
+    _retourId = null;
   }
 
   function onBack() {
@@ -1658,6 +1896,7 @@
     _retours = null;
     _secteurs = null;
     _obs = null;
+    _retourId = null;
     _follows = null;
     if (user()) followResume();
     if (_el && _el.classList.contains('open')) {
