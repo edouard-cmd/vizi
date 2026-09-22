@@ -1157,6 +1157,9 @@
     // Le mode est pose AVANT reset : reset initialise le pseudo, dont la
     // source depend de la presence d'une session.
     _mode = (mode === 'partage') ? 'partage' : 'sortie';
+    // Mesure : ouverture reelle du formulaire, quel que soit l'appelant
+    // (boutons de la carte via openObsSheet, ou espace chasseur en direct).
+    if (typeof vzTrack === 'function') vzTrack('depot_open', { mode: _mode });
     reset(pt);
     var t = document.getElementById('vzdTitre');
     if (t) t.textContent = (_mode === 'partage')
