@@ -10401,6 +10401,64 @@ function computeVisibilityScore_V4(h, idx, depth, lat, lon, opts) {
   return out;
 }
 
+// ============================================================
+// VERSION DU MOTEUR
+// ------------------------------------------------------------
+// Archivee dans chaque ligne de forecast_history et dans chaque depot
+// chasseur. Sans elle, le jour ou le calcul change, on compare des
+// chiffres produits par deux moteurs differents sans le savoir. A
+// incrementer a CHAQUE modification du calcul (pas de l'UI).
+var VZ_ENGINE_VERSION = '2026-10-20';
+
+// ============================================================
+// SEDIMENT DE PROPAGATION - UN SEUL CHOIX POUR TOUTES LES VOIES
+// ------------------------------------------------------------
+// Constat du 19/10/2026 a Courseulles : la voie chaine activait le
+// mode zonal (sable fin a 48 % dans 360 m) et calculait 0,03 m ; la
+// voie satellite propageait la meme photo sur le sediment PONCTUEL
+// (sable graveleux 2 mm, quasi inerodable) et rendait 3,0 m plats a
+// travers deux jours de tempete. Meme point, meme heure, facteur 100,
+// uniquement parce que chaque voie choisissait son fond dans son coin.
+// Le dimanche 18 archive a 2,7 m plats par 1,6 m de vagues vient de la.
+//
+// Ici, la regle du mode B (classe zonale dominante non rocheuse,
+// >= 65 % relatif et >= 15 % absolu, D50 different du ponctuel ou
+// ponctuel rocheux) est appliquee UNE fois, et son resultat alimente
+// propagate0D pour la photo satellite ET pour le retour chasseur. La
+// chaine garde ses modes A/B/C inchanges : sur une zone mono-classe
+// (le cas courant) elle retient exactement le meme sediment. Sur une
+// zone a deux classes >= 30 % (mode A), la chaine pondere les deux et
+// la propagation prend la dominante : limite connue, documentee dans
+// la trace (sediment_propagation.source).
+//
+// Aucune constante nouvelle : ce sont les seuils du mode B existant.
+function _vzResolvePropagationSediment_(lat, lon, pointSediment) {
+  var out = { sediment: pointSediment, source: 'point', zone_pct: null, zone_name: null };
+  if (typeof S_spotZoneCache === 'undefined' || !S_spotZoneCache) return out;
+  var prefix = lat.toFixed(4) + '|' + lon.toFixed(4) + '|';
+  var keys = Object.keys(S_spotZoneCache).filter(function (k) { return k.indexOf(prefix) === 0; });
+  if (!keys.length) return out;
+  var zone = S_spotZoneCache[keys[0]];
+  if (!zone || !zone.classes || !zone.classes.length) return out;
+  var nonRock = zone.classes.filter(function (c) { return c.sediment && c.sediment.regime !== 'rock'; });
+  if (!nonRock.length) return out;
+  var dominant = nonRock.reduce(function (prev, cur) {
+    return (cur.surface_pct > (prev ? prev.surface_pct : 0)) ? cur : prev;
+  }, null);
+  var total = nonRock.reduce(function (sum, c) { return sum + (c.surface_pct || 0); }, 0);
+  var rel = (total > 0 && dominant) ? dominant.surface_pct / total : 0;
+  if (!dominant || rel < 0.65 || dominant.surface_pct < 15) return out;
+  var d50p = (pointSediment && typeof pointSediment.D50_mm === 'number') ? pointSediment.D50_mm : 0;
+  var d50z = (typeof dominant.D50_mm === 'number') ? dominant.D50_mm : 0;
+  var pointIsRock = !pointSediment || pointSediment.regime === 'rock';
+  if (!pointIsRock && Math.abs(d50z - d50p) < 0.1) return out;
+  out.sediment = dominant.sediment;
+  out.source = 'zonal';
+  out.zone_pct = Math.round(dominant.surface_pct);
+  out.zone_name = dominant.nameFr || (dominant.sediment && dominant.sediment.nameFr) || null;
+  return out;
+}
+
 function _computeVisibilityCore(h, idx, depth, lat, lon, opts) {
   // ----- Garde-fous d'entrée -----
   // Mêmes pré-conditions que visScoreV2 pour compatibilité signature
@@ -10437,7 +10495,14 @@ function _computeVisibilityCore(h, idx, depth, lat, lon, opts) {
   // Discriminant de source : les entrées tableau (satellite/sédiment
   // injectés) ne doivent pas télescoper les entrées drawer (globals).
   var _src = (opts.satellite ? 'sheet' : 'drawer') + (opts.hindcast ? '|hc' : '');
-  var cacheKey = lat.toFixed(4) + '|' + lon.toFixed(4) + '|' + idx + '|' + (depth || 0).toFixed(2) + '|' + _src;
+  // Sediment de propagation resolu UNE fois pour la photo satellite et le
+  // retour chasseur (cf. _vzResolvePropagationSediment_). Entre dans la cle
+  // de cache : le cache zonal arrive en asynchrone, un resultat calcule
+  // avant son arrivee ne doit pas etre resservi apres.
+  var _sedRes = _vzResolvePropagationSediment_(lat, lon, _sediment);
+  var _sedProp = _sedRes.sediment;
+  var _sedKey = _sedProp ? ((_sedProp.folk5 || 0) + ':' + (_sedProp.D50_mm || 0)) : 'n';
+  var cacheKey = lat.toFixed(4) + '|' + lon.toFixed(4) + '|' + idx + '|' + (depth || 0).toFixed(2) + '|' + _src + '|s' + _sedKey;
   if (_chainCache[cacheKey]) return _chainCache[cacheKey];
 
   // ============================================================
@@ -10505,7 +10570,7 @@ function _computeVisibilityCore(h, idx, depth, lat, lon, opts) {
         var _propObs = propagate0D(
           _invObs.C_kg_m3,
           new Date(_anchorMs).toISOString(),
-          h, idx, depth, lat, lon, _sediment
+          h, idx, depth, lat, lon, _sedProp
         );
 
         if (_propObs !== null && typeof _propObs.visi_propagated_m === 'number'
@@ -10540,8 +10605,8 @@ function _computeVisibilityCore(h, idx, depth, lat, lon, opts) {
           // Honnetete : sur fond rocheux ou vaseux, propagate0D substitue un
           // sable medium par defaut. Le chiffre repose alors sur une hypothese
           // de sediment, pas sur une mesure du fond. Ca doit rester visible.
-          if (_sediment && (_sediment.regime === 'rock' || _sediment.regime === 'cohesive')) {
-            _obsWarnings.push('Fond ' + (_sediment.regime === 'rock' ? 'rocheux' : 'vaseux') +
+          if (_sedProp && (_sedProp.regime === 'rock' || _sedProp.regime === 'cohesive')) {
+            _obsWarnings.push('Fond ' + (_sedProp.regime === 'rock' ? 'rocheux' : 'vaseux') +
               ' : la propagation suppose un sediment sableux de reference. ' +
               'La variation dans le temps est indicative, pas mesuree sur ce fond.');
           }
@@ -10565,7 +10630,13 @@ function _computeVisibilityCore(h, idx, depth, lat, lon, opts) {
                 zone_optique: _invObs.zone
               },
               anchor_source: 'retour chasseur',
-              propagation: _propObs.trace
+              propagation: _propObs.trace,
+              sediment_propagation: {
+                source: _sedRes.source,
+                name: _sedProp ? _sedProp.nameFr : null,
+                D50_mm: _sedProp ? _sedProp.D50_mm : null,
+                zone_pct: _sedRes.zone_pct
+              }
             },
             observation: {
               real_m: _obsAnchor.real_m,
@@ -10641,7 +10712,7 @@ function _computeVisibilityCore(h, idx, depth, lat, lon, opts) {
     if (_satelliteV4Cache[cacheKey]) return _satelliteV4Cache[cacheKey];
 
     var satResult = _satCache.data;
-    var sediment = _sediment;
+    var sediment = _sedProp;   // meme fond que la chaine et que le retour chasseur
 
     // ----- Étape A : Inversion Beer-Lambert (ZSD → C_kg_m3) -----
     var inversionResult = inverseBeerLambert_ZSDtoConcentration(satResult.value_zsd_m, lat, lon);
@@ -10693,7 +10764,13 @@ function _computeVisibilityCore(h, idx, depth, lat, lon, opts) {
               zone_optique: inversionResult.zone
             },
             satellite_source: 'CMEMS Ocean Colour multi-1km',
-            propagation: propResult.trace
+            propagation: propResult.trace,
+            sediment_propagation: {
+              source: _sedRes.source,
+              name: sediment ? sediment.nameFr : null,
+              D50_mm: sediment ? sediment.D50_mm : null,
+              zone_pct: _sedRes.zone_pct
+            }
           },
           verdict: _buildVerdictSatelliteProse(satResult, propResult, confResult),
           warnings: propResult.warnings || [],
@@ -17714,6 +17791,39 @@ function vzDateFromAge(h){
   var d = new Date(Date.now() - h * 3600000);
   return d.getDate() + ' ' + VZ_MOIS[d.getMonth()];
 }
+// Jour REEL de la photo satellite. CMEMS sert un composite journalier dont
+// date_observed est le jour a 00:00 UTC ; l'heure que le bandeau affichait
+// ("photo du 17 octobre, 21h59") etait reconstruite depuis l'age au moment
+// du fetch et n'avait aucun sens physique. On affiche le jour, et c'est tout.
+function vzSatDayLabel_(sat, ageFallback){
+  if (sat && sat.date_observed) {
+    var d = new Date(sat.date_observed);
+    if (!isNaN(d.getTime())) return d.getDate() + ' ' + VZ_MOIS[d.getMonth()];
+  }
+  return vzDateFromAge(ageFallback || 0);
+}
+// La mer le jour de la photo, lue dans la meteo deja chargee (h remonte
+// 7 jours). Houle max et vent max sur les heures de ce jour. Aucun seuil :
+// on montre les chiffres, le chasseur juge si une photo prise par 1,2 m de
+// vagues sur 4 m de fond peut dire 3 m de visi. Rend null si le jour n'est
+// pas dans la fenetre meteo.
+function vzSatDaySea_(sat, h){
+  if (!sat || !sat.date_observed || !h || !h.time || !h.time.length) return null;
+  var d = new Date(sat.date_observed);
+  if (isNaN(d.getTime())) return null;
+  var key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  var hsMax = null, windMax = null, n = 0;
+  for (var i = 0; i < h.time.length; i++) {
+    if (String(h.time[i]).slice(0, 10) !== key) continue;
+    n++;
+    var hs = (h.wave_height && typeof h.wave_height[i] === 'number') ? h.wave_height[i] : null;
+    var w = (h.windspeed_10m && typeof h.windspeed_10m[i] === 'number') ? h.windspeed_10m[i] : null;
+    if (hs !== null && (hsMax === null || hs > hsMax)) hsMax = hs;
+    if (w !== null && (windMax === null || w > windMax)) windMax = w;
+  }
+  if (!n || (hsMax === null && windMax === null)) return null;
+  return { day: key, hsMax: hsMax, windMax: windMax, n: n };
+}
 function vzHeureFromAge(h){
   var d = new Date(Date.now() - h * 3600000), m = d.getMinutes();
   return d.getHours() + 'h' + (m < 10 ? '0' + m : m);
@@ -17747,13 +17857,24 @@ function vzRenderCondSource(sat, fb){
   if (sat && typeof sat.visi_plongeur_m === 'number') {
     var age = (typeof sat.age_hours === 'number' && isFinite(sat.age_hours)) ? sat.age_hours : 0;
     var vieux = age >= 72;
+    // Jour reel de la photo (composite journalier, pas d'heure), et la mer
+    // ce jour-la : c'est ce qui permet de juger la photo. Une photo a 3 m
+    // prise par 1,2 m de vagues sur 4 m de fond ne vaut pas une photo a 3 m
+    // par mer plate, et le chiffre seul ne le disait pas.
+    var jourPhoto = vzSatDayLabel_(sat, age);
+    var seaPhoto = vzSatDaySea_(sat, (VZ_SHEET && VZ_SHEET.data) ? VZ_SHEET.data.meteo : null);
+    var seaTxt = '';
+    if (seaPhoto) {
+      var parts = [];
+      if (seaPhoto.hsMax !== null) parts.push('houle ' + vzNum1(seaPhoto.hsMax) + ' m');
+      if (seaPhoto.windMax !== null) parts.push('vent ' + Math.round(seaPhoto.windMax) + ' km/h');
+      if (parts.length) seaTxt = ' · ce jour-là ' + parts.join(', ');
+    }
     rows.push({
       state: vieux ? 'aging' : 'fresh',
       label: 'Visibilité mesurée par satellite',
       lead:  vieux,
-      meta:  vieux
-        ? 'photo du ' + vzDateFromAge(age) + ', ' + vzAgeText(age)
-        : 'photo du ' + vzDateFromAge(age) + ', ' + vzHeureFromAge(age),
+      meta:  'photo du ' + jourPhoto + (vieux ? ', ' + vzAgeText(age) : '') + seaTxt,
       value: '~' + vzNum1(sat.visi_plongeur_m) + '<i> m</i>'
     });
   } else {
@@ -17939,6 +18060,8 @@ function loadSheetConditions(spot) {
   // du point precedent repeindrait le tableau du point courant. Le test
   // VZ_SHEET.mode seul ne suffisait pas, il ne distingue pas deux points.
   var gen = (VZ_SHEET._condGen = (VZ_SHEET._condGen || 0) + 1);
+  VZ_SHEET._histReady = false;      // l'archive attend le verdict du satellite
+  VZ_SHEET._histPending = null;
 
   // Une source qui echoue a repondu, elle aussi : les deux branches cochent.
   // Fournir le second callback n'est pas cosmetique - fetchSheetMeteo n'a pas
@@ -18143,11 +18266,18 @@ function loadSheetConditions(spot) {
   }, function(){});
 
   // Satellite differe : ne repeint que s'il apporte reellement le niveau 1.
-  satPromise.then(function(sat) {
-    if (!painted || !satUsable(sat)) return;
+  // Dans tous les cas, une fois qu'il a tranche, l'archive peut s'ecrire.
+  function histReady() {
     if (gen !== VZ_SHEET._condGen) return;
-    paint();
-  }, function(){});
+    VZ_SHEET._histReady = true;
+    if (typeof vzHistFlush_ === 'function') vzHistFlush_();
+  }
+  var histWait = setTimeout(histReady, VZ_HIST_SAT_WAIT_MS);
+  satPromise.then(function(sat) {
+    clearTimeout(histWait);
+    if (painted && satUsable(sat) && gen === VZ_SHEET._condGen) paint();
+    histReady();
+  }, function(){ clearTimeout(histWait); histReady(); });
 }
 
 // Récupère les hauteurs de marée sur 5 jours via le GAS proxy existant
@@ -18204,12 +18334,73 @@ function vzHistGet_(arch, sectorKey, dayKey) {
   var r = arch.days[dayKey];
   return (r && r.v && typeof r.v === 'object') ? r : null;
 }
+// ------------------------------------------------------------
+// ARCHIVE V2 (20/10/2026) - LA DONNEE EST LA VALEUR
+// ------------------------------------------------------------
+// La v1 archivait huit chiffres par jour. Un chiffre sans ses entrees est
+// invérifiable et irrecalculable, et un '?' archive est un trou, pas une
+// donnee : 24 ports rocheux sur 134 avaient un mois d'archive vide.
+// La v2 archive, par creneau, la valeur ET sa source (chaine, satellite
+// propage, retour chasseur, repli, rien), les forcages qui l'ont produite
+// (houle, periode, vent, rafales, hauteur d'eau), et par jour le
+// coefficient, le sediment ponctuel, le sediment retenu pour la
+// propagation, la photo satellite (ZSD, age, statut), la raison du
+// renoncement quand il y en a une, et la version du moteur.
+// Un port rocheux muet a desormais une ligne complete : on sait quelle mer
+// il faisait et pourquoi le moteur n'a rien dit. N'importe quelle version
+// future du moteur se rejoue sur tout l'historique.
+//
+// Codes de source par creneau (colonne src, 8 codes separes par des
+// virgules) : c chaine 9 briques, s photo satellite propagee, o retour
+// chasseur propage, b bouee Coriolis, e repli (le moteur a renonce),
+// x pas de valeur. Un '+' suffixe signale un melange pondere avec un
+// retour chasseur (doctrine 1).
+var VZ_HIST_SCHEMA = 2;
+
+function vzHistSrcCode_(c) {
+  if (!c) return 'x';
+  var o = c.sObj;
+  if (!o) return (typeof c.vm === 'number') ? 'o' : 'x';
+  var e = String(o.engine || '');
+  var plus = /\+obs$/.test(e) ? '+' : '';
+  var base = e.replace(/\+obs$/, '');
+  var code = base === 'chain' ? 'c'
+    : base === 'satellite_propagated' ? 's'
+    : base === 'observation_propagated' ? 'o'
+    : base === 'coriolis_propagated' ? 'b'
+    : base === 'empirical' ? 'e' : 'x';
+  if (o.insufficient && code !== 'e') code = 'e';
+  if (typeof c.vm !== 'number' && code !== 'e') code = 'x';
+  return code + plus;
+}
+
 // Ecriture : les jours NON passes (aujourd'hui inclus), une fois par secteur
 // et par jour par session. Le GAS garde la premiere prise de la journee.
-function vzHistSubmit_(sectorKey, dayGroups, slots, visiCells, spot, depth) {
+function vzHistSubmit_(sectorKey, dayGroups, slots, visiCells, spot, depth, h, data) {
   if (typeof gasGet !== 'function') return;
   var todayKey = vzHistDayKey_(new Date());
   var src = (typeof window !== 'undefined' && window.VZ_HIST_SOURCE) ? String(window.VZ_HIST_SOURCE) : 'user';
+  var sat = (data && data.satellite) ? data.satellite : null;
+  var sedPoint = (data && data.sediment) ? data.sediment : null;
+  var depthLAT = (data && data.depth != null && data.depth > 0) ? data.depth : null;
+  function tideAt(ms) {
+    var td = (data && data.tides) ? data.tides : null;
+    if (!td || !td.points || !td.points.length) return null;
+    var pts = td.points, prev = null, next = null;
+    for (var k = 0; k < pts.length; k++) {
+      var pms = new Date(pts[k].time).getTime();
+      if (pms <= ms) prev = { ms: pms, hh: pts[k].height };
+      if (pms >= ms) { next = { ms: pms, hh: pts[k].height }; break; }
+    }
+    if (prev && next) {
+      if (next.ms === prev.ms) return prev.hh;
+      return prev.hh + (ms - prev.ms) / (next.ms - prev.ms) * (next.hh - prev.hh);
+    }
+    return prev ? prev.hh : (next ? next.hh : null);
+  }
+  function n1(x) { return (typeof x === 'number' && isFinite(x)) ? String(Math.round(x * 10) / 10) : ''; }
+  function n0(x) { return (typeof x === 'number' && isFinite(x)) ? String(Math.round(x)) : ''; }
+
   var cur = 0;
   dayGroups.forEach(function(g) {
     var f0 = cur, l0 = cur + g.count - 1; cur += g.count;
@@ -18218,20 +18409,95 @@ function vzHistSubmit_(sectorKey, dayGroups, slots, visiCells, spot, depth) {
     var sk = sectorKey + '|' + dk + '|' + todayKey;
     if (_histSent[sk]) return;
     _histSent[sk] = true;
-    var byH = {};
+    var byH = {}, why = '', sedz = '';
     for (var si = f0; si <= l0; si++) {
       var c = visiCells[si];
-      byH[String(slots[si].time.getHours()).padStart(2, '0')] = (c && typeof c.vm === 'number') ? c.vm : '';
+      var sl = slots[si];
+      var hh = String(sl.time.getHours()).padStart(2, '0');
+      var i = sl.i;
+      var th = tideAt(sl.time.getTime());
+      var o = c ? c.sObj : null;
+      var tr = (o && o.trace) ? o.trace : null;
+      if (!why && tr && tr.fallback_reason) why = String(tr.fallback_reason);
+      if (!sedz && tr) {
+        if (tr.sediment_propagation && tr.sediment_propagation.name) {
+          sedz = tr.sediment_propagation.name + (tr.sediment_propagation.source === 'zonal'
+            ? ' (zone ' + tr.sediment_propagation.zone_pct + '%)' : ' (point)');
+        } else if (tr.zone && tr.zone.mono_class_zonal && tr.zone.dominant_class) {
+          sedz = tr.zone.dominant_class + ' (zone ' + Math.round(tr.zone.dominant_pct) + '%)';
+        } else if (tr.zone && tr.zone.multi_class_active) {
+          sedz = 'multi-classes (zone)';
+        }
+      }
+      byH[hh] = {
+        v: (c && typeof c.vm === 'number') ? c.vm : '',
+        src: vzHistSrcCode_(c),
+        hs: n1(h && h.wave_height ? h.wave_height[i] : null),
+        tp: n1(h && h.wave_period ? h.wave_period[i] : null),
+        wind: n0(h && h.windspeed_10m ? h.windspeed_10m[i] : null),
+        gust: n0(h && h.windgusts_10m ? h.windgusts_10m[i] : null),
+        dep: (depthLAT != null && th != null) ? n1(Math.max(0, depthLAT + th)) : ''
+      };
     }
-    var v = VZ_HIST_SLOTS.map(function(hh) { return (hh in byH) ? byH[hh] : ''; }).join(',');
+    function col(f) { return VZ_HIST_SLOTS.map(function(hh) { return (hh in byH) ? byH[hh][f] : ''; }).join(','); }
+    // Voie chaine sans trace zonale explicite (ex. point rocheux substitue en
+    // amont) : la meme regle de resolution dit quel fond a servi.
+    if (!sedz && typeof _vzResolvePropagationSediment_ === 'function') {
+      var rs = _vzResolvePropagationSediment_(spot.lat, spot.lng, sedPoint);
+      if (rs && rs.sediment) {
+        sedz = (rs.sediment.nameFr || rs.sediment.name || '')
+          + (rs.source === 'zonal' ? ' (zone ' + rs.zone_pct + '%)' : ' (point)');
+      }
+    }
+    var coef = null;
+    try { coef = (typeof getCoefForDate === 'function') ? getCoefForDate(dk) : null; } catch (e) { coef = null; }
     gasGet('hist_submit', {
       sector: sectorKey, day: dk, taken_day: todayKey, taken_ts: Date.now(),
       lat: spot.lat, lon: spot.lng, depth: (depth != null ? depth : ''),
-      v: v, source: src
+      v: col('v'), source: src,
+      schema: VZ_HIST_SCHEMA,
+      eng: (typeof VZ_ENGINE_VERSION !== 'undefined') ? VZ_ENGINE_VERSION : '',
+      src: col('src'), why: why,
+      hs: col('hs'), tp: col('tp'), wind: col('wind'), gust: col('gust'), dep: col('dep'),
+      coef: (typeof coef === 'number' && isFinite(coef)) ? Math.round(coef) : '',
+      sed: sedPoint ? (sedPoint.nameFr || sedPoint.name || '') : '',
+      sedz: sedz,
+      zsd: (sat && typeof sat.value_zsd_m === 'number') ? Math.round(sat.value_zsd_m * 100) / 100 : '',
+      zsdage: (sat && typeof sat.age_hours === 'number') ? Math.round(sat.age_hours) : '',
+      zsdst: (sat && sat.status) ? String(sat.status) : ''
     }).then(function(res) {
       if (!res || !res.ok) delete _histSent[sk];   // on retentera au prochain rendu
     }, function() { delete _histSent[sk]; });
   });
+}
+
+// L'archive n'est ecrite qu'une fois le satellite tranche (image ou pas).
+// Sinon la ligne archivee est la premiere peinture, celle d'avant la photo,
+// et non ce que le chasseur a reellement vu : constate le 19/10 a Courseulles
+// (0,0 m archive a 18h49 pendant que l'ecran affichait 3,0 m). renderSheetTable
+// depose ses cellules ici ; loadSheetConditions appelle vzHistFlush_ quand le
+// satellite a repondu, ou au plus tard apres VZ_HIST_SAT_WAIT_MS.
+var VZ_HIST_SAT_WAIT_MS = 25000;
+function vzHistFlush_() {
+  var pnd = VZ_SHEET._histPending;
+  if (!pnd) return;
+  if (pnd.gen !== VZ_SHEET._condGen) { VZ_SHEET._histPending = null; return; }
+  VZ_SHEET._histPending = null;
+  vzHistSubmit_(pnd.key, pnd.dayGroups, pnd.slots, pnd.cells, pnd.spot, pnd.depth, pnd.h, pnd.data);
+}
+// Libelle de la source archivee (schema v2) pour un creneau : ' (satellite
+// propage)', ' (chaine)', etc. Vide pour les lignes v1.
+function vzHistSrcLabel_(rec, sl) {
+  if (!rec || !rec.srcs || typeof rec.srcs !== 'object' || !sl) return '';
+  var code = rec.srcs[String(sl.time.getHours()).padStart(2, '0')];
+  if (!code) return '';
+  var plus = /\+$/.test(code);
+  var base = code.replace(/\+$/, '');
+  var lbl = base === 'c' ? 'chaine 9 briques' : base === 's' ? 'photo satellite propagee'
+    : base === 'o' ? 'retour chasseur propage' : base === 'b' ? 'bouee Coriolis'
+    : base === 'e' ? 'repli, le moteur a renonce' : '';
+  if (!lbl) return '';
+  return ' (' + lbl + (plus ? ' + retour chasseur' : '') + ')';
 }
 function vzHistAnnLabel_(rec) {
   if (!rec || !rec.t) return 'annonc\u00e9';
@@ -19010,7 +19276,9 @@ html += '<div class="vz-cond-daybar" id="vzCondDaybar">'
           var ann = null;
           if (rec) {
             var av = rec.v[String(slots[si].time.getHours()).padStart(2, '0')];
-            ann = (typeof av === 'number' && isFinite(av) && av > 0) ? av : null;
+            // >= 0 : un 0,0 m annonce est une donnee (le 17/10 a Courseulles
+            // en est une), pas une absence. Seul null est une absence.
+            ann = (typeof av === 'number' && isFinite(av) && av >= 0) ? av : null;
             if (ann !== null) { if (ann < amn) amn = ann; if (ann > amx) amx = ann; }
           }
           if (ob) { if (ob.real_m < omn) omn = ob.real_m; if (ob.real_m > omx) omx = ob.real_m; }
@@ -19034,7 +19302,11 @@ html += '<div class="vz-cond-daybar" id="vzCondDaybar">'
       if (_tSwap) { TIDES.data = _tSave; _depthAtTimeCache = {}; }
     }
     // Fige les jours a venir : c'est ce que les jours passes reliront.
-    vzHistSubmit_(_histKey, dayGroups, slots, _visiCells, spot, depth);
+    // Depose, n'ecrit pas : l'ecriture attend le verdict du satellite
+    // (cf. vzHistFlush_), sinon on archive la peinture d'avant la photo.
+    VZ_SHEET._histPending = { gen: VZ_SHEET._condGen, key: _histKey, dayGroups: dayGroups, slots: slots,
+      cells: _visiCells, spot: spot, depth: depth, h: h, data: data };
+    if (VZ_SHEET._histReady) vzHistFlush_();
   })();
   function _fmtRange(r) {
     if (!r) return 'visi indisponible';
@@ -19165,7 +19437,8 @@ html += '<div class="vz-cond-daybar" id="vzCondDaybar">'
     if (!c || c.vm === null) {
       _voidCount++;
       inner = '?';
-      title = (c && c.rec) ? (vzHistAnnLabel_(c.rec) + ' : aucune visibilit\u00e9 calculable ce jour-l\u00e0')
+      title = (c && c.rec) ? (vzHistAnnLabel_(c.rec) + ' : '
+          + (c.rec.why ? c.rec.why : 'aucune visibilit\u00e9 calculable ce jour-l\u00e0'))
         : 'Aucune donnée exploitable sur ce créneau'
         + ((c && c.sObj && c.sObj.trace && c.sObj.trace.fallback_reason) ? ' : ' + c.sObj.trace.fallback_reason : '');
     } else {
@@ -19175,7 +19448,7 @@ html += '<div class="vz-cond-daybar" id="vzCondDaybar">'
         srcTxt = 'vu par ' + ((c.obs.pseudo && c.obs.pseudo !== 'Anonyme') ? vzEscHtml(c.obs.pseudo) : 'un chasseur')
           + ' a ' + (Math.round(c.obs.dist_km * 10) / 10) + ' km';
       } else if (c.rec) {
-        srcTxt = vzHistAnnLabel_(c.rec) + ', aucune mesure sur ce creneau';
+        srcTxt = vzHistAnnLabel_(c.rec) + vzHistSrcLabel_(c.rec, slots[si]) + ', aucune mesure sur ce creneau';
       } else if (sl.past) {
         srcTxt = 'rejeu du modele sur la meteo mesuree, aucune mesure sur ce creneau';
       } else if (o && o.observation) {
