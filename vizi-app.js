@@ -23340,7 +23340,7 @@ function vzmInit() {
       btn.addEventListener('click', function (e) {
         e.stopPropagation();
         var a = btn.getAttribute('data-action');
-        if (a === 'sector') actionSector();
+        if (a === 'sector') window.vzmSonarOpenSector(); // porte publique : la seule que VZM_NAV enveloppe (etat barre basse)
         else if (a === 'share') actionShare();
         else if (a === 'alerts') actionAlerts();
       });
@@ -23707,7 +23707,7 @@ function vzmInit() {
     + "#vzSearch .vz-search-box{display:flex;align-items:center;gap:9px;height:44px;padding:0 10px 0 13px;box-sizing:border-box;background:#FFFFFF;border:2px solid #0A1520;border-radius:14px;box-shadow:0 4px 14px rgba(8,17,27,0.28);}"
     + "#vzSearch .vz-search-glass{display:flex;flex-shrink:0;color:#0A1520;}"
     + "#vzSearch .vz-search-glass svg{width:18px;height:18px;}"
-    + "#vzSearch .vz-search-in{flex:1;min-width:0;background:none;border:none;outline:none;color:#0A1520;font-family:'Inter',sans-serif;font-size:13.5px;font-weight:500;}"
+    + "#vzSearch .vz-search-in{flex:1;min-width:0;align-self:stretch;background:none;border:none;outline:none;color:#0A1520;font-family:'Inter',sans-serif;font-size:13.5px;font-weight:500;}"
     + "#vzSearch .vz-search-in::placeholder{color:#5F6B73;font-weight:400;}"
     + "#vzSearch .vz-search-clear{display:none;align-items:center;justify-content:center;width:26px;height:26px;flex-shrink:0;padding:0;background:none;border:none;border-radius:50%;color:#0A1520;cursor:pointer;}"
     + "#vzSearch .vz-search-clear svg{width:14px;height:14px;}"
