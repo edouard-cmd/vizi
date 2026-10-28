@@ -1686,7 +1686,8 @@ function initMap() {
   S.map.createPane('vzRainPane');
   S.map.getPane('vzRainPane').style.zIndex = 360;
   // Fond colore du vent (A3) : sous les particules (overlayPane 400) et sous
-  // les marqueurs, au-dessus du basemap. Exclusif avec la bathy Litto3D.
+  // les marqueurs, au-dessus du basemap ET du relief Litto3D (250). Quand les
+  // deux sont actifs, le vent passe devant : c'est voulu (voir l'arbitrage).
   S.map.createPane('vzWindColorPane');
   S.map.getPane('vzWindColorPane').style.zIndex = 300;
   // Courant de maree : au-dessus du fond colore du vent, sous la couche
@@ -3146,27 +3147,30 @@ function vzWindNowIndex_() {
 // ARBITRAGE UNIQUE du fond colore du vent et de sa legende.
 // Le fond colore du vent vit dans vzWindColorPane (z-index 300) avec une
 // opacite de 0.54 a 0.94 selon la force ; le relief Litto3D vit dans
-// litto3dPane (z-index 250) en opacite pleine. Superposes, le vent ne rend pas
-// le relief difficile a lire : il le rend INVISIBLE. C'est ce qui justifiait
-// l'exclusion mutuelle, ou chaque couche coupait l'autre a l'activation.
-// On leve l'exclusion sans faire mentir aucune des deux echelles : quand les
-// deux couches sont demandees, le fond colore s'efface et seules les particules
-// restent. Elles vivent dans overlayPane (z-index 400), donc elles passent
-// au-dessus du relief sans rien recouvrir. Le relief porte la couleur, le vent
-// porte le mouvement et la direction.
+// litto3dPane (z-index 250) en opacite pleine.
+// Regle : le vent actif affiche TOUJOURS son fond colore, relief ou pas.
+// L'ancienne regle effacait le fond des que le relief etait actif ; le relief
+// etant allume par defaut, activer le vent ne montrait que des particules
+// blanches. Le vent passe donc devant le relief, par le seul ordre des panes
+// (300 > 250), sans fusion CSS. Le relief reste allume dessous et revient
+// intact a l'extinction du vent. Lisibilite verifiee sur les couleurs reelles
+// du relief : ecart entre paliers 17 a 39 (Delta E), identique a la mer de
+// reference de la legende, derive de la legende 2 a 8. Par vent faible
+// (alpha 0.54 a 0.62) les ombres du relief transparaissent en luminosite
+// seulement, la teinte du palier reste lisible.
 // La legende suit obligatoirement le fond colore : elle decrit une echelle de
 // couleur, la laisser a l'ecran sans le calque qu'elle decrit serait un
 // mensonge. L'unite reste reglable depuis le drawer (windUnitToggle).
 // Point d'entree unique : les quatre branches de toggleLayer concernees
 // appellent cette fonction et ne touchent plus ni la couche ni la legende.
 function vzWindColorArbitrate_() {
-  var showColor = !!(S.showWindFlow && !S.showLitto3d);
+  var showColor = !!S.showWindFlow;
   if (S.windColorLayer && S.map) {
     var on = S.map.hasLayer(S.windColorLayer);
-    // Rafraichir AVANT de remontrer : pendant que le relief masquait le fond,
-    // vzWindShowFrame_ ne repeignait plus le canvas (voir son garde). Sans ca,
-    // couper le relief reafficherait l'echeance figee au moment ou la couche a
-    // ete construite, pas celle du curseur.
+    // Rafraichir AVANT de remontrer : tant que le fond est hors carte,
+    // vzWindShowFrame_ ne repeint pas le canvas (voir son garde). Sans ca, la
+    // remise en carte pourrait reafficher une echeance figee, pas celle du
+    // curseur.
     if (showColor && !on && S.windFrames && S.windFrames.length) {
       vzWindEnsureColorLayer_(S.windPos);
     }
@@ -3190,9 +3194,9 @@ function vzWindShowFrame_(i) {
   i = Math.max(0, Math.min(i, S.windFrames.length - 1));
   S.windPos = i;
   if (S.windFlowLayer) S.windFlowLayer.setData(vzWindBuildVelocity_(S.windHeader, S.windFrames[i]));
-  // Relief actif = fond colore retire de la carte : inutile de repeindre un
-  // canvas 256x256 a chaque cran de curseur pour une couche hors carte.
-  if (S.windColorLayer && S.showWindFlow && !S.showLitto3d) vzWindEnsureColorLayer_(i);
+  // Meme condition que l'arbitrage : vent actif = fond colore en carte, relief
+  // ou pas. Vent coupe = couche hors carte, inutile de repeindre le canvas.
+  if (S.windColorLayer && S.showWindFlow) vzWindEnsureColorLayer_(i);
 }
 
 // Plafond de resolution du canvas des particules. Le plugin dimensionne son
@@ -5141,9 +5145,9 @@ function toggleLayer(type) {
  } else {
       if (S.map.hasLayer(S.litto3d)) S.map.removeLayer(S.litto3d);
     }
-    // Dans les DEUX sens : allumer le relief efface le fond colore du vent,
-    // l'eteindre le rend. Sans cet appel cote extinction, le fond colore ne
-    // reviendrait jamais sans re-toggler le vent.
+    // Le relief ne decide plus de l'affichage du fond colore (le vent passe
+    // devant). L'appel est garde pour que l'arbitrage reste le SEUL endroit
+    // qui tranche : une regle future vent/relief n'aura qu'un point a changer.
     vzWindColorArbitrate_();
   } else if (type === 'current') {
     S.showCurrent = !S.showCurrent;
