@@ -197,6 +197,14 @@
     +   'font-family:var(--vz-font-num,monospace);font-size:14px;font-weight:700;'
     +   'color:var(--vz-text-2,#33475A);cursor:pointer;-webkit-tap-highlight-color:transparent;}'
 
+    // --- creneau de mise a l'eau : memes boutons que la visibilite --------
+    // gap 6px : a 320 px de large, six colonnes gardent 44 px de cible.
+    + '#vzDepot .vzd-slots{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;}'
+    + '#vzDepot .vzd-slots .vzd-vism{padding:0;}'
+    + '#vzDepot .vzd-slots .vzd-vism.on{background:var(--vz-accent,#4DD4A8);'
+    +   'border-color:var(--vz-ink,#0A1520);color:var(--vz-ink,#0A1520);}'
+    + '#vzDepot .vzd-slots .vzd-vism[disabled]{opacity:.28;pointer-events:none;}'
+
     // --- triplets : eau, vie, taille ---------------------------------------
     + '#vzDepot .vzd-tri{display:flex;gap:8px;}'
     + '#vzDepot .vzd-tri button{flex:1;min-width:0;min-height:56px;padding:8px 4px;'
@@ -400,6 +408,11 @@
     { k: 'grands',  lb: 'Grands',  sb: 'beaux sujets' }
   ];
 
+  // Creneaux de mise a l'eau : EXACTEMENT ceux du tableau et de l'archive
+  // forecast_history (VZ_HIST_SLOTS, moins 00h et 03h). Le retour est compare
+  // a la valeur annoncee pour ce creneau, sans interpolation.
+  var CRENEAUX = ['06', '09', '12', '15', '18', '21'];
+
   var JOURS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
   // Semaine commencant le lundi, usage francais.
   var SEM = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
@@ -416,6 +429,7 @@
   var _built = false, _el = null, _scrim = null, _body = null, _foot = null;
   var _secteur = null;        // { nom, lat, lon }
   var _date = '';             // AAAA-MM-JJ
+  var _slot = null;           // '06'..'21', heure de mise a l'eau
   var _vis = null;
   var _eau = null;
   var _vie = null;
@@ -550,6 +564,28 @@
       +    (_calOpen ? calendrier() : '')
       +  '</div>';
 
+    // --- heure de mise a l'eau ---
+    // Sans elle, un retour ne se compare a rien : la visibilite change d'un
+    // creneau a l'autre avec la maree et la houle. Aucun creneau pre-coche :
+    // les retours arrivent souvent le soir pour une sortie du matin (18h43
+    // pour "chasse de 9h30 a 12h"), un defaut sur l'heure du depot
+    // comparerait le chasseur a une autre mer. Affiche seulement quand le
+    // retour part au secteur : en carnet prive il ne servirait a rien, et ce
+    // fichier ne collecte pas pour jeter.
+    if (_consent) {
+      h += '<div class="vzd-f"><span class="vzd-k">Mise \u00e0 l\'eau vers</span>'
+        +    '<div class="vzd-slots">';
+      CRENEAUX.forEach(function (hh) {
+        h += '<button type="button" class="vzd-vism' + (_slot === hh ? ' on' : '') + '"'
+          +  ' data-slot="' + hh + '"' + (creneauFutur(hh) ? ' disabled' : '') + '>'
+          +  hh + 'h</button>';
+      });
+      h += '</div>'
+        +  '<div class="vzd-priv"><span>Pour comparer avec ce que Visimer annon\u00e7ait '
+        +  '\u00e0 cette heure-l\u00e0. Jamais affich\u00e9.</span></div>'
+        +  '</div>';
+    }
+
     // --- visibilite ---
     h += '<div class="vzd-f"><span class="vzd-k">Visibilit\u00e9 moyenne observ\u00e9e</span>'
       +    '<div class="vzd-vis">';
@@ -676,6 +712,15 @@
 
   function iso(y, m, j) {
     return y + '-' + String(m + 1).padStart(2, '0') + '-' + String(j).padStart(2, '0');
+  }
+
+  // Un creneau couvre 1 h 30 de part et d'autre de son heure. Le jour meme,
+  // un creneau qui commence apres maintenant n'a pas pu avoir lieu : meme
+  // regle que les jours futurs du calendrier, affiche et inerte.
+  function creneauFutur(hh) {
+    var auj = new Date();
+    if (_date !== iso(auj.getFullYear(), auj.getMonth(), auj.getDate())) return false;
+    return parseInt(hh, 10) - 1.5 > auj.getHours() + auj.getMinutes() / 60;
   }
 
   function calendrier() {
@@ -826,8 +871,10 @@
 
   // Le secteur et la visibilite sont les deux seules donnees sans lesquelles
   // un retour ne veut rien dire. Tout le reste est optionnel par construction.
+  // Exception : un retour partage exige son creneau, sans lequel il ne peut
+  // pas etre compare a la prevision. Une tape, jamais devinee.
   function pretAEnvoyer() {
-    return !_sending && !!_secteur && _vis != null;
+    return !_sending && !!_secteur && _vis != null && (!_consent || _slot != null);
   }
 
   /* ------------------------------------------------------------------------
@@ -844,6 +891,12 @@
     _body.querySelectorAll('[data-vis]').forEach(function (b) {
       b.addEventListener('click', function () {
         _vis = parseInt(b.getAttribute('data-vis'), 10);
+        render();
+      });
+    });
+    _body.querySelectorAll('[data-slot]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        _slot = b.getAttribute('data-slot');
         render();
       });
     });
@@ -880,6 +933,8 @@
       b.addEventListener('click', function () {
         _date = b.getAttribute('data-jour');
         _calOpen = false;
+        // Revenir a aujourd'hui peut rendre le creneau choisi impossible.
+        if (_slot && creneauFutur(_slot)) _slot = null;
         render();
       });
     });
@@ -1070,6 +1125,7 @@
         heure: String(now.getHours()).padStart(2, '0') + ':'
              + String(now.getMinutes()).padStart(2, '0'),
         visibilityM: _vis,
+        slot: _consent ? (_slot || '') : '',
         eau: _eau || '',
         vie: _vie || '',
         taille: _taille || '',
@@ -1138,6 +1194,7 @@
     _photos.forEach(function (p) { try { URL.revokeObjectURL(p.url); } catch (e) {} });
     _photos = [];
     _date = new Date().toISOString().slice(0, 10);
+    _slot = null;
 
     // Point impose par l'appelant (carte, espace, secteur suivi). On lui donne
     // le nom du port le plus proche, meme source que le libelle de l'ancienne
