@@ -5206,8 +5206,7 @@ function toggleLayer(type) {
       if (_zl) _zl.classList.remove('on');
     }
   } else if (type === 'spots') {
-    if (!S.spotMode && S.measureMode) vzMeasureToggle();
-    if (!S.spotMode && S.shareMode && typeof vzShareDisarm === 'function') vzShareDisarm();
+    if (!S.spotMode) vzToolsReset_('spots');
     S.spotMode = !S.spotMode;
     document.body.classList.toggle('vz-edit-mode', S.spotMode);
   var rowSp = document.getElementById('vzRowSpots');
@@ -5411,8 +5410,8 @@ function vzWrecksEnsure_() {
     st.id = 'vzEditModeStyle';
     st.textContent =
       "body.vz-edit-mode::after{content:'';position:fixed;inset:0;border:3px solid #4DD4A8;pointer-events:none;z-index:1250;box-shadow:inset 0 0 22px rgba(77,212,168,0.28);}"
-    + "body.vz-edit-mode .vz-logo-pill,body.vz-edit-mode .vz-tab-segmented,body.vz-edit-mode .vz-stack-side,body.vz-edit-mode .vz-locate-fab,body.vz-edit-mode #zoomControls,body.vz-edit-mode .vzm-aimbar,body.vz-edit-mode .vzm-xhair,body.vz-edit-mode #mobileAnalyzeBtn,body.vz-edit-mode #turbBadge,body.vz-edit-mode #sedLegend{display:none !important;}"
-    + "#vzEditTopbar{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:1350;display:none;align-items:center;gap:14px;max-width:calc(100vw - 24px);padding:9px 9px 9px 18px;background:rgba(10,21,32,0.92);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(77,212,168,0.42);border-radius:14px;box-shadow:0 8px 28px rgba(4,16,28,0.45);font-family:'Inter',sans-serif;}"
+    + "body.vz-edit-mode .vz-logo-pill,body.vz-edit-mode .vz-tab-segmented,body.vz-edit-mode .vz-stack-side,body.vz-edit-mode .vz-locate-fab,body.vz-edit-mode #zoomControls,body.vz-edit-mode .vzm-aimbar,body.vz-edit-mode .vzm-xhair,body.vz-edit-mode #mobileAnalyzeBtn,body.vz-edit-mode #turbBadge,body.vz-edit-mode #sedLegend,body.vz-edit-mode #vzSearch,body.vz-edit-mode #vzAccountBtn,body.vz-edit-mode #vzAccountMenu{display:none !important;}"
+    + "#vzEditTopbar{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:1350;display:none;align-items:center;gap:14px;width:max-content;max-width:calc(100vw - 24px);padding:9px 9px 9px 18px;background:rgba(10,21,32,0.92);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(77,212,168,0.42);border-radius:14px;box-shadow:0 8px 28px rgba(4,16,28,0.45);font-family:'Inter',sans-serif;}"
     + "body.vz-edit-mode #vzEditTopbar{display:flex;}"
     + "#vzEditTopbar .vz-edit-title{color:#E8F0F4;font-size:13px;font-weight:600;line-height:1.3;}"
     + "#vzEditTopbar .vz-edit-done{border:0;cursor:pointer;background:#4DD4A8;color:#072018;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;padding:8px 16px;border-radius:10px;}";
@@ -5485,10 +5484,21 @@ function vzMeasureFmt(m) {
   return mTxt + ' \u00B7 ' + nmTxt;
 }
 
+// Un seul outil de carte actif a la fois : Mesure, Export de reperes, Partage.
+// Point d'entree UNIQUE de l'exclusivite. Avant, chaque outil coupait les
+// autres a sa maniere, et aucun ne fermait le panneau de partage deja ouvert :
+// il restait pose sur la barre de reperes et cachait son bouton Effacer.
+// keep = l'outil qu'on est en train d'ouvrir. Le panneau de partage est
+// toujours ferme : vzShareOpenAt le recree de toute facon.
+function vzToolsReset_(keep) {
+  if (keep !== 'measure' && S.measureMode) vzMeasureToggle();
+  if (keep !== 'spots' && S.spotMode && typeof toggleLayer === 'function') toggleLayer('spots');
+  if (keep !== 'share' && S.shareMode && typeof vzShareDisarm === 'function') vzShareDisarm();
+  if (typeof vzShareClose === 'function') vzShareClose();
+}
+
 function vzMeasureToggle() {
-  // Exclusivite (sens 2) : couper le mode Points s'il tourne.
-  if (!S.measureMode && S.spotMode && typeof toggleLayer === 'function') toggleLayer('spots');
-  if (!S.measureMode && S.shareMode && typeof vzShareDisarm === 'function') vzShareDisarm();
+  if (!S.measureMode) vzToolsReset_('measure');
   S.measureMode = !S.measureMode;
   if (S.measureMode && !S.measureLayer) S.measureLayer = L.layerGroup().addTo(S.map);
   var btn = document.getElementById('vzBtnMeasure');
@@ -5696,7 +5706,7 @@ function vzShareEnsureCSS_() {
   + "#vzSharePanel .vz-share-item:hover{background:rgba(255,255,255,0.08);}"
   + "#vzSharePanel .vz-share-item svg{width:20px;height:20px;stroke:#4DD4A8;}"
   + "#vzSharePanel .vz-share-close{position:absolute;top:-9px;right:-9px;display:flex;align-items:center;justify-content:center;width:22px;height:22px;background:#0F2438;color:#E6EEF4;border:1.5px solid #4DD4A8;border-radius:50%;cursor:pointer;padding:0;box-shadow:0 4px 12px rgba(4,16,28,0.5);}"
-  + "#vzShareHint{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:1360;padding:9px 16px;background:rgba(10,21,32,0.92);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(77,212,168,0.42);border-radius:12px;color:#E8F0F4;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;white-space:nowrap;}";
+  + "#vzShareHint{position:fixed;top:var(--vz-row2,72px);left:50%;transform:translateX(-50%);z-index:1360;padding:9px 16px;background:rgba(10,21,32,0.92);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(77,212,168,0.42);border-radius:12px;color:#E8F0F4;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;white-space:nowrap;}";
   (document.head || document.documentElement).appendChild(st);
   // Echap : desarme le mode et ferme le panneau (inoffensif si absents)
   document.addEventListener('keydown', function(e) {
@@ -5778,8 +5788,7 @@ function vzShareOpenAt(lat, lon, withSonar) {
 
 function vzShareArm_() {
   // Exclusivite : couper mesure et spots (les deux interceptent le clic carte)
-  if (S.measureMode && typeof vzMeasureToggle === 'function') vzMeasureToggle();
-  if (S.spotMode && typeof toggleLayer === 'function') toggleLayer('spots');
+  vzToolsReset_('share');
   vzShareEnsureCSS_();
   S.shareMode = true;
   var btn = document.getElementById('vzBtnShare');
@@ -5816,11 +5825,13 @@ function vzSharePoint() {
     // Le viseur mobile (vzm-xhair) est a 1/3 de la hauteur d'ecran, pas au
     // centre carte : meme conversion que openCondDrawer, sinon le sonar
     // tombe sous la croix.
+    vzToolsReset_('share');
     var c = vzmAimLatLng();
     if (c) vzShareOpenAt(c.lat, c.lng, true);
     return;
   }
   if (S.shareMode) { vzShareDisarm(); vzShareClose(); return; }
+  vzToolsReset_('share');
   if (S.clickLatLng) {
     var lon = (typeof S.clickLatLng.lng === 'number') ? S.clickLatLng.lng : S.clickLatLng.lon;
     // La pastille de selection pulse deja sur ce point : elle sert de sonar
@@ -23758,9 +23769,11 @@ function vzmInit() {
          // viewport n'est acceptable, il tuerait le pinch-zoom de la carte.
     +   "#vzSearch .vz-search-in{font-size:16px;color:#0A1520;}"
     +   "#vzSearch .vz-search-in::placeholder{color:#5F6B73;}"
-         // La croix ne ferme plus rien, elle vide. 40px pour rester au-dessus
-         // du seuil de confort tactile avec des mains mouillees.
-    +   "#vzSearch .vz-search-clear{width:40px;height:40px;background:transparent;color:#0A1520;}"
+         // La croix ne ferme plus rien, elle vide. 48px = toute la hauteur
+         // interieure de la boite ; le ::after porte la zone de toucher a 56px
+         // (DESIGN.md, mains mouillees) sans changer le dessin.
+    +   "#vzSearch .vz-search-clear{position:relative;width:48px;height:48px;background:transparent;color:#0A1520;}"
+    +   "#vzSearch .vz-search-clear::after{content:'';position:absolute;inset:-4px;}"
     +   "#vzSearch .vz-search-clear svg{width:17px;height:17px;}"
     +   "#vzSearch .vz-search-clear:hover{background:rgba(10,21,32,0.06);color:#0A1520;}"
          // La liste suit la meme charte : elle se lit sous le champ comme un
@@ -24066,7 +24079,7 @@ var VZ_ACCOUNT = (function () {
     + '#vzmIdent .tx{display:flex;flex-direction:column;gap:2px;min-width:0;overflow:hidden;}'
     + '#vzmIdent .nm{font-size:15px;font-weight:700;letter-spacing:-.01em;color:#0A1520;line-height:1.15;overflow:hidden;text-overflow:ellipsis;}'
     + '#vzmIdent .rd{font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;color:#46586B;line-height:1.15;overflow:hidden;text-overflow:ellipsis;}'
-    + '#vzmNavBar button{flex:1;border:none;background:transparent;font-family:inherit;padding:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;position:relative;min-height:60px;-webkit-tap-highlight-color:transparent;}'
+    + '#vzmNavBar button{flex:1;border:none;background:transparent;font-family:inherit;padding:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;position:relative;min-height:58px;-webkit-tap-highlight-color:transparent;}'
     + '#vzmNavBar button+button{border-left:1px solid #C9D4DC;}'
     + '#vzmNavBar button:active{transform:scale(0.96);}'
     + '#vzmNavBar svg{width:24px;height:24px;stroke:#0A1520;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}'
@@ -24131,6 +24144,9 @@ var VZ_ACCOUNT = (function () {
     + 'body.vzm-nav #mobileShareBtn{bottom:calc(var(--vz-fabline) + 10px);}'
     + 'body.vzm-nav #vzHuntBar{bottom:calc(var(--vz-fabline) + 8px);}'
     + 'body.vzm-nav .vz-layers-popover{bottom:calc(var(--vz-fabline) + 8px);}'
+    // Oublies du releve : bandeau Mesure (22px en dur), panneau Partage (96px)
+    // et message de port (80px) tombaient sous la ligne d'identite.
+    + 'body.vzm-nav #vzMeasurePanel,body.vzm-nav #vzSharePanel,body.vzm-nav #landToast{bottom:calc(var(--vz-fabline) + 8px);}'
     + 'body.vzm-nav .leaflet-control-attribution{margin-bottom:calc(var(--vzm-navline,94px) + 2px);}'
     // Le panneau secteur (VZSP) est un conteneur distinct de #vzSheet. Pour que
     // passer d'un onglet a l'autre ne deplace rien, il recoit ici les MEMES
