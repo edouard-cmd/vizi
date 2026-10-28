@@ -98,8 +98,8 @@
 
     // --- corps -------------------------------------------------------------
     + '#vzDepot .vzd-body{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;'
-    +   'padding:14px 12px 20px;display:grid;gap:16px;align-content:start;}'
-    + '#vzDepot .vzd-f{display:grid;gap:8px;}'
+    +   'padding:14px 12px 20px;display:grid;grid-template-columns:minmax(0,1fr);gap:16px;align-content:start;}'
+    + '#vzDepot .vzd-f{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;}'
     + '#vzDepot .vzd-k{font-family:var(--vz-font-num,monospace);font-size:11px;font-weight:600;'
     +   'text-transform:uppercase;letter-spacing:.11em;color:var(--vz-text-2,#33475A);}'
 
