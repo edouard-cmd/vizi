@@ -14557,7 +14557,9 @@ function toggleObsAnon() {
      - users/{uid}/retours : l'historique du chasseur, TOUJOURS ecrit s'il est
        connecte. Il lui appartient et ne doit pas dependre du reseau vers le GAS.
      - GAS submit_observation : la communaute, ecrit UNIQUEMENT si le partage
-       est accepte, et ne transporte que la visibilite et le pseudo.
+       est accepte, et ne transporte que la visibilite et le pseudo. Plus deux
+       champs jamais affiches, qui servent a relier le retour a la prevision
+       archivee : le creneau de mise a l'eau et la cle d'archive du secteur.
 
    Le succes rendu ne depend que de la partie publique quand le partage est
    demande : un retour prive ecrit mais non partage n'est pas ce que le
@@ -14565,8 +14567,6 @@ function toggleObsAnon() {
    ============================================================================ */
 function vzSubmitObservation(d) {
   d = d || {};
-  var visiPrevue = null;
-  if (typeof VZ_RETOUR !== 'undefined' && VZ_RETOUR) visiPrevue = VZ_RETOUR.prediction();
 
   var pPrive = Promise.resolve(null);
   if (typeof VZ_RETOUR !== 'undefined' && VZ_RETOUR && VZ_RETOUR.isLogged()) {
@@ -14592,10 +14592,15 @@ function vzSubmitObservation(d) {
       pseudo: d.pseudo || 'Anonyme',
       comment: d.notes || '',
       sector: d.secteur || '',
-      // Vide si aucune analyse n'a ete faite sur ce point : un champ vide est
-      // une information honnete, une prevision reconstituee apres coup serait
-      // une donnee fausse qui corromprait la calibration qu'elle sert.
-      predicted_m: (visiPrevue != null ? visiPrevue : '')
+      // Ce qui permet au GAS de retrouver ce que Visimer annoncait AVANT la
+      // sortie (forecast_history) : le creneau de 3 h choisi par le chasseur
+      // et la cle d'archive calculee par la MEME fonction que le tableau, donc
+      // le meme port a coup sur. La prevision n'est plus envoyee d'ici : elle
+      // venait de S._lastScoreObj, dernier point clique a l'heure du clic,
+      // ni le secteur ni l'heure de la sortie (vide 90 fois sur 90).
+      slot: d.slot || '',
+      hist_sector: (typeof vzHistSectorKey_ === 'function' && isFinite(d.lat) && isFinite(d.lon))
+        ? vzHistSectorKey_(d.lat, d.lon) : ''
     });
   }
 
