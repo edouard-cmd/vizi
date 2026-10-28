@@ -872,7 +872,7 @@
     @keyframes visimPulse { 0% { width:10px; height:10px; opacity:0.9; } 100% { width:42px; height:42px; opacity:0; } }
     .visim-tooltip { background:white !important; border:1px solid var(--border) !important; color:var(--text) !important; font-family:'IBM Plex Mono', monospace !important; font-size:12px !important; border-radius:8px !important; padding:6px 12px !important; box-shadow:0 4px 14px rgba(0,0,0,0.1) !important; }
     .visim-tooltip::before { display:none !important; }
-    #landToast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%) translateY(20px); z-index:1200; background:#1A2535; color:white; padding:14px 22px; border-radius:12px; font-family:'IBM Plex Mono', monospace; font-size:13px; box-shadow:0 8px 30px rgba(0,0,0,0.2); opacity:0; pointer-events:none; transition:opacity 0.2s, transform 0.2s; white-space:nowrap; max-width:90vw; text-align:center; }
+    #landToast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%) translateY(20px); z-index:1200; background:#1A2535; color:white; padding:14px 22px; border-radius:12px; font-family:'IBM Plex Mono', monospace; font-size:13px; box-shadow:0 8px 30px rgba(0,0,0,0.2); opacity:0; pointer-events:none; transition:opacity 0.2s, transform 0.2s; white-space:normal; width:max-content; max-width:90vw; text-align:center; }
     #landToast.show { opacity:1; transform:translateX(-50%) translateY(0); }
     /* ============================================================
    SHEET "MON OBSERVATION" - Refonte Talisker glassmorphism
@@ -5208,6 +5208,11 @@ display: none; flex-direction: column; gap: 12px; font-family: 'Inter', sans-ser
   }
 
 } /* Fin @media (max-width: 768px) */
+/* Hors mobile, tout le gabarit du tiroir est dans la media query ci-dessus :
+   sans cette regle il restait un bloc statique de 1440 x 1500 px derriere la
+   carte, lu par les lecteurs d'ecran. Les fonctions qui ecrivent dedans ne
+   lisent que ses classes, jamais sa geometrie. */
+@media (min-width: 769px) { #spotDrawerMobile { display: none !important; } }
     /* FIX CHANTIER MOBILE - force taille mini-bloc + bouton */
 #spotDrawerMobile .vzm-conditions-mini {
   margin: 0 4px 10px !important;
