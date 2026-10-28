@@ -2434,6 +2434,11 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
   z-index: 1300;
   width: 300px;
   max-width: calc(100vw - 32px);
+  /* Sans plafond, le panneau (787 px) passait sous le bord d'un ecran de
+     900 px : choix noeuds / km/h inatteignable. Le mobile garde sa regle
+     68vh, la version logee dans Affichage ses !important. */
+  max-height: calc(100vh - var(--vz-row3) - var(--vz-gut));
+  overflow-y: auto;
   background: #FFFFFF;
   border: 2px solid #0A1520;
   border-radius: 16px;
