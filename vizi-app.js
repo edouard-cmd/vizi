@@ -5409,12 +5409,12 @@ function vzWrecksEnsure_() {
     var st = document.createElement('style');
     st.id = 'vzEditModeStyle';
     st.textContent =
-      "body.vz-edit-mode::after{content:'';position:fixed;inset:0;border:3px solid #4DD4A8;pointer-events:none;z-index:1250;box-shadow:inset 0 0 22px rgba(77,212,168,0.28);}"
+      "body.vz-edit-mode::after{content:'';position:fixed;inset:0;border:3px solid #4DD4A8;pointer-events:none;z-index:1250;}"
     + "body.vz-edit-mode .vz-logo-pill,body.vz-edit-mode .vz-tab-segmented,body.vz-edit-mode .vz-stack-side,body.vz-edit-mode .vz-locate-fab,body.vz-edit-mode #zoomControls,body.vz-edit-mode .vzm-aimbar,body.vz-edit-mode .vzm-xhair,body.vz-edit-mode #mobileAnalyzeBtn,body.vz-edit-mode #turbBadge,body.vz-edit-mode #sedLegend,body.vz-edit-mode #vzSearch,body.vz-edit-mode #vzAccountBtn,body.vz-edit-mode #vzAccountMenu{display:none !important;}"
-    + "#vzEditTopbar{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:1350;display:none;align-items:center;gap:14px;width:max-content;max-width:calc(100vw - 24px);padding:9px 9px 9px 18px;background:rgba(10,21,32,0.92);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(77,212,168,0.42);border-radius:14px;box-shadow:0 8px 28px rgba(4,16,28,0.45);font-family:'Inter',sans-serif;}"
+    + "#vzEditTopbar{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:1350;display:none;align-items:center;gap:12px;width:max-content;max-width:calc(100vw - 24px);box-sizing:border-box;padding:8px 8px 8px 14px;background:#FFFFFF;border:2px solid #0A1520;border-radius:14px;font-family:'Inter',sans-serif;}"
     + "body.vz-edit-mode #vzEditTopbar{display:flex;}"
-    + "#vzEditTopbar .vz-edit-title{color:#E8F0F4;font-size:13px;font-weight:600;line-height:1.3;}"
-    + "#vzEditTopbar .vz-edit-done{border:0;cursor:pointer;background:#4DD4A8;color:#072018;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;padding:8px 16px;border-radius:10px;}";
+    + "#vzEditTopbar .vz-edit-title{flex:1;min-width:0;color:#0A1520;font-size:14px;font-weight:600;line-height:1.35;}"
+    + "#vzEditTopbar .vz-edit-done{flex-shrink:0;height:56px;padding:0 16px;border:2px solid #0A1520;border-radius:14px;cursor:pointer;background:#4DD4A8;color:#0A1520;font-family:'Inter',sans-serif;font-size:15px;font-weight:800;-webkit-tap-highlight-color:transparent;}";
     (document.head || document.documentElement).appendChild(st);
   }
   if (!document.getElementById('vzEditTopbar')) {
@@ -5447,32 +5447,42 @@ var VZ_NM_M = 1852; // 1 mille nautique = 1852 m
     var st = document.createElement('style');
     st.id = 'vzMeasureStyle';
     st.textContent =
-      "#vzBtnMeasure.active{background:#4DD4A8;color:#072018;border-color:#4DD4A8;}"
-    + "#vzMeasurePanel{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:1350;display:none;align-items:center;gap:14px;max-width:calc(100vw - 24px);padding:10px 10px 10px 16px;background:rgba(10,21,32,0.92);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(77,212,168,0.42);border-radius:14px;box-shadow:0 8px 28px rgba(4,16,28,0.45);font-family:'Inter',sans-serif;}"
+      "#vzBtnMeasure.active{background:#4DD4A8;color:#0A1520;border-color:#4DD4A8;}"
+    + "#vzMeasurePanel{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:1350;display:none;flex-direction:column;gap:10px;box-sizing:border-box;width:calc(100vw - 24px);max-width:380px;padding:12px;background:#FFFFFF;border:2px solid #0A1520;border-radius:14px;font-family:'Inter',sans-serif;color:#0A1520;}"
     + "#vzMeasurePanel.open{display:flex;}"
-    + "#vzMeasurePanel .vz-meas-total{display:flex;flex-direction:column;gap:2px;line-height:1.15;}"
-    + "#vzMeasurePanel .vz-meas-label{color:#9FB2C0;font-size:11px;font-weight:600;letter-spacing:0.02em;text-transform:uppercase;}"
-    + "#vzMeasurePanel .vz-meas-val{color:#E8F0F4;font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;white-space:nowrap;}"
-    + "#vzMeasurePanel .vz-meas-hint{color:#9FB2C0;font-size:12px;max-width:210px;}"
-    + "#vzMeasurePanel .vz-meas-btn{border:0;cursor:pointer;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;padding:8px 14px;border-radius:10px;}"
-    + "#vzMeasurePanel .vz-meas-clear{background:transparent;color:#9FB2C0;border:1px solid rgba(159,178,192,0.35);}"
-    + "#vzMeasurePanel .vz-meas-done{background:#4DD4A8;color:#072018;}"
-    + ".vz-meas-tip{background:#0F2438 !important;color:#E6EEF4 !important;border:1px solid #4DD4A8 !important;border-radius:7px !important;padding:2px 7px !important;font-family:'IBM Plex Mono',monospace !important;font-size:11px !important;font-weight:600 !important;box-shadow:0 4px 14px rgba(4,16,28,0.5) !important;}"
+    + "#vzMeasurePanel .vz-meas-top{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;min-height:40px;}"
+    + "#vzMeasurePanel .vz-meas-total{display:flex;flex-direction:column;gap:4px;min-width:0;}"
+    + "#vzMeasurePanel .vz-meas-label{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:0.11em;text-transform:uppercase;color:#33475A;}"
+    + "#vzMeasurePanel .vz-meas-val{font-family:'IBM Plex Mono',monospace;font-size:19px;font-weight:700;line-height:1.1;color:#0A1520;white-space:nowrap;}"
+    + "#vzMeasurePanel .vz-meas-hint{font-size:13px;font-weight:500;color:#51677A;text-align:right;}"
+    + "#vzMeasurePanel .vz-meas-acts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}"
+    + "#vzMeasurePanel .vz-meas-btn{height:56px;border:2px solid #0A1520;border-radius:14px;cursor:pointer;font-family:'Inter',sans-serif;font-size:15px;font-weight:800;color:#0A1520;-webkit-tap-highlight-color:transparent;transition:transform .16s ease;}"
+    + "#vzMeasurePanel .vz-meas-btn:active{transform:scale(.97);}"
+    + "#vzMeasurePanel .vz-meas-clear{background:#FFFFFF;}"
+    + "#vzMeasurePanel .vz-meas-done{background:#4DD4A8;}"
+    + ".vz-meas-tip{background:#FFFFFF !important;color:#0A1520 !important;border:2px solid #0A1520 !important;border-radius:9px !important;padding:2px 8px !important;font-family:'IBM Plex Mono',monospace !important;font-size:12px !important;font-weight:600 !important;box-shadow:none !important;}"
     + ".vz-meas-tip.leaflet-tooltip-top:before,.vz-meas-tip.leaflet-tooltip-bottom:before,.vz-meas-tip.leaflet-tooltip-left:before,.vz-meas-tip.leaflet-tooltip-right:before{display:none !important;}"
-    + "body.vz-measure-mode .vzm-xhair,body.vz-measure-mode .vzm-aimbar{display:none !important;}";
+    + "body.vz-measure-mode .vzm-xhair,body.vz-measure-mode .vzm-aimbar{display:none !important;}"
+    // Sur telephone la plaque (134 px) monterait sur la colonne d'outils :
+    // elle se retire pendant la mesure, comme en mode Export. Terminer la rend.
+    + "@media (max-width:768px){body.vz-measure-mode .vz-stack-side{display:none !important;}}";
     (document.head || document.documentElement).appendChild(st);
   }
   if (!document.getElementById('vzMeasurePanel')) {
     var p = document.createElement('div');
     p.id = 'vzMeasurePanel';
     p.innerHTML =
-      '<div class="vz-meas-total">'
-      + '<span class="vz-meas-label">Distance</span>'
+      '<div class="vz-meas-top">'
+      + '<div class="vz-meas-total">'
+      + '<span class="vz-meas-label">Mesure \u00b7 distance</span>'
       + '<span class="vz-meas-val" id="vzMeasureVal">0 m</span>'
       + '</div>'
       + '<span class="vz-meas-hint" id="vzMeasureHint">Pose des points.</span>'
-      + '<button class="vz-meas-btn vz-meas-clear" onclick="vzMeasureClear()">Effacer</button>'
-      + '<button class="vz-meas-btn vz-meas-done" onclick="toggleLayer(\'measure\')">Terminer</button>';
+      + '</div>'
+      + '<div class="vz-meas-acts">'
+      + '<button class="vz-meas-btn vz-meas-clear" type="button" onclick="vzMeasureClear()">Effacer</button>'
+      + '<button class="vz-meas-btn vz-meas-done" type="button" onclick="toggleLayer(\'measure\')">Terminer</button>'
+      + '</div>';
     document.body.appendChild(p);
   }
 })();
@@ -5584,13 +5594,16 @@ function vzRenderHuntBar() {
     list.innerHTML = S.huntPoints.map(function(p, i) {
       var ddm = vzFormatDDM(p.lat, p.lon);
       var dd = p.lat.toFixed(5) + ', ' + p.lon.toFixed(5);
-      return '<div class="vz-hunt-item">'
+      // La ligne entiere (56 px) copie le format GPS (degres minutes). Le
+      // format decimal garde sa propre copie, sans remonter a la ligne.
+      return '<button type="button" class="vz-hunt-item" title="Copier" onclick="vzCopyCoord(this.querySelector(\'.vz-hunt-coord\'))">'
         + '<span class="vz-hunt-badge">' + (i + 1) + '</span>'
         + '<span class="vz-hunt-coords">'
-        + '<span class="vz-hunt-coord" title="Copier" onclick="vzCopyCoord(this)">' + ddm + '</span>'
-        + '<span class="vz-hunt-coord vz-hunt-coord-dd" title="Copier" onclick="vzCopyCoord(this)">' + dd + '</span>'
+        + '<span class="vz-hunt-coord">' + ddm + '</span>'
+        + '<span class="vz-hunt-coord vz-hunt-coord-dd" title="Copier" onclick="event.stopPropagation();vzCopyCoord(this)">' + dd + '</span>'
         + '</span>'
-        + '</div>';
+        + '<svg class="vz-hunt-copy" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>'
+        + '</button>';
     }).join('');
   }
 }
@@ -5699,14 +5712,25 @@ function vzShareEnsureCSS_() {
   if (document.getElementById('vzShareStyle')) return;
   var st = document.createElement('style'); st.id = 'vzShareStyle';
   st.textContent =
-    "#vzBtnShare.active{background:#4DD4A8;color:#072018;}"
-  + "#vzSharePanel{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:1360;display:flex;align-items:stretch;gap:4px;max-width:calc(100vw - 20px);padding:8px;background:rgba(10,21,32,0.94);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(77,212,168,0.42);border-radius:14px;box-shadow:0 8px 28px rgba(4,16,28,0.45);font-family:'Inter',sans-serif;}"
+    "#vzBtnShare.active{background:#4DD4A8;color:#0A1520;}"
+  + "#vzSharePanel{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:1360;display:flex;flex-direction:column;gap:10px;box-sizing:border-box;width:calc(100vw - 24px);max-width:380px;padding:12px;background:#FFFFFF;border:2px solid #0A1520;border-radius:14px;font-family:'Inter',sans-serif;color:#0A1520;}"
   + "@media (max-width:768px){#vzSharePanel{bottom:96px;}}"
-  + "#vzSharePanel .vz-share-item{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-width:60px;padding:9px 6px;border:0;border-radius:10px;background:transparent;color:#D8E1EB;cursor:pointer;text-decoration:none;font-family:'Inter',sans-serif;font-size:10.5px;font-weight:600;-webkit-tap-highlight-color:transparent;}"
-  + "#vzSharePanel .vz-share-item:hover{background:rgba(255,255,255,0.08);}"
-  + "#vzSharePanel .vz-share-item svg{width:20px;height:20px;stroke:#4DD4A8;}"
-  + "#vzSharePanel .vz-share-close{position:absolute;top:-9px;right:-9px;display:flex;align-items:center;justify-content:center;width:22px;height:22px;background:#0F2438;color:#E6EEF4;border:1.5px solid #4DD4A8;border-radius:50%;cursor:pointer;padding:0;box-shadow:0 4px 12px rgba(4,16,28,0.5);}"
-  + "#vzShareHint{position:fixed;top:var(--vz-row2,72px);left:50%;transform:translateX(-50%);z-index:1360;padding:9px 16px;background:rgba(10,21,32,0.92);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid rgba(77,212,168,0.42);border-radius:12px;color:#E8F0F4;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;white-space:nowrap;}";
+  + "#vzSharePanel .vz-share-head{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:56px;}"
+  + "#vzSharePanel .vz-share-id{display:flex;flex-direction:column;gap:4px;min-width:0;}"
+  + "#vzSharePanel .vz-share-k{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:0.11em;text-transform:uppercase;color:#33475A;}"
+  + "#vzSharePanel .vz-share-pt{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;color:#0A1520;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}"
+  + "#vzSharePanel .vz-share-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;}"
+  + "#vzSharePanel .vz-share-item{grid-column:span 2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;height:64px;box-sizing:border-box;padding:0;border:2px solid #0A1520;border-radius:14px;background:#FFFFFF;color:#0A1520;cursor:pointer;text-decoration:none;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;-webkit-tap-highlight-color:transparent;transition:transform .16s ease;}"
+  + "#vzSharePanel .vz-share-item.vz-share-wide{grid-column:span 3;}"
+  + "#vzSharePanel .vz-share-item.vz-share-full{grid-column:span 6;}"
+  + "#vzSharePanel .vz-share-item:active{transform:scale(.97);}"
+  + "#vzSharePanel .vz-share-item:hover{background:#EDF1F4;}"
+  + "#vzSharePanel .vz-share-item svg{width:22px;height:22px;stroke:#0A1520;}"
+  + "#vzSharePanel .vz-share-close{flex-shrink:0;display:flex;align-items:center;gap:7px;height:56px;padding:0 14px;box-sizing:border-box;border:2px solid #0A1520;border-radius:14px;background:#FFFFFF;color:#0A1520;font-family:'Inter',sans-serif;font-size:14px;font-weight:800;cursor:pointer;-webkit-tap-highlight-color:transparent;}"
+  + "#vzShareHint{position:fixed;top:var(--vz-row2,72px);left:50%;transform:translateX(-50%);z-index:1360;padding:9px 16px;background:#FFFFFF;border:2px solid #0A1520;border-radius:12px;color:#0A1520;font-family:'Inter',sans-serif;font-size:14px;font-weight:700;white-space:nowrap;}"
+  // Meme regle que la mesure : sur telephone la colonne d'outils se retire
+  // tant que le panneau est ouvert, sinon la plaque passe dessus.
+  + "@media (max-width:768px){body.vz-share-open .vz-stack-side{display:none !important;}}";
   (document.head || document.documentElement).appendChild(st);
   // Echap : desarme le mode et ferme le panneau (inoffensif si absents)
   document.addEventListener('keydown', function(e) {
@@ -5730,6 +5754,7 @@ function vzShareSonarHtml_() {
 function vzShareClose() {
   var el = document.getElementById('vzSharePanel');
   if (el) el.parentNode.removeChild(el);
+  document.body.classList.remove('vz-share-open');
   if (S._shareSonar) { S.map.removeLayer(S._shareSonar); S._shareSonar = null; }
 }
 
@@ -5753,17 +5778,25 @@ function vzShareOpenAt(lat, lon, withSonar) {
   var icMail = ic('<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/>');
   var icCopy = ic('<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>');
   var icMore = ic('<path d="M4 12v7a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>');
-  var icX = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>';
+  var icX = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>';
+  var hasNat = !!navigator.share;
   var el = document.createElement('div');
   el.id = 'vzSharePanel';
+  // En-tete : le point partage en coordonnees (ce que recoit le destinataire),
+  // et une sortie de 56 px a la place de la pastille de 22 px posee en coin.
   el.innerHTML =
-      '<a class="vz-share-item" data-vzch="sms" href="sms:?&body=' + encFor('sms') + '">' + icSms + '<span>SMS</span></a>'
+      '<div class="vz-share-head"><div class="vz-share-id"><span class="vz-share-k">Partager ce point</span>'
+    + '<span class="vz-share-pt">' + vzFormatDDM(lat, lon) + '</span></div>'
+    + '<button class="vz-share-close" type="button">' + icX + '<span>Fermer</span></button></div>'
+    + '<div class="vz-share-grid">'
+    + '<a class="vz-share-item" data-vzch="sms" href="sms:?&body=' + encFor('sms') + '">' + icSms + '<span>SMS</span></a>'
     + '<a class="vz-share-item" data-vzch="whatsapp" href="https://wa.me/?text=' + encFor('whatsapp') + '" target="_blank" rel="noopener">' + icWa + '<span>WhatsApp</span></a>'
     + '<a class="vz-share-item" data-vzch="mail" href="mailto:?subject=' + encodeURIComponent('Un point sur Visimer') + '&body=' + encFor('mail') + '">' + icMail + '<span>Mail</span></a>'
-    + '<button class="vz-share-item" data-vzch="copie" id="vzShareCopy" type="button">' + icCopy + '<span>Copier</span></button>'
-    + (navigator.share ? '<button class="vz-share-item" data-vzch="natif" id="vzShareNative" type="button">' + icMore + '<span>Plus</span></button>' : '')
-    + '<button class="vz-share-close" type="button" aria-label="Fermer">' + icX + '</button>';
+    + '<button class="vz-share-item ' + (hasNat ? 'vz-share-wide' : 'vz-share-full') + '" data-vzch="copie" id="vzShareCopy" type="button">' + icCopy + '<span>Copier</span></button>'
+    + (hasNat ? '<button class="vz-share-item vz-share-wide" data-vzch="natif" id="vzShareNative" type="button">' + icMore + '<span>Plus</span></button>' : '')
+    + '</div>';
   document.body.appendChild(el);
+  document.body.classList.add('vz-share-open');
   el.querySelector('.vz-share-close').addEventListener('click', vzShareClose);
   // Mesure : un evenement par canal reellement choisi (delegation, la
   // croix de fermeture n'a pas de data-vzch et ne compte pas).
@@ -8250,7 +8283,7 @@ function vzmInitPointBadge(){
 // ======================================================================
 function vzmBuildSources(){
   var TEAL='#0E7C62', CAUTION='#B5611E', OFF='rgba(11,26,38,0.14)';
-var LBL='#51677A', LBLOFF='#90A1AE';
+var LBL='#51677A', LBLOFF='#51677A'; // plus clair que #51677A, l'absence de donnee ne se lit plus au soleil
   var VAL='#0B1A26', CTX='#51677A';
   function bars(n){
     var hgt=[7,11,15,20];
@@ -16886,7 +16919,7 @@ var css = `
     .vz-cond-val i { font-style: normal; font-size: 15px; font-weight: 600; }
     /* Le vide ne prend jamais la typo du releve. */
     .vz-cond-val.is-empty {
-      font-family: Inter, sans-serif; font-size: 16px; color: #90A1AE; font-weight: 600;
+      font-family: Inter, sans-serif; font-size: 16px; color: #51677A; font-weight: 600;
       white-space: normal; flex-shrink: 1; text-align: right; line-height: 1.25; max-width: 46%;
     }
     .vz-cond-empty-inline { display: none; }
@@ -16929,7 +16962,7 @@ var css = `
     .vz-load-mark svg { width: 13px; height: 13px; stroke: #fff; fill: none; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; opacity: 0; }
     .vz-load-row.is-done .vz-load-mark { background: #0E7C62; border-color: #0E7C62; }
     .vz-load-row.is-done .vz-load-mark svg { opacity: 1; }
-    .vz-load-name { flex: 1; min-width: 0; font-family: Inter, sans-serif; font-size: 13.5px; font-weight: 500; color: #90A1AE; }
+    .vz-load-name { flex: 1; min-width: 0; font-family: Inter, sans-serif; font-size: 13.5px; font-weight: 500; color: #51677A; }
     .vz-load-row.is-done .vz-load-name { color: #0A1520; font-weight: 600; }
 
     /* ---- Conteneur et colonne collante ---- */
@@ -17032,7 +17065,7 @@ var css = `
     .vz-grad-cell::before { content: ""; position: absolute; inset: 0; background: currentColor; opacity: .10; }
     .vz-grad-cell::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: currentColor; }
     .vz-grad-cell .gv { position: relative; z-index: 1; color: #0A1520; }
-    .vz-dash { color: #90A1AE; font-weight: 500; }
+    .vz-dash { color: #51677A; font-weight: 500; }
     .vz-dir svg { width: 17px; height: 17px; stroke: #0A1520; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; margin: 0 auto; }
     .vz-sky svg { width: 19px; height: 19px; stroke: #51677A; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; display: block; margin: 0 auto; }
 
@@ -17054,7 +17087,7 @@ var css = `
        Elles ne se marchent jamais dessus puisqu'elles alternent. */
     .vz-tide-mark.pm { background: #0A1520; color: #fff; transform: translate(-50%, -122%); }
     .vz-tide-mark.bm { background: #FFFFFF; color: #0A1520; border: 1.5px solid #0A1520; transform: translate(-50%, 22%); }
-    .vz-tide-none { display: flex; align-items: center; justify-content: center; height: 84px; font-size: 12px; font-weight: 600; color: #90A1AE; }
+    .vz-tide-none { display: flex; align-items: center; justify-content: center; height: 84px; font-size: 12px; font-weight: 600; color: #51677A; }
 
     /* ---- Pied et note d'absence ---- */
     .vz-cond-footer {
@@ -17145,7 +17178,7 @@ var css = `
 .vzm-src-cell.is-stale .vzm-src-val{color:#51677A}
 .vzm-src-val{flex-shrink:0;font-family:"IBM Plex Mono",monospace;font-size:16px;
   font-weight:700;color:#0A1520;letter-spacing:-.03em;line-height:1}
-.vzm-src-val.is-none{font-family:Inter,sans-serif;font-size:12px;font-weight:700;color:#90A1AE}
+.vzm-src-val.is-none{font-family:Inter,sans-serif;font-size:12px;font-weight:700;color:#51677A}
 
 /* ---- Defilement vertical, seul mode de navigation dans le temps ---- */
 .vzm-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;
@@ -17224,9 +17257,9 @@ var css = `
 .sl-d{width:34px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:1px}
 .sl-d .dv{font-family:"IBM Plex Mono",monospace;font-size:13px;font-weight:600;
   color:#0A1520;line-height:1}
-.sl-d .dv.is-none{color:#90A1AE;font-weight:500}
+.sl-d .dv.is-none{color:#51677A;font-weight:500}
 .sl-d .dt{display:flex;align-items:center;gap:1px;font-family:"IBM Plex Mono",monospace;
-  font-size:8.5px;font-weight:600;color:#90A1AE;line-height:1}
+  font-size:8.5px;font-weight:600;color:#51677A;line-height:1}
 .sl-d .dt svg{width:9px;height:9px;stroke:currentColor;fill:none;stroke-width:2.6;
   stroke-linecap:round;stroke-linejoin:round}
 
@@ -17277,7 +17310,7 @@ var css = `
 /* ---- Etat 6 : marees hors de portee d un port de reference ---- */
 .vzm-tidenone{display:flex;align-items:center;gap:8px;padding:9px 12px;background:#F7F9FB;
   border-top:1px solid #C9D4DC;border-bottom:1px solid #C9D4DC;
-  font-size:12px;font-weight:600;color:#90A1AE}
+  font-size:12px;font-weight:600;color:#51677A}
 
 /* ---- Pied de sources ---- */
 .vzm-foot{flex-shrink:0;display:flex;align-items:center;gap:6px;flex-wrap:wrap;
@@ -17320,7 +17353,7 @@ var css = `
          la barre basse. Previsions faisait exception depuis sa refonte, ce
          qui cassait justement cette regle. */
       body.vzm-nav.vzm-full #vzSheet,
-      body.vzm-nav.vzm-full .vzm-sonar-panel[data-vzsp="1"] {
+      body.vzm-nav.vzm-full .vzm-sonar-panel[data-vzsp] {
         top: 0 !important; height: auto !important; max-height: none !important;
         border-radius: 0 !important; border-left: 0 !important; border-right: 0 !important;
         border-top: 0 !important;
@@ -22253,7 +22286,7 @@ function vzmInit() {
     + '.vzm-sonar-menu{pointer-events:none;}'
     + '.vzm-sonar-root[data-hidden="true"]{display:none !important;}'
     + '.vzm-sonar-scrim{position:absolute;inset:0;z-index:1;background:rgba(6,13,20,0);opacity:0;transition:opacity .26s ease;pointer-events:none;}'
-    + '.vzm-sonar-root[data-open="true"] .vzm-sonar-scrim{pointer-events:auto;opacity:1;background:rgba(6,13,20,0.34);}'
+    + '.vzm-sonar-root[data-open="true"] .vzm-sonar-scrim{pointer-events:auto;opacity:1;background:transparent;}'
     + '.vzm-sonar-fab{position:absolute;right:18px;bottom:24px;z-index:20;width:72px;height:72px;border-radius:50%;border:2px solid #4DD4A8;padding:0;cursor:pointer;background:#0A1520;box-shadow:0 4px 18px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;transition:transform .2s ease;pointer-events:auto;}'
     + '.vzm-sonar-fab:active{transform:scale(.95);}'
     + '.vzm-sonar-dial{position:absolute;inset:0;fill:none;}'
@@ -22266,18 +22299,23 @@ function vzmInit() {
     + '.vzm-sonar-root[data-open="true"] .vzm-sonar-core .w{opacity:0;}'
     + '.vzm-sonar-root[data-open="true"] .vzm-sonar-core .x{opacity:1;}'
     + '.vzm-sonar-menu{position:absolute;right:20px;bottom:100px;z-index:15;width:268px;display:flex;flex-direction:column;gap:10px;}'
-    + '.vzm-sonar-sector{display:flex;align-items:center;gap:8px;align-self:flex-start;background:rgba(10,21,32,0.88);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(77,212,168,0.4);border-radius:12px;padding:7px 12px;font-size:12px;font-weight:600;color:#4DD4A8;box-shadow:0 4px 14px rgba(0,0,0,0.35);opacity:0;transform:translateY(16px) scale(.96);pointer-events:none;}'
-    + '.vzm-sonar-sector svg{width:14px;height:14px;stroke:#4DD4A8;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;}'
+    + '.vzm-sonar-sector{display:flex;align-items:center;gap:7px;align-self:flex-end;min-height:40px;box-sizing:border-box;background:#FFFFFF;border:2px solid #0A1520;border-radius:12px;padding:0 12px;font-size:13px;font-weight:700;color:#0A1520;opacity:0;transform:translateY(16px) scale(.96);pointer-events:none;}'
+    + '.vzm-sonar-sector svg{width:15px;height:15px;stroke:#1A6B5D;fill:none;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;}'
     + '.vzm-sonar-root[data-open="true"] .vzm-sonar-sector{opacity:1;transform:none;pointer-events:auto;}'
-    + '.vzm-sonar-act{display:flex;align-items:center;gap:12px;background:rgba(10,21,32,0.88);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(77,212,168,0.4);border-radius:14px;padding:10px 14px;min-height:48px;text-align:left;cursor:pointer;color:#fff;width:100%;box-shadow:0 6px 18px rgba(0,0,0,0.35);opacity:0;transform:translateY(16px) scale(.96);pointer-events:none;}'
-    + '.vzm-sonar-act:active{background:rgba(10,21,32,0.96);}'
+    + '.vzm-sonar-act{display:flex;align-items:center;gap:12px;background:#FFFFFF;border:2px solid #0A1520;border-radius:14px;padding:0 14px 0 10px;min-height:60px;box-sizing:border-box;text-align:left;cursor:pointer;color:#0A1520;width:100%;font-family:inherit;opacity:0;transform:translateY(16px) scale(.96);pointer-events:none;}'
+    + '.vzm-sonar-act:active{background:#EDF1F4;}'
+    // L'action qui nourrit les retours de tout le monde porte l'aplat.
+    + '.vzm-sonar-act[data-action="share"],.vzm-sonar-act[data-action="share"]:active{background:#4DD4A8;}'
+    + '.vzm-sonar-act[data-action="share"] .vzm-sonar-ai{background:#FFFFFF;}'
     + '.vzm-sonar-root[data-open="true"] .vzm-sonar-act{opacity:1;transform:none;pointer-events:auto;}'
-    + '.vzm-sonar-ai{width:38px;height:38px;flex-shrink:0;border-radius:10px;background:rgba(77,212,168,0.12);display:flex;align-items:center;justify-content:center;}'
-    + '.vzm-sonar-ai svg{width:20px;height:20px;stroke:#4DD4A8;fill:none;stroke-linecap:round;stroke-linejoin:round;}'
-    + '.vzm-sonar-at{display:flex;flex-direction:column;gap:1px;min-width:0;}'
-    + '.vzm-sonar-t{font-size:14px;font-weight:600;letter-spacing:-0.01em;}'
+    + '.vzm-sonar-ai{width:36px;height:36px;flex-shrink:0;border-radius:10px;background:#EDF1F4;display:flex;align-items:center;justify-content:center;}'
+    + '.vzm-sonar-ai svg{width:20px;height:20px;stroke:#0A1520;fill:none;stroke-linecap:round;stroke-linejoin:round;}'
+    + '.vzm-sonar-at{flex:1;display:flex;flex-direction:column;gap:1px;min-width:0;}'
+    + '.vzm-sonar-t{font-size:15px;font-weight:800;letter-spacing:-0.015em;line-height:1.2;}'
+    + '.vzm-sonar-chev{width:16px;height:16px;flex-shrink:0;stroke:#33475A;fill:none;stroke-width:2.4;stroke-linecap:round;}'
+    + '.vzm-sonar-act[data-action="share"] .vzm-sonar-chev{stroke:#0A1520;}'
     + '.vzm-sonar-act[data-soon="true"]{opacity:.62;}'
-    + '.vzm-sonar-badge{margin-left:auto;font-size:9.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#D8C84A;border:1px solid rgba(216,200,74,0.4);border-radius:6px;padding:2px 6px;}'
+    + '.vzm-sonar-badge{margin-left:auto;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#0A1520;background:#D8C84A;border-radius:6px;padding:2px 6px;}'
     + '@media (prefers-reduced-motion: no-preference){'
     +   '.vzm-sonar-sector,.vzm-sonar-act{transition:opacity .24s ease,transform .34s cubic-bezier(.34,1.25,.5,1);}'
     +   '.vzm-sonar-root[data-open="true"] .vzm-sonar-sector{transition-delay:.24s;}'
@@ -22289,13 +22327,24 @@ function vzmInit() {
     // panneau blanc (retours secteur + alertes) : reprend la grammaire obsSheet
     + '.vzm-sonar-panel{position:absolute;left:0;right:0;bottom:0;z-index:1320;background:#F4F6F7;border-radius:20px 20px 0 0;padding:14px 16px 20px;max-height:70vh;overflow-y:auto;box-shadow:0 -8px 30px rgba(0,0,0,0.4);transform:translateY(100%);visibility:hidden;opacity:0;transition:transform .3s cubic-bezier(.2,.8,.3,1),opacity .3s ease,visibility .3s;font-family:Inter,-apple-system,sans-serif;}'
     + '.vzm-sonar-panel.open{transform:translateY(0);visibility:visible;opacity:1;}'
+    // Panneau hors secteur (Alertes) : plaque blanche, trait encre, en-tete
+    // fixe et corps qui defile. Le panneau secteur [data-vzsp="1"] a son
+    // propre gabarit (vzsp).
+    + '.vzm-sonar-panel[data-vzsp="0"]{background:#FFFFFF;border:2px solid #0A1520;border-bottom:none;border-radius:16px 16px 0 0;padding:0;box-shadow:none;display:flex;flex-direction:column;overflow:hidden;color:#0A1520;}'
+    + '.vzm-sonar-panel[data-vzsp="0"]>.vzm-sonar-grab{display:none;}'
+    + '.vzm-sonar-hd{position:relative;flex-shrink:0;min-height:78px;box-sizing:border-box;padding:14px 128px 14px 16px;border-bottom:2px solid #0A1520;display:flex;flex-direction:column;justify-content:center;gap:4px;}'
+    + '.vzm-sonar-bd{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:18px 16px 20px;display:flex;flex-direction:column;gap:14px;}'
+    + '.vzm-sonar-field{display:flex;flex-direction:column;gap:8px;}'
+    + '.vzm-sonar-err{font-size:13px;font-weight:700;color:#C94A3D;}'
+    + '.vzm-sonar-foot{font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:500;line-height:1.4;color:#51677A;}'
+    + '.vzm-sonar-h2{font-size:17px;font-weight:800;text-align:center;color:#0A1520;}'
     + '.vzm-sonar-pscrim{position:fixed;inset:0;z-index:1319;background:rgba(6,13,20,0);opacity:0;pointer-events:none;transition:opacity .3s ease;}'
     + '.vzm-sonar-pscrim.open{opacity:1;pointer-events:auto;background:rgba(6,13,20,0.4);}'
     + '.vzm-sonar-grab{width:38px;height:4px;background:#CBD5D5;border-radius:2px;margin:0 auto 12px;}'
-    + '.vzm-sonar-x{position:absolute;top:12px;right:14px;width:30px;height:30px;border-radius:50%;background:#E7ECEE;border:none;color:#44565F;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;}'
-    + '.vzm-sonar-chip{display:inline-flex;align-items:center;gap:6px;background:#E1F5EE;color:#1A6B5D;border-radius:20px;padding:4px 11px;font-size:11.5px;font-weight:600;}'
-    + '.vzm-sonar-h{font-size:16.5px;font-weight:600;color:#0F2438;margin-top:10px;}'
-    + '.vzm-sonar-sub{font-size:12.5px;color:#5A6B75;margin-top:2px;}'
+    + '.vzm-sonar-x{position:absolute;top:11px;right:12px;z-index:2;display:flex;align-items:center;gap:7px;height:56px;padding:0 14px;box-sizing:border-box;border:2px solid #0A1520;border-radius:14px;background:#FFFFFF;color:#0A1520;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;-webkit-tap-highlight-color:transparent;}'
+    + '.vzm-sonar-chip{display:flex;align-items:center;gap:6px;font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;letter-spacing:.11em;text-transform:uppercase;color:#33475A;}'
+    + '.vzm-sonar-h{margin:0;font-size:18px;font-weight:800;letter-spacing:-.02em;color:#0A1520;}'
+    + '.vzm-sonar-sub{margin:0;font-size:15px;font-weight:500;line-height:1.45;color:#33475A;}'
     + '.vzm-sonar-card{background:#fff;border:0.5px solid #E1E7E7;border-radius:13px;padding:6px 14px;margin-top:10px;}'
     + '.vzm-sonar-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:0.5px solid #EDF1F2;}'
     + '.vzm-sonar-row:last-child{border-bottom:none;}'
@@ -22304,14 +22353,16 @@ function vzmInit() {
     + '.vzm-sonar-visi{font-family:"IBM Plex Mono",monospace;font-size:14px;font-weight:500;text-align:right;}'
     + '.vzm-sonar-tag{font-size:10.5px;color:#5A6B75;text-align:right;}'
     + '.vzm-sonar-empty{text-align:center;color:#8A99A1;font-size:13px;padding:18px 0;}'
-    + '.vzm-sonar-lab{font-size:12px;color:#5A6B75;margin:12px 0 5px;}'
-    + '.vzm-sonar-in{width:100%;box-sizing:border-box;border:1px solid #CBD8D8;border-radius:10px;padding:11px 12px;font-size:16px;color:#0F2438;background:#fff;font-family:inherit;}'
-    + '.vzm-sonar-cta{background:#4DD4A8;color:#06251C;border-radius:12px;padding:13px 0;text-align:center;font-size:15px;font-weight:600;cursor:pointer;border:none;width:100%;margin-top:14px;}'
+    + '.vzm-sonar-lab{font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;letter-spacing:.11em;text-transform:uppercase;color:#33475A;}'
+    + '.vzm-sonar-in{width:100%;height:56px;box-sizing:border-box;padding:0 14px;border:2px solid #C3D0DA;border-radius:14px;background:#FFFFFF;font-family:inherit;font-size:16px;font-weight:500;color:#0A1520;}'
+    + '.vzm-sonar-in:focus{outline:none;border-color:#0A1520;}'
+    + '.vzm-sonar-in.is-err,.vzm-sonar-consent.is-err{border-color:#C94A3D;}'
+    + '.vzm-sonar-cta{width:100%;height:56px;border:2px solid #0A1520;border-radius:14px;background:#4DD4A8;color:#0A1520;font-family:inherit;font-size:16px;font-weight:800;cursor:pointer;}'
     + '.vzm-sonar-cta[disabled]{opacity:.5;cursor:default;}'
-    + '.vzm-sonar-consent{display:flex;align-items:flex-start;gap:8px;margin-top:12px;font-size:12px;color:#44565F;line-height:1.45;cursor:pointer;}'
-    + '.vzm-sonar-consent input{margin-top:2px;width:16px;height:16px;accent-color:#2DA888;flex-shrink:0;}'
+    + '.vzm-sonar-consent{display:flex;align-items:center;gap:12px;min-height:56px;box-sizing:border-box;padding:10px 12px;border:2px solid #C3D0DA;border-radius:14px;background:#FFFFFF;font-size:14px;font-weight:600;line-height:1.35;color:#0A1520;cursor:pointer;}'
+    + '.vzm-sonar-consent input{width:28px;height:28px;margin:0;flex-shrink:0;accent-color:#1A6B5D;}'
     + '.vzm-sonar-ok{width:52px;height:52px;border-radius:50%;background:#E1F5EE;display:flex;align-items:center;justify-content:center;margin:2px auto 10px;color:#1A6B5D;font-size:26px;}'
-    + '@media (min-width:769px){.vzm-sonar-fab{right:26px;bottom:110px;}.vzm-sonar-menu{right:28px;bottom:186px;}.vzm-sonar-panel{left:auto;right:26px;bottom:26px;width:420px;max-height:min(72vh,640px);overflow-y:auto;border-radius:16px;}}';
+    + '@media (min-width:769px){.vzm-sonar-fab{right:26px;bottom:110px;}.vzm-sonar-menu{right:28px;bottom:186px;}.vzm-sonar-panel{left:auto;right:26px;bottom:26px;width:420px;max-height:min(72vh,640px);overflow-y:auto;border-radius:16px;}.vzm-sonar-panel[data-vzsp="0"]{border-bottom:2px solid #0A1520;}}';
     document.head.appendChild(st);
   }
 
@@ -22363,10 +22414,13 @@ function vzmInit() {
   // maquette (fond, rayon, padding, scroll interne) via data-vzsp. Les
   // appels historiques (alertes, succes) n'en passent pas et gardent
   // exactement le rendu d'avant.
+  // Sortie de 56 px avec son libelle : meme bouton que le panneau Secteur.
+  var CLOSE_BTN = '<button class="vzm-sonar-x" type="button" data-close="1">'
+    + '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>'
+    + '<span>Fermer</span></button>';
   function openPanel(html, mode) {
     panel.setAttribute('data-vzsp', mode === 'sector' ? '1' : '0');
-    panel.innerHTML = '<div class="vzm-sonar-grab"></div>'
-      + '<button class="vzm-sonar-x" type="button" aria-label="Fermer" data-close="1">&#10005;</button>' + html;
+    panel.innerHTML = '<div class="vzm-sonar-grab"></div>' + CLOSE_BTN + html;
     panel.querySelector('[data-close]').addEventListener('click', closePanel);
     pscrim.classList.add('open');
     requestAnimationFrame(function () { panel.classList.add('open'); });
@@ -22464,7 +22518,7 @@ function vzmInit() {
     + '.vzsp-body::-webkit-scrollbar{width:0;}'
     + '.vzsp-pane{display:none;}'
     + '.vzsp-pane.vzsp-on{display:block;}'
-    + '.vzsp-slab{font-family:\'IBM Plex Mono\',monospace;font-size:10px;letter-spacing:0.13em;text-transform:uppercase;color:#7A8B99;font-weight:600;margin:16px 6px 8px;}'
+    + '.vzsp-slab{font-family:\'IBM Plex Mono\',monospace;font-size:12px;letter-spacing:0.13em;text-transform:uppercase;color:#33475A;font-weight:600;margin:16px 6px 8px;}'
     + '.vzsp-slab:first-child{margin-top:2px;}'
     + '.vzsp-card{background:var(--vzsp-paper);border-radius:18px;padding:6px 14px;}'
     + '.vzsp-card.vzsp-pad{padding:14px;}'
@@ -22485,7 +22539,7 @@ function vzmInit() {
     + '.vzsp-fb .vzsp-val .vzsp-v{font-size:26px;color:var(--vzsp-teal-deep);}'
     + '.vzsp-fb .vzsp-val .vzsp-v,.vzsp-fb .vzsp-val .vzsp-v small{color:var(--vzsp-teal-deep);}'
     + '.vzsp-fb .vzsp-lbl .vzsp-t{font-size:15px;}'
-    + '.vzsp-fb .vzsp-lbl .vzsp-t.vzsp-quiet{color:#7A8B99;font-weight:500;font-size:14px;}'
+    + '.vzsp-fb .vzsp-lbl .vzsp-t.vzsp-quiet{color:#51677A;font-weight:500;font-size:14px;}'
     + '.vzsp-fb .vzsp-lbl .vzsp-s{font-family:\'IBM Plex Mono\',monospace;font-size:12.5px;font-weight:600;letter-spacing:0.02em;color:var(--vzsp-ink2);}'
     + '.vzsp-fb .vzsp-lbl .vzsp-s .vzsp-who{font-family:Inter,sans-serif;font-weight:600;letter-spacing:0;}'
     + '.vzsp-water{display:inline-block;font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:6px;margin-top:4px;}'
@@ -22497,7 +22551,7 @@ function vzmInit() {
     + '.vzsp-sat .vzsp-sic svg{width:19px;height:19px;stroke:var(--vzsp-ink2);fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;}'
     + '.vzsp-sat .vzsp-slbl{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:2px;}'
     + '.vzsp-sat .vzsp-slbl .vzsp-t{display:block;width:100%;font-size:14px;font-weight:700;color:var(--vzsp-ink2);letter-spacing:-0.01em;line-height:1.2;}'
-    + '.vzsp-sat .vzsp-slbl .vzsp-s{display:block;width:100%;font-family:\'IBM Plex Mono\',monospace;font-size:11.5px;font-weight:600;color:#7A8B99;line-height:1.25;}'
+    + '.vzsp-sat .vzsp-slbl .vzsp-s{display:block;width:100%;font-family:\'IBM Plex Mono\',monospace;font-size:12px;font-weight:600;color:#51677A;line-height:1.25;}'
     + '.vzsp-sat .vzsp-sval{font-family:\'IBM Plex Mono\',monospace;font-size:20px;font-weight:700;color:var(--vzsp-teal-deep);flex-shrink:0;}'
     + '.vzsp-sat .vzsp-sval small{font-size:12px;}'
     + '.vzsp-sum{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:8px;align-items:stretch;}'
@@ -22548,7 +22602,7 @@ function vzmInit() {
     + '.vzsp-drange{font-size:11px;font-weight:600;color:var(--vzsp-ink2);margin:8px 6px 0;letter-spacing:0.02em;}'
     + '.vzsp-coefwrap{display:flex;align-items:center;gap:14px;}'
     + '.vzsp-coefwrap .vzsp-big{font-family:\'IBM Plex Mono\',monospace;font-size:46px;font-weight:700;line-height:0.9;letter-spacing:-0.02em;}'
-    + '.vzsp-coefwrap .vzsp-meta .vzsp-k{font-family:\'IBM Plex Mono\',monospace;font-size:10px;letter-spacing:0.13em;text-transform:uppercase;color:#7A8B99;font-weight:600;}'
+    + '.vzsp-coefwrap .vzsp-meta .vzsp-k{font-family:\'IBM Plex Mono\',monospace;font-size:12px;letter-spacing:0.13em;text-transform:uppercase;color:#33475A;font-weight:600;}'
     + '.vzsp-coefwrap .vzsp-meta .vzsp-q{font-size:15px;font-weight:700;margin-top:3px;}'
     + '.vzsp-tide .vzsp-ico,.vzsp-tide .vzsp-ico.vzsp-bm{background:var(--vzsp-paper);border-color:var(--vzsp-hair);}'
     + '.vzsp-tide .vzsp-ico svg,.vzsp-tide .vzsp-ico.vzsp-bm svg{stroke:var(--vzsp-ink);}'
@@ -22558,15 +22612,15 @@ function vzmInit() {
     + '.vzsp-cwrap{position:relative;touch-action:pan-y;cursor:ew-resize;user-select:none;-webkit-user-select:none;}'
     + '.vzsp-cbadge{position:absolute;top:2px;left:50%;transform:translateX(-50%);background:#0A1520;color:#4DD4A8;font-size:10.5px;font-weight:700;letter-spacing:0.08em;padding:3px 9px;border-radius:5px;white-space:nowrap;pointer-events:none;}'
     + '.vzsp-cwrap.vzsp-dragging .vzsp-cbadge{background:#1A6B5D;color:#EAFBF4;}'
-    + '.vzsp-axis{display:flex;justify-content:space-between;font-family:\'IBM Plex Mono\',monospace;font-size:10px;color:#7A8B99;font-weight:600;padding:6px 4px 0;}'
-    + '.vzsp-note{font-size:12.5px;color:#7A8B99;font-weight:500;padding:18px 6px;text-align:center;line-height:1.45;}'
+    + '.vzsp-axis{display:flex;justify-content:space-between;font-family:\'IBM Plex Mono\',monospace;font-size:12px;color:#51677A;font-weight:600;padding:6px 4px 0;}'
+    + '.vzsp-note{font-size:12.5px;color:#51677A;font-weight:500;padding:18px 6px;text-align:center;line-height:1.45;}'
     // Etat de chargement : reprend le ring .vsm-spinner deja utilise partout
     // dans l'app, recolore pour un fond clair (piste hairline, arc teal-deep).
     // La hauteur reservee empeche le panneau de se retracter puis de se
     // rouvrir quand on bascule d'onglet avant que la donnee soit arrivee.
     + '.vzsp-load{min-height:44vh;min-height:44dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px 6px;text-align:center;}'
     + '.vzsp-load .vsm-spinner{--vsm-track:#DCE4EA;--vsm-arc:#1A6B5D;}'
-    + '.vzsp-load span.vzsp-lt{font-size:13px;color:#7A8B99;font-weight:600;letter-spacing:0.01em;}'
+    + '.vzsp-load span.vzsp-lt{font-size:13px;color:#51677A;font-weight:600;letter-spacing:0.01em;}'
     // Desktop : le panneau flotte en bas a droite (media query du module
     // sonar). Le selecteur [data-vzsp] est plus specifique et gagnerait
     // sinon avec un rayon mobile et une hauteur de 88vh.
@@ -23260,28 +23314,44 @@ function vzmInit() {
     var chip = '<span class="vzm-sonar-chip"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#1A6B5D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.4-7-11a7 7 0 0 1 14 0c0 4.6-7 11-7 11Z"/><circle cx="12" cy="10" r="2.4"/></svg>Secteur ' + escapeH(name || '') + '</span>';
     var saved = '';
     try { saved = localStorage.getItem(ALERT_EMAIL_KEY) || ''; } catch (e) {}
-    openPanel(chip + '<div class="vzm-sonar-h">Alertes visibilité</div>'
+    var head = '<div class="vzm-sonar-hd">' + chip + '<div class="vzm-sonar-h">Alertes visibilité</div></div>';
+    openPanel(head + '<div class="vzm-sonar-bd">'
       + '<div class="vzm-sonar-sub">Un chasseur poste une visi dans ce secteur, tu le sais dans l\u2019heure.</div>'
-      + '<div class="vzm-sonar-lab">Ton email</div>'
-      + '<input class="vzm-sonar-in" id="vzmSonarEmail" type="email" inputmode="email" autocomplete="email" placeholder="ton@email.fr" value="' + escapeH(saved) + '">'
-      + '<label class="vzm-sonar-consent"><input type="checkbox" id="vzmSonarConsent" checked>J\u2019accepte de recevoir les alertes visibilité de ce secteur. Un email max par jour, jamais transmis, désinscription en un clic.</label>'
-      + '<button class="vzm-sonar-cta" type="button" id="vzmSonarAlertSubmit">Activer les alertes</button>');
+      + '<div class="vzm-sonar-field"><label class="vzm-sonar-lab" for="vzmSonarEmail">Ton email</label>'
+      + '<input class="vzm-sonar-in" id="vzmSonarEmail" type="email" inputmode="email" autocomplete="email" placeholder="ton@email.fr" value="' + escapeH(saved) + '"></div>'
+      // Case cochee par defaut : choix assume d'Edouard (28/10).
+      + '<label class="vzm-sonar-consent"><input type="checkbox" id="vzmSonarConsent" checked><span>J\u2019accepte de recevoir les alertes visibilité de ce secteur.</span></label>'
+      + '<div class="vzm-sonar-err" id="vzmSonarAlertErr" role="alert" hidden></div>'
+      + '<button class="vzm-sonar-cta" type="button" id="vzmSonarAlertSubmit">Activer les alertes</button>'
+      + '<div class="vzm-sonar-foot">Un email max par jour, jamais transmis, désinscription en un clic.</div>'
+      + '</div>');
 
     document.getElementById('vzmSonarAlertSubmit').addEventListener('click', function () {
       var email = (document.getElementById('vzmSonarEmail').value || '').trim();
       var consent = document.getElementById('vzmSonarConsent').checked;
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { alert('Adresse email invalide.'); return; }
-      if (!consent) { alert('Merci de cocher le consentement pour recevoir les alertes.'); return; }
+      // Erreur dite dans le panneau, sur le champ fautif : alert() bloquait
+      // l'ecran et sortait de la charte.
+      var err = document.getElementById('vzmSonarAlertErr');
+      var inEl = document.getElementById('vzmSonarEmail');
+      var csEl = panel.querySelector('.vzm-sonar-consent');
+      if (inEl) inEl.classList.remove('is-err');
+      if (csEl) csEl.classList.remove('is-err');
+      if (err) err.hidden = true;
+      function fail(msg, el) { if (err) { err.textContent = msg; err.hidden = false; } if (el) el.classList.add('is-err'); }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { fail('Adresse email invalide.', inEl); return; }
+      if (!consent) { fail('Coche la case pour recevoir les alertes.', csEl); return; }
       try { localStorage.setItem(ALERT_EMAIL_KEY, email); } catch (e) {}
       // Les coordonnees envoyees au GAS sont celles du secteur RETENU, pas du
       // centre de la carte : le routage d'alerte se fait par haversine, une
       // erreur ici abonne le chasseur au mauvais secteur.
       var params = { email: email, lat: Number(alat).toFixed(5), lon: Number(alon).toFixed(5), sector: name, consent: '1' };
       if (typeof gasGet === 'function') gasGet('submit_sector_alert', params); // endpoint chantier 2 (no-op tant que GAS pas deploye)
-      panel.innerHTML = '<div class="vzm-sonar-grab"></div><button class="vzm-sonar-x" type="button" aria-label="Fermer" data-close="1">&#10005;</button>'
+      panel.innerHTML = '<div class="vzm-sonar-grab"></div>' + CLOSE_BTN + head
+        + '<div class="vzm-sonar-bd">'
         + '<div class="vzm-sonar-ok"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1A6B5D" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>'
-        + '<div class="vzm-sonar-h" style="text-align:center;">C\u2019est note</div>'
-        + '<div class="vzm-sonar-sub" style="text-align:center;">Dès qu\u2019un chasseur poste une visi vers ' + escapeH(name || 'ton secteur') + ', tu reçois un email. Jamais plus d\u2019un par jour.</div>';
+        + '<div class="vzm-sonar-h2">C\u2019est noté</div>'
+        + '<div class="vzm-sonar-sub" style="text-align:center;">Dès qu\u2019un chasseur poste une visi vers ' + escapeH(name || 'ton secteur') + ', tu reçois un email. Jamais plus d\u2019un par jour.</div>'
+        + '</div>';
       panel.querySelector('[data-close]').addEventListener('click', closePanel);
       vzTrack('sector_alert_optin');
     });
@@ -23302,15 +23372,15 @@ function vzmInit() {
     +   '<div class="vzm-sonar-sector"><svg viewBox="0 0 24 24" stroke-width="2"><path d="M12 21 C12 21 5 14.6 5 10 A7 7 0 0 1 19 10 C19 14.6 12 21 12 21 Z"/><circle cx="12" cy="10" r="2.4"/></svg><span id="vzmSonarSectorName">Ton secteur</span></div>'
     +   '<button class="vzm-sonar-act" type="button" data-action="sector">'
     +     '<span class="vzm-sonar-ai"><svg viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 12 L12 4"/><path d="M12 12 L18 15"/></svg></span>'
-    +     '<span class="vzm-sonar-at"><span class="vzm-sonar-t">Retours du secteur</span></span>'
+    +     '<span class="vzm-sonar-at"><span class="vzm-sonar-t">Retours du secteur</span></span>' + '<svg class="vzm-sonar-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>'
     +   '</button>'
     +   '<button class="vzm-sonar-act" type="button" data-action="share">'
     +     '<span class="vzm-sonar-ai"><svg viewBox="0 0 24 24" stroke-width="2"><path d="M2 12 Q7 5 12 5 Q17 5 22 12 Q17 19 12 19 Q7 19 2 12 Z"/><circle cx="12" cy="12" r="2.6"/></svg></span>'
-    +     '<span class="vzm-sonar-at"><span class="vzm-sonar-t">Partager la visibilité</span></span>'
+    +     '<span class="vzm-sonar-at"><span class="vzm-sonar-t">Partager la visibilité</span></span>' + '<svg class="vzm-sonar-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>'
     +   '</button>'
     +   '<button class="vzm-sonar-act" type="button" data-action="alerts">'
     +     '<span class="vzm-sonar-ai"><svg viewBox="0 0 24 24" stroke-width="2"><path d="M6 9 A6 6 0 0 1 18 9 C18 13 19.5 15 20.5 16 L3.5 16 C4.5 15 6 13 6 9 Z"/><path d="M10 19 A2 2 0 0 0 14 19"/></svg></span>'
-    +     '<span class="vzm-sonar-at"><span class="vzm-sonar-t">Recevoir des alertes visibilité</span></span>'
+    +     '<span class="vzm-sonar-at"><span class="vzm-sonar-t">Recevoir des alertes visibilité</span></span>' + '<svg class="vzm-sonar-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>'
     +   '</button>'
     + '</div>'
     + '<button class="vzm-sonar-fab" id="vzmSonarFab" type="button" aria-label="Actions communaute Visimer" aria-expanded="false">'
@@ -23353,7 +23423,7 @@ function vzmInit() {
         var a = btn.getAttribute('data-action');
         if (a === 'sector') window.vzmSonarOpenSector(); // porte publique : la seule que VZM_NAV enveloppe (etat barre basse)
         else if (a === 'share') actionShare();
-        else if (a === 'alerts') actionAlerts();
+        else if (a === 'alerts') window.vzmSonarOpenAlerts(); // porte publique, enveloppee par VZM_NAV comme le secteur
       });
     });
 
@@ -23715,7 +23785,7 @@ function vzmInit() {
     + "#vzSearch{position:fixed;top:var(--vz-gut);left:var(--vz-col3);width:264px;z-index:1250;font-family:'Inter',sans-serif;--vz-search-collapsed:0;}"
     + "#vzSearch .vz-search-toggle{display:none;align-items:center;justify-content:center;width:44px;height:44px;padding:0;box-sizing:border-box;background:#FFFFFF;border:2px solid #0A1520;border-radius:14px;color:#0A1520;cursor:pointer;box-shadow:0 4px 14px rgba(8,17,27,0.28);}"
     + "#vzSearch .vz-search-toggle svg{width:20px;height:20px;}"
-    + "#vzSearch .vz-search-box{display:flex;align-items:center;gap:9px;height:44px;padding:0 10px 0 13px;box-sizing:border-box;background:#FFFFFF;border:2px solid #0A1520;border-radius:14px;box-shadow:0 4px 14px rgba(8,17,27,0.28);}"
+    + "#vzSearch .vz-search-box{display:flex;align-items:center;gap:9px;height:44px;padding:0 10px 0 13px;box-sizing:border-box;background:#FFFFFF;border:2px solid #0A1520;border-radius:14px;box-shadow:none;}"
     + "#vzSearch .vz-search-glass{display:flex;flex-shrink:0;color:#0A1520;}"
     + "#vzSearch .vz-search-glass svg{width:18px;height:18px;}"
     + "#vzSearch .vz-search-in{flex:1;min-width:0;align-self:stretch;background:none;border:none;outline:none;color:#0A1520;font-family:'Inter',sans-serif;font-size:13.5px;font-weight:500;}"
@@ -23760,7 +23830,7 @@ function vzmInit() {
          // Position ne la borne pas puisqu'il est au-dessus d'elle.
     +   "#vzSearch .vz-search-list{margin-right:-60px;}"
     +   "#vzSearch .vz-search-toggle{display:none;}"
-    +   "#vzSearch .vz-search-box,#vzSearch.vzm-open .vz-search-box{display:flex;height:52px;padding:0 12px 0 14px;gap:10px;background:#FFFFFF;-webkit-backdrop-filter:none;backdrop-filter:none;border:2px solid #0A1520;border-radius:14px;box-shadow:0 4px 14px rgba(8,17,27,0.28);}"
+    +   "#vzSearch .vz-search-box,#vzSearch.vzm-open .vz-search-box{display:flex;height:52px;padding:0 12px 0 14px;gap:10px;background:#FFFFFF;-webkit-backdrop-filter:none;backdrop-filter:none;border:2px solid #0A1520;border-radius:14px;box-shadow:none;}"
     +   "#vzSearch .vz-search-box:focus-within{border-color:#0A1520;}"
     +   "#vzSearch .vz-search-glass,#vzSearch .vz-search-box:focus-within .vz-search-glass{color:#0A1520;}"
     +   "#vzSearch .vz-search-glass svg{width:20px;height:20px;}"
@@ -23897,7 +23967,7 @@ var VZ_ACCOUNT = (function () {
       + '#vzAccountBtn{position:fixed;top:12px;right:12px;z-index:1260;width:52px;height:52px;padding:0;'
       +   'box-sizing:border-box;display:flex;align-items:center;justify-content:center;'
       +   'background:#FFFFFF;border:2px solid #0A1520;border-radius:14px;color:#0A1520;'
-      +   'box-shadow:0 4px 14px rgba(8,17,27,0.28);cursor:pointer;overflow:hidden;'
+      +   'box-shadow:none;cursor:pointer;overflow:hidden;'
       +   'transition:transform 0.16s ease;-webkit-tap-highlight-color:transparent;}'
       + '#vzAccountBtn:active{transform:scale(0.96);}'
       + '#vzAccountBtn svg{width:22px;height:22px;}'
@@ -23929,7 +23999,7 @@ var VZ_ACCOUNT = (function () {
       + '#vzAccountBtn{position:fixed;top:var(--vz-gut,12px);right:var(--vz-gut,12px);z-index:1261;'
       +   'width:44px;height:44px;padding:0;box-sizing:border-box;display:flex;align-items:center;'
       +   'justify-content:center;background:#FFFFFF;border:2px solid #0A1520;border-radius:14px;'
-      +   'color:#0A1520;box-shadow:0 4px 14px rgba(8,17,27,0.28);cursor:pointer;overflow:hidden;'
+      +   'color:#0A1520;box-shadow:none;cursor:pointer;overflow:hidden;'
       +   'transition:transform 0.16s ease;}'
       + '#vzAccountBtn:active{transform:scale(0.96);}'
       + '#vzAccountBtn svg{width:20px;height:20px;}'
@@ -24102,7 +24172,7 @@ var VZ_ACCOUNT = (function () {
     + 'body.vzm-nav #vzSheet .vz-sheet-handle{flex-shrink:0;padding:0;background:transparent;border:none;cursor:default;}'
     + 'body.vzm-nav #vzSheet .vz-sheet-header{display:flex;align-items:center;padding:12px 64px 12px 16px;border-bottom:1px solid #C9D4DC;min-height:0;}'
     + 'body.vzm-nav #vzSheet .vz-sheet-title{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-width:0;flex:1;}'
-    + 'body.vzm-nav #vzSheetModeLabel{font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#6D7F8E;}'
+    + 'body.vzm-nav #vzSheetModeLabel{font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#33475A;}'
     + 'body.vzm-nav #vzSheetSpotLabel{font-family:Inter,sans-serif;font-size:18px;font-weight:800;letter-spacing:-.02em;color:#0A1520;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}'
     + 'body.vzm-nav #vzSheet .vz-sheet-close{position:absolute;top:9px;right:12px;width:auto;min-width:auto;'
     +   'height:40px;padding:0 13px 0 10px;gap:6px;display:flex;align-items:center;justify-content:center;'
@@ -24151,7 +24221,7 @@ var VZ_ACCOUNT = (function () {
     // Le panneau secteur (VZSP) est un conteneur distinct de #vzSheet. Pour que
     // passer d'un onglet a l'autre ne deplace rien, il recoit ici les MEMES
     // valeurs : meme bottom, meme hauteur, memes coins, meme bordure.
-    + 'body.vzm-nav .vzm-sonar-panel[data-vzsp="1"]{position:fixed;left:0;right:0;top:auto;'
+    + 'body.vzm-nav .vzm-sonar-panel[data-vzsp]{position:fixed;left:0;right:0;top:auto;'
     +   'bottom:calc(60px + env(safe-area-inset-bottom,0px));'
     +   'height:62vh;max-height:62vh;width:auto;background:#FFFFFF;'
     +   'border:2px solid #0A1520;border-bottom:none;border-radius:16px 16px 0 0;'
@@ -24176,8 +24246,8 @@ var VZ_ACCOUNT = (function () {
     + 'body.vzm-nav .vzsp-shead{align-items:center;gap:0;padding:12px 120px 12px 16px;'
     +   'border-bottom:1px solid #C9D4DC;position:relative;}'
     + 'body.vzm-nav .vzsp-shead .vzsp-pin{display:none;}'
-    + 'body.vzm-nav .vzsp-shead .vzsp-idt .vzsp-kicker{font-family:Inter,sans-serif;font-size:10px;'
-    +   'font-weight:700;letter-spacing:.16em;color:#6D7F8E;}'
+    + 'body.vzm-nav .vzsp-shead .vzsp-idt .vzsp-kicker{font-family:Inter,sans-serif;font-size:12px;'
+    +   'font-weight:700;letter-spacing:.16em;color:#33475A;}'
     + 'body.vzm-nav .vzsp-shead .vzsp-idt .vzsp-nm{font-size:18px;font-weight:800;letter-spacing:-.02em;'
     +   'margin-top:2px;color:#0A1520;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}'
     + 'body.vzm-nav .vzsp-shead .vzsp-close{position:absolute;top:0;right:0;width:56px;height:56px;'
@@ -24428,6 +24498,20 @@ var VZ_ACCOUNT = (function () {
         identUpdate();
         return r;
       };
+      // Les alertes ouvertes depuis le bouton communaute : meme etat que le
+      // secteur (onglet Observations, plein ecran, bouton rond masque).
+      if (typeof window.vzmSonarOpenAlerts === 'function') {
+        var origA = window.vzmSonarOpenAlerts;
+        window.vzmSonarOpenAlerts = function(){
+          var ra = origA.apply(this, arguments);
+          if (typeof VZ_SHEET !== 'undefined' && VZ_SHEET) VZ_SHEET.mode = 'obs';
+          document.body.classList.add('vzm-open', 'vzm-full');
+          document.body.classList.remove('vzm-cond');
+          syncTabs('obs');
+          identUpdate();
+          return ra;
+        };
+      }
     }, 120);
   })();
 
@@ -24446,7 +24530,8 @@ var VZ_ACCOUNT = (function () {
   window.closeSheetCompletely = function(){ window.VZM_NAV.close(); };
   document.addEventListener('click', function(e){
     if (!e.target || !e.target.closest) return;
-    if (e.target.closest('#vzspClose')) {
+    // La sortie du panneau Alertes ([data-close]) remet aussi la barre a zero.
+    if (e.target.closest('#vzspClose') || e.target.closest('.vzm-sonar-panel [data-close]')) {
       setTimeout(function(){
         document.body.classList.remove('vzm-open');
         document.body.classList.remove('vzm-full', 'vzm-cond');
@@ -24528,7 +24613,7 @@ var VZ_ACCOUNT = (function () {
   var st2 = document.createElement('style');
   st2.id = 'vzmNavObsStyle';
   st2.textContent = '@media (max-width:768px){'
-    + '.vzm-slab{font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#6D7F8E;margin:0 0 8px;}'
+    + '.vzm-slab{font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#33475A;margin:0 0 8px;}'
     + '.vzm-slab.gap{margin-top:16px;}'
     + '.vzm-tri{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:8px;}'
     + '.vzm-cell{border:1.5px solid #C9D4DC;border-radius:14px;padding:11px 10px;text-align:center;background:#F2F5F7;}'
@@ -24543,7 +24628,7 @@ var VZ_ACCOUNT = (function () {
     + '.vzm-fbrow+.vzm-fbrow{border-top:1px solid #E7ECF0;}'
     + '.vzm-fbrow .tx{flex:1;min-width:0;}'
     + '.vzm-fbrow .t{font-size:14.5px;font-weight:700;color:#0A1520;line-height:1.2;}'
-    + '.vzm-fbrow .t.quiet{color:#6D7F8E;font-weight:500;}'
+    + '.vzm-fbrow .t.quiet{color:#51677A;font-weight:500;}'
     + '.vzm-fbrow .s{font-family:"IBM Plex Mono",monospace;font-size:11.5px;font-weight:600;color:#46586B;margin-top:3px;}'
     + '.vzm-fbrow .s b{font-family:Inter,sans-serif;font-weight:700;}'
     + '.vzm-fbrow .rr{text-align:right;flex-shrink:0;}'
