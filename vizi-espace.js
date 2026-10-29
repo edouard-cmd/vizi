@@ -76,12 +76,15 @@
      l'information la moins negociable de l'ecran.
      ------------------------------------------------------------------------ */
   var TOKENS = ':root{'
-    + '--vz-accent:#4DD4A8;--vz-accent-mid:#2DA888;--vz-accent-deep:#1A6B5D;'
+    // --vz-accent, --vz-accent-deep, --vz-warning, --vz-danger et --vz-blur
+    // vivent dans le :root d'index.html (source unique). Les redefinir ici
+    // ecrasait la palette au chargement et rendait le texte d'accent illisible.
+    + '--vz-accent-mid:#2DA888;'
     + '--vz-ink:#0A1520;--vz-chrome:#0F2438;--vz-surface:#FFFFFF;'
     + '--vz-group:#EDF1F4;--vz-selected:#DCEFE7;'
     + '--vz-text:#0A1520;--vz-text-2:#33475A;--vz-line:#C3D0DA;'
-    + '--vz-warning:#D8C84A;--vz-caution:#E89B3C;--vz-danger:#C94A3D;'
-    + '--vz-bd:2px;--vz-bd-ctl:1.5px;--vz-blur:0px;'
+    + '--vz-caution:#E89B3C;'
+    + '--vz-bd:2px;--vz-bd-ctl:1.5px;'
     + '--vz-r-panel:16px;--vz-r-card:14px;--vz-r-group:12px;--vz-r-row:10px;--vz-r-ctl:9px;'
     + '--vz-font-ui:Inter,system-ui,sans-serif;--vz-font-num:"IBM Plex Mono",monospace;'
     + '--vz-fs-provenance:11px;--vz-fs-section:11px;--vz-fs-gloss:12px;--vz-fs-meta:13px;'
@@ -369,7 +372,7 @@
     +   'text-decoration:underline;-webkit-tap-highlight-color:transparent;}'
     + '#loginModal .login-alt-btn:active{color:var(--vz-accent-deep);}'
     + '#loginModal .login-alt .sep{font-family:var(--vz-font-num);'
-    +   'font-size:var(--vz-fs-provenance);color:var(--vz-line);}'
+    +   'font-size:var(--vz-fs-provenance);color:#51677A;}'
     // Les deux benefices du compte, en clair. L'ancien texte expliquait ce que
     // le compte NE fait pas : loyal, mais ce n'est pas une raison de creer un
     // compte. La promesse de carte identique reste, en bas et en petit.
