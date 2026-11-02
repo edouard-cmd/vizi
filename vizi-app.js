@@ -3372,10 +3372,12 @@ function vzWindHiDpiEnsure_(tries, layer) {
 // region de decoupage posee sur son contexte reste en vigueur pour tous ses
 // traces, fondu compris. Region = toute la vue MOINS la terre (regle
 // evenodd, meme trace que Litto3D via vzGetLandPath). Elle est reconstruite
-// a chaque fin de deplacement, de zoom ou de redimensionnement, et LEVEE au
-// debut d'un deplacement : le plugin efface tout son canvas avant de
-// redemarrer (clearRect), il faut que cet effacement ne soit pas decoupe,
-// sinon des traits resteraient figes la ou la nouvelle vue met la terre.
+// a chaque fin de deplacement, de zoom ou de redimensionnement, et RESTE EN
+// PLACE pendant le geste : le vent est anime pendant le pan (voir
+// vzWindKeepAnimatedOnPan_), la lever ferait dessiner sur la terre tant que
+// le doigt tient. La reconstruction commence par effacer tout le canvas,
+// sans decoupage, donc aucun trait ne reste fige la ou la nouvelle vue met
+// la terre.
 // Le facteur de resolution physique est relu sur le canvas lui-meme
 // (largeur en pixels / largeur CSS), pas suppose : il vaut 1 ou 2 selon
 // que vzWindHiDpiEnsure_ a agi. Garde-fou : si l'interne du plugin change,
@@ -3392,7 +3394,6 @@ function vzWindClipEnsure_(tries) {
   }
   if (!cl._vzClipBound) {
     cl._vzClipBound = true;
-    S.map.on('movestart zoomstart', vzWindClipLift_);
     S.map.on('moveend zoomend resize', vzWindClipApply_);
   }
   vzWindClipApply_();
@@ -3404,13 +3405,6 @@ function vzWindClipCtx_() {
   var sz = S.map.getSize();
   var dpr = (sz.x > 0) ? (cv.width / sz.x) : 1;
   return { cv: cv, ctx: cv.getContext('2d'), dpr: dpr, sz: sz };
-}
-
-function vzWindClipLift_() {
-  var c = vzWindClipCtx_();
-  if (!c) return;
-  c.ctx.restore();
-  c.ctx.setTransform(c.dpr, 0, 0, c.dpr, 0, 0);
 }
 
 function vzWindClipApply_() {
@@ -3439,7 +3433,6 @@ function vzWindClipTeardown_() {
   var vl = S.windFlowLayer, cl = vl && vl._canvasLayer;
   if (cl && cl._vzClipBound) {
     cl._vzClipBound = false;
-    try { S.map.off('movestart zoomstart', vzWindClipLift_); } catch (e) {}
     try { S.map.off('moveend zoomend resize', vzWindClipApply_); } catch (e) {}
   }
 }
