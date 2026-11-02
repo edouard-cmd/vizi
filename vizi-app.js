@@ -3057,6 +3057,18 @@ function vzWindColorForSpeed_(spd) {
 // sur la grille nx*ny, data nord->sud / ouest->est) et cree/maj l'imageOverlay.
 // Reutilise la donnee deja chargee (S.windFrames), aucun appel reseau. Le canvas
 // basse-def est etire par Leaflet avec lissage natif du navigateur -> fondu doux.
+//
+// LIGNES EN MERCATOR. L.imageOverlay etire l'image lineairement entre ses
+// coins projetes, donc une ligne de canvas vaut une hauteur constante en
+// Mercator, pas en latitude. Les lignes etaient posees a latitude constante :
+// sur une grille de 41 a 52 degres, ca decalait le champ d'une trentaine de
+// kilometres vers le nord en Normandie, invisible sur un champ lisse mais
+// redhibitoire des qu'on decoupe au trait de cote. Chaque ligne cherche donc
+// sa latitude par la projection inverse. Les colonnes, lineaires en
+// longitude dans les deux systemes, ne changent pas.
+// DECOUPAGE AU TRAIT DE COTE : meme trace que Litto3D (vzGetLandPath), gomme
+// en destination-out apres la peinture, projete au zoom entier dont la
+// resolution est la plus proche de celle du canvas.
 function vzWindEnsureColorLayer_(i) {
   if (!S.windFrames || !S.windHeader) return;
   var h = S.windHeader, f = S.windFrames[i];
@@ -3065,6 +3077,10 @@ function vzWindEnsureColorLayer_(i) {
                                                      // = repaint bien plus leger (canvas
                                                      // etire+lisse, aucune perte visible)
   var W = (nx - 1) * CELL, H = (ny - 1) * CELL;
+  var lo2 = (typeof h.lo2 === 'number') ? h.lo2 : h.lo1 + (nx - 1) * h.dx;
+  var la2 = (typeof h.la2 === 'number') ? h.la2 : h.la1 - (ny - 1) * h.dy;
+  function merc(lat) { return Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)); }
+  var yN = merc(h.la1), yS = merc(la2);
 
   var cv = document.createElement('canvas');
   cv.width = W; cv.height = H;
@@ -3079,7 +3095,11 @@ function vzWindEnsureColorLayer_(i) {
   }
 
   for (var py = 0; py < H; py++) {
-    var fy = py / CELL;                    // 0..ny-1 (0 = nord)
+    // Latitude de la ligne par Mercator inverse, puis position sur la grille.
+    var ym = yN + (py + 0.5) / H * (yS - yN);
+    var latRow = (2 * Math.atan(Math.exp(ym)) - Math.PI / 2) * 180 / Math.PI;
+    var fy = (h.la1 - latRow) / h.dy;      // 0..ny-1 (0 = nord)
+    if (fy < 0) fy = 0; else if (fy > ny - 1) fy = ny - 1;
     var y0 = Math.floor(fy); if (y0 > ny - 2) y0 = ny - 2;
     var ty = fy - y0;
     for (var px = 0; px < W; px++) {
@@ -3097,8 +3117,30 @@ function vzWindEnsureColorLayer_(i) {
     }
   }
   ctx.putImageData(img, 0, 0);
+  // Gommage de la terre. Zoom entier du trace : celui dont la resolution
+  // (px par degre de longitude) est la plus proche de celle du canvas, borne
+  // a [6, 12]. Les deux axes sont mis a l'echelle separement : le canvas
+  // garde les proportions de la grille, pas celles du Mercator.
+  if (typeof vzGetLandPath === 'function' && typeof VZ_COAST !== 'undefined' && VZ_COAST) {
+    var ppd = W / (lo2 - h.lo1);
+    var z = Math.round(Math.log(ppd * 360 / 256) / Math.LN2);
+    if (z < 6) z = 6; else if (z > 12) z = 12;
+    var land = vzGetLandPath(z);
+    if (land) {
+      var scale = 256 * Math.pow(2, z);
+      function wx(lon) { return (lon + 180) / 360 * scale; }
+      function wy(lat) { return (1 - merc(lat) / Math.PI) / 2 * scale; }
+      var sx = W / (wx(lo2) - wx(h.lo1)), sy = H / (wy(la2) - wy(h.la1));
+      ctx.save();
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.scale(sx, sy);
+      ctx.translate(-wx(h.lo1), -wy(h.la1));
+      try { ctx.fill(land); } catch (e) {}
+      ctx.restore();
+    }
+  }
   var url = cv.toDataURL();
-  var bounds = [[h.la2, h.lo1], [h.la1, h.lo2]];   // [[sud,ouest],[nord,est]]
+  var bounds = [[la2, h.lo1], [h.la1, lo2]];   // [[sud,ouest],[nord,est]]
 
   if (S.windColorLayer) {
     S.windColorLayer.setBounds(bounds);
@@ -3323,6 +3365,83 @@ function vzWindHiDpiEnsure_(tries, layer) {
     try { if (typeof vl._clearAndRestart === 'function') vl._clearAndRestart(); } catch (e) {}
   };
   apply();
+}
+
+// DECOUPAGE DES PARTICULES DE VENT AU TRAIT DE COTE
+// Le plugin dessine sur son canvas sans jamais faire save/restore : une
+// region de decoupage posee sur son contexte reste en vigueur pour tous ses
+// traces, fondu compris. Region = toute la vue MOINS la terre (regle
+// evenodd, meme trace que Litto3D via vzGetLandPath). Elle est reconstruite
+// a chaque fin de deplacement, de zoom ou de redimensionnement, et LEVEE au
+// debut d'un deplacement : le plugin efface tout son canvas avant de
+// redemarrer (clearRect), il faut que cet effacement ne soit pas decoupe,
+// sinon des traits resteraient figes la ou la nouvelle vue met la terre.
+// Le facteur de resolution physique est relu sur le canvas lui-meme
+// (largeur en pixels / largeur CSS), pas suppose : il vaut 1 ou 2 selon
+// que vzWindHiDpiEnsure_ a agi. Garde-fou : si l'interne du plugin change,
+// on echoue en silence et le vent revient non decoupe.
+function vzWindClipEnsure_(tries) {
+  var vl = S.windFlowLayer;
+  var cl = vl && vl._canvasLayer;
+  var cv = cl && cl._canvas;
+  // On attend que la resolution physique soit posee : poser le decoupage
+  // avant, c'est le perdre au premier cv.width = ... du HiDPI.
+  if (!cv || !cl._vzHiDpi) {
+    if (tries > 0) setTimeout(function(){ vzWindClipEnsure_(tries - 1); }, 200);
+    return;
+  }
+  if (!cl._vzClipBound) {
+    cl._vzClipBound = true;
+    S.map.on('movestart zoomstart', vzWindClipLift_);
+    S.map.on('moveend zoomend resize', vzWindClipApply_);
+  }
+  vzWindClipApply_();
+}
+
+function vzWindClipCtx_() {
+  var vl = S.windFlowLayer, cl = vl && vl._canvasLayer, cv = cl && cl._canvas;
+  if (!cv || !S.showWindFlow || !S.map) return null;
+  var sz = S.map.getSize();
+  var dpr = (sz.x > 0) ? (cv.width / sz.x) : 1;
+  return { cv: cv, ctx: cv.getContext('2d'), dpr: dpr, sz: sz };
+}
+
+function vzWindClipLift_() {
+  var c = vzWindClipCtx_();
+  if (!c) return;
+  c.ctx.restore();
+  c.ctx.setTransform(c.dpr, 0, 0, c.dpr, 0, 0);
+}
+
+function vzWindClipApply_() {
+  var c = vzWindClipCtx_();
+  if (!c) return;
+  var ctx = c.ctx;
+  ctx.restore();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, c.cv.width, c.cv.height);
+  ctx.setTransform(c.dpr, 0, 0, c.dpr, 0, 0);
+  if (typeof vzGetLandPath !== 'function' || typeof VZ_COAST === 'undefined' || !VZ_COAST) return;
+  if (typeof Path2D === 'undefined' || typeof DOMMatrix === 'undefined') return;
+  var Z = S.map.getZoom(), z = Math.round(Z);
+  var land = vzGetLandPath(z);
+  if (!land) return;
+  var pb = S.map.getPixelBounds();
+  var s = Math.pow(2, Z - z);          // trace au zoom entier, vue au zoom reel
+  var p = new Path2D();
+  p.rect(0, 0, c.sz.x, c.sz.y);
+  try { p.addPath(land, new DOMMatrix().translate(-pb.min.x, -pb.min.y).scale(s)); } catch (e) { return; }
+  ctx.save();
+  ctx.clip(p, 'evenodd');
+}
+
+function vzWindClipTeardown_() {
+  var vl = S.windFlowLayer, cl = vl && vl._canvasLayer;
+  if (cl && cl._vzClipBound) {
+    cl._vzClipBound = false;
+    try { S.map.off('movestart zoomstart', vzWindClipLift_); } catch (e) {}
+    try { S.map.off('moveend zoomend resize', vzWindClipApply_); } catch (e) {}
+  }
 }
 
 // --- A2 : curseur temporel (jour/heure, lecture auto) ---
@@ -5854,6 +5973,7 @@ function toggleLayer(type) {
         if (!S.map.hasLayer(layer)) layer.addTo(S.map);
         vzWindKeepAnimatedOnPan_(12);              // traits animes pendant le pan
         vzWindHiDpiEnsure_(12);                    // canvas en resolution physique
+        vzWindClipEnsure_(20);                     // particules decoupees au trait de cote
         vzWindEnsureCtrl_().classList.add('on');   // A2 : curseur temporel
         vzWindEnsureLegend_();                     // creee ici, AFFICHEE par l'arbitrage
         vzWindColorArbitrate_();                   // fond colore + legende
@@ -5884,6 +6004,7 @@ function toggleLayer(type) {
         if (_wc) _wc.classList.remove('on');
         document.body.classList.remove('vz-wind-band');
       }
+      vzWindClipTeardown_();
       if (S.windFlowLayer && S.map.hasLayer(S.windFlowLayer)) S.map.removeLayer(S.windFlowLayer);
       // Fond colore et legende : meme point d'entree qu'a l'activation.
       // showWindFlow vient de passer a false, donc l'arbitrage retire les deux.
