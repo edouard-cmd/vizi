@@ -91,6 +91,37 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css"/>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css"/>
+  <script>
+  // Ecran d'accueil : l'animation complete (2,4 s) ne se joue qu'a la
+  // premiere visite. Ensuite l'ecran reste fixe le temps que la carte
+  // arrive, puis s'efface en 0,3 s : on ouvre l'app des dizaines de fois par
+  // saison, l'attente imposee ne doit pas se repeter. Decide ICI, avant le
+  // premier rendu du corps, sinon l'animation longue aurait deja demarre.
+  // Stockage refuse : animation complete, comme avant.
+  (function () {
+    // Retour au toucher : Safari iOS n'applique :active que si un ecouteur
+    // touchstart existe. Passif et vide, il ne retient ni defilement ni clic.
+    try { document.addEventListener('touchstart', function () {}, { passive: true }); } catch (e) {}
+    var vu = false;
+    try { vu = localStorage.getItem('vz_splash_vu') === '1'; localStorage.setItem('vz_splash_vu', '1'); } catch (e) {}
+    if (!vu) return;
+    var de = document.documentElement, fini = false;
+    de.classList.add('vz-splash-court');
+    // Carte prete = premiere tuile du fond arrivee. Une tuile en erreur
+    // compte aussi : hors ligne, l'ecran ne doit jamais rester pose.
+    function tuile(e) { var t = e.target; if (t && t.classList && t.classList.contains('leaflet-tile')) out(); }
+    function out() {
+      if (fini) return; fini = true;
+      document.removeEventListener('load', tuile, true);
+      document.removeEventListener('error', tuile, true);
+      de.classList.add('vz-splash-fin');
+    }
+    document.addEventListener('load', tuile, true);
+    document.addEventListener('error', tuile, true);
+    window.addEventListener('load', out);
+    setTimeout(out, 2400);   // plafond : jamais plus long que l'ancienne animation
+  })();
+  </script>
   <style>
     :root {
     --bg: #F0F4F8; --surface: #FFFFFF; --surface2: #F7FAFC;
@@ -122,6 +153,10 @@
     --vz-border-glass: rgba(11,26,38,0.12);
     --vz-danger: #C94A3D;
     --vz-warning: #D8C84A;
+    /* Jaune et orange restent des aplats (texte encre dessus). Pour ECRIRE
+       une vigilance sur fond clair il faut un ton fonce : #D8C84A et #E89B3C
+       tombent a 1,7 et 2,3:1 sur blanc, #8A4F09 tient 6,56:1. */
+    --vz-caution-text: #8A4F09;
     --vz-medium: #B8901C;
     --vz-good: #0E7C62;
     --vz-radius-pill: 24px;
@@ -2334,7 +2369,16 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
   -webkit-tap-highlight-color: transparent;
 }
 .vz-side-btn:last-child { border-bottom: none; }
-.vz-side-btn:hover { background: rgba(10,21,32,0.06); }
+/* Survol reserve a la souris : sur iPhone, :hover reste colle au dernier
+   bouton touche et le fait passer pour actif. Au doigt, l'appui se sent
+   par un enfoncement bref. Place AVANT .active pour qu'un bouton allume
+   garde son aplat pendant la pression. */
+@media (hover: hover) and (pointer: fine) {
+  .vz-side-btn:hover { background: rgba(10,21,32,0.06); }
+}
+.vz-side-btn:active { background: rgba(10,21,32,0.10); }
+.vz-side-btn > svg, .vz-side-btn > .vz-side-lbl { transition: transform 0.16s cubic-bezier(.23,1,.32,1); }
+.vz-side-btn:active > svg, .vz-side-btn:active > .vz-side-lbl { transform: scale(0.94); }
 .vz-side-btn.active { background: #4DD4A8; color: #072018; }
 .vz-side-btn svg { width: 20px; height: 20px; }
 .vz-side-lbl {
@@ -2507,7 +2551,9 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
 .vz-layers-popover .vz-layers-row.active .vz-layers-radio { border-color: #4DD4A8; }
 .vz-layers-popover .vz-layers-row.active .vz-layers-radio::after { background: #4DD4A8; }
 .vz-layers-popover .vz-units-btn.active { background: #4DD4A8; color: #0A1520; box-shadow: none; }
-.vz-layers-row:hover { background: rgba(11,26,38,0.04); }
+@media (hover: hover) and (pointer: fine) {
+  .vz-layers-row:hover { background: rgba(11,26,38,0.04); }
+}
 .vz-layers-row.active { color: var(--vz-accent-deep); font-weight: 500; }
 .vz-layers-row.disabled { opacity: 0.4; cursor: not-allowed; }
     #vzHuntBar {
@@ -2653,9 +2699,11 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
   transform: scale(var(--vz-wc-scale, 1));
   transition: transform 0.15s ease;
 }
-.webcam-marker:hover {
-  transform: scale(calc(var(--vz-wc-scale, 1) * 1.15));
-  box-shadow: 0 4px 14px rgba(139, 92, 246, 0.7);
+@media (hover: hover) and (pointer: fine) {
+  .webcam-marker:hover {
+    transform: scale(calc(var(--vz-wc-scale, 1) * 1.15));
+    box-shadow: 0 4px 14px rgba(139, 92, 246, 0.7);
+  }
 }
 
 #webcamPopup {
@@ -2792,9 +2840,18 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: height 0.32s cubic-bezier(.4,0,.2,1), bottom 0.32s cubic-bezier(.4,0,.2,1);
+  transition: height 0.32s cubic-bezier(.4,0,.2,1);
 }
 #vzSheet.sheet-peek { height: 56px; }
+/* Ordinateur : le panneau GLISSE au lieu de s'etirer. Replie, il garde sa
+   hauteur de 78vh et descend de toute sa hauteur moins la poignee de 56px.
+   Animer height recalculait la mise en page du panneau a chaque image ;
+   transform reste sur le compositeur. Courbe de tiroir, 0,3 s. Le mobile a
+   son propre gabarit fixe (VZM_NAV), sans transition. */
+@media (min-width: 769px) {
+  #vzSheet { transition: transform 0.3s cubic-bezier(.32,.72,0,1); }
+  #vzSheet.sheet-peek { height: 78vh; transform: translateY(calc(100% - 56px)); }
+}
 #vzSheet.sheet-half { height: 78vh; }
 #vzSheet.sheet-full { height: 95vh; } /* desktop : full = half (cycle peek <-> half) */
 /* Bouton X de fermeture du bandeau (mobile prioritaire) */
@@ -3118,6 +3175,18 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
   }
 }
 
+/* Visites suivantes (classe posee par le script de tete) : ecran fixe, sans
+   poissons ni trace, efface en 0,3 s des que la carte est prete. */
+html.vz-splash-court .vz-splash {
+  animation: none;
+  transition: opacity 0.3s cubic-bezier(.23,1,.32,1), visibility 0s linear 0.3s;
+}
+html.vz-splash-court .vz-fish { display: none; }
+html.vz-splash-court .vz-splash-logo,
+html.vz-splash-court .vz-splash-wordmark { animation: none; opacity: 1; }
+html.vz-splash-court .vz-splash-mark path { animation: none; stroke-dashoffset: 0; }
+html.vz-splash-fin .vz-splash { opacity: 0; visibility: hidden; }
+
 @media (prefers-reduced-motion: reduce) {
   .vz-splash {
     animation: vz-splash-out 0.2s ease 0.5s forwards;
@@ -3185,7 +3254,10 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
   border-radius: 50%;
   opacity: 0;
   filter: drop-shadow(0 0 3px rgba(10, 21, 32, 0.7));
-  animation: vz-sonar-pulse 3s ease-out infinite;
+  /* Deux cycles a la pose, pas une boucle : le marqueur est recree a chaque
+     point, donc chaque pose rejoue le signal. Apres, le point reste fixe
+     (l'etat de repos de l'onde est invisible). */
+  animation: vz-sonar-pulse 3s ease-out 2;
 }
 
 .vz-pulse-wave-1 {
@@ -3238,7 +3310,7 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
 /* Couleurs vent sémantiques (charte Talisker stricte) */
 .vz-wind-calm    { color: var(--vz-good); }      /* < 10 nds */
 .vz-wind-watch   { color: var(--vz-medium); }    /* 10-15 nds */
-.vz-wind-strong  { color: var(--vz-warning); }   /* 15-22 nds */
+.vz-wind-strong  { color: var(--vz-caution-text); }   /* 15-22 nds */
 .vz-wind-danger  { color: var(--vz-danger); }    /* 22+ nds */
 
 /* Direction colorée selon facteur onshore/offshore */
@@ -3659,7 +3731,7 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
   letter-spacing: 0.02em;
 }
 #spotDrawer .vz-timeline-item.is-warning .vz-timeline-item-text {
-  color: var(--vz-warning);
+  color: var(--vz-caution-text);
 }
 /* ============================================================
    PATCH 6/6 - Tag moteur sous le badge visibilité estimée
@@ -3894,7 +3966,7 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
   letter-spacing: 0.08em;
 }
 .vz-pmbm-type.is-pm { color: var(--vz-accent-deep); }
-.vz-pmbm-type.is-bm { color: var(--vz-warning); }
+.vz-pmbm-type.is-bm { color: var(--vz-caution-text); }
 .vz-pmbm-height {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 10px;
@@ -3963,7 +4035,7 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
 /* Coef coloré sémantique */
 .spot-depth-coef-val.coef-low { color: var(--vz-good); }
 .spot-depth-coef-val.coef-mid { color: var(--vz-medium); }
-.spot-depth-coef-val.coef-high { color: var(--vz-warning); }
+.spot-depth-coef-val.coef-high { color: var(--vz-caution-text); }
 .spot-depth-coef-val.coef-vhigh { color: var(--vz-danger); }
 .spot-depth-coef-val.coef-na { color: var(--vz-text-on-dark-faint); font-size: 14px; font-weight: 500; }
     /* Skeleton loader pour Profondeur/Coef */
@@ -4144,25 +4216,25 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
   transition: transform 0.15s;
   position: relative;
 }
-.vz-obs-marker-inner:hover {
-  transform: scale(1.12);
+@media (hover: hover) and (pointer: fine) {
+  .vz-obs-marker-inner:hover { transform: scale(1.12); }
 }
 .vz-obs-marker-inner svg {
   width: 18px;
   height: 18px;
   color: #0A1520;
 }
+/* Trois pulsations a l'apparition, puis le repere se tient : la couleur dit
+   deja que le retour est recent, une boucle permanente ne faisait que
+   distraire. La regle etait ecrite deux fois, une seule reste. */
 .vz-obs-marker.fresh .vz-obs-marker-inner {
-  animation: vz-obs-pulse 2.4s ease-in-out infinite;
+  animation: vz-obs-pulse 2.4s ease-in-out 3;
 }
 .vz-obs-marker.recent .vz-obs-marker-inner { opacity: 0.85; }
 .vz-obs-marker.dated .vz-obs-marker-inner { opacity: 0.5; }
 @keyframes vz-obs-pulse {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.08); }
-}
-.vz-obs-marker.fresh .vz-obs-marker-inner {
-  animation: vz-obs-pulse 2.4s ease-in-out infinite;
 }
 /* Popup observation */
 .vz-obs-popup .leaflet-popup-content-wrapper {
@@ -4217,8 +4289,8 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
 }
 .vz-obs-pop-when {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px;
-  color: var(--vz-warning);
+  font-size: 12px;
+  color: var(--vz-caution-text);
   letter-spacing: 0.04em;
   font-weight: 600;
 }
@@ -4769,7 +4841,7 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
   }
   .vzm-day-coef.vzm-coef-high {
     background: rgba(232,155,60,0.15);
-    color: var(--vz-warning);
+    color: var(--vz-caution-text);
     border-color: rgba(232,155,60,0.45);
   }
   .vzm-day-coef.vzm-coef-very-high {
@@ -4800,7 +4872,7 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
     line-height: 1;
     font-weight: 700;
   }
-  .vzm-day-tide-arrow.vzm-bm { color: var(--vz-warning); }
+  .vzm-day-tide-arrow.vzm-bm { color: var(--vz-caution-text); }
   .vzm-day-tide-empty {
     font-size: 11px;
     color: var(--vz-text-on-dark-faint);
@@ -4869,7 +4941,7 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
     line-height: 1;
     color: var(--vz-accent-deep);
   }
-  .vzm-tide-icon.vzm-bm { color: var(--vz-warning); }
+  .vzm-tide-icon.vzm-bm { color: var(--vz-caution-text); }
   .vzm-tide-info {
     flex: 1;
     display: flex;
@@ -5144,7 +5216,7 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
   }
   .vzm-weektide-coef.vzm-coef-high {
     background: rgba(232,155,60,0.15);
-    color: var(--vz-warning);
+    color: var(--vz-caution-text);
     border-color: rgba(232,155,60,0.45);
   }
   .vzm-weektide-coef.vzm-coef-very-high {
@@ -5173,7 +5245,7 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
     color: var(--vz-accent-deep);
     font-weight: 700;
   }
-  .vzm-weektide-arrow.vzm-bm { color: var(--vz-warning); }
+  .vzm-weektide-arrow.vzm-bm { color: var(--vz-caution-text); }
 
   /* === ACTIONS === */
   .vzm-actions {
@@ -5327,6 +5399,23 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
     width: 16px !important;
     height: 16px !important;
   }
+}
+
+/* === MOUVEMENT REDUIT ===
+   Le reglage systeme "Reduire les animations" coupe les boucles et les
+   glissements partout, pas seulement sur l'ecran d'accueil. Les fondus
+   restent (ils ne deplacent rien), les indicateurs de chargement aussi :
+   arretes, ils feraient croire a un blocage. Le panneau communaute a sa
+   regle dans vizi-app.js, ou vit son style. */
+@media (prefers-reduced-motion: reduce) {
+  .vz-pulse-wave,
+  .vz-obs-marker.fresh .vz-obs-marker-inner,
+  .visim-pulse-ring,
+  #mobileCrosshair .ch-ring,
+  #spotDrawer .vz-timeline-item.is-now .vz-timeline-dot,
+  .vzm-tier-hint-arrow { animation: none; }
+  #vzSheet, #spotDrawer, #spotDrawerMobile, #obsSheet, #tidesDrawer,
+  .vz-explain-modal { transition: none; }
 }
   </style>
 </head>
