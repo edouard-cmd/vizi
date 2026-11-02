@@ -4267,14 +4267,33 @@ function vzCurBuildLayer_(f, cfg, state) {
   var tag = cfg.tag || 'courant';
   var BUF = 512;
   var VzCurPainted = L.GridLayer.extend({
+    // ANNULATION DES TELECHARGEMENTS. Une tuile canvas porte son Image en
+    // interne : quand Leaflet la retire (pan, zoom, couche retiree,
+    // echange d'echeance), rien n'interrompait le telechargement. Le
+    // navigateur n'ouvre que 6 connexions vers Copernicus : les tuiles
+    // utiles attendaient derriere des dizaines de tuiles devenues inutiles
+    // et n'arrivaient jamais. Meme geste que L.TileLayer._abortLoading :
+    // on debranche les callbacks et on remplace la source.
+    _removeTile: function(key) {
+      var t = this._tiles[key];
+      if (t && t.el && t.el._vzImg) {
+        var im = t.el._vzImg;
+        im.onload = im.onerror = L.Util.falseFn;
+        im.src = L.Util.emptyImageUrl;
+        t.el._vzImg = null;
+      }
+      return L.GridLayer.prototype._removeTile.call(this, key);
+    },
     createTile: function(coords, done) {
       var tile = document.createElement('canvas');
       tile.width = BUF;
       tile.height = BUF;
       var ctx = tile.getContext('2d');
       var img = new Image();
+      tile._vzImg = img;
       img.crossOrigin = 'anonymous';
       img.onload = function() {
+        tile._vzImg = null;
         state.tilesOk = (state.tilesOk || 0) + 1;
         ctx.drawImage(img, 0, 0, BUF, BUF);
         vzWmtsPaint_(ctx, BUF, state, tag);
@@ -4299,6 +4318,7 @@ function vzCurBuildLayer_(f, cfg, state) {
       // Compteurs lus par vzCurDiag / vzWavDiag : une tuile en erreur ne
       // laisse aucune trace a l'ecran, seule la console peut le dire.
       img.onerror = function() {
+        tile._vzImg = null;
         state.tilesErr = (state.tilesErr || 0) + 1;
         if (!state.firstErr) state.firstErr = img.src;
         done(null, tile);
@@ -4338,7 +4358,10 @@ function vzCurBuildLayer_(f, cfg, state) {
 // retire que quand le nouveau a fini de charger, ou apres le delai de
 // garde. Un cran suivant abandonne l'echange en vol (compteur).
 // Partage courant / vagues, comme le reste de la mecanique.
-var VZ_CUR_SWAP_TIMEOUT_MS = 8000;
+// 20 s : Copernicus rend chaque tuile a la demande, une vue large en
+// demande une trentaine par echeance. Au-dela, on bascule sur ce qui est
+// arrive, le reste complete en arrivant.
+var VZ_CUR_SWAP_TIMEOUT_MS = 20000;
 
 // Abandonne un echange en vol : couches en attente retirees, compteur
 // avance pour que le sondage en cours s'arrete. Appele par les teardowns.
@@ -4359,8 +4382,12 @@ function vzCurSwapLayers_(cfg, state) {
   state.swapSeq = (state.swapSeq || 0) + 1;
   var seq = state.swapSeq;
   if (state.pending) {
-    for (var p = 0; p < state.pending.length; p++) {
-      if (S.map.hasLayer(state.pending[p])) S.map.removeLayer(state.pending[p]);
+    // Un echange en vol promu jeu courant (carte bougee) reste affiche :
+    // c'est lui qu'on remplace, pas un brouillon.
+    if (state.pending !== state.layers) {
+      for (var p = 0; p < state.pending.length; p++) {
+        if (S.map.hasLayer(state.pending[p])) S.map.removeLayer(state.pending[p]);
+      }
     }
     state.pending = null;
   }
@@ -4375,16 +4402,31 @@ function vzCurSwapLayers_(cfg, state) {
   for (var a = 0; a < fresh.length; a++) fresh[a].addTo(S.map);
   state.pending = fresh;
   var t0 = Date.now();
+  var c0 = S.map.getCenter(), z0 = S.map.getZoom();
   (function poll() {
     if (seq !== state.swapSeq) return;   // depasse par un cran suivant
     var loading = false;
     for (var i = 0; i < fresh.length; i++) {
       if (typeof fresh[i].isLoading === 'function' && fresh[i].isLoading()) loading = true;
     }
+    // Carte bougee pendant l'echange : l'ancien jeu sort tout de suite,
+    // sinon il redemanderait lui aussi des tuiles pour la nouvelle zone,
+    // pour une echeance qu'on est en train de quitter. Le nouveau jeu
+    // continue de charger et l'echange ne se conclut qu'une fois charge.
+    var moved = (S.map.getZoom() !== z0) || !S.map.getCenter().equals(c0);
+    if (moved && state.layers !== fresh) {
+      var oldm = state.layers || [];
+      for (var q = 0; q < oldm.length; q++) {
+        if (S.map.hasLayer(oldm[q])) S.map.removeLayer(oldm[q]);
+      }
+      state.layers = fresh;
+    }
     if (loading && Date.now() - t0 < VZ_CUR_SWAP_TIMEOUT_MS) { setTimeout(poll, 120); return; }
     var old = state.layers || [];
-    for (var o = 0; o < old.length; o++) {
-      if (S.map.hasLayer(old[o])) S.map.removeLayer(old[o]);
+    if (old !== fresh) {
+      for (var o = 0; o < old.length; o++) {
+        if (S.map.hasLayer(old[o])) S.map.removeLayer(old[o]);
+      }
     }
     state.layers = fresh;
     state.pending = null;
@@ -4570,14 +4612,34 @@ function vzCurBuildG2f_(colorMap) {
 
 // Charge une image de tuile. Resout toujours, meme en erreur : une facade
 // absente doit laisser un trou, pas casser le chargement complet.
-function vzCurLoadTile_(url) {
+// reg (facultatif) : registre des images en vol, pour pouvoir les annuler
+// (vzCurAbortField_) quand le decodage est depasse par un cran suivant.
+function vzCurLoadTile_(url, reg) {
   return new Promise(function(resolve) {
     var img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = function() { resolve(img); };
     img.onerror = function() { resolve(null); };
+    if (reg) reg.push(img);
     img.src = url;
   });
+}
+
+// Annule les telechargements du decodage precedent (voir VzCurPainted
+// _removeTile pour la raison). Les promesses correspondantes se resolvent
+// a null via onerror... sauf qu'on le debranche : elles restent en suspens,
+// ce qui est sans effet car leur generation est deja depassee.
+function vzCurAbortField_(state) {
+  var reg = state.fieldImgs;
+  if (reg) {
+    for (var i = 0; i < reg.length; i++) {
+      if (reg[i].complete) continue;
+      reg[i].onload = reg[i].onerror = L.Util.falseFn;
+      reg[i].src = L.Util.emptyImageUrl;
+    }
+  }
+  state.fieldImgs = [];
+  return state.fieldImgs;
 }
 
 // URL GetTile d'une composante, pour une facade et une tuile donnees.
@@ -4620,13 +4682,13 @@ function vzCurDecodeComponent_(varName, opt) {
   for (var ci = 0; ci < G.tileCols.length; ci++) {
     for (var ri = 0; ri < G.tileRows.length; ri++) {
       placed.push({ x: ci * G.tilePx, y: ri * G.tilePx, med: false });
-      jobs.push(vzCurLoadTile_(vzCurTileUrl_(ibi.layer, varName, G.tileCols[ci], G.tileRows[ri], opt)));
+      jobs.push(vzCurLoadTile_(vzCurTileUrl_(ibi.layer, varName, G.tileCols[ci], G.tileRows[ri], opt), state.fieldImgs));
     }
   }
   // Une seule tuile suffit pour la Mediterranee francaise : colonne 16,
   // ligne 4, soit 0 a 11,25 est et 33,75 a 45 nord.
   placed.push({ x: G.tilePx, y: G.tilePx, med: true });
-  jobs.push(vzCurLoadTile_(vzCurTileUrl_(med.layer, varName, 16, 4, opt)));
+  jobs.push(vzCurLoadTile_(vzCurTileUrl_(med.layer, varName, 16, 4, opt), state.fieldImgs));
 
   return Promise.all(jobs).then(function(imgs) {
     var cv = document.createElement('canvas');
@@ -4687,6 +4749,7 @@ function vzCurDecodeComponent_(varName, opt) {
 // deja quittee, ne vienne ecraser le champ courant.
 function vzCurLoadField_() {
   var seq = ++VZ_CUR_STATE.fieldSeq;
+  vzCurAbortField_(VZ_CUR_STATE);   // le decodage precedent lache ses telechargements
   VZ_CUR_STATE.fieldPending = true;
   return vzCurFetchLegend_().then(function() {
     return Promise.all([
@@ -4694,8 +4757,8 @@ function vzCurLoadField_() {
       vzCurDecodeComponent_(VZ_CUR_GRID.components[1])
     ]);
   }).then(function(res) {
-    VZ_CUR_STATE.fieldPending = false;
     if (seq !== VZ_CUR_STATE.fieldSeq) return null;   // echeance perimee
+    VZ_CUR_STATE.fieldPending = false;
     var u = res[0], v = res[1];
     if (!u || !v || !S.curFlowLayer) return null;
     var G = VZ_CUR_GRID;
@@ -4719,7 +4782,7 @@ function vzCurLoadField_() {
     ]);
     return true;
   }).catch(function(e) {
-    VZ_CUR_STATE.fieldPending = false;
+    if (seq === VZ_CUR_STATE.fieldSeq) VZ_CUR_STATE.fieldPending = false;
     console.warn('[courant] champ de particules indisponible', e);
     return null;
   });
@@ -5155,6 +5218,7 @@ function vzWavEnsure_() {
 // echeance deja quittee, n'ecrase le champ courant.
 function vzWavLoadField_() {
   var seq = ++VZ_WAV_STATE.fieldSeq;
+  vzCurAbortField_(VZ_WAV_STATE);   // le decodage precedent lache ses telechargements
   VZ_WAV_STATE.fieldPending = true;
   var G = VZ_CUR_GRID, W = VZ_WAV_GRID;
   function opt(c) { return { cfg: VZ_WAV_CFG, state: VZ_WAV_STATE, lo: W.ranges[c][0], hi: W.ranges[c][1] }; }
@@ -5164,8 +5228,8 @@ function vzWavLoadField_() {
       vzCurDecodeComponent_(W.components[1], opt(1))
     ]);
   }).then(function(res) {
-    VZ_WAV_STATE.fieldPending = false;
     if (seq !== VZ_WAV_STATE.fieldSeq) return null;   // echeance perimee
+    VZ_WAV_STATE.fieldPending = false;
     var hs = res[0], dir = res[1];
     if (!hs || !dir || !S.wavCrestLayer) return null;
     var n = hs.nx * hs.ny;
@@ -5187,7 +5251,7 @@ function vzWavLoadField_() {
     });
     return true;
   }).catch(function(e) {
-    VZ_WAV_STATE.fieldPending = false;
+    if (seq === VZ_WAV_STATE.fieldSeq) VZ_WAV_STATE.fieldPending = false;
     console.warn('[vagues] champ des fronts indisponible', e);
     return null;
   });
