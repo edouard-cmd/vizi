@@ -4246,6 +4246,22 @@ function vzCurBuildLayer_(f, cfg, state) {
         state.tilesOk = (state.tilesOk || 0) + 1;
         ctx.drawImage(img, 0, 0, BUF, BUF);
         vzWmtsPaint_(ctx, BUF, state, tag);
+        // Gommage de la terre, meme procede que Litto3D (VZSeaTileLayer) :
+        // les modeles sont a 2,7 et 4 km, leurs cellules cotieres mordent sur
+        // la terre. Le trait de cote (vz-coastline.json) est projete au zoom
+        // de la tuile ; le canvas fait BUF px pour une tuile de 256, d'ou le
+        // facteur d'echelle. Si le trait n'est pas encore charge, la tuile
+        // reste telle quelle : degradee, jamais vide.
+        var land = (typeof vzGetLandPath === 'function') ? vzGetLandPath(coords.z) : null;
+        if (land) {
+          var sc = BUF / 256;
+          ctx.save();
+          ctx.globalCompositeOperation = 'destination-out';
+          ctx.scale(sc, sc);
+          ctx.translate(-coords.x * 256, -coords.y * 256);
+          try { ctx.fill(land); } catch (e) {}
+          ctx.restore();
+        }
         done(null, tile);
       };
       // Compteurs lus par vzCurDiag / vzWavDiag : une tuile en erreur ne
@@ -4813,6 +4829,43 @@ var VzWavCrestLayer = L.Layer.extend({
     if (this._cv && this._cv.parentNode) this._cv.parentNode.removeChild(this._cv);
     this._cv = null;
     this._ctx = null;
+    this._mask = null;
+  },
+  // Masque de terre : le trait de cote (vzGetLandPath, le meme que Litto3D)
+  // rasterise une fois dans un canvas couvrant la vue plus une marge d'un
+  // quart d'ecran de chaque cote, puis reutilise tant que la vue reste dans
+  // la marge et au meme zoom. Remplir le trace a chaque image (des dizaines
+  // de milliers de points) serait trop cher sur mobile ; un drawImage ne
+  // coute rien. null tant que le trait de cote n'est pas charge.
+  _landMask: function() {
+    if (typeof vzGetLandPath !== 'function' || typeof VZ_COAST === 'undefined' || !VZ_COAST) return null;
+    var map = this._map, Z = map.getZoom();
+    var pb = map.getPixelBounds(), sz = map.getSize();
+    var m = this._mask;
+    if (m && m.Z === Z && pb.min.x >= m.ox && pb.min.y >= m.oy
+        && pb.max.x <= m.ox + m.w && pb.max.y <= m.oy + m.h) return m;
+    var z = Math.round(Z);
+    var path = vzGetLandPath(z);
+    if (!path) return null;
+    var mx = Math.ceil(sz.x * 0.25), my = Math.ceil(sz.y * 0.25);
+    m = {
+      Z: Z,
+      ox: Math.floor(pb.min.x) - mx, oy: Math.floor(pb.min.y) - my,
+      w: sz.x + 2 * mx, h: sz.y + 2 * my,
+      cv: (this._mask && this._mask.cv) || document.createElement('canvas')
+    };
+    m.cv.width = m.w;
+    m.cv.height = m.h;
+    var c = m.cv.getContext('2d');
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.clearRect(0, 0, m.w, m.h);
+    c.translate(-m.ox, -m.oy);
+    var s = Math.pow(2, Z - z);          // trace projete au zoom entier, vue au zoom reel
+    c.scale(s, s);
+    c.fillStyle = '#000';
+    try { c.fill(path); } catch (e) { return null; }
+    this._mask = m;
+    return m;
   },
   // u, v : tableaux de la grille (null = terre / hors modele), hdr : nx, ny,
   // lo1, la1, dx, dy. Pris en compte a l'image suivante, sans redemarrage.
@@ -4869,6 +4922,7 @@ var VzWavCrestLayer = L.Layer.extend({
     var C = VZ_WAV_CREST;
     var S0 = C.spacing, W = 2 * S0;
     var t = (now % C.periodMs) / C.periodMs;
+    this._wscale = 256 * Math.pow(2, map.getZoom());
     var pb = map.getPixelBounds();
     var kx0 = Math.floor(pb.min.x / S0) - 1, ky0 = Math.floor(pb.min.y / S0) - 1;
     var kx1 = Math.ceil(pb.max.x / S0) + 1, ky1 = Math.ceil(pb.max.y / S0) + 1;
@@ -4901,11 +4955,24 @@ var VzWavCrestLayer = L.Layer.extend({
         }
       }
     }
+    // Gommage de la terre : le masque est en pixels monde au zoom courant,
+    // on le pose a son decalage par rapport a la vue.
+    var m = this._landMask();
+    if (m) {
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.drawImage(m.cv, m.ox - pb.min.x, m.oy - pb.min.y, m.w, m.h);
+      ctx.globalCompositeOperation = 'source-over';
+    }
   },
   // Direction et force au point MONDE (px) : [dx, dy, hs] en ecran, ou null.
+  // Inverse de la projection Web Mercator calcule a la main (this._wscale =
+  // 256 x 2^zoom, pose par _tick) : des dizaines de milliers d'appels par
+  // image, map.unproject coutait a lui seul la moitie du budget.
   _sampleWorld: function(wx, wy) {
-    var ll = this._map.unproject([wx, wy]);
-    var s = this._sample(ll.lng, ll.lat);
+    var sc = this._wscale;
+    var lng = wx / sc * 360 - 180;
+    var lat = (2 * Math.atan(Math.exp(Math.PI * (1 - 2 * wy / sc))) - Math.PI / 2) * 57.29577951308232;
+    var s = this._sample(lng, lat);
     if (!s) return null;
     var hs = Math.sqrt(s[0] * s[0] + s[1] * s[1]);
     if (hs < 1e-6) return null;
