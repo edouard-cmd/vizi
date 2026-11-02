@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-28T21:03:00+00:00",
+  "generatedAt": "2026-10-29T23:30:00+00:00",
   "title": "Design System: Visimer",
   "extensions": {
     "colorMeta": {
@@ -243,6 +243,22 @@
           "#FCC0B7",
           "#FFE9E5"
         ]
+      },
+      "caution-text": {
+        "role": "tertiary",
+        "displayName": "Ambre écrit",
+        "canonical": "#8A4F09",
+        "oklch": "oklch(48.7% 0.108 62.0)",
+        "tonalRamp": [
+          "#180600",
+          "#392000",
+          "#623B04",
+          "#8C5916",
+          "#BB7821",
+          "#E89B3C",
+          "#FEC486",
+          "#FEEBD8"
+        ]
       }
     },
     "typographyMeta": {
@@ -290,6 +306,26 @@
         "name": "state",
         "value": ".22s cubic-bezier(.4,0,.2,1)",
         "purpose": "Changement d'état (sélection d'une chip)."
+      },
+      {
+        "name": "appear",
+        "value": ".18s cubic-bezier(.23,1,.32,1), cascade 30 ms",
+        "purpose": "Menu communauté et éléments qui apparaissent souvent."
+      },
+      {
+        "name": "drawer",
+        "value": ".3s cubic-bezier(.32,.72,0,1), transform seulement",
+        "purpose": "Panneau qui glisse (Prévisions sur ordinateur)."
+      },
+      {
+        "name": "tab",
+        "value": "aucune transition",
+        "purpose": "Les quatre onglets de la barre basse."
+      },
+      {
+        "name": "splash",
+        "value": "animation complète à la première visite, ensuite fondu .3s",
+        "purpose": "Écran d'accueil."
       }
     ],
     "breakpoints": [
@@ -411,6 +447,31 @@
         "name": "The Trait Noir Rule",
         "body": "La séparation entre deux plans est un trait #0A1520 de 2 px. Pas d'ombre portée, pas de `backdrop-filter`, pas de surface translucide, pas de dégradé.",
         "section": "elevation"
+      },
+      {
+        "name": "The Aplat ou Écrit Rule",
+        "section": "colors",
+        "body": "Le jaune et l'orange n'existent qu'en aplat ; sur fond clair, une vigilance s'écrit en ambre écrit #8A4F09."
+      },
+      {
+        "name": "The Onglet Immédiat Rule",
+        "section": "motion",
+        "body": "Les quatre onglets de la barre basse apparaissent sans transition."
+      },
+      {
+        "name": "The Signal Fini Rule",
+        "section": "motion",
+        "body": "Une animation qui signale un événement joue un nombre fini de fois. Une boucle permanente n'est admise que si elle porte une donnée vivante."
+      },
+      {
+        "name": "The Doigt d'Abord Rule",
+        "section": "motion",
+        "body": "Le survol est réservé à la souris ; au doigt, l'appui se sent par un enfoncement."
+      },
+      {
+        "name": "The Mouvement Réduit Rule",
+        "section": "motion",
+        "body": "« Réduire les animations » coupe les boucles décoratives et les glissements ; fondus et chargements restent."
       }
     ],
     "dos": [
@@ -420,7 +481,8 @@
       "Do ancrer chaque surface flottante mobile sur `--vzm-navline` ou `--vzm-topline`.",
       "Do ouvrir chaque panneau par le point d'entrée unique, pour que la barre basse, la ligne d'identité et le bouton communauté sachent ce qui est ouvert.",
       "Do dire l'absence de donnée en texte trois (« pas d'image exploitable »), jamais la masquer.",
-      "Do préfixer les classes `vz-` (desktop) et `vzm-` (mobile)."
+      "Do préfixer les classes `vz-` (desktop) et `vzm-` (mobile).",
+      "Do écrire une vigilance sur fond clair en ambre écrit (#8A4F09), une erreur en danger (#C94A3D)."
     ],
     "donts": [
       "Don't écrire du texte en #4DD4A8 sur une surface claire.",
@@ -429,7 +491,9 @@
       "Don't positionner un élément flottant mobile avec un `bottom` ou `top` en pixels écrits à la main.",
       "Don't définir un jeton `--vz-*` dans un second `:root`.",
       "Don't utiliser d'emoji dans l'interface ni de tiret cadratin dans le code ou l'interface.",
-      "Don't ouvrir l'application sur une position mémorisée : la vue d'ouverture est la France entière."
+      "Don't ouvrir l'application sur une position mémorisée : la vue d'ouverture est la France entière.",
+      "Don't écrire du texte en #D8C84A ou #E89B3C sur une surface claire.",
+      "Don't animer height, top ou left, ni laisser boucler une animation sans donnée vivante."
     ]
   }
 }
