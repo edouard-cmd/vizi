@@ -1695,6 +1695,11 @@ function initMap() {
   S.map.createPane('vzCurPane');
   S.map.getPane('vzCurPane').style.zIndex = 330;
   S.showCurrent = false;
+  // Vagues : meme famille que le courant (fond colore Copernicus + particules),
+  // exclusive avec lui. Entre courant (330) et visibilite (340), par principe.
+  S.map.createPane('vzWavPane');
+  S.map.getPane('vzWavPane').style.zIndex = 335;
+  S.showWave = false;
   // Toponymes du fond satellite (noms de villes, limites administratives).
   // Pane dedie : un layer qui vit dans son propre pane est insensible aux
   // bringToBack() successifs appliques au layerGroup basemapSat, qui sinon le
@@ -2970,7 +2975,7 @@ function vzRainTeardown_() {
   vzRainClear();
   if (S.timeOwner !== 'rain') return;
   vzWindStop_();
-  S.timeOwner = S.showWindFlow ? 'wind' : (S.showCurrent ? 'cur' : null);
+  S.timeOwner = S.showWindFlow ? 'wind' : (S.showCurrent ? 'cur' : (S.showWave ? 'wav' : null));
   var ctl = document.getElementById('vzWindCtrl');
   if (S.timeOwner) {
     vzWindPlaceTicks_();
@@ -3187,6 +3192,7 @@ function vzWindShowFrame_(i) {
   // Aiguillage vers la source active. Le courant n'a pas de grille en
   // memoire : son "frame" est une echeance envoyee au service dans TIME.
   if (S.timeOwner === 'cur') { vzCurShowFrame_(i); return; }
+  if (S.timeOwner === 'wav') { vzWavShowFrame_(i); return; }
   // La pluie n'a ni grille ni echeance a demander : sa frame est une tuile
   // deja en cache, on ne fait que basculer l'opacite.
   if (S.timeOwner === 'rain') { vzRainShowFrame(i); return; }
@@ -3346,12 +3352,14 @@ var VZ_CUR_ANIM_MS = 1100;
    ------------------------------------------------------------ */
 function vzTimeFrames_() {
   if (S.timeOwner === 'rain') return S.rainFrames;
+  if (S.timeOwner === 'wav') return S.wavFrames;
   return (S.timeOwner === 'cur') ? S.curFrames : S.windFrames;
 }
 
 function vzTimePos_() {
   var p;
   if (S.timeOwner === 'rain') p = S.rainPos;
+  else if (S.timeOwner === 'wav') p = S.wavPos;
   else p = (S.timeOwner === 'cur') ? S.curPos : S.windPos;
   return p || 0;
 }
@@ -3898,7 +3906,7 @@ function vzWindPlayStop_() {
   // tuiles a rapatrier : meme cadence, ce serait bombarder Copernicus a
   // chaque cran. La premiere boucle est donc plus lente, les suivantes
   // profitent du cache HTTP du navigateur.
-  var ms = (S.timeOwner === 'cur') ? VZ_CUR_ANIM_MS
+  var ms = (S.timeOwner === 'cur' || S.timeOwner === 'wav') ? VZ_CUR_ANIM_MS
          : (S.timeOwner === 'rain') ? VZ_RAIN_ANIM_MS
          : VZ_WIND_ANIM_MS;
   S.windTimer = setInterval(function(){
@@ -4084,12 +4092,15 @@ function vzCurStampLike_(d, model) {
 // Source par ordre de preference : les echeances annoncees par le
 // serveur, filtrees sur la fenetre utile ; a defaut une generation locale
 // au pas horaire, dans le format documente a neuf decimales.
-function vzCurBuildFrames_() {
+// Parametre cfg : la couche vagues passe la sienne ; sans argument, le
+// courant, comme avant.
+function vzCurBuildFrames_(cfg) {
+  cfg = cfg || VZ_CUR_CFG;
   var out = [];
   var now = Date.now();
-  var t0 = now - VZ_CUR_CFG.hoursBack * 3600000;
-  var t1 = now + VZ_CUR_CFG.hoursFwd * 3600000;
-  var srv = VZ_CUR_CFG.facades[0].times;
+  var t0 = now - cfg.hoursBack * 3600000;
+  var t1 = now + cfg.hoursFwd * 3600000;
+  var srv = cfg.facades[0].times;
 
   if (srv && srv.length) {
     for (var i = 0; i < srv.length; i++) {
@@ -4103,8 +4114,8 @@ function vzCurBuildFrames_() {
 
   var d = new Date();
   d.setUTCMinutes(0, 0, 0);
-  d.setUTCHours(d.getUTCHours() - VZ_CUR_CFG.hoursBack);
-  var n = VZ_CUR_CFG.hoursBack + VZ_CUR_CFG.hoursFwd;
+  d.setUTCHours(d.getUTCHours() - cfg.hoursBack);
+  var n = cfg.hoursBack + cfg.hoursFwd;
   for (var k = 0; k <= n; k++) {
     var t = new Date(d.getTime() + k * 3600000);
     out.push({
@@ -4132,10 +4143,16 @@ function vzCurShortStamp_(d) {
 // designe la variable vectorielle, sur un pas horaire, et qui n'est pas
 // un jeu detide. Memoise pour la session ; en cas d'echec on retombe sur
 // l'identifiant fige de la config plutot que de laisser la couche morte.
-function vzCurResolveLayers_() {
-  if (VZ_CUR_STATE.resolvePending) return VZ_CUR_STATE.resolvePending;
-  var jobs = VZ_CUR_CFG.facades.map(function(f) {
-    var url = VZ_CUR_CFG.endpoint + '/' + f.product
+// Parametres cfg/state : la couche vagues passe les siens ; sans argument,
+// le courant, comme avant.
+function vzCurResolveLayers_(cfg, state) {
+  cfg = cfg || VZ_CUR_CFG;
+  state = state || VZ_CUR_STATE;
+  var tag = cfg.tag || 'courant';
+  var suffix = '/' + cfg.variable;
+  if (state.resolvePending) return state.resolvePending;
+  var jobs = cfg.facades.map(function(f) {
+    var url = cfg.endpoint + '/' + f.product
       + '?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetCapabilities';
     return fetch(url).then(function(r) {
       if (!r.ok) throw new Error('GetCapabilities HTTP ' + r.status);
@@ -4145,7 +4162,9 @@ function vzCurResolveLayers_() {
       var m, best = null;
       while ((m = re.exec(xml)) !== null) {
         var id = m[1];
-        if (id.indexOf('/' + VZ_CUR_CFG.variable) === -1) continue;
+        // Variable en FIN d'identifiant, pas juste contenue : les produits
+        // vagues exposent VHM0, VHM0_SW1, VHM0_WW... sous le meme prefixe.
+        if (id.slice(-suffix.length) !== suffix) continue;
         if (id.indexOf('detided') !== -1) continue;   // maree retiree : inutilisable ici
         if (id.indexOf('PT1H') === -1) continue;      // pas horaire obligatoire
         if (!best) best = id;
@@ -4155,27 +4174,32 @@ function vzCurResolveLayers_() {
       f.times = vzCurExtractTimes_(xml, best);
       return best;
     }).catch(function(e) {
-      console.warn('[courant] resolution ' + f.id + ' echouee, identifiant de repli', e);
+      console.warn('[' + tag + '] resolution ' + f.id + ' echouee, identifiant de repli', e);
       f.layer = f.layerFallback;
       f.times = null;
       return f.layer;
     });
   });
-  VZ_CUR_STATE.resolvePending = Promise.all(jobs);
-  return VZ_CUR_STATE.resolvePending;
+  state.resolvePending = Promise.all(jobs);
+  return state.resolvePending;
 }
 
 // Bornes reelles et table de couleurs de la porteuse, pour le
 // repeinturage ET pour la legende : les deux ne peuvent pas diverger.
 // Interrogee sur la premiere facade, l'echelle etant imposee par 'range'
 // et donc identique sur les deux.
-function vzCurFetchLegend_() {
-  if (VZ_CUR_STATE.legendPending) return VZ_CUR_STATE.legendPending;
-  VZ_CUR_STATE.legendPending = vzCurResolveLayers_().then(function() {
-    var url = VZ_CUR_CFG.endpoint
+// Parametres cfg/state : la couche vagues passe les siens ; sans argument,
+// le courant, comme avant.
+function vzCurFetchLegend_(cfg, state) {
+  cfg = cfg || VZ_CUR_CFG;
+  state = state || VZ_CUR_STATE;
+  var tag = cfg.tag || 'courant';
+  if (state.legendPending) return state.legendPending;
+  state.legendPending = vzCurResolveLayers_(cfg, state).then(function() {
+    var url = cfg.endpoint
       + '?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetLegend'
-      + '&LAYER=' + VZ_CUR_CFG.facades[0].layer
-      + '&STYLE=' + VZ_CUR_CFG.style
+      + '&LAYER=' + cfg.facades[0].layer
+      + '&STYLE=' + cfg.style
       + '&FORMAT=application/json';
     return fetch(url);
   }).then(function(r) {
@@ -4184,26 +4208,31 @@ function vzCurFetchLegend_() {
   }).then(function(j) {
     var c = j && j.continuous;
     if (!c || !c.cmap || !c.cmap.colorMap) throw new Error('GetLegend payload inattendu');
-    VZ_CUR_STATE.min = c.valueMin;
-    VZ_CUR_STATE.max = c.valueMax;
-    VZ_CUR_STATE.lut = vzWmtsBuildLut_(c.cmap.colorMap, VZ_CUR_CFG.stops);
+    state.min = c.valueMin;
+    state.max = c.valueMax;
+    state.lut = vzWmtsBuildLut_(c.cmap.colorMap, cfg.stops);
     // La table brute est conservee : c'est elle qui permet de remonter d'un
     // pixel vers une valeur physique pour le champ de particules.
-    VZ_CUR_STATE.cmap = c.cmap.colorMap;
-    VZ_CUR_STATE.g2f = vzCurBuildG2f_(c.cmap.colorMap);
-    return VZ_CUR_STATE;
+    state.cmap = c.cmap.colorMap;
+    state.g2f = vzCurBuildG2f_(c.cmap.colorMap);
+    return state;
   }).catch(function(e) {
-    console.warn('[courant] GetLegend indisponible, tuiles haline brutes', e);
-    return VZ_CUR_STATE;
+    console.warn('[' + tag + '] GetLegend indisponible, tuiles haline brutes', e);
+    return state;
   });
-  return VZ_CUR_STATE.legendPending;
+  return state.legendPending;
 }
 
 // Construit la couche d'une facade. GridLayer sur canvas, comme la
 // visibilite, pour pouvoir substituer les couleurs. Le TIME est lu dans
 // l'etat a chaque tuile : changer d'echeance se resume a ecrire
 // VZ_CUR_STATE.time puis a redessiner.
-function vzCurBuildLayer_(f) {
+// Parametres cfg/state : la couche vagues passe les siens ; sans argument,
+// le courant, comme avant (pane, attribution et tag de console inclus).
+function vzCurBuildLayer_(f, cfg, state) {
+  cfg = cfg || VZ_CUR_CFG;
+  state = state || VZ_CUR_STATE;
+  var tag = cfg.tag || 'courant';
   var BUF = 512;
   var VzCurPainted = L.GridLayer.extend({
     createTile: function(coords, done) {
@@ -4215,37 +4244,40 @@ function vzCurBuildLayer_(f) {
       img.crossOrigin = 'anonymous';
       img.onload = function() {
         ctx.drawImage(img, 0, 0, BUF, BUF);
-        vzWmtsPaint_(ctx, BUF, VZ_CUR_STATE, 'courant');
+        vzWmtsPaint_(ctx, BUF, state, tag);
         done(null, tile);
       };
       img.onerror = function() { done(null, tile); };
-      img.src = VZ_CUR_CFG.endpoint
+      img.src = cfg.endpoint
         + '?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0'
         + '&LAYER=' + f.layer
-        + '&STYLE=' + VZ_CUR_CFG.style
+        + '&STYLE=' + cfg.style
         + '&TILEMATRIXSET=EPSG:3857@2x'
         + '&TILEMATRIX=' + coords.z + '&TILEROW=' + coords.y + '&TILECOL=' + coords.x
         + '&FORMAT=image/png'
-        + '&time=' + VZ_CUR_STATE.time;
+        + '&time=' + state.time;
       return tile;
     }
   });
   return new VzCurPainted({
-    attribution: 'Courant : E.U. Copernicus Marine Service (IBI, MED)',
-    opacity: VZ_CUR_CFG.opacity,
+    attribution: cfg.attribution || 'Courant : E.U. Copernicus Marine Service (IBI, MED)',
+    opacity: cfg.opacity,
     maxZoom: 19,
-    pane: 'vzCurPane',
+    pane: cfg.pane || 'vzCurPane',
     tileSize: 256,
     bounds: L.latLngBounds(f.bounds)
   });
 }
 
 // Echeance la plus proche de l'instant present dans S.curFrames.
-function vzCurNowIndex_() {
-  if (!S.curFrames || !S.curFrames.length) return 0;
+// Parametre frames : la couche vagues passe S.wavFrames ; sans argument,
+// S.curFrames, comme avant.
+function vzCurNowIndex_(frames) {
+  var fr = frames || S.curFrames;
+  if (!fr || !fr.length) return 0;
   var now = Date.now(), best = 0, bestD = Infinity;
-  for (var i = 0; i < S.curFrames.length; i++) {
-    var d = Math.abs(Date.parse(S.curFrames[i].wmts) - now);
+  for (var i = 0; i < fr.length; i++) {
+    var d = Math.abs(Date.parse(fr[i].wmts) - now);
     if (d < bestD) { bestD = d; best = i; }
   }
   return best;
@@ -4293,8 +4325,8 @@ function vzCurEnsure_() {
 
 // Degrade de la legende genere DEPUIS VZ_CUR_CFG.stops : une refonte de
 // la palette ne peut pas faire mentir la legende.
-function vzCurGradientCss_() {
-  var st = VZ_CUR_CFG.stops, parts = [];
+function vzCurGradientCss_(stops) {
+  var st = stops || VZ_CUR_CFG.stops, parts = [];
   for (var i = 0; i < st.length; i++) {
     parts.push('rgb(' + st[i][1] + ',' + st[i][2] + ',' + st[i][3] + ') '
       + (st[i][0] * 100).toFixed(1) + '%');
@@ -4429,38 +4461,52 @@ function vzCurLoadTile_(url) {
 }
 
 // URL GetTile d'une composante, pour une facade et une tuile donnees.
-function vzCurTileUrl_(layer, varName, col, row) {
-  return VZ_CUR_CFG.endpoint
+// opt (facultatif) : {cfg, state, lo, hi}. La couche vagues passe les siens
+// et une echelle propre a chaque composante (hauteur 0/4, direction 0/360).
+// Sans opt : le courant, echelle -uvMax/+uvMax, comme avant.
+function vzCurTileUrl_(layer, varName, col, row, opt) {
+  var cfg = (opt && opt.cfg) || VZ_CUR_CFG;
+  var state = (opt && opt.state) || VZ_CUR_STATE;
+  var lo = (opt && typeof opt.lo === 'number') ? opt.lo : -VZ_CUR_GRID.uvMax;
+  var hi = (opt && typeof opt.hi === 'number') ? opt.hi : VZ_CUR_GRID.uvMax;
+  return cfg.endpoint
     + '?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0'
-    + '&LAYER=' + layer.replace('/' + VZ_CUR_CFG.variable, '/' + varName)
-    + '&STYLE=cmap:haline,range:-' + VZ_CUR_GRID.uvMax + '/' + VZ_CUR_GRID.uvMax
+    + '&LAYER=' + layer.replace('/' + cfg.variable, '/' + varName)
+    + '&STYLE=cmap:haline,range:' + lo + '/' + hi
     + '&TILEMATRIXSET=EPSG:4326@2x'
     + '&TILEMATRIX=' + VZ_CUR_GRID.tileMatrix
     + '&TILEROW=' + row + '&TILECOL=' + col
     + '&FORMAT=image/png'
-    + '&time=' + VZ_CUR_STATE.time;
+    + '&time=' + state.time;
 }
 
 // Assemble la mosaique d'une composante puis l'echantillonne sur la
 // grille de sortie. IBI est peint en premier, MED par-dessus mais
 // restreint a son rectangle : la ou les deux modeles existent, c'est le
 // modele mediterraneen qui gagne.
-function vzCurDecodeComponent_(varName) {
+// opt (facultatif) : {cfg, state, lo, hi}, memes conventions que
+// vzCurTileUrl_. La valeur decodee vaut lo + fraction * (hi - lo) ; sans
+// opt, -uvMax + f * 2uvMax, soit exactement (f * 2 - 1) * uvMax d'avant.
+function vzCurDecodeComponent_(varName, opt) {
   var G = VZ_CUR_GRID;
+  var cfg = (opt && opt.cfg) || VZ_CUR_CFG;
+  var state = (opt && opt.state) || VZ_CUR_STATE;
+  var lo = (opt && typeof opt.lo === 'number') ? opt.lo : -G.uvMax;
+  var hi = (opt && typeof opt.hi === 'number') ? opt.hi : G.uvMax;
   var side = G.tilePx * 2;
-  var ibi = VZ_CUR_CFG.facades[0], med = VZ_CUR_CFG.facades[1];
+  var ibi = cfg.facades[0], med = cfg.facades[1];
   var jobs = [];
   var placed = [];
   for (var ci = 0; ci < G.tileCols.length; ci++) {
     for (var ri = 0; ri < G.tileRows.length; ri++) {
       placed.push({ x: ci * G.tilePx, y: ri * G.tilePx, med: false });
-      jobs.push(vzCurLoadTile_(vzCurTileUrl_(ibi.layer, varName, G.tileCols[ci], G.tileRows[ri])));
+      jobs.push(vzCurLoadTile_(vzCurTileUrl_(ibi.layer, varName, G.tileCols[ci], G.tileRows[ri], opt)));
     }
   }
   // Une seule tuile suffit pour la Mediterranee francaise : colonne 16,
   // ligne 4, soit 0 a 11,25 est et 33,75 a 45 nord.
   placed.push({ x: G.tilePx, y: G.tilePx, med: true });
-  jobs.push(vzCurLoadTile_(vzCurTileUrl_(med.layer, varName, 16, 4)));
+  jobs.push(vzCurLoadTile_(vzCurTileUrl_(med.layer, varName, 16, 4, opt)));
 
   return Promise.all(jobs).then(function(imgs) {
     var cv = document.createElement('canvas');
@@ -4490,7 +4536,7 @@ function vzCurDecodeComponent_(varName) {
       console.warn('[courant] canvas verrouille (CORS absent), particules indisponibles', e);
       return null;
     }
-    var g2f = VZ_CUR_STATE.g2f;
+    var g2f = state.g2f;
     if (!g2f) return null;
     var nx = Math.round((G.lon1 - G.lon0) / G.step) + 1;
     var ny = Math.round((G.lat0 - G.lat1) / G.step) + 1;
@@ -4509,7 +4555,7 @@ function vzCurDecodeComponent_(varName) {
         var r = data[o], g = data[o + 1], b = data[o + 2];
         // alpha nul = hors emprise du modele, r==g==b = masque terre.
         if (a === 0 || (r === g && g === b)) { out[k++] = null; continue; }
-        out[k++] = (g2f[g] * 2 - 1) * G.uvMax;       // 0..1 -> -uvMax..+uvMax
+        out[k++] = lo + g2f[g] * (hi - lo);          // 0..1 -> lo..hi
       }
     }
     return { nx: nx, ny: ny, data: out };
@@ -4599,7 +4645,289 @@ function vzCurTeardown_() {
   if (leg) leg.classList.remove('on');
   if (S.timeOwner === 'cur') {
     vzWindStop_();
-    S.timeOwner = S.showWindFlow ? 'wind' : (S.showRain ? 'rain' : null);
+    S.timeOwner = S.showWindFlow ? 'wind' : (S.showRain ? 'rain' : (S.showWave ? 'wav' : null));
+    var ctl = document.getElementById('vzWindCtrl');
+    if (S.timeOwner) {
+      vzWindPlaceTicks_();
+      vzWindSyncCtrl_();
+    } else {
+      if (ctl) ctl.classList.remove('on');
+      document.body.classList.remove('vz-wind-band');
+    }
+  }
+}
+
+/* ============================================================
+   COUCHE VAGUES - Copernicus Marine (WMTS teroWmts)
+   ------------------------------------------------------------
+   Affichage seul : aucun lien avec computeVisibilityScore_V4, aucun
+   cache S_spot* touche, aucune valeur injectee dans le moteur. La houle
+   du moteur vient d'Open-Meteo (h.wave_height, S_spotMarineCache) ;
+   cette couche n'y touche pas.
+
+   Meme architecture que la couche courant, dont elle REUTILISE les
+   mecaniques par leur parametre de configuration (resolution
+   GetCapabilities, GetLegend, tuiles repeintes, decodage de la
+   mosaique, echeances). Rien n'est duplique : un bug corrige dans le
+   courant l'est ici.
+
+   Encodage, meme partage que le vent et le courant : le fond colore
+   porte la hauteur significative (VHM0, en m), les particules portent
+   la direction de propagation. VMDR est la direction D'OU vient la
+   houle (convention meteo, 0 = du nord, sens horaire), la particule va
+   donc a VMDR + 180. Son allure est proportionnelle a la hauteur : une
+   houle de 3 m file, un clapot de 30 cm rampe. C'est un choix de
+   lecture, pas de physique : la vitesse de propagation reelle
+   (cg = 1,56 T / 2, T = periode de pic) ferait courir une houle longue
+   plus vite qu'un vent de 40 kt et demanderait une troisieme image par
+   echeance.
+
+   Source : deux modeles regionaux de vagues Copernicus, pas horaire,
+   10 jours de prevision, sans compte.
+     - IBI WAV 005_005 (1/36 deg, ~2-3 km, MFWAM) : Manche, Bretagne,
+       Gascogne.
+     - MED WAV 006_017 (1/24 deg, ~4 km, WAM) : Mediterranee.
+   Memes emprises que le courant, bornees pour ne pas se recouvrir.
+   Les deux produits exposent VHM0, VHM0_SW1, VHM0_SW2, VHM0_WW... sous
+   le meme prefixe : la resolution teste la variable en FIN
+   d'identifiant (voir vzCurResolveLayers_).
+   ============================================================ */
+var VZ_WAV_CFG = {
+  endpoint: 'https://wmts.marine.copernicus.eu/teroWmts',
+  variable: 'VHM0',
+  // range en m. 4 m : au-dela la couleur sature, et c'est le message
+  // voulu (on ne se met pas a l'eau). Pas de logScale : la hauteur est
+  // lue en valeur.
+  style: 'cmap:haline,range:0/4',
+  maxM: 4,
+  facades: [
+    {
+      id: 'ibi',
+      product: 'IBI_ANALYSISFORECAST_WAV_005_005',
+      layerFallback: 'IBI_ANALYSISFORECAST_WAV_005_005/'
+                   + 'cmems_mod_ibi_wav_anfc_0.027deg_PT1H-i_202411/VHM0',
+      bounds: [[43.15, -6.50], [51.60, 2.60]]
+    },
+    {
+      id: 'med',
+      product: 'MEDSEA_ANALYSISFORECAST_WAV_006_017',
+      layerFallback: 'MEDSEA_ANALYSISFORECAST_WAV_006_017/'
+                   + 'cmems_mod_med_wav_anfc_4.2km_PT1H-i_202311/VHM0',
+      bounds: [[40.90, 2.60], [44.20, 10.20]]
+    }
+  ],
+  // Positions 0-1 sur l'echelle serveur (range 0/4 lineaire, donc
+  // position = Hs / 4). Rampe NON LINEAIRE : six paliers sous 2 m, la ou
+  // se joue la decision d'un chasseur, deux seulement au-dela. Memes
+  // teintes que le courant : une couleur dit la meme chose partout.
+  stops: [
+    [0.000,  96, 152, 206],   // 0 m     bleu franc, mer plate
+    [0.075,  45, 168, 136],   // 0,3 m   teal profond
+    [0.150,  77, 212, 168],   // 0,6 m   teal de marque, bonnes conditions
+    [0.250, 184, 214,  81],   // 1 m     vert-jaune, ca se degrade
+    [0.375, 216, 200,  74],   // 1,5 m   jaune, limite
+    [0.500, 232, 155,  60],   // 2 m     orange, mauvais
+    [0.750, 201,  74,  61],   // 3 m     rouge charte
+    [1.000, 122,  32,  27]    // 4 m     rouge profond, mer fermee
+  ],
+  hoursBack: 6,
+  hoursFwd: 72,
+  opacity: 0.72,
+  pane: 'vzWavPane',
+  attribution: 'Vagues : E.U. Copernicus Marine Service (IBI, MED)',
+  tag: 'vagues'
+};
+
+// Composantes decodees pour les particules et leur echelle serveur. La
+// geometrie de la mosaique (tuiles, grille de sortie, clip MED) est celle
+// de VZ_CUR_GRID, reutilisee telle quelle.
+var VZ_WAV_GRID = {
+  components: ['VHM0', 'VMDR'],
+  ranges: [[0, 4], [0, 360]],   // hauteur en m ; direction d'ou vient la houle, en degres
+  // Allure des particules : la grandeur vaut 0 a 4 (m) la ou le courant
+  // va de 0 a 2 (m/s) avec 0.05. Calee pour qu'une mer de 1 m avance comme
+  // un courant de 1 kt. Une seule constante a toucher si c'est trop vif.
+  velocityScale: 0.04
+};
+
+var VZ_WAV_STATE = {
+  lut: null, min: null, max: null, warned: false,
+  cmap: null, g2f: null, fieldSeq: 0, fieldPending: false,
+  legendPending: null, resolvePending: null,
+  layers: null,            // [{cfg, layer}]
+  time: null               // chaine TIME appliquee aux tuiles
+};
+
+// Applique l'echeance d'index i. Meme mecanique que vzCurShowFrame_ :
+// redraw() passe par le cache HTTP, revenir en arriere ne recharge rien.
+function vzWavShowFrame_(i) {
+  if (!S.wavFrames || !S.wavFrames.length) return;
+  i = Math.max(0, Math.min(i, S.wavFrames.length - 1));
+  S.wavPos = i;
+  VZ_WAV_STATE.time = S.wavFrames[i].wmts;
+  if (VZ_WAV_STATE.layers) {
+    for (var k = 0; k < VZ_WAV_STATE.layers.length; k++) {
+      try { VZ_WAV_STATE.layers[k].redraw(); } catch (e) {}
+    }
+  }
+  if (S.wavFlowLayer) vzWavLoadField_();
+}
+
+// Point d'entree unique de la couche : resout les identifiants, construit
+// les deux facades une seule fois, cale l'echeance sur l'heure courante.
+function vzWavEnsure_() {
+  if (VZ_WAV_STATE.layers) return Promise.resolve(VZ_WAV_STATE.layers);
+  return vzCurResolveLayers_(VZ_WAV_CFG, VZ_WAV_STATE).then(function() {
+    if (VZ_WAV_STATE.layers) return VZ_WAV_STATE.layers;   // course
+    S.wavFrames = vzCurBuildFrames_(VZ_WAV_CFG);
+    S.wavPos = vzCurNowIndex_(S.wavFrames);
+    VZ_WAV_STATE.time = S.wavFrames[S.wavPos].wmts;
+    VZ_WAV_STATE.layers = VZ_WAV_CFG.facades.map(function(f) {
+      return vzCurBuildLayer_(f, VZ_WAV_CFG, VZ_WAV_STATE);
+    });
+    // La LUT arrive apres les premieres tuiles : on repeint une fois prete.
+    vzCurFetchLegend_(VZ_WAV_CFG, VZ_WAV_STATE).then(function() {
+      if (!VZ_WAV_STATE.lut || !VZ_WAV_STATE.layers) return;
+      for (var k = 0; k < VZ_WAV_STATE.layers.length; k++) {
+        try { VZ_WAV_STATE.layers[k].redraw(); } catch (e) {}
+      }
+    });
+    return VZ_WAV_STATE.layers;
+  });
+}
+
+// Recharge le champ de particules : deux images (hauteur, direction)
+// decodees sur la grille commune, puis composees en vecteur u/v. Le
+// compteur de generation evite qu'un decodage lent, lance sur une
+// echeance deja quittee, n'ecrase le champ courant.
+function vzWavLoadField_() {
+  var seq = ++VZ_WAV_STATE.fieldSeq;
+  VZ_WAV_STATE.fieldPending = true;
+  var G = VZ_CUR_GRID, W = VZ_WAV_GRID;
+  function opt(c) { return { cfg: VZ_WAV_CFG, state: VZ_WAV_STATE, lo: W.ranges[c][0], hi: W.ranges[c][1] }; }
+  return vzCurFetchLegend_(VZ_WAV_CFG, VZ_WAV_STATE).then(function() {
+    return Promise.all([
+      vzCurDecodeComponent_(W.components[0], opt(0)),
+      vzCurDecodeComponent_(W.components[1], opt(1))
+    ]);
+  }).then(function(res) {
+    VZ_WAV_STATE.fieldPending = false;
+    if (seq !== VZ_WAV_STATE.fieldSeq) return null;   // echeance perimee
+    var hs = res[0], dir = res[1];
+    if (!hs || !dir || !S.wavFlowLayer) return null;
+    var n = hs.nx * hs.ny;
+    var u = new Array(n), v = new Array(n);
+    var D2R = Math.PI / 180;
+    for (var k = 0; k < n; k++) {
+      var h = hs.data[k], d = dir.data[k];
+      if (h === null || d === null) { u[k] = null; v[k] = null; continue; }
+      // VMDR = direction d'ou VIENT la houle. La particule va dans le sens
+      // de propagation : +180. 0 = nord, sens horaire : est = sin, nord = cos.
+      var to = (d + 180) * D2R;
+      u[k] = h * Math.sin(to);
+      v[k] = h * Math.cos(to);
+    }
+    function hdr(pn) {
+      return {
+        nx: hs.nx, ny: hs.ny,
+        lo1: G.lon0, la1: G.lat0,
+        lo2: G.lon0 + (hs.nx - 1) * G.step,
+        la2: G.lat0 - (hs.ny - 1) * G.step,
+        dx: G.step, dy: G.step,
+        parameterCategory: 2, parameterNumber: pn,
+        refTime: VZ_WAV_STATE.time
+      };
+    }
+    S.wavFlowLayer.setData([
+      { header: hdr(2), data: u },
+      { header: hdr(3), data: v }
+    ]);
+    return true;
+  }).catch(function(e) {
+    VZ_WAV_STATE.fieldPending = false;
+    console.warn('[vagues] champ de particules indisponible', e);
+    return null;
+  });
+}
+
+// Couche de particules. Blanc monochrome comme le vent et le courant : la
+// force vit dans le fond colore, une seule variable un seul encodage.
+function vzWavFlowEnsure_() {
+  if (S.wavFlowLayer) return S.wavFlowLayer;
+  if (typeof L.velocityLayer !== 'function') return null;
+  S.wavFlowLayer = L.velocityLayer({
+    displayValues: false,
+    data: [],
+    speedUnit: 'kt',
+    velocityScale: VZ_WAV_GRID.velocityScale,
+    particleMultiplier: 0.0022,
+    lineWidth: 1.3,
+    opacity: 0.9,
+    colorScale: ['#FFFFFF'],
+    minVelocity: 0,
+    maxVelocity: VZ_WAV_CFG.maxM
+  });
+  return S.wavFlowLayer;
+}
+
+// Legende passive. Meme gabarit que la legende courant (langage instrument),
+// reperes en metres : c'est l'unite dans laquelle un chasseur juge une mer.
+function vzWavEnsureLegend_() {
+  var leg = document.getElementById('vzWavLegend');
+  if (leg) return leg;
+  vzInstrEnsureTokens_();
+  if (!document.getElementById('vzWavLegendStyle')) {
+    var st = document.createElement('style');
+    st.id = 'vzWavLegendStyle';
+    st.textContent =
+      "#vzWavLegend{position:fixed;top:66px;left:50%;transform:translateX(-50%);z-index:1150;display:none;align-items:center;gap:10px;padding:7px 11px;box-sizing:border-box;max-width:calc(100vw - 24px);background:var(--vzi-bg);border:2px solid var(--vzi-line);border-radius:14px;box-shadow:0 10px 28px rgba(8,17,27,0.35);font-family:'Inter',sans-serif;pointer-events:none;}"
+    + "#vzWavLegend.on{display:flex;}"
+    + "#vzWavLegend .vzcl-ttl{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--vzi-ink);white-space:nowrap;}"
+    + "#vzWavLegend .vzcl-scale{position:relative;width:190px;height:12px;}"
+    + "#vzWavLegend .vzcl-bar{display:block;width:100%;height:12px;border:1.5px solid var(--vzi-hair);border-radius:3px;box-sizing:border-box;}"
+    + "#vzWavLegend .vzcl-ticks{position:absolute;inset:0;}"
+    + "#vzWavLegend .vzcl-tick{position:absolute;top:14px;transform:translateX(-50%);font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--vzi-sub);white-space:nowrap;}"
+    + "@media (max-width:768px){"
+    +   "#vzWavLegend{top:calc(var(--vzm-topline, 64px) + 10px);left:12px;right:12px;transform:none;max-width:none;gap:10px;padding:6px 10px;}"
+    +   "#vzWavLegend .vzcl-scale{flex:1;width:auto;}"
+    + "}";
+    (document.head || document.documentElement).appendChild(st);
+  }
+  leg = document.createElement('div');
+  leg.id = 'vzWavLegend';
+  // Reperes tous les metres jusqu'a la borne, qui ferme l'echelle avec un
+  // "+" : au-dela la couche affiche toujours la meme couleur.
+  var ticks = '';
+  for (var m = 0; m < VZ_WAV_CFG.maxM; m++) {
+    var pct = m / VZ_WAV_CFG.maxM * 100;
+    ticks += '<span class="vzcl-tick" style="left:' + pct.toFixed(1) + '%">' + m + '</span>';
+  }
+  ticks += '<span class="vzcl-tick" style="left:100%;transform:translateX(-100%)">' + VZ_WAV_CFG.maxM + '+</span>';
+  leg.innerHTML = '<span class="vzcl-ttl">Vagues</span>'
+    + '<span class="vzcl-scale">'
+    +   '<span class="vzcl-bar" style="background:' + vzCurGradientCss_(VZ_WAV_CFG.stops) + '"></span>'
+    +   '<span class="vzcl-ticks">' + ticks + '</span>'
+    + '</span>'
+    + '<span class="vzcl-ttl">m</span>';
+  document.body.appendChild(leg);
+  return leg;
+}
+
+// Retire la couche et rend la main au curseur. Point de sortie unique,
+// appele par le toggle et par l'echec de chargement.
+function vzWavTeardown_() {
+  if (VZ_WAV_STATE.layers) {
+    for (var k = 0; k < VZ_WAV_STATE.layers.length; k++) {
+      if (S.map.hasLayer(VZ_WAV_STATE.layers[k])) S.map.removeLayer(VZ_WAV_STATE.layers[k]);
+    }
+  }
+  VZ_WAV_STATE.fieldSeq++;   // invalide tout decodage en vol
+  if (S.wavFlowLayer && S.map.hasLayer(S.wavFlowLayer)) S.map.removeLayer(S.wavFlowLayer);
+  var leg = document.getElementById('vzWavLegend');
+  if (leg) leg.classList.remove('on');
+  if (S.timeOwner === 'wav') {
+    vzWindStop_();
+    S.timeOwner = S.showWindFlow ? 'wind' : (S.showCurrent ? 'cur' : (S.showRain ? 'rain' : null));
     var ctl = document.getElementById('vzWindCtrl');
     if (S.timeOwner) {
       vzWindPlaceTicks_();
@@ -4976,7 +5304,7 @@ function vzUpdateLayersBadge() {
   // du module webcams, pas une cle de S.
   var n = (S.showSed ? 1 : 0) + (S.showIso ? 1 : 0) + (S.showLitto3d ? 1 : 0)
         + (S.showRain ? 1 : 0) + (S.showWindFlow ? 1 : 0) + (S.showZsd ? 1 : 0)
-        + (S.showWrecks ? 1 : 0) + (S.showCurrent ? 1 : 0)
+        + (S.showWrecks ? 1 : 0) + (S.showCurrent ? 1 : 0) + (S.showWave ? 1 : 0)
         + ((typeof S_webcamsActive !== 'undefined' && S_webcamsActive) ? 1 : 0);
   for (var i = 0; i < els.length; i++) {
     if (n > 0) { els[i].textContent = n; els[i].classList.add('on'); }
@@ -5044,6 +5372,7 @@ function toggleLayer(type) {
       // que rien a l'ecran ne dise laquelle.
       if (S.showWindFlow) toggleLayer('windflow');
       if (S.showCurrent) toggleLayer('current');
+      if (S.showWave) toggleLayer('wave');
       vzRainEnsureData().then(function(){
         if (!S.showRain) return;   // re-toggle off pendant le fetch
         S.timeOwner = 'rain';
@@ -5081,6 +5410,7 @@ function toggleLayer(type) {
       // colores pilotes par le meme curseur. Superposes, ni la couleur ni
       // le curseur ne voudraient dire quoi que ce soit.
       if (S.showCurrent) toggleLayer('current');
+      if (S.showWave) toggleLayer('wave');
       // Meme raison : le bandeau temporel n'a qu'un proprietaire.
       if (S.showRain) toggleLayer('rain');
       S.timeOwner = 'wind';
@@ -5159,6 +5489,7 @@ function toggleLayer(type) {
       // toggleLayer, donc par le chemin normal de chaque couche.
       if (S.showWindFlow) toggleLayer('windflow');
       if (S.showZsd) toggleLayer('zsd');
+      if (S.showWave) toggleLayer('wave');
       // Le courant prend aussi le bandeau temporel : la pluie doit le lacher.
       if (S.showRain) toggleLayer('rain');
       vzCurEnsure_().then(function(layers){
@@ -5192,6 +5523,49 @@ function toggleLayer(type) {
       });
     } else {
       vzCurTeardown_();
+    }
+  } else if (type === 'wave') {
+    S.showWave = !S.showWave;
+    var _rowWav = document.getElementById('vzRowWave');
+    if (_rowWav) _rowWav.classList.toggle('active', S.showWave);
+    if (S.showWave) {
+      // Memes exclusions que le courant : un seul fond colore dynamique a
+      // la fois, un seul proprietaire du bandeau temporel. Chaque extinction
+      // repasse par toggleLayer, donc par le chemin normal de chaque couche.
+      if (S.showWindFlow) toggleLayer('windflow');
+      if (S.showCurrent) toggleLayer('current');
+      if (S.showZsd) toggleLayer('zsd');
+      if (S.showRain) toggleLayer('rain');
+      vzWavEnsure_().then(function(layers){
+        if (!S.showWave) return;   // re-toggle off pendant la resolution
+        for (var k = 0; k < layers.length; k++) {
+          if (!S.map.hasLayer(layers[k])) layers[k].addTo(S.map);
+        }
+        // Particules par-dessus le fond colore : le fond porte la hauteur,
+        // les traits portent la direction de propagation.
+        var _wf = vzWavFlowEnsure_();
+        if (_wf) {
+          if (!S.map.hasLayer(_wf)) _wf.addTo(S.map);
+          vzWindKeepAnimatedOnPan_(12, _wf);
+          vzWindHiDpiEnsure_(12, _wf);
+          vzWavLoadField_();
+        } else {
+          console.warn('[vagues] leaflet-velocity absent, fond colore seul');
+        }
+        S.timeOwner = 'wav';
+        vzWavEnsureLegend_().classList.add('on');
+        vzWindEnsureCtrl_().classList.add('on');
+        document.body.classList.add('vz-wind-band');
+        vzWindPlaceTicks_();
+        vzWindSyncCtrl_();
+      }).catch(function(e){
+        console.warn('[vagues] couche indisponible', e);
+        S.showWave = false;
+        if (_rowWav) _rowWav.classList.remove('active');
+        vzWavTeardown_();
+      });
+    } else {
+      vzWavTeardown_();
     }
   } else if (type === 'zsd') {
     S.showZsd = !S.showZsd;
@@ -5243,7 +5617,7 @@ function toggleLayer(type) {
   // (exclusivites entre couches) laissent l'etat a false et ne comptent pas.
   var _vzOn = {
     heatmap: S.showHeatmap, iso: S.showIso, sed: S.showSed, rain: S.showRain,
-    windflow: S.showWindFlow, litto3d: S.showLitto3d, current: S.showCurrent,
+    windflow: S.showWindFlow, litto3d: S.showLitto3d, current: S.showCurrent, wave: S.showWave,
     zsd: S.showZsd, spots: S.spotMode, measure: S.measureMode, wrecks: S.showWrecks
   }[type];
   if (_vzOn) vzTrack('layer_' + type);
@@ -24618,7 +24992,7 @@ var VZ_ACCOUNT = (function () {
     var n = 0;
     // showLitto3d et non showLitto : la cle testee n'existait pas, le Relief du
     // fond n'a donc jamais ete compte dans ce badge.
-    ['showWindFlow','showCurrent','showRain','showSed','showWrecks','showZsd','showLitto3d','showIso','showHeatmap']
+    ['showWindFlow','showCurrent','showWave','showRain','showSed','showWrecks','showZsd','showLitto3d','showIso','showHeatmap']
       .forEach(function(k){ if (S && S[k]) n++; });
     el.textContent = n;
     el.style.display = n ? '' : 'none';
