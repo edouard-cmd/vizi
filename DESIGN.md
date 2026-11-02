@@ -16,6 +16,7 @@ colors:
   line: "#C3D0DA"
   warning: "#D8C84A"
   caution: "#E89B3C"
+  caution-text: "#8A4F09"
   danger: "#C94A3D"
 typography:
   number-large:
@@ -165,10 +166,13 @@ Une palette d'instrument : un noir d'encre, un blanc de plaque, un teal à trois
 - **Trait fin** (#C3D0DA) : séparateurs internes et bordure d'un champ au repos. Jamais du texte.
 
 ### Tertiary
-- **Vigilance** (#D8C84A), **Prudence** (#E89B3C), **Danger** (#C94A3D) : états de visibilité et d'alerte. Vigilance et Prudence sont des aplats avec texte ink (10,76:1 et 8,05:1), jamais du texte sur blanc. Danger peut porter du texte blanc ou être du texte sur blanc (4,64:1) à partir de 14 px gras.
+- **Vigilance** (#D8C84A), **Prudence** (#E89B3C), **Danger** (#C94A3D) : états de visibilité et d'alerte. Vigilance et Prudence sont des aplats avec texte ink (10,76:1 et 8,05:1), jamais du texte sur blanc (1,7 et 2,3:1). Danger peut porter du texte blanc ou être du texte sur blanc (4,64:1) à partir de 14 px gras ; c'est aussi la couleur d'un message d'erreur.
+- **Ambre écrit** (#8A4F09, jeton `--vz-caution-text`) : la seule couleur pour écrire une vigilance ou une prudence sur fond clair (6,56:1) : vent fort, basse mer, vives eaux, source vieillie. La pastille jaune ou orange reste à côté, en aplat.
 
 ### Named Rules
 **The Aplat-Only Rule.** Le teal signal #4DD4A8 ne s'écrit jamais en texte sur fond clair (1,86:1). Il remplit ; le teal profond écrit.
+
+**The Aplat ou Écrit Rule.** Chaque couleur d'alerte a deux formes, l'aplat et l'écrit. Le jaune et l'orange n'existent qu'en aplat ; sur fond clair, une vigilance s'écrit en ambre écrit #8A4F09.
 
 **The Source unique Rule.** Chaque jeton `--vz-*` est défini une seule fois, dans un seul `:root`. Deux définitions du même jeton dans deux fichiers, c'est le chargement le plus tardif qui gagne en silence : c'est ainsi que tout le texte d'accent d'index.html est passé de lisible à illisible.
 
@@ -223,6 +227,24 @@ Le système est plat. La profondeur se lit par contraste de plans (plaque blanch
 
 Des coins doucement arrondis sur une échelle fermée : panneau 16 px (coins hauts seulement quand il monte du bas), carte et bouton 14 px, groupe 12 px, ligne 10 px, petit contrôle 9 px. Les cibles circulaires sont réservées aux marqueurs de carte et au bouton communauté. Les icônes sont des SVG au trait (1,9 à 2,6 px selon la taille), jamais des emoji, jamais des icônes remplies.
 
+## Motion
+
+Le mouvement se règle sur la fréquence. Ce qu'on touche des dizaines de fois par sortie (onglets, menu communauté, boutons) répond tout de suite ; ce qu'on ne voit qu'une fois (le premier lancement) peut prendre son temps.
+
+- **Durées :** pression 0,16 s ; menu et apparition 0,18 s, cascade de 30 ms entre deux lignes ; panneau qui glisse 0,3 s. Rien au-delà de 0,3 s pour ce qui revient en boucle.
+- **Courbes :** sortie franche `cubic-bezier(.23,1,.32,1)` pour ce qui apparaît, courbe de tiroir `cubic-bezier(.32,.72,0,1)` pour un panneau. Pas de rebond : il fait jouet, pas instrument.
+- **Propriétés :** transform et opacity seulement. Animer height, top ou left recalcule la mise en page à chaque image.
+- **Écran d'accueil :** animation complète à la première visite. Ensuite, écran fixe effacé en 0,3 s dès la première tuile de carte, jamais plus de 2,4 s.
+
+### Named Rules
+**The Onglet Immédiat Rule.** Les quatre onglets de la barre basse apparaissent sans transition. Le même geste produit le même effet sur chaque onglet.
+
+**The Signal Fini Rule.** Une animation qui signale un événement (point posé, observation fraîche) joue un nombre fini de fois puis s'arrête. Une boucle permanente n'est admise que si elle porte une donnée vivante : position GPS, vent, pluie, chargement en cours.
+
+**The Doigt d'Abord Rule.** Le survol est réservé à la souris (`@media (hover: hover) and (pointer: fine)`) : sur iPhone, `:hover` reste collé au dernier élément touché. Au doigt, l'appui se sent par un enfoncement (`:active`, échelle .94 à .97).
+
+**The Mouvement Réduit Rule.** Le réglage système « Réduire les animations » coupe toutes les boucles décoratives et tous les glissements. Les fondus et les indicateurs de chargement restent.
+
 ## Components
 
 ### Buttons
@@ -264,10 +286,14 @@ Bandeau blanc posé sur la barre basse : réticule teal courant, nom du point vi
 - **Do** ancrer chaque surface flottante mobile sur `--vzm-navline` ou `--vzm-topline`.
 - **Do** ouvrir chaque panneau par le point d'entrée unique, pour que la barre basse, la ligne d'identité et le bouton communauté sachent ce qui est ouvert.
 - **Do** dire l'absence de donnée en texte trois (« pas d'image exploitable »), jamais la masquer.
+- **Do** écrire une vigilance sur fond clair en ambre écrit (#8A4F09), une erreur en danger (#C94A3D).
+- **Do** régler chaque animation sur sa fréquence : immédiat pour un onglet, 0,3 s au plus pour un panneau.
 - **Do** préfixer les classes `vz-` (desktop) et `vzm-` (mobile).
 
 ### Don't:
 - **Don't** écrire du texte en #4DD4A8 sur une surface claire.
+- **Don't** écrire du texte en #D8C84A ou #E89B3C sur une surface claire.
+- **Don't** animer height, top ou left, ni laisser boucler une animation qui ne porte pas de donnée vivante.
 - **Don't** utiliser de flou, de `backdrop-filter`, de surface translucide, de dégradé ou d'ombre portée.
 - **Don't** descendre sous 12px de texte, ni plus clair que #51677A pour un texte.
 - **Don't** positionner un élément flottant mobile avec un `bottom` ou `top` en pixels écrits à la main.
