@@ -4801,12 +4801,12 @@ var VzWavCrestLayer = L.Layer.extend({
     this.getPane().appendChild(cv);
     this._resize();
     map.on('resize', this._resize, this);
-    this._on = true;
+    this._running = true;
     this._tickBound = this._tick.bind(this);
     this._raf = requestAnimationFrame(this._tickBound);
   },
   onRemove: function(map) {
-    this._on = false;
+    this._running = false;
     if (this._raf) cancelAnimationFrame(this._raf);
     this._raf = 0;
     map.off('resize', this._resize, this);
@@ -4854,7 +4854,7 @@ var VzWavCrestLayer = L.Layer.extend({
     return [su / sw, sv / sw];
   },
   _tick: function(now) {
-    if (!this._on) return;
+    if (!this._running) return;
     this._raf = requestAnimationFrame(this._tickBound);
     var map = this._map, cv = this._cv, ctx = this._ctx;
     if (!cv || !ctx) return;
