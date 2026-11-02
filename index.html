@@ -92,34 +92,45 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css"/>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css"/>
   <script>
-  // Ecran d'accueil : l'animation complete (2,4 s) ne se joue qu'a la
-  // premiere visite. Ensuite l'ecran reste fixe le temps que la carte
-  // arrive, puis s'efface en 0,3 s : on ouvre l'app des dizaines de fois par
-  // saison, l'attente imposee ne doit pas se repeter. Decide ICI, avant le
-  // premier rendu du corps, sinon l'animation longue aurait deja demarre.
-  // Stockage refuse : animation complete, comme avant.
+  // Ecran d'accueil. Les bars qui s'ecartent sont la signature de Visimer,
+  // ils jouent a CHAQUE ouverture. Ce qui change, c'est la duree :
+  //  - premiere ouverture du jour : animation complete (2,4 s), le moment ou
+  //    le chasseur regarde s'il sort ;
+  //  - ouvertures suivantes le meme jour : meme scene acceleree, logo pose
+  //    des le depart et tenu 1,2 s au moins pour etre lu, efface en 0,4 s
+  //    quand la carte est prete. Jamais plus long que l'animation complete.
+  // Decide ICI, avant le premier rendu du corps, sinon l'animation longue
+  // aurait deja demarre. Stockage refuse : animation complete, comme avant.
   (function () {
     // Retour au toucher : Safari iOS n'applique :active que si un ecouteur
     // touchstart existe. Passif et vide, il ne retient ni defilement ni clic.
     try { document.addEventListener('touchstart', function () {}, { passive: true }); } catch (e) {}
-    var vu = false;
-    try { vu = localStorage.getItem('vz_splash_vu') === '1'; localStorage.setItem('vz_splash_vu', '1'); } catch (e) {}
-    if (!vu) return;
-    var de = document.documentElement, fini = false;
+    var d = new Date(), jour = d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(), deja = false;
+    try {
+      deja = localStorage.getItem('vz_splash_jour') === jour;
+      localStorage.setItem('vz_splash_jour', jour);
+      localStorage.removeItem('vz_splash_vu');   // cle de la version precedente
+    } catch (e) {}
+    if (!deja) return;
+    var de = document.documentElement, carte = false, tenu = false, fini = false;
     de.classList.add('vz-splash-court');
-    // Carte prete = premiere tuile du fond arrivee. Une tuile en erreur
-    // compte aussi : hors ligne, l'ecran ne doit jamais rester pose.
-    function tuile(e) { var t = e.target; if (t && t.classList && t.classList.contains('leaflet-tile')) out(); }
     function out() {
       if (fini) return; fini = true;
       document.removeEventListener('load', tuile, true);
       document.removeEventListener('error', tuile, true);
       de.classList.add('vz-splash-fin');
     }
+    // On efface quand les DEUX conditions sont remplies : la carte est prete
+    // et le logo a ete vu.
+    function tente() { if (carte && tenu) out(); }
+    // Carte prete = premiere tuile du fond arrivee. Une tuile en erreur
+    // compte aussi : hors ligne, l'ecran ne doit jamais rester pose.
+    function tuile(e) { var t = e.target; if (t && t.classList && t.classList.contains('leaflet-tile')) { carte = true; tente(); } }
     document.addEventListener('load', tuile, true);
     document.addEventListener('error', tuile, true);
-    window.addEventListener('load', out);
-    setTimeout(out, 2400);   // plafond : jamais plus long que l'ancienne animation
+    window.addEventListener('load', function () { carte = true; tente(); });
+    setTimeout(function () { tenu = true; tente(); }, 1300);   // logo tenu 1,2 s apres le premier rendu
+    setTimeout(out, 2000);   // plafond : effacement fini a 2,4 s, comme l'animation complete
   })();
   </script>
   <style>
@@ -3175,13 +3186,16 @@ input[type=range].obs-vis-slider::-webkit-slider-thumb {
   }
 }
 
-/* Visites suivantes (classe posee par le script de tete) : ecran fixe, sans
-   poissons ni trace, efface en 0,3 s des que la carte est prete. */
+/* Ouvertures suivantes du jour (classe posee par le script de tete) : la meme
+   scene acceleree. Les poissons fuient en 0,8 s au lieu de 1,4 s, le logo et
+   le mot sont poses des le depart, l'ecran s'efface en 0,4 s quand le script
+   pose vz-splash-fin. En mouvement reduit, les poissons restent masques par
+   la regle .vz-fish{display:none} du bloc reduce. */
 html.vz-splash-court .vz-splash {
   animation: none;
-  transition: opacity 0.3s cubic-bezier(.23,1,.32,1), visibility 0s linear 0.3s;
+  transition: opacity 0.4s cubic-bezier(.23,1,.32,1), visibility 0s linear 0.4s;
 }
-html.vz-splash-court .vz-fish { display: none; }
+html.vz-splash-court .vz-fish { animation-duration: 0.8s; }
 html.vz-splash-court .vz-splash-logo,
 html.vz-splash-court .vz-splash-wordmark { animation: none; opacity: 1; }
 html.vz-splash-court .vz-splash-mark path { animation: none; stroke-dashoffset: 0; }
