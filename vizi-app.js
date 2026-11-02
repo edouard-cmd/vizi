@@ -5923,11 +5923,11 @@ function vzSubmitHunt() {
   var consent = document.getElementById('vzHuntConsent');
   var msg = document.getElementById('vzHuntMsg');
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    if (msg) { msg.textContent = 'Email invalide.'; msg.style.color = '#E89B3C'; }
+    if (msg) { msg.textContent = 'Email invalide.'; msg.style.color = '#C94A3D'; }
     return;
   }
   if (consent && !consent.checked) {
-    if (msg) { msg.textContent = 'Coche le consentement pour recevoir tes spots.'; msg.style.color = '#E89B3C'; }
+    if (msg) { msg.textContent = 'Coche le consentement pour recevoir tes spots.'; msg.style.color = '#C94A3D'; }
     return;
   }
 vzTrack('gpx_export');
@@ -17013,14 +17013,14 @@ var css = `
     .vz-cond-dayhead .dh-day { font-size: 14px; font-weight: 800; color: #0A1520; flex: 0 0 auto; }
     .vz-cond-dayhead .dh-coef {
       flex: 0 0 auto; white-space: nowrap; font-family: 'IBM Plex Mono', monospace;
-      font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 5px;
+      font-size: 12px; font-weight: 700; padding: 2px 6px; border-radius: 5px;
       border: 1.5px solid #C9D4DC; color: #51677A;
     }
     .vz-cond-dayhead .dh-coef.is-moyen { border-color: #C9D4DC; color: #51677A; }
     .vz-cond-dayhead .dh-coef.is-vives { border-color: #E89B3C; color: #8A4F09; background: rgba(232,155,60,.14); }
     .vz-cond-dayhead .dh-vis { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; font-weight: 700; color: #0E7C62; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
     /* Lever et coucher cedent en premier : ils s'effacent sans rien pousser. */
-    .vz-cond-dayhead .dh-meta { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 500; color: #51677A; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+    .vz-cond-dayhead .dh-meta { font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; color: #51677A; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
     .vz-cond-hourhead {
       height: 28px; background: #F7F9FB; border-bottom: 1px solid #C9D4DC;
       font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; color: #51677A;
@@ -17080,8 +17080,8 @@ var css = `
     .vz-tide-inner svg { display: block; width: 100%; height: 84px; }
     .vz-tide-mark {
       position: absolute; left: 0; top: 0;
-      font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; font-weight: 700;
-      padding: 1px 5px; border-radius: 4px; white-space: nowrap;
+      font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 700;
+      line-height: 1.15; padding: 1px 5px; border-radius: 4px; white-space: nowrap;
     }
     /* Pleine mer : etiquette au-dessus du point. Basse mer : en dessous.
        Elles ne se marchent jamais dessus puisqu'elles alternent. */
@@ -17094,9 +17094,9 @@ var css = `
       display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
       padding: 11px 14px; border-top: 2px solid #0A1520; background: #F7F9FB;
     }
-    .vz-cond-footer .fl { font-family: Inter, sans-serif; font-size: 11px; font-weight: 700; color: #51677A; letter-spacing: -.005em; }
+    .vz-cond-footer .fl { font-family: Inter, sans-serif; font-size: 12px; font-weight: 700; color: #51677A; letter-spacing: -.005em; }
     .vz-cond-footer .fs {
-      font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; font-weight: 500; color: #51677A;
+      font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 500; color: #51677A;
       border: 1px solid #C9D4DC; border-radius: 5px; padding: 2px 7px; background: #FFFFFF;
     }
     /* Une journee entiere en "?" ne doit pas se lire comme une panne. */
@@ -17167,18 +17167,20 @@ var css = `
 .vzm-src-line{display:flex;align-items:baseline;justify-content:space-between;gap:6px}
 /* Sentence case en Inter : ces deux mots nomment ce qu on mesure, ce ne
    sont pas des etiquettes de champ. */
-.vzm-src-lbl{display:block;font-family:Inter,sans-serif;font-size:11.5px;
+.vzm-src-lbl{display:block;font-family:Inter,sans-serif;font-size:12px;
   font-weight:700;letter-spacing:-.02em;color:#0A1520;line-height:1.15;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.vzm-src-age{flex:1;min-width:0;font-family:"IBM Plex Mono",monospace;font-size:10.5px;
-  font-weight:600;color:#51677A;line-height:1.2;white-space:nowrap;overflow:hidden;
-  text-overflow:ellipsis}
+/* L age passe a la ligne au lieu d etre coupe : on lisait "aucune image ex...". */
+.vzm-src-age{flex:1;min-width:0;font-family:"IBM Plex Mono",monospace;font-size:12px;
+  font-weight:600;color:#51677A;line-height:1.25;overflow-wrap:break-word}
 /* Au-dela de 72 h l age devient l information principale de la ligne. */
-.vzm-src-cell.is-stale .vzm-src-age{color:#E89B3C;font-weight:700}
+.vzm-src-cell.is-stale .vzm-src-age{color:var(--vz-caution-text,#8A4F09);font-weight:700}
 .vzm-src-cell.is-stale .vzm-src-val{color:#51677A}
 .vzm-src-val{flex-shrink:0;font-family:"IBM Plex Mono",monospace;font-size:16px;
   font-weight:700;color:#0A1520;letter-spacing:-.03em;line-height:1}
-.vzm-src-val.is-none{font-family:Inter,sans-serif;font-size:12px;font-weight:700;color:#51677A}
+/* Sans mesure, l age dit deja l absence ("aucune image exploitable") : le
+   mot "aucune" a droite la repetait et volait la place de la phrase. */
+.vzm-src-val.is-none{display:none}
 
 /* ---- Defilement vertical, seul mode de navigation dans le temps ---- */
 .vzm-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;
@@ -17197,30 +17199,32 @@ var css = `
    defilent visiblement dessous. ---- */
 .vzm-dayhead{position:sticky;top:0;z-index:4;display:flex;align-items:center;gap:8px;
   padding:8px 12px;min-height:44px;background:#0A1520;border-bottom:2px solid #0A1520}
-.vzm-dayhead .dh-d{font-size:13.5px;font-weight:800;color:#fff;letter-spacing:-.01em;
+.vzm-dayhead .dh-d{font-size:14px;font-weight:800;color:#fff;letter-spacing:-.01em;
   flex:0 0 auto}
-.vzm-dayhead .dh-c{flex:0 0 auto;font-family:"IBM Plex Mono",monospace;font-size:10.5px;
-  font-weight:700;padding:2px 6px;border-radius:5px;border:1.5px solid rgba(255,255,255,.4);
+.vzm-dayhead .dh-c{flex:0 0 auto;font-family:"IBM Plex Mono",monospace;font-size:12px;
+  font-weight:700;padding:2px 7px;border-radius:5px;border:1.5px solid rgba(255,255,255,.4);
   color:#fff;white-space:nowrap}
 .vzm-dayhead .dh-c.is-vives{border-color:#E89B3C;color:#FFD9A8;background:rgba(232,155,60,.2)}
 .vzm-dayhead .dh-s{margin-left:auto;flex:0 1 auto;min-width:0;
-  font-family:"IBM Plex Mono",monospace;font-size:10.5px;font-weight:500;
-  color:rgba(255,255,255,.72);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:500;
+  color:rgba(255,255,255,.82);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 /* ---- Barre d intitules de colonnes ---- */
-.vzm-colhead{display:flex;align-items:center;gap:6px;padding:5px 12px;
+.vzm-colhead{display:flex;align-items:center;gap:6px;padding:6px 12px;
   background:#F7F9FB;border-bottom:1px solid #C9D4DC}
-.vzm-colhead span{font-family:"IBM Plex Mono",monospace;font-size:8.5px;font-weight:700;
-  letter-spacing:.1em;text-transform:uppercase;color:#51677A}
+/* Inter 12 px en minuscules : en capitales mono a 12 px, Visibilite et
+   Vagues ne tiennent plus dans leur colonne, et un intitule ne s abrege pas. */
+.vzm-colhead span{font-family:Inter,sans-serif;font-size:12px;font-weight:700;
+  letter-spacing:-.01em;white-space:nowrap;color:#33475A}
 /* Sept colonnes de largeur FIXE. C est ce qui permet de suivre une
    variable du regard de haut en bas : son x ne bouge pas d une ligne a
    l autre. Les en-tetes sont ecrits en clair, jamais abreges. */
-.vzm-colhead .c-h{width:34px;flex-shrink:0}
+.vzm-colhead .c-h{width:36px;flex-shrink:0}
 .vzm-colhead .c-v{width:78px;flex-shrink:0}
 .vzm-colhead .c-d{width:34px;flex-shrink:0;text-align:center}
 .vzm-colhead .c-w{width:52px;flex-shrink:0;text-align:center}
 .vzm-colhead .c-r{width:24px;flex-shrink:0;text-align:center}
-.vzm-colhead .c-g{width:40px;flex-shrink:0;text-align:center}
+.vzm-colhead .c-g{width:44px;flex-shrink:0;text-align:center}
 .vzm-colhead .c-s{flex:1;min-width:0;text-align:right}
 
 /* ---- La ligne de creneau, cible tactile de 56px ----
@@ -17242,7 +17246,7 @@ var css = `
 .vzm-slot.is-now::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;
   background:#0A1520}
 .vzm-slot.is-now .sl-h{color:#0A1520;font-weight:700}
-.sl-h{width:34px;flex-shrink:0;font-family:"IBM Plex Mono",monospace;font-size:13px;
+.sl-h{width:36px;flex-shrink:0;font-family:"IBM Plex Mono",monospace;font-size:13px;
   font-weight:600;color:#51677A;letter-spacing:-.01em}
 
 /* Visibilite : seule surface pleine de la ligne. Elle forme une colonne
@@ -17260,7 +17264,7 @@ var css = `
 .sl-d .dv.is-none{color:#51677A;font-weight:500}
 .sl-d .dt{display:flex;align-items:center;gap:1px;font-family:"IBM Plex Mono",monospace;
   font-size:8.5px;font-weight:600;color:#51677A;line-height:1}
-.sl-d .dt svg{width:9px;height:9px;stroke:currentColor;fill:none;stroke-width:2.6;
+.sl-d .dt svg{width:10px;height:10px;stroke:currentColor;fill:none;stroke-width:2.6;
   stroke-linecap:round;stroke-linejoin:round}
 
 /* Vent, direction, vagues : trois colonnes bornees, jamais une zone
@@ -17270,12 +17274,12 @@ var css = `
 .sl-w{width:52px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:3px}
 .sl-w .wv{font-family:"IBM Plex Mono",monospace;font-size:14px;font-weight:700;
   color:#0A1520;letter-spacing:-.03em;line-height:1}
-.sl-w .wv i{font-style:normal;font-size:11px;font-weight:600;color:#51677A}
+.sl-w .wv i{font-style:normal;font-size:12px;font-weight:600;color:#51677A}
 .sl-bar{width:100%;height:3px;border-radius:2px;display:block}
 .sl-r{width:24px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
 .sl-r svg{width:14px;height:14px;stroke:#0A1520;fill:none;stroke-width:2.2;
   stroke-linecap:round;stroke-linejoin:round;display:block}
-.sl-g{width:40px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:3px}
+.sl-g{width:44px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:3px}
 .sl-g .gv{font-family:"IBM Plex Mono",monospace;font-size:13px;font-weight:600;
   color:#0A1520;letter-spacing:-.02em;line-height:1}
 .sl-s{flex:1;min-width:0;display:flex;align-items:center;justify-content:flex-end}
@@ -17295,7 +17299,7 @@ var css = `
 .vzm-slack .sk-t{font-size:12.5px;font-weight:800;color:#0A1520;letter-spacing:-.01em}
 .vzm-slack .sk-h{margin-left:auto;font-family:"IBM Plex Mono",monospace;font-size:14px;
   font-weight:700;color:#0A1520;letter-spacing:-.01em}
-.vzm-slack .sk-m{font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;
+.vzm-slack .sk-m{font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:600;
   color:#51677A}
 
 /* ---- Etat 3 : visibilite indisponible partout. La note evite que la
@@ -17315,25 +17319,25 @@ var css = `
 /* ---- Pied de sources ---- */
 .vzm-foot{flex-shrink:0;display:flex;align-items:center;gap:6px;flex-wrap:wrap;
   padding:9px 12px;border-top:2px solid #0A1520;background:#F7F9FB}
-.vzm-foot .fl{font-size:10.5px;font-weight:700;color:#51677A}
-.vzm-foot .fs{font-family:"IBM Plex Mono",monospace;font-size:9.5px;font-weight:500;
-  color:#51677A;border:1px solid #C9D4DC;border-radius:4px;padding:2px 6px;background:#FFFFFF}
+.vzm-foot .fl{font-size:12px;font-weight:700;color:#33475A}
+.vzm-foot .fs{font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:500;
+  color:#33475A;border:1px solid #C3D0DA;border-radius:5px;padding:2px 7px;background:#FFFFFF}
 
 /* ---- 320px : iPhone SE en zoom d affichage ---- */
 @media (max-width:340px){
   .sl-v{width:68px;font-size:15px}
-  .sl-h{width:30px;font-size:12px}
+  .sl-h{width:36px;font-size:12px}
   .sl-d{width:30px}
   .sl-w{width:46px}
-  .sl-g{width:34px}
+  .sl-g{width:44px}
   .vzm-slot{gap:4px;padding:0 8px}
   .sl-w .wv{font-size:13px}
   .vzm-colhead{padding:5px 8px;gap:4px}
   .vzm-colhead .c-v{width:68px}
-  .vzm-colhead .c-h{width:30px}
+  .vzm-colhead .c-h{width:36px}
   .vzm-colhead .c-d{width:30px}
   .vzm-colhead .c-w{width:46px}
-  .vzm-colhead .c-g{width:34px}
+  .vzm-colhead .c-g{width:44px}
 }
 
 /* ---- Le desktop ne bouge pas ---- */
@@ -19779,12 +19783,13 @@ function buildTideBandCell(slots, i0, i1, tideData) {
   var allH = pts.map(function(p) { return p.height; });
   var minH = Math.min.apply(null, allH), maxH = Math.max.apply(null, allH);
   var rangeH = Math.max(maxH - minH, 0.3);
-  // 44 unites de course sur 84, soit 44 px a l'ecran contre 22 auparavant :
-  // l'amplitude double. Les 20 unites de garde en haut et en bas ne sont pas
+  // 41 unites de course sur 84, soit 41 px a l'ecran contre 22 auparavant :
+  // l'amplitude double presque. Les unites de garde (20 en haut, 23 en bas,
+  // ou l'etiquette cerclee de basse mer est plus haute) ne sont pas
   // du vide perdu, c'est la place des etiquettes d'etale, qui se posent a la
   // hauteur de leur extreme et debordent vers l'exterieur de la courbe. Sans
   // cette garde, .vz-tide-inner les clippait.
-  var VBW = 100, VBH = 84, yTop = 20, yBot = 64;
+  var VBW = 100, VBH = 84, yTop = 20, yBot = 61;
   function X(ms) { return ((ms - t0) / span) * VBW; }
   function Y(hh) { return yBot - ((hh - minH) / rangeH) * (yBot - yTop); }
 
@@ -19803,7 +19808,9 @@ function buildTideBandCell(slots, i0, i1, tideData) {
     // L'etiquette se pose A LA HAUTEUR de son extreme : c'est ce qui libere la
     // bande pour la courbe, et ca dit aussi visuellement de quel creux ou de
     // quelle bosse on parle.
-    var yp = Math.max(0, Math.min(100, Y(ext[e].height) / VBH * 100));
+    // Bornee a la course : les extremes du SHOM depassent parfois la courbe
+    // interpolee de quelques centimetres, l'etiquette sortait alors du cadre.
+    var yp = Math.max(yTop, Math.min(yBot, Y(ext[e].height))) / VBH * 100;
     var hhmm = new Date(ext[e].time).toLocaleTimeString('fr', { hour: '2-digit', minute: '2-digit' });
     marks += '<span class="vz-tide-mark ' + (ext[e].type === 'high' ? 'pm' : 'bm')
       + '" style="left:' + p.toFixed(1) + '%;top:' + yp.toFixed(1) + '%">' + hhmm + '</span>';
@@ -22317,16 +22324,22 @@ function vzmInit() {
     + '.vzm-sonar-act[data-soon="true"]{opacity:.62;}'
     + '.vzm-sonar-badge{margin-left:auto;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#0A1520;background:#D8C84A;border-radius:6px;padding:2px 6px;}'
     + '@media (prefers-reduced-motion: no-preference){'
-    +   '.vzm-sonar-sector,.vzm-sonar-act{transition:opacity .24s ease,transform .34s cubic-bezier(.34,1.25,.5,1);}'
-    +   '.vzm-sonar-root[data-open="true"] .vzm-sonar-sector{transition-delay:.24s;}'
-    +   '.vzm-sonar-root[data-open="true"] .vzm-sonar-act:nth-child(4){transition-delay:.04s;}'
-    +   '.vzm-sonar-root[data-open="true"] .vzm-sonar-act:nth-child(3){transition-delay:.11s;}'
-    +   '.vzm-sonar-root[data-open="true"] .vzm-sonar-act:nth-child(2){transition-delay:.18s;}'
+    // Menu ouvert des dizaines de fois par sortie : il repond en 180 ms,
+    // sans rebond (le rebond fait jouet), en cascade de 30 ms depuis le
+    // bouton. La pastille secteur ferme la cascade au lieu d'arriver 240 ms
+    // apres. Tout est servi en moins de 300 ms.
+    +   '.vzm-sonar-sector,.vzm-sonar-act{transition:opacity .18s cubic-bezier(.23,1,.32,1),transform .18s cubic-bezier(.23,1,.32,1);}'
+    +   '.vzm-sonar-root[data-open="true"] .vzm-sonar-act:nth-child(3){transition-delay:.03s;}'
+    +   '.vzm-sonar-root[data-open="true"] .vzm-sonar-act:nth-child(2){transition-delay:.06s;}'
+    +   '.vzm-sonar-root[data-open="true"] .vzm-sonar-sector{transition-delay:.09s;}'
     + '}'
     + '@keyframes vzmSonarNoop{from{opacity:1;}to{opacity:1;}}'
     // panneau blanc (retours secteur + alertes) : reprend la grammaire obsSheet
     + '.vzm-sonar-panel{position:absolute;left:0;right:0;bottom:0;z-index:1320;background:#F4F6F7;border-radius:20px 20px 0 0;padding:14px 16px 20px;max-height:70vh;overflow-y:auto;box-shadow:0 -8px 30px rgba(0,0,0,0.4);transform:translateY(100%);visibility:hidden;opacity:0;transition:transform .3s cubic-bezier(.2,.8,.3,1),opacity .3s ease,visibility .3s;font-family:Inter,-apple-system,sans-serif;}'
     + '.vzm-sonar-panel.open{transform:translateY(0);visibility:visible;opacity:1;}'
+    // Mouvement reduit : le panneau apparait sans glisser. Place APRES la
+    // regle de base, sinon elle l'emporte a specificite egale.
+    + '@media (prefers-reduced-motion: reduce){.vzm-sonar-panel{transition:none;}}'
     // Panneau hors secteur (Alertes) : plaque blanche, trait encre, en-tete
     // fixe et corps qui defile. Le panneau secteur [data-vzsp="1"] a son
     // propre gabarit (vzsp).
@@ -24226,7 +24239,11 @@ var VZ_ACCOUNT = (function () {
     +   'height:62vh;max-height:62vh;width:auto;background:#FFFFFF;'
     +   'border:2px solid #0A1520;border-bottom:none;border-radius:16px 16px 0 0;'
     +   'padding:0;padding-bottom:0;box-shadow:none;z-index:1205;'
-    +   'display:flex;flex-direction:column;overflow:hidden;}'
+    // Aucune transition : Previsions et Affichage (#vzSheet) apparaissent
+    // d'un coup, Observations et Maree montaient en 300 ms. Une barre
+    // d'onglets se touche des dizaines de fois par sortie, le meme geste
+    // doit produire le meme effet.
+    +   'display:flex;flex-direction:column;overflow:hidden;transition:none;}'
     // Le scrim assombrit la carte sur deux onglets sur quatre : incoherent
     // avec un gabarit unique, et contraire a la lisibilite plein soleil.
     + 'body.vzm-nav .vzm-sonar-pscrim{display:none !important;}'
