@@ -3893,7 +3893,10 @@ function vzWindKeepAnimatedOnPan_(tries, layer) {
 }
 
 function vzWindStop_() {
-  if (S.windTimer) { clearInterval(S.windTimer); S.windTimer = null; }
+  // clearTimeout en plus : la lecture courant / vagues est une chaine de
+  // setTimeout, pas un setInterval (voir vzWindPlayStop_).
+  if (S.windTimer) { clearInterval(S.windTimer); clearTimeout(S.windTimer); S.windTimer = null; }
+  S.windPlayToken = (S.windPlayToken || 0) + 1;
   vzWindSetPlayIcon_(false);
 }
 
@@ -3909,6 +3912,35 @@ function vzWindPlayStop_() {
   var ms = (S.timeOwner === 'cur' || S.timeOwner === 'wav') ? VZ_CUR_ANIM_MS
          : (S.timeOwner === 'rain') ? VZ_RAIN_ANIM_MS
          : VZ_WIND_ANIM_MS;
+  // Courant et vagues : cadence PILOTEE PAR LE CHARGEMENT. Les tuiles et le
+  // champ de l'echeance mettent plusieurs secondes a arriver de Copernicus ;
+  // a cadence fixe, le cran suivant partait avant qu'ils ne soient la et
+  // rien ne s'affichait jamais. Ici chaque echeance reste a l'ecran au moins
+  // la cadence, comptee a partir du moment ou elle est effectivement
+  // chargee (tuiles et champ), avec le delai de garde du double tampon en
+  // plafond. Vent et pluie, en memoire, gardent leur setInterval.
+  if (S.timeOwner === 'cur' || S.timeOwner === 'wav') {
+    var st = (S.timeOwner === 'cur') ? VZ_CUR_STATE : VZ_WAV_STATE;
+    S.windPlayToken = (S.windPlayToken || 0);   // jeton de la lecture en cours ; vzWindStop_ l'avance
+    var tok = S.windPlayToken;
+    var step = function() {
+      if (tok !== S.windPlayToken) return;
+      var f = vzTimeFrames_();
+      if (!f || !f.length) { vzWindStop_(); return; }
+      vzWindShowFrame_((vzTimePos_() + 1) % f.length);
+      vzWindSyncCtrl_();
+      var t0 = Date.now();
+      var wait = function() {
+        if (tok !== S.windPlayToken) return;
+        var busy = !!st.pending || !!st.fieldPending;
+        if (busy && Date.now() - t0 < VZ_CUR_SWAP_TIMEOUT_MS + 2000) { S.windTimer = setTimeout(wait, 120); return; }
+        S.windTimer = setTimeout(step, ms);
+      };
+      wait();
+    };
+    S.windTimer = setTimeout(step, ms);
+    return;
+  }
   S.windTimer = setInterval(function(){
     var f = vzTimeFrames_();
     if (!f || !f.length) { vzWindStop_(); return; }
@@ -4271,6 +4303,9 @@ function vzCurBuildLayer_(f, cfg, state) {
         if (!state.firstErr) state.firstErr = img.src;
         done(null, tile);
       };
+      // L'echeance est FIGEE dans la couche a sa construction (vzTime), et
+      // non lue dans l'etat partage : avec le double tampon ci-dessous, deux
+      // jeux de couches coexistent un instant, chacun avec la sienne.
       img.src = cfg.endpoint
         + '?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0'
         + '&LAYER=' + f.layer
@@ -4278,7 +4313,7 @@ function vzCurBuildLayer_(f, cfg, state) {
         + '&TILEMATRIXSET=EPSG:3857@2x'
         + '&TILEMATRIX=' + coords.z + '&TILEROW=' + coords.y + '&TILECOL=' + coords.x
         + '&FORMAT=image/png'
-        + '&time=' + state.time;
+        + '&time=' + this.options.vzTime;
       return tile;
     }
   });
@@ -4288,8 +4323,72 @@ function vzCurBuildLayer_(f, cfg, state) {
     maxZoom: 19,
     pane: cfg.pane || 'vzCurPane',
     tileSize: 256,
-    bounds: L.latLngBounds(f.bounds)
+    bounds: L.latLngBounds(f.bounds),
+    vzTime: state.time
   });
+}
+
+// CHANGEMENT D'ECHEANCE SANS TROU - double tampon
+// Changer l'echeance par redraw() retirait toutes les tuiles puis les
+// redemandait : entre les deux, plus de couleur ; et en lecture (un cran
+// toutes les 1,1 s) les tuiles, qui mettent plusieurs secondes a arriver de
+// Copernicus, etaient annulees par le cran suivant avant d'etre affichees,
+// donc la couleur n'apparaissait jamais. Ici la nouvelle echeance est
+// chargee dans un second jeu de couches ajoute PAR-DESSUS ; l'ancien n'est
+// retire que quand le nouveau a fini de charger, ou apres le delai de
+// garde. Un cran suivant abandonne l'echange en vol (compteur).
+// Partage courant / vagues, comme le reste de la mecanique.
+var VZ_CUR_SWAP_TIMEOUT_MS = 8000;
+
+// Abandonne un echange en vol : couches en attente retirees, compteur
+// avance pour que le sondage en cours s'arrete. Appele par les teardowns.
+function vzCurAbandonSwap_(state) {
+  state.swapSeq = (state.swapSeq || 0) + 1;
+  if (state.pending && S.map) {
+    for (var p = 0; p < state.pending.length; p++) {
+      if (S.map.hasLayer(state.pending[p])) S.map.removeLayer(state.pending[p]);
+    }
+  }
+  state.pending = null;
+}
+
+function vzCurSwapLayers_(cfg, state) {
+  cfg = cfg || VZ_CUR_CFG;
+  state = state || VZ_CUR_STATE;
+  if (!S.map) return;
+  state.swapSeq = (state.swapSeq || 0) + 1;
+  var seq = state.swapSeq;
+  if (state.pending) {
+    for (var p = 0; p < state.pending.length; p++) {
+      if (S.map.hasLayer(state.pending[p])) S.map.removeLayer(state.pending[p]);
+    }
+    state.pending = null;
+  }
+  var fresh = cfg.facades.map(function(f) { return vzCurBuildLayer_(f, cfg, state); });
+  var onMap = false;
+  if (state.layers) {
+    for (var k = 0; k < state.layers.length; k++) if (S.map.hasLayer(state.layers[k])) onMap = true;
+  }
+  // Couche eteinte : rien a echanger, le nouveau jeu devient simplement le
+  // jeu courant, que le toggle ajoutera a l'allumage.
+  if (!onMap) { state.layers = fresh; return; }
+  for (var a = 0; a < fresh.length; a++) fresh[a].addTo(S.map);
+  state.pending = fresh;
+  var t0 = Date.now();
+  (function poll() {
+    if (seq !== state.swapSeq) return;   // depasse par un cran suivant
+    var loading = false;
+    for (var i = 0; i < fresh.length; i++) {
+      if (typeof fresh[i].isLoading === 'function' && fresh[i].isLoading()) loading = true;
+    }
+    if (loading && Date.now() - t0 < VZ_CUR_SWAP_TIMEOUT_MS) { setTimeout(poll, 120); return; }
+    var old = state.layers || [];
+    for (var o = 0; o < old.length; o++) {
+      if (S.map.hasLayer(old[o])) S.map.removeLayer(old[o]);
+    }
+    state.layers = fresh;
+    state.pending = null;
+  })();
 }
 
 // Echeance la plus proche de l'instant present dans S.curFrames.
@@ -4306,19 +4405,15 @@ function vzCurNowIndex_(frames) {
   return best;
 }
 
-// Applique l'echeance d'index i. Le rafraichissement passe par redraw(),
-// donc par le cache HTTP du navigateur : revenir sur une echeance deja
-// vue ne recharge rien.
+// Applique l'echeance d'index i. Double tampon (vzCurSwapLayers_) : l'ancienne
+// echeance reste affichee jusqu'a l'arrivee de la nouvelle. Revenir sur une
+// echeance deja vue passe par le cache HTTP du navigateur.
 function vzCurShowFrame_(i) {
   if (!S.curFrames || !S.curFrames.length) return;
   i = Math.max(0, Math.min(i, S.curFrames.length - 1));
   S.curPos = i;
   VZ_CUR_STATE.time = S.curFrames[i].wmts;
-  if (VZ_CUR_STATE.layers) {
-    for (var k = 0; k < VZ_CUR_STATE.layers.length; k++) {
-      try { VZ_CUR_STATE.layers[k].redraw(); } catch (e) {}
-    }
-  }
+  vzCurSwapLayers_(VZ_CUR_CFG, VZ_CUR_STATE);
   if (S.curFlowLayer) vzCurLoadField_();
 }
 
@@ -4662,6 +4757,7 @@ function vzCurTeardown_() {
       if (S.map.hasLayer(VZ_CUR_STATE.layers[k])) S.map.removeLayer(VZ_CUR_STATE.layers[k]);
     }
   }
+  vzCurAbandonSwap_(VZ_CUR_STATE);
   // Invalide tout decodage en vol : sans ca un champ perime pourrait
   // etre applique a une couche qu'on vient de retirer.
   VZ_CUR_STATE.fieldSeq++;
@@ -5020,17 +5116,13 @@ var VZ_WAV_STATE = {
 };
 
 // Applique l'echeance d'index i. Meme mecanique que vzCurShowFrame_ :
-// redraw() passe par le cache HTTP, revenir en arriere ne recharge rien.
+// double tampon, l'ancienne echeance reste visible jusqu'a la nouvelle.
 function vzWavShowFrame_(i) {
   if (!S.wavFrames || !S.wavFrames.length) return;
   i = Math.max(0, Math.min(i, S.wavFrames.length - 1));
   S.wavPos = i;
   VZ_WAV_STATE.time = S.wavFrames[i].wmts;
-  if (VZ_WAV_STATE.layers) {
-    for (var k = 0; k < VZ_WAV_STATE.layers.length; k++) {
-      try { VZ_WAV_STATE.layers[k].redraw(); } catch (e) {}
-    }
-  }
+  vzCurSwapLayers_(VZ_WAV_CFG, VZ_WAV_STATE);
   if (S.wavCrestLayer) vzWavLoadField_();
 }
 
@@ -5163,6 +5255,7 @@ function vzWavTeardown_() {
       if (S.map.hasLayer(VZ_WAV_STATE.layers[k])) S.map.removeLayer(VZ_WAV_STATE.layers[k]);
     }
   }
+  vzCurAbandonSwap_(VZ_WAV_STATE);
   VZ_WAV_STATE.fieldSeq++;   // invalide tout decodage en vol
   if (S.wavCrestLayer && S.map.hasLayer(S.wavCrestLayer)) S.map.removeLayer(S.wavCrestLayer);
   var leg = document.getElementById('vzWavLegend');
