@@ -4243,11 +4243,18 @@ function vzCurBuildLayer_(f, cfg, state) {
       var img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = function() {
+        state.tilesOk = (state.tilesOk || 0) + 1;
         ctx.drawImage(img, 0, 0, BUF, BUF);
         vzWmtsPaint_(ctx, BUF, state, tag);
         done(null, tile);
       };
-      img.onerror = function() { done(null, tile); };
+      // Compteurs lus par vzCurDiag / vzWavDiag : une tuile en erreur ne
+      // laisse aucune trace a l'ecran, seule la console peut le dire.
+      img.onerror = function() {
+        state.tilesErr = (state.tilesErr || 0) + 1;
+        if (!state.firstErr) state.firstErr = img.src;
+        done(null, tile);
+      };
       img.src = cfg.endpoint
         + '?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0'
         + '&LAYER=' + f.layer
@@ -4311,7 +4318,9 @@ function vzCurEnsure_() {
     // donc l'echeance la plus proche de maintenant.
     S.curPos = vzCurNowIndex_();
     VZ_CUR_STATE.time = S.curFrames[S.curPos].wmts;
-    VZ_CUR_STATE.layers = VZ_CUR_CFG.facades.map(vzCurBuildLayer_);
+    // Appel explicite et non .map(vzCurBuildLayer_) : map passe (element,
+    // index, tableau), et la fonction lit desormais ses 2e et 3e arguments.
+    VZ_CUR_STATE.layers = VZ_CUR_CFG.facades.map(function(f) { return vzCurBuildLayer_(f); });
     // La LUT arrive apres les premieres tuiles : on repeint une fois prete.
     vzCurFetchLegend_().then(function() {
       if (!VZ_CUR_STATE.lut || !VZ_CUR_STATE.layers) return;
@@ -4738,17 +4747,202 @@ var VZ_WAV_CFG = {
   tag: 'vagues'
 };
 
-// Composantes decodees pour les particules et leur echelle serveur. La
+// Composantes decodees pour les fronts et leur echelle serveur. La
 // geometrie de la mosaique (tuiles, grille de sortie, clip MED) est celle
 // de VZ_CUR_GRID, reutilisee telle quelle.
 var VZ_WAV_GRID = {
   components: ['VHM0', 'VMDR'],
-  ranges: [[0, 4], [0, 360]],   // hauteur en m ; direction d'ou vient la houle, en degres
-  // Allure des particules : la grandeur vaut 0 a 4 (m) la ou le courant
-  // va de 0 a 2 (m/s) avec 0.05. Calee pour qu'une mer de 1 m avance comme
-  // un courant de 1 kt. Une seule constante a toucher si c'est trop vif.
-  velocityScale: 0.04
+  ranges: [[0, 4], [0, 360]]    // hauteur en m ; direction d'ou vient la houle, en degres
 };
+
+/* ------------------------------------------------------------
+   FRONTS DE HOULE - rendu propre aux vagues
+   Des particules filantes se lisent comme du vent. Une houle se lit
+   comme des fronts : des traits perpendiculaires a la propagation qui
+   avancent vers la cote. Canvas 2D maison, synchrone : a chaque image la
+   position est recalculee depuis l'etat courant de la carte, donc aucun
+   champ a reconstruire au zoom, aucun trait egare dans les terres, aucun
+   ralentissement. Pendant l'animation de zoom le canvas est masque par
+   Leaflet (classe leaflet-zoom-hide) et revient a la bonne place.
+
+   Geometrie : graines sur une grille carree de `spacing` px ancree au
+   MONDE (pixels de la carte), pas a l'ecran, pour accompagner le pan.
+   Chaque graine porte deux crêtes dans une fenetre de 2 x spacing le
+   long de la propagation, en fondu sin^2 : deux graines voisines couvrent
+   la meme ligne de front avec des opacites complementaires (sin^2 +
+   cos^2 = 1), donc le train avance sans clignoter ni se trouer. Chaque
+   crête est TRACEE depuis son centre en suivant la perpendiculaire
+   locale a la propagation, pas a pas, dans les deux sens : les crêtes
+   voisines se recouvrent sur la meme ligne et forment des fronts longs
+   et continus qui s'incurvent avec le champ, au lieu de hachures. Le
+   trace s'arrete a la terre.
+   Encodage : longueur et opacite croissent avec la hauteur, la cadence
+   est fixe. Sous minHs, mer plate, rien n'est dessine.
+   ------------------------------------------------------------ */
+var VZ_WAV_CREST = {
+  spacing: 36,        // px entre deux fronts
+  periodMs: 3000,     // duree pour qu'un front parcoure 2 x spacing
+  minHs: 0.08,        // m : en dessous, mer plate, aucun front
+  halfMin: 22,        // px, demi-longueur de crête a 0 m (tirets)
+  halfMax: 50,        // px, demi-longueur a 4 m et plus (fronts continus)
+  step: 6,            // px, pas du trace le long de la crête
+  alpha: 0.5,         // opacite d'une crête (elles se recouvrent 2 a 3 fois)
+  lineWidth: 1.7,
+  dprCap: 2
+};
+
+var VzWavCrestLayer = L.Layer.extend({
+  onAdd: function(map) {
+    this._map = map;
+    var cv = L.DomUtil.create('canvas', 'leaflet-layer leaflet-zoom-hide');
+    cv.style.pointerEvents = 'none';
+    this._cv = cv;
+    this._ctx = cv.getContext('2d');
+    this.getPane().appendChild(cv);
+    this._resize();
+    map.on('resize', this._resize, this);
+    this._on = true;
+    this._tickBound = this._tick.bind(this);
+    this._raf = requestAnimationFrame(this._tickBound);
+  },
+  onRemove: function(map) {
+    this._on = false;
+    if (this._raf) cancelAnimationFrame(this._raf);
+    this._raf = 0;
+    map.off('resize', this._resize, this);
+    if (this._cv && this._cv.parentNode) this._cv.parentNode.removeChild(this._cv);
+    this._cv = null;
+    this._ctx = null;
+  },
+  // u, v : tableaux de la grille (null = terre / hors modele), hdr : nx, ny,
+  // lo1, la1, dx, dy. Pris en compte a l'image suivante, sans redemarrage.
+  setField: function(u, v, hdr) { this._u = u; this._v = v; this._h = hdr; },
+  clearField: function() { this._u = null; this._v = null; this._h = null; },
+  _resize: function() {
+    if (!this._cv) return;
+    var sz = this._map.getSize();
+    var dpr = Math.min(window.devicePixelRatio || 1, VZ_WAV_CREST.dprCap);
+    this._cv.width = Math.round(sz.x * dpr);
+    this._cv.height = Math.round(sz.y * dpr);
+    this._cv.style.width = sz.x + 'px';
+    this._cv.style.height = sz.y + 'px';
+    this._dpr = dpr;
+  },
+  // Echantillon bilineaire du champ u/v. Les coins sans donnee (terre) sont
+  // ignores et les poids renormalises, donc le front tient jusqu'au dernier
+  // noeud marin du modele. null si moins d'un quart du poids est en mer.
+  _sample: function(lng, lat) {
+    var h = this._h, u = this._u, v = this._v;
+    var gx = (lng - h.lo1) / h.dx, gy = (h.la1 - lat) / h.dy;
+    if (gx < 0 || gy < 0 || gx > h.nx - 1 || gy > h.ny - 1) return null;
+    var x0 = Math.floor(gx), y0 = Math.floor(gy);
+    if (x0 > h.nx - 2) x0 = h.nx - 2;
+    if (y0 > h.ny - 2) y0 = h.ny - 2;
+    var tx = gx - x0, ty = gy - y0;
+    var i00 = y0 * h.nx + x0;
+    var idx = [i00, i00 + 1, i00 + h.nx, i00 + h.nx + 1];
+    var w = [(1 - tx) * (1 - ty), tx * (1 - ty), (1 - tx) * ty, tx * ty];
+    var su = 0, sv = 0, sw = 0;
+    for (var k = 0; k < 4; k++) {
+      var uu = u[idx[k]];
+      if (uu === null || uu === undefined) continue;
+      su += uu * w[k];
+      sv += v[idx[k]] * w[k];
+      sw += w[k];
+    }
+    if (sw < 0.25) return null;
+    return [su / sw, sv / sw];
+  },
+  _tick: function(now) {
+    if (!this._on) return;
+    this._raf = requestAnimationFrame(this._tickBound);
+    var map = this._map, cv = this._cv, ctx = this._ctx;
+    if (!cv || !ctx) return;
+    // Le canvas suit la carte : position recalee a chaque image, il reste en
+    // place pendant le pan sans ecouteur de 'move'.
+    L.DomUtil.setPosition(cv, map.containerPointToLayerPoint([0, 0]));
+    var dpr = this._dpr || 1;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    var sz = map.getSize();
+    ctx.clearRect(0, 0, sz.x, sz.y);
+    if (!this._h) return;
+    var C = VZ_WAV_CREST;
+    var S0 = C.spacing, W = 2 * S0;
+    var t = (now % C.periodMs) / C.periodMs;
+    var pb = map.getPixelBounds();
+    var kx0 = Math.floor(pb.min.x / S0) - 1, ky0 = Math.floor(pb.min.y / S0) - 1;
+    var kx1 = Math.ceil(pb.max.x / S0) + 1, ky1 = Math.ceil(pb.max.y / S0) + 1;
+    var maxM = VZ_WAV_CFG.maxM;
+    ctx.lineWidth = C.lineWidth;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    for (var ky = ky0; ky <= ky1; ky++) {
+      for (var kx = kx0; kx <= kx1; kx++) {
+        var wx = kx * S0, wy = ky * S0;
+        var s = this._sampleWorld(wx, wy);
+        if (!s) continue;
+        var hs = s[2];
+        if (hs < C.minHs) continue;
+        var dx = s[0], dy = s[1];                     // propagation en ecran (y vers le bas)
+        var f = Math.min(hs, maxM) / maxM;
+        var half = C.halfMin + (C.halfMax - C.halfMin) * f;
+        var amp = C.alpha * (0.55 + 0.45 * f);
+        // Phase locale : projection de la graine sur l'axe de propagation, en
+        // fenetres. Les graines d'un meme front partagent la phase.
+        var q = t - (wx * dx + wy * dy) / W;
+        q = q - Math.floor(q);
+        for (var pass = 0; pass < 2; pass++) {
+          var qq = (pass === 0) ? q : (q + 0.5) - Math.floor(q + 0.5);
+          var sn = Math.sin(Math.PI * qq);
+          var a = amp * sn * sn;
+          if (a < 0.03) continue;
+          var off = (qq - 0.5) * W;
+          this._crest(ctx, wx + dx * off, wy + dy * off, half, a, pb.min.x, pb.min.y);
+        }
+      }
+    }
+  },
+  // Direction et force au point MONDE (px) : [dx, dy, hs] en ecran, ou null.
+  _sampleWorld: function(wx, wy) {
+    var ll = this._map.unproject([wx, wy]);
+    var s = this._sample(ll.lng, ll.lat);
+    if (!s) return null;
+    var hs = Math.sqrt(s[0] * s[0] + s[1] * s[1]);
+    if (hs < 1e-6) return null;
+    return [s[0] / hs, -s[1] / hs, hs];
+  },
+  // Trace une crête centree en (cx, cy) monde : on suit la perpendiculaire
+  // LOCALE a la propagation, pas a pas, dans les deux sens, sur `half` px
+  // de chaque cote. Le sens de la perpendiculaire est tenu coherent d'un
+  // pas a l'autre (produit scalaire), sinon la crête repartirait en arriere
+  // la ou le champ tourne. Arret a la terre ou hors champ.
+  _crest: function(ctx, cx, cy, half, a, ox, oy) {
+    var C = VZ_WAV_CREST, st = C.step;
+    var s0 = this._sampleWorld(cx, cy);
+    if (!s0) return;
+    var pts = [[cx, cy]];
+    for (var side = -1; side <= 1; side += 2) {
+      var x = cx, y = cy, tx = -s0[1] * side, ty = s0[0] * side;
+      var seg = [];
+      for (var d = st; d <= half; d += st) {
+        x += tx * st; y += ty * st;
+        var s = this._sampleWorld(x, y);
+        if (!s) break;
+        seg.push([x, y]);
+        var nx = -s[1] * side, ny = s[0] * side;
+        if (nx * tx + ny * ty < 0) { nx = -nx; ny = -ny; }
+        tx = nx; ty = ny;
+      }
+      if (side < 0) { seg.reverse(); pts = seg.concat(pts); } else { pts = pts.concat(seg); }
+    }
+    if (pts.length < 2) return;
+    ctx.strokeStyle = 'rgba(255,255,255,' + a.toFixed(3) + ')';
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0] - ox, pts[0][1] - oy);
+    for (var i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0] - ox, pts[i][1] - oy);
+    ctx.stroke();
+  }
+});
 
 var VZ_WAV_STATE = {
   lut: null, min: null, max: null, warned: false,
@@ -4770,7 +4964,7 @@ function vzWavShowFrame_(i) {
       try { VZ_WAV_STATE.layers[k].redraw(); } catch (e) {}
     }
   }
-  if (S.wavFlowLayer) vzWavLoadField_();
+  if (S.wavCrestLayer) vzWavLoadField_();
 }
 
 // Point d'entree unique de la couche : resout les identifiants, construit
@@ -4796,7 +4990,7 @@ function vzWavEnsure_() {
   });
 }
 
-// Recharge le champ de particules : deux images (hauteur, direction)
+// Recharge le champ des fronts : deux images (hauteur, direction)
 // decodees sur la grille commune, puis composees en vecteur u/v. Le
 // compteur de generation evite qu'un decodage lent, lance sur une
 // echeance deja quittee, n'ecrase le champ courant.
@@ -4814,60 +5008,39 @@ function vzWavLoadField_() {
     VZ_WAV_STATE.fieldPending = false;
     if (seq !== VZ_WAV_STATE.fieldSeq) return null;   // echeance perimee
     var hs = res[0], dir = res[1];
-    if (!hs || !dir || !S.wavFlowLayer) return null;
+    if (!hs || !dir || !S.wavCrestLayer) return null;
     var n = hs.nx * hs.ny;
     var u = new Array(n), v = new Array(n);
     var D2R = Math.PI / 180;
     for (var k = 0; k < n; k++) {
       var h = hs.data[k], d = dir.data[k];
       if (h === null || d === null) { u[k] = null; v[k] = null; continue; }
-      // VMDR = direction d'ou VIENT la houle. La particule va dans le sens
-      // de propagation : +180. 0 = nord, sens horaire : est = sin, nord = cos.
+      // VMDR = direction d'ou VIENT la houle. Le front va dans le sens de
+      // propagation : +180. 0 = nord, sens horaire : est = sin, nord = cos.
       var to = (d + 180) * D2R;
       u[k] = h * Math.sin(to);
       v[k] = h * Math.cos(to);
     }
-    function hdr(pn) {
-      return {
-        nx: hs.nx, ny: hs.ny,
-        lo1: G.lon0, la1: G.lat0,
-        lo2: G.lon0 + (hs.nx - 1) * G.step,
-        la2: G.lat0 - (hs.ny - 1) * G.step,
-        dx: G.step, dy: G.step,
-        parameterCategory: 2, parameterNumber: pn,
-        refTime: VZ_WAV_STATE.time
-      };
-    }
-    S.wavFlowLayer.setData([
-      { header: hdr(2), data: u },
-      { header: hdr(3), data: v }
-    ]);
+    S.wavCrestLayer.setField(u, v, {
+      nx: hs.nx, ny: hs.ny,
+      lo1: G.lon0, la1: G.lat0,
+      dx: G.step, dy: G.step
+    });
     return true;
   }).catch(function(e) {
     VZ_WAV_STATE.fieldPending = false;
-    console.warn('[vagues] champ de particules indisponible', e);
+    console.warn('[vagues] champ des fronts indisponible', e);
     return null;
   });
 }
 
-// Couche de particules. Blanc monochrome comme le vent et le courant : la
-// force vit dans le fond colore, une seule variable un seul encodage.
-function vzWavFlowEnsure_() {
-  if (S.wavFlowLayer) return S.wavFlowLayer;
-  if (typeof L.velocityLayer !== 'function') return null;
-  S.wavFlowLayer = L.velocityLayer({
-    displayValues: false,
-    data: [],
-    speedUnit: 'kt',
-    velocityScale: VZ_WAV_GRID.velocityScale,
-    particleMultiplier: 0.0022,
-    lineWidth: 1.3,
-    opacity: 0.9,
-    colorScale: ['#FFFFFF'],
-    minVelocity: 0,
-    maxVelocity: VZ_WAV_CFG.maxM
-  });
-  return S.wavFlowLayer;
+// Couche des fronts, creee une fois. Blanc monochrome comme le vent et le
+// courant : la force vit dans le fond colore, une seule variable un seul
+// encodage.
+function vzWavCrestEnsure_() {
+  if (S.wavCrestLayer) return S.wavCrestLayer;
+  S.wavCrestLayer = new VzWavCrestLayer();
+  return S.wavCrestLayer;
 }
 
 // Legende passive. Meme gabarit que la legende courant (langage instrument),
@@ -4883,7 +5056,9 @@ function vzWavEnsureLegend_() {
       "#vzWavLegend{position:fixed;top:66px;left:50%;transform:translateX(-50%);z-index:1150;display:none;align-items:center;gap:10px;padding:7px 11px;box-sizing:border-box;max-width:calc(100vw - 24px);background:var(--vzi-bg);border:2px solid var(--vzi-line);border-radius:14px;box-shadow:0 10px 28px rgba(8,17,27,0.35);font-family:'Inter',sans-serif;pointer-events:none;}"
     + "#vzWavLegend.on{display:flex;}"
     + "#vzWavLegend .vzcl-ttl{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--vzi-ink);white-space:nowrap;}"
-    + "#vzWavLegend .vzcl-scale{position:relative;width:190px;height:12px;}"
+    // 26px et non 12 : la barre fait 12px et les reperes sont poses a 14px
+    // sous son haut ; a 12px la boite les coupait a mi-hauteur.
+    + "#vzWavLegend .vzcl-scale{position:relative;width:190px;height:26px;}"
     + "#vzWavLegend .vzcl-bar{display:block;width:100%;height:12px;border:1.5px solid var(--vzi-hair);border-radius:3px;box-sizing:border-box;}"
     + "#vzWavLegend .vzcl-ticks{position:absolute;inset:0;}"
     + "#vzWavLegend .vzcl-tick{position:absolute;top:14px;transform:translateX(-50%);font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--vzi-sub);white-space:nowrap;}"
@@ -4922,9 +5097,18 @@ function vzWavTeardown_() {
     }
   }
   VZ_WAV_STATE.fieldSeq++;   // invalide tout decodage en vol
-  if (S.wavFlowLayer && S.map.hasLayer(S.wavFlowLayer)) S.map.removeLayer(S.wavFlowLayer);
+  if (S.wavCrestLayer && S.map.hasLayer(S.wavCrestLayer)) S.map.removeLayer(S.wavCrestLayer);
   var leg = document.getElementById('vzWavLegend');
   if (leg) leg.classList.remove('on');
+  // Relief rendu tel qu'il etait avant les vagues (voir toggleLayer('wave')).
+  // Reactivation silencieuse : ce n'est pas un clic, il ne compte pas.
+  if (S.wavReliefHidden) {
+    S.wavReliefHidden = false;
+    if (!S.showLitto3d) {
+      S.vzSilentToggle = true;
+      try { toggleLayer('litto3d'); } finally { S.vzSilentToggle = false; }
+    }
+  }
   if (S.timeOwner === 'wav') {
     vzWindStop_();
     S.timeOwner = S.showWindFlow ? 'wind' : (S.showCurrent ? 'cur' : (S.showRain ? 'rain' : null));
@@ -4938,6 +5122,30 @@ function vzWavTeardown_() {
     }
   }
 }
+
+// Diagnostic depuis la console : vzWavDiag() et vzCurDiag(). Meme esprit
+// que vzRainDiag : quand le fond colore manque, la console doit dire si
+// c'est la resolution, les tuiles, la palette ou l'echeance.
+function vzCopernicusDiag_(cfg, state, frames, pos, on) {
+  var o = {
+    couche_active: !!on,
+    proprietaire_curseur: S.timeOwner,
+    echeance_TIME: state.time,
+    position_curseur: pos,
+    echeances: frames ? frames.length : 0,
+    facade_ibi: cfg.facades[0].layer || '(non resolue)',
+    facade_med: cfg.facades[1].layer || '(non resolue)',
+    tuiles_ok: state.tilesOk || 0,
+    tuiles_erreur: state.tilesErr || 0,
+    premiere_erreur: state.firstErr || '-',
+    palette: state.lut ? 'prete' : 'absente',
+    zoom_carte: S.map ? S.map.getZoom() : null
+  };
+  console.table(o);
+  return o;
+}
+window.vzWavDiag = function() { return vzCopernicusDiag_(VZ_WAV_CFG, VZ_WAV_STATE, S.wavFrames, S.wavPos, S.showWave); };
+window.vzCurDiag = function() { return vzCopernicusDiag_(VZ_CUR_CFG, VZ_CUR_STATE, S.curFrames, S.curPos, S.showCurrent); };
 
 // ============================================================
 // COUCHE VISIBILITE SATELLITE - configuration unique
@@ -5463,6 +5671,9 @@ function toggleLayer(type) {
     if (btnL) btnL.classList.toggle('active', S.showLitto3d);
     if (S.showLitto3d) {
       // Plus d'exclusion mutuelle avec le vent. Voir vzWindColorArbitrate_.
+      // Avec les vagues, si : rallumer le relief a la main coupe les vagues,
+      // symetrique de l'extinction faite par toggleLayer('wave').
+      if (S.showWave) toggleLayer('wave');
       S.litto3d.addTo(S.map);
       // Ordre Z : basemap < Litto3D < sediment/isobathes/markers
       S.litto3d.eachLayer(function(l) { if (l.bringToBack) l.bringToBack(); });
@@ -5536,22 +5747,23 @@ function toggleLayer(type) {
       if (S.showCurrent) toggleLayer('current');
       if (S.showZsd) toggleLayer('zsd');
       if (S.showRain) toggleLayer('rain');
+      // Relief masque le temps des vagues : pres des cotes, la ou la decision
+      // se prend, ses couleurs se melangent a celles de la hauteur et on ne
+      // lit plus rien. Memorise pour revenir tel quel a l'extinction
+      // (vzWavTeardown_). Le vent a fait le choix inverse (voir
+      // vzWindColorArbitrate_) : ici c'est la lisibilite qui tranche.
+      S.wavReliefHidden = !!S.showLitto3d;
+      if (S.showLitto3d) toggleLayer('litto3d');
       vzWavEnsure_().then(function(layers){
         if (!S.showWave) return;   // re-toggle off pendant la resolution
         for (var k = 0; k < layers.length; k++) {
           if (!S.map.hasLayer(layers[k])) layers[k].addTo(S.map);
         }
-        // Particules par-dessus le fond colore : le fond porte la hauteur,
-        // les traits portent la direction de propagation.
-        var _wf = vzWavFlowEnsure_();
-        if (_wf) {
-          if (!S.map.hasLayer(_wf)) _wf.addTo(S.map);
-          vzWindKeepAnimatedOnPan_(12, _wf);
-          vzWindHiDpiEnsure_(12, _wf);
-          vzWavLoadField_();
-        } else {
-          console.warn('[vagues] leaflet-velocity absent, fond colore seul');
-        }
+        // Fronts par-dessus le fond colore : le fond porte la hauteur, les
+        // fronts portent la direction de propagation.
+        var _wc = vzWavCrestEnsure_();
+        if (!S.map.hasLayer(_wc)) _wc.addTo(S.map);
+        vzWavLoadField_();
         S.timeOwner = 'wav';
         vzWavEnsureLegend_().classList.add('on');
         vzWindEnsureCtrl_().classList.add('on');
@@ -5620,7 +5832,9 @@ function toggleLayer(type) {
     windflow: S.showWindFlow, litto3d: S.showLitto3d, current: S.showCurrent, wave: S.showWave,
     zsd: S.showZsd, spots: S.spotMode, measure: S.measureMode, wrecks: S.showWrecks
   }[type];
-  if (_vzOn) vzTrack('layer_' + type);
+  // vzSilentToggle : reactivation programmatique (relief rendu apres les
+  // vagues), pas un clic, donc pas une activation mesuree.
+  if (_vzOn && !S.vzSilentToggle) vzTrack('layer_' + type);
 }
 /* ============================================================
    COUCHE EPAVES - SHOM "Epaves et obstructions" (CC BY-SA 4.0)
