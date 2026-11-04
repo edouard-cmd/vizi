@@ -1750,7 +1750,7 @@ S.basemapSat = L.layerGroup([
   // Champ satellite de profondeur de Secchi (ZSD), repeint côté client avec
   // la palette Visimer. Aucun appel point-par-point, aucun GAS, pas d'auth
   // (dataset public multi-1km). Montre l'anomalie spatiale telle que le
-  // satellite l'a mesurée à J-2. Figée à la mesure (pas de modulation météo),
+  // satellite l'a mesurée à sa dernière date publiée (vzZsdLatest_). Figée à la mesure (pas de modulation météo),
   // donc indépendante de la calibration b_local : c'est de la donnée, pas du
   // modèle.
   // Toute la configuration vit dans VZ_ZSD_CFG (source de vérité unique,
@@ -5535,8 +5535,11 @@ var VZ_ZSD_CFG = {
   visiFactor: 0.7
 };
 
-// Etat partage, rempli une seule fois par session par vzZsdFetchLegend_.
-var VZ_ZSD_STATE = { lut: null, min: null, max: null, log: true, pending: null, warned: false };
+// Etat partage. lut/min/max/log : remplis une seule fois par session par
+// vzZsdFetchLegend_. day/time/date/sinceDate/lagDays/stale : ecrits par
+// vzZsdSetDay_ seul, lus par la couche, la legende et la barre d'alerte.
+var VZ_ZSD_STATE = { lut: null, min: null, max: null, log: true, pending: null, warned: false,
+  day: null, time: null, date: null, sinceDate: null, lagDays: null, stale: false, latestPending: null };
 
 // Construit la LUT 256 entrees : canal vert du pixel -> couleur Visimer.
 // colorMap est la table haline exacte du serveur, donc l'inversion ne repose
@@ -5650,23 +5653,18 @@ function vzWmtsPaint_(ctx, size, state, tag) {
 // donc pas de flou au redimensionnement.
 function vzZsdBuildLayer_() {
   var VZ_ZSD_BUF = 512;
-  var d = new Date();
-  d.setUTCDate(d.getUTCDate() - 2);                // J-2 : latence NRT CMEMS confirmée
-  var timeStr = d.getUTCFullYear() + '-'
-    + String(d.getUTCMonth() + 1).padStart(2, '0') + '-'
-    + String(d.getUTCDate()).padStart(2, '0') + 'T00:00:00.000Z';
-  // Date de la prise de vue exposée à la légende. Jour seul, sans heure : le
-  // produit est une composition journalière (P1D), une heure serait fausse.
-  VZ_ZSD_STATE.date = String(d.getUTCDate()).padStart(2, '0') + '/'
-    + String(d.getUTCMonth() + 1).padStart(2, '0');
+  // Jour de depart avant toute reponse reseau (cache recent, sinon J-2).
+  // La vraie derniere date arrive ensuite par vzZsdLatest_, plus bas.
+  vzZsdInitDay_();
+  // Sans &time : le jour est lu dans VZ_ZSD_STATE a chaque tuile, pour qu'un
+  // redraw apres vzZsdLatest_ redemande les tuiles au bon jour.
   var tpl = VZ_ZSD_CFG.endpoint
     + '?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0'
     + '&LAYER=' + VZ_ZSD_CFG.layer
     + '&STYLE=' + VZ_ZSD_CFG.style
     + '&TILEMATRIXSET=EPSG:3857@2x'
     + '&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}'
-    + '&FORMAT=image/png'
-    + '&time=' + timeStr;
+    + '&FORMAT=image/png';
 
   var VzZsdPainted = L.GridLayer.extend({
     createTile: function(coords, done) {
@@ -5682,7 +5680,8 @@ function vzZsdBuildLayer_() {
         done(null, tile);
       };
       img.onerror = function() { done(null, tile); };
-      img.src = tpl.replace('{z}', coords.z).replace('{y}', coords.y).replace('{x}', coords.x);
+      img.src = tpl.replace('{z}', coords.z).replace('{y}', coords.y).replace('{x}', coords.x)
+        + '&time=' + VZ_ZSD_STATE.time;
       return tile;
     }
   });
@@ -5696,6 +5695,15 @@ function vzZsdBuildLayer_() {
   vzZsdFetchLegend_().then(function() {
     if (VZ_ZSD_STATE.lut) layer.redraw();
     vzZsdRefreshLegend_();
+  });
+  // Derniere date reellement publiee : la couche redemande ses tuiles si le
+  // jour change, la legende affiche ce jour, la barre d'alerte suit l'etat.
+  // Construite a l'init meme couche eteinte : la panne se signale a tous.
+  vzSatWarnSync_();
+  vzZsdLatest_().then(function(changed) {
+    if (changed) layer.redraw();
+    vzZsdRefreshLegend_();
+    vzSatWarnSync_();
   });
   return layer;
 }
@@ -5822,6 +5830,195 @@ function vzZsdRefreshLegend_() {
   }
   html += '<span class="vzzl-end">' + hi.toFixed(0) + 'm+</span>';
   tk.innerHTML = html;
+}
+
+// ============================================================
+// DERNIERE IMAGE SATELLITE PUBLIEE + BARRE D'ALERTE PANNE
+// ============================================================
+// Avant : la couche demandait J-2 en dur. Des que Copernicus prend plus de
+// deux jours de retard (incident OC-1116 du 30/10/2026, production NRT
+// couleur de l'eau arretee), chaque tuile repond 400 "out of range", la
+// carte reste vide et la legende affiche une date qui n'existe pas.
+// Maintenant : point d'entree unique vzZsdLatest_, qui lit la derniere date
+// dans GetCapabilities du produit. Couche, legende et barre d'alerte lisent
+// toutes VZ_ZSD_STATE, ecrit par vzZsdSetDay_ et nulle part ailleurs.
+// Latence NRT normale J-1 / J-2, J-3 ponctuel. A partir de J-4 la source est
+// en panne : sa mesure depasse alors 72 h et le moteur l'ecarte deja.
+var VZ_ZSD_STALE_DAYS = 4;
+var VZ_ZSD_LATEST_LS = 'vz_zsd_latest_v1';
+var VZ_ZSD_LATEST_TTL = 3 * 3600 * 1000;
+var VZ_SATWARN_OFF_LS = 'vz_satwarn_off_v1';
+
+// Seul ecrivain des champs de date de VZ_ZSD_STATE. Entree : jour UTC
+// "AAAA-MM-JJ". Renvoie true si le jour a change, false sinon, null si
+// l'entree est invalide.
+function vzZsdSetDay_(day) {
+  var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day || '');
+  if (!m) return null;
+  var t = Date.UTC(+m[1], +m[2] - 1, +m[3]);
+  var now = new Date();
+  var today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  var next = new Date(t + 86400000);
+  var changed = VZ_ZSD_STATE.day !== day;
+  VZ_ZSD_STATE.day = day;
+  VZ_ZSD_STATE.time = day + 'T00:00:00.000Z';
+  // Jour seul, sans heure : le produit est une composition journaliere (P1D).
+  VZ_ZSD_STATE.date = m[3] + '/' + m[2];
+  // Premier jour sans image : c'est la date de debut de la panne.
+  VZ_ZSD_STATE.sinceDate = String(next.getUTCDate()).padStart(2, '0') + '/'
+    + String(next.getUTCMonth() + 1).padStart(2, '0');
+  VZ_ZSD_STATE.lagDays = Math.round((today - t) / 86400000);
+  VZ_ZSD_STATE.stale = VZ_ZSD_STATE.lagDays >= VZ_ZSD_STALE_DAYS;
+  return changed;
+}
+
+// Jour de depart, sans reseau : la derniere date lue par ce navigateur il y a
+// moins de 3 h (la barre s'affiche alors des l'ouverture), sinon J-2. J-2 ne
+// declenche jamais la barre : on ne crie pas a la panne sur une supposition.
+function vzZsdInitDay_() {
+  try {
+    var c = JSON.parse(localStorage.getItem(VZ_ZSD_LATEST_LS) || 'null');
+    if (c && c.day && (Date.now() - c.at) < VZ_ZSD_LATEST_TTL
+        && vzZsdSetDay_(c.day) !== null) return;
+  } catch (e) {}
+  var d = new Date();
+  d.setUTCDate(d.getUTCDate() - 2);
+  vzZsdSetDay_(d.toISOString().slice(0, 10));
+}
+
+// Dernier jour publie pour la couche exacte de VZ_ZSD_CFG.layer (pas son
+// _uncertainty). La valeur est un intervalle "debut/fin/P1D" ou une liste :
+// on prend la fin. Jour lu par expression reguliere, pas par Date.parse :
+// Copernicus ecrit des nanosecondes (".000000000Z") que Safari iOS refuse.
+// Decoupe sur "<Layer" suivi d'un espace ou de ">" : ce produit ecrit
+// <Layer queryable="1">, qu'un split('<Layer>') ne trouve jamais.
+function vzZsdLastDay_(xml) {
+  var blocks = xml.split(/<Layer[\s>]/);
+  for (var i = 1; i < blocks.length; i++) {
+    if (blocks[i].indexOf('>' + VZ_ZSD_CFG.layer + '<') === -1) continue;
+    var dims = blocks[i].split('<Dimension>');
+    for (var d = 1; d < dims.length; d++) {
+      var dim = dims[d];
+      var cut = dim.indexOf('</Dimension>');
+      if (cut !== -1) dim = dim.slice(0, cut);
+      if (!/<ows:Identifier>\s*time\s*<\/ows:Identifier>/i.test(dim)) continue;
+      var vals = dim.match(/<Value>[^<]+<\/Value>/g);
+      if (!vals) return null;
+      var last = vals[vals.length - 1].replace(/<\/?Value>/g, '').split('/');
+      var m = /(\d{4}-\d{2}-\d{2})/.exec(last.length > 1 ? last[1] : last[0]);
+      return m ? m[1] : null;
+    }
+    return null;
+  }
+  return null;
+}
+
+// POINT D'ENTREE UNIQUE. Un appel par session, memoise (meme patron que
+// vzZsdFetchLegend_). Resout true si le jour a change. En cas d'echec on garde
+// le jour de depart : couche et legende restent dans leur etat d'avant patch.
+// Le GetCapabilities peut prendre 20 s : rien ne l'attend.
+function vzZsdLatest_() {
+  if (VZ_ZSD_STATE.latestPending) return VZ_ZSD_STATE.latestPending;
+  var url = VZ_ZSD_CFG.endpoint + '/' + VZ_ZSD_CFG.layer.split('/')[0]
+    + '?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetCapabilities';
+  VZ_ZSD_STATE.latestPending = fetch(url).then(function(r) {
+    if (!r.ok) throw new Error('GetCapabilities HTTP ' + r.status);
+    return r.text();
+  }).then(function(xml) {
+    var day = vzZsdLastDay_(xml);
+    if (!day) throw new Error('dimension time introuvable');
+    try { localStorage.setItem(VZ_ZSD_LATEST_LS, JSON.stringify({ day: day, at: Date.now() })); } catch (e) {}
+    return vzZsdSetDay_(day) === true;
+  }).catch(function(e) {
+    console.warn('[zsd] derniere date inconnue, on garde ' + VZ_ZSD_STATE.time, e);
+    return false;
+  });
+  return VZ_ZSD_STATE.latestPending;
+}
+
+// Barre d'alerte "satellite en panne". Pilotee par VZ_ZSD_STATE.stale seul :
+// elle apparait quand la source tombe et disparait d'elle-meme a la reprise.
+// Fermee par le chasseur, elle ne revient pas tant que la derniere image
+// publiee reste la meme. Plaque instrument (DESIGN.md) : blanc opaque, trait
+// encre 2 px, vigilance en aplat dans la pastille, date en Plex Mono ambre
+// ecrit (source vieillie), colonne Fermer de 56 px comme la pile laterale.
+// z-index 1150 comme les legendes : les panneaux mobiles (1205) la couvrent.
+// Les quatre legendes du haut descendent de --vz-satwarn (hauteur + 16 px :
+// 10 px d'ecart en desktop, ou la barre part de --vz-row2 et les legendes de
+// 66 px ; 14 px en mobile). Remis a 0 quand la barre disparait.
+var _vzSatWarnRo = null;
+function vzSatWarnEnsureStyle_() {
+  if (document.getElementById('vzSatWarnStyle')) return;
+  var st = document.createElement('style');
+  st.id = 'vzSatWarnStyle';
+  st.textContent =
+    "#vzSatWarn{position:fixed;z-index:1150;top:var(--vz-row2,72px);left:50%;transform:translateX(-50%);display:flex;align-items:stretch;width:max-content;max-width:min(600px,calc(100vw - 32px));min-height:56px;box-sizing:border-box;margin:0;background:#FFFFFF;border:2px solid #0A1520;border-radius:14px;overflow:hidden;color:#0A1520;font-family:'Inter',system-ui,sans-serif;animation:vzSatWarnIn .18s cubic-bezier(.23,1,.32,1) both;}"
+  + "@keyframes vzSatWarnIn{from{opacity:0;transform:translateX(-50%) translateY(-6px);}to{opacity:1;transform:translateX(-50%) translateY(0);}}"
+  + ".vz-satwarn-pas{flex:0 0 36px;width:36px;height:36px;align-self:center;margin-left:12px;border-radius:9px;background:#D8C84A;display:flex;align-items:center;justify-content:center;}"
+  + ".vz-satwarn-tx{flex:1 1 auto;min-width:0;margin:0;padding:9px 14px 9px 12px;display:flex;flex-direction:column;justify-content:center;gap:2px;}"
+  + ".vz-satwarn-t{font-size:15px;font-weight:700;line-height:1.25;color:#0A1520;text-wrap:balance;}"
+  + ".vz-satwarn-d{font-family:'IBM Plex Mono',monospace;font-weight:700;color:#8A4F09;white-space:nowrap;}"
+  + ".vz-satwarn-s{font-size:13px;font-weight:500;line-height:1.4;color:#33475A;text-wrap:pretty;}"
+  + ".vz-satwarn-x{flex:0 0 60px;min-height:56px;margin:0;padding:0;border:0;border-left:2px solid #C3D0DA;background:#FFFFFF;color:#0A1520;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:-0.01em;cursor:pointer;-webkit-tap-highlight-color:transparent;}"
+  + ".vz-satwarn-x > *{transition:transform .16s cubic-bezier(.23,1,.32,1);}"
+  + ".vz-satwarn-x:active{background:#EDF1F4;}"
+  + ".vz-satwarn-x:active > *{transform:scale(.95);}"
+  + ".vz-satwarn-x:focus-visible{outline:2px solid #1A6B5D;outline-offset:-5px;}"
+  + "@media (hover:hover) and (pointer:fine){.vz-satwarn-x:hover{background:#EDF1F4;}}"
+  + "#vzWindLegend,#vzCurLegend,#vzWavLegend,#vzZsdLegend{margin-top:var(--vz-satwarn,0px);}"
+  + "@media (max-width:768px){"
+  +   "#vzSatWarn{top:calc(var(--vzm-topline, 64px) + 12px);left:12px;right:12px;transform:none;width:auto;max-width:none;animation-name:vzmSatWarnIn;}"
+  +   ".vz-satwarn-t{font-size:14px;}"
+  + "}"
+  + "@keyframes vzmSatWarnIn{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:none;}}"
+  + "@media (prefers-reduced-motion:reduce){#vzSatWarn{animation:none;}}";
+  (document.head || document.documentElement).appendChild(st);
+}
+
+function vzSatWarnSync_() {
+  var root = document.documentElement;
+  var el = document.getElementById('vzSatWarn');
+  var off = null;
+  try { off = localStorage.getItem(VZ_SATWARN_OFF_LS); } catch (e) {}
+  if (!VZ_ZSD_STATE.stale || off === VZ_ZSD_STATE.day) {
+    if (el) el.remove();
+    if (_vzSatWarnRo) { _vzSatWarnRo.disconnect(); _vzSatWarnRo = null; }
+    root.style.setProperty('--vz-satwarn', '0px');
+    return;
+  }
+  if (!document.body) return;
+  vzSatWarnEnsureStyle_();
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'vzSatWarn';
+    el.setAttribute('role', 'status');
+    el.innerHTML =
+      '<span class="vz-satwarn-pas" aria-hidden="true">'
+    +   '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0A1520" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+    +   '<path d="M13 7 9 3 5 7l4 4"/><path d="m17 11 4 4-4 4-4-4"/><path d="m8 12 4 4 6-6-4-4Z"/><path d="m16 8 3-3"/><path d="M9 21a6 6 0 0 0-6-6"/></svg>'
+    + '</span>'
+    + '<p class="vz-satwarn-tx">'
+    +   '<span class="vz-satwarn-t">Observation par satellite en panne depuis le <span class="vz-satwarn-d"></span></span>'
+    +   '<span class="vz-satwarn-s">Votre retour sur la visibilité compte plus que jamais.</span>'
+    + '</p>'
+    + '<button class="vz-satwarn-x" type="button">'
+    +   '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>'
+    +   '<span>Fermer</span>'
+    + '</button>';
+    el.querySelector('.vz-satwarn-x').addEventListener('click', function() {
+      try { localStorage.setItem(VZ_SATWARN_OFF_LS, VZ_ZSD_STATE.day); } catch (e) {}
+      vzSatWarnSync_();
+    });
+    document.body.appendChild(el);
+    var measure = function() {
+      if (el.isConnected && el.offsetHeight) root.style.setProperty('--vz-satwarn', (el.offsetHeight + 16) + 'px');
+    };
+    if (window.ResizeObserver) {
+      try { _vzSatWarnRo = new ResizeObserver(measure); _vzSatWarnRo.observe(el); } catch (e) {}
+    }
+    measure();
+  }
+  el.querySelector('.vz-satwarn-d').textContent = VZ_ZSD_STATE.sinceDate;
 }
 
 // Visibilite effective de la legende sediment : affichee seulement si la couche
