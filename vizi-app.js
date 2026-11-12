@@ -301,6 +301,187 @@ var SPOTS = [
   { id:'bastia', name:'Bastia', lat:42.7000, lon:9.4500, region:'Mediterranee' }
 ];
 
+// ============================================================
+// POINT DE MER DE CHAQUE SECTEUR
+// ------------------------------------------------------------
+// Les coordonnees de SPOTS sont celles du PORT : un quai, une mairie, un
+// bassin. Mesure du 12/11/2026 sur la sonde EMODnet : 112 ports sur 134 ont
+// leurs coordonnees hors d'eau. Le robot d'archive decalait le port de 800 m
+// le long de la normale regionale (COAST_SEGMENTS) : 86 points sur 134
+// tombaient encore hors d'eau (+85 m au Havre, +63 m a Ajaccio).
+//
+// Le point de mer est donc lu sur la bathymetrie, pas sur une table de
+// normales. Regle, identique pour toute la France :
+//   1. 16 profils EMODnet de 8 km tires depuis le port, un tous les 22,5 deg ;
+//   2. sur chaque profil, le rivage du large = debut du premier troncon
+//      continu sous le zero des cartes long d'au moins 2 km (un bassin,
+//      un lac, une riviere etroite ou une flaque d'estran ne passent pas) ;
+//   3. depuis ce rivage on avance vers le large jusqu'au premier fond de
+//      5 m, sans depasser 400 m : un candidat par profil ;
+//   4. les candidats sont essayes du plus proche du port au plus lointain,
+//      jusqu'a 5 km (le rayon des retours chasseurs, VZ_OBS_MAX_KM). Le
+//      premier ou la sonde depth_sample - celle que lit fetchRealDepth -
+//      donne au moins 0,5 m d'eau (le seuil d'eau minimale du moteur)
+//      est retenu.
+// Les deux reglages ont ete choisis sur le moteur reel, le 12/11/2026 :
+//   - 5 m et non 10 : a 10 m de fond le moteur reste plat meme par 3 m
+//     de houle (Les Sables : 2,0 m sur 32 creneaux) ; a 5 m il suit la mer.
+//   - 400 m et non 800 : a 800 m du rivage du large le point sort de la
+//     bande ou le fond est brasse (Courseulles : 2,6 a 3,1 m par 1,3 m de
+//     vagues ; Saint-Malo : 4,8 m sur presque toute la fenetre). A 400 m
+//     il y reste, et il se rapproche du point de reference decide en
+//     octobre (environ 700 m de la cote).
+// Chaque entree : [lat, lon, profondeur sous le zero des cartes en m].
+// Un port absent de la table n'a pas de mer ouverte a 5 km (port de
+// riviere ou de fond de baie) : le secteur n'a alors pas de visibilite
+// calculee depuis le port, il faut viser un point en mer.
+// Table generee par scripts/sea-points.js, a relancer si SPOTS change.
+// ============================================================
+var VZ_SEA_POINTS = {
+  'dunkerque':[51.05674,2.36670,0.5],
+  'graveline':[51.02051,2.11591,2.5],
+  'calais':[50.97375,1.84536,2.0],
+  'wissant':[50.89163,1.65123,4.8],
+  'boulogne':[50.74600,1.57993,1.0],
+  'berck':[50.41254,1.54286,2.8],
+  'cayeux':[50.19615,1.47525,0.7],
+  'le_treport':[50.06942,1.36670,3.4],
+  'dieppe':[49.93679,1.07787,5.6],
+  'saint_valery_caux':[49.87610,0.70467,6.9],
+  'fecamp':[49.76217,0.35970,3.6],
+  'etretat':[49.71131,0.19991,5.9],
+  'le_havre_antifer':[49.65940,0.14931,6.7],
+  'le_havre':[49.48873,0.08672,2.7],
+  'trouville':[49.38104,0.07720,1.5],
+  'dives':[49.30413,-0.11417,1.5],
+  'ouistreham':[49.30112,-0.24920,1.4],
+  'courseulles':[49.34748,-0.46000,2.6],
+  'arromanches':[49.34833,-0.62030,3.3],
+  'port_bessin':[49.35426,-0.74814,5.6],
+  'vierville':[49.38971,-0.90570,5.8],
+  'grandcamp':[49.40855,-1.02960,4.9],
+  'iles_saint_marcouf':[49.49679,-1.14974,5.3],
+  'saint_vaast':[49.58092,-1.25232,1.4],
+  'barfleur':[49.67683,-1.25318,3.9],
+  'cherbourg':[49.65000,-1.61670,11.5],
+  'omonville':[49.70439,-1.83334,4.6],
+  'goury':[49.71860,-1.95442,3.6],
+  'dielette':[49.55646,-1.86600,5.5],
+  'carteret':[49.36223,-1.79987,2.4],
+  'portbail':[49.32067,-1.73756,3.2],
+  'saint_germain_ay':[49.21663,-1.65940,3.9],
+  'pointe_agon':[48.97773,-1.61346,1.0],
+  'granville':[48.82642,-1.60852,1.6],
+  'cancale':[48.67500,-1.83153,1.0],
+  'saint_malo':[48.66037,-2.02320,3.4],
+  'iles_hebihens':[48.66670,-2.12780,16.6],
+  'saint_cast':[48.64689,-2.26470,5.0],
+  'erquy':[48.63110,-2.48449,4.6],
+  'dahouet':[48.58805,-2.57252,3.1],
+  'saint_brieuc':[48.56235,-2.71513,1.2],
+  'binic':[48.60170,-2.79316,1.2],
+  'saint_quay':[48.65394,-2.82220,4.0],
+  'les_heaux':[48.90000,-3.08193,5.2],
+  'perros_guirec':[48.81974,-3.45278,3.9],
+  'ploumanach':[48.83333,-3.47291,10.3],
+  'trebeurden':[48.76249,-3.58898,2.4],
+  'locquemeau':[48.72610,-3.61750,18.4],
+  'locquirec':[48.69411,-3.63430,5.8],
+  'anse_primel':[48.70730,-3.78580,5.8],
+  'morlaix':[48.67749,-3.90433,1.4],
+  'roscoff':[48.72560,-3.96604,3.5],
+  'brignogan':[48.67988,-4.32610,3.6],
+  'l_aber_wrach':[48.63469,-4.58357,2.5],
+  'l_aber_benoit':[48.58397,-4.62544,3.0],
+  'portsall':[48.56995,-4.71200,7.0],
+  'l_aber_ildut':[48.46959,-4.77063,4.3],
+  'le_conquet':[48.36762,-4.77448,3.8],
+  'trez_hir':[48.34328,-4.69766,5.2],
+  'brest':[48.38021,-4.47205,3.9],
+  'camaret':[48.28330,-4.58330,12.3],
+  'morgat':[48.22491,-4.49031,5.4],
+  'douarnenez':[48.09994,-4.32940,4.6],
+  'audierne':[48.00716,-4.53921,3.8],
+  'penmarch':[47.82608,-4.37417,13.7],
+  'le_guilvinec':[47.79389,-4.29857,3.6],
+  'lesconil':[47.79176,-4.21470,3.2],
+  'loctudy':[47.83689,-4.16320,2.8],
+  'benodet':[47.86058,-4.11357,2.8],
+  'penfret':[47.71970,-3.94990,6.7],
+  'concarneau':[47.86629,-3.91696,5.4],
+  'port_manech':[47.79777,-3.74059,6.4],
+  'le_pouldu':[47.76060,-3.54591,4.6],
+  'lorient':[47.71362,-3.36670,4.0],
+  'port_louis':[47.70524,-3.36565,10.8],
+  'ile_groix':[47.64599,-3.45000,10.2],
+  'etel':[47.64574,-3.22608,2.9],
+  'belle_ile':[47.34898,-3.14721,3.2],
+  'houat':[47.39394,-2.95186,6.0],
+  'hoedic':[47.33920,-2.84920,8.3],
+  'quiberon_haliguen':[47.48989,-3.09864,5.1],
+  'quiberon_maria':[47.47518,-3.12059,4.1],
+  'la_trinite':[47.56776,-3.03736,2.3],
+  'locmariaquer':[47.58157,-2.94440,0.9],
+  'port_navalo':[47.54649,-2.91995,20.8],
+  'crouesty':[47.53402,-2.88890,3.1],
+  'arradon':[47.61865,-2.80670,2.0],
+  'le_logeo':[47.55083,-2.83500,3.2],
+  'penerf':[47.50357,-2.59766,1.1],
+  'trehiguier':[47.50752,-2.48741,1.1],
+  'piriac':[47.28254,-2.51498,2.0],
+  'le_pouliguen':[47.26108,-2.40922,1.7],
+  'pornichet':[47.26039,-2.35296,2.8],
+  'saint_nazaire':[47.26638,-2.19953,13.8],
+  'pointe_saint_gildas':[47.13780,-2.25320,6.1],
+  'pornic':[47.10302,-2.09890,1.7],
+  'noirmoutier':[47.01500,-2.30510,1.2],
+  'fromentine':[46.89640,-2.18628,1.1],
+  'ile_yeu':[46.72873,-2.34273,3.9],
+  'saint_gilles':[46.68809,-1.94821,2.3],
+  'les_sables':[46.48856,-1.78330,4.1],
+  'ile_re':[46.21578,-1.35815,2.5],
+  'la_rochelle':[46.13050,-1.16166,0.5],
+  'ile_oleron':[45.90608,-1.33448,1.3],
+  'pointe_gatseau':[45.79294,-1.22706,5.1],
+  'cordouan':[45.58116,-1.17723,1.6],
+  'royan':[45.61629,-1.03355,9.8],
+  'pointe_grave':[45.56936,-1.06131,12.6],
+  'pauillac':[45.20010,-0.74228,5.0],
+  'cap_ferret':[44.62665,-1.26463,2.2],
+  'arcachon':[44.63367,-1.20507,0.5],
+  'biscarrosse':[44.44670,-1.26162,5.3],
+  'mimizan':[44.20780,-1.30564,4.5],
+  'lacanau':[45.00000,-1.25000,21.8],
+  'vieux_boucau':[43.79438,-1.41807,4.3],
+  'capbreton':[43.65481,-1.44936,1.5],
+  'bayonne':[43.53338,-1.52281,3.6],
+  'saint_jean_luz':[43.39192,-1.66409,5.3],
+  'port_vendres':[42.52478,3.10000,2.1],
+  'sete':[43.38967,3.68330,4.9],
+  'marseille':[43.28793,5.35202,4.0],
+  'toulon':[43.10143,5.93330,2.0],
+  'nice':[43.69371,7.26670,15.6],
+  'ajaccio':[41.91546,8.73399,13.9],
+  'bastia':[42.69682,9.45432,17.8]
+};
+
+// Sous cette distance le point vise EST le port (meme seuil que
+// vzNearestPortLabel, qui n'affiche plus de distance sous 100 m).
+var VZ_ON_PORT_KM = 0.1;
+
+// Point de mer du secteur auquel appartient (lat, lon) : port de reference
+// le plus proche sous 20 km, meme rattachement que l'archive, les alertes et
+// les retours. Rend null si le secteur n'a pas de point de mer.
+function vzSectorSeaPoint_(lat, lon) {
+  if (typeof findNearestPort !== 'function') return null;
+  var np = findNearestPort(lat, lon);
+  if (!np || !np.spot || !np.spot.id || !(np.distanceKm <= 20)) return null;
+  var p = VZ_SEA_POINTS[np.spot.id];
+  if (!p) return null;
+  return { lat: p[0], lng: p[1], depth: p[2], portId: np.spot.id,
+           portName: np.spot.name, portDistanceKm: np.distanceKm };
+}
+
 var API_MAREE_SITES = {
   // Manche Nord
   'dunkerque': 'dunkerque',
@@ -970,14 +1151,37 @@ function correctEmodnetDepth(rawDepth) {
 // Fallback : si EMODnet REST échoue (hors-Europe, panne),
 // bascule sur l'ancien endpoint depth/point + correctEmodnetDepth.
 // ============================================================
-function fetchRealDepth(lat, lon) {
-  var cacheKey = 'vizi_depth_v3_' + lat.toFixed(4) + '_' + lon.toFixed(4);
+// ------------------------------------------------------------
+// SIGNE DE LA SONDE : UN POINT HORS D'EAU N'EST PAS UN FOND
+// ------------------------------------------------------------
+// EMODnet rend une cote par rapport au zero des cartes : NEGATIVE sous
+// l'eau, POSITIVE au-dessus (terre, quai, estran qui decouvre). L'ancien
+// code prenait Math.abs(data.avg) : +1,97 m sur le port de Saint-Vaast
+// devenait 1,97 m d'eau, +85 m sur les hauteurs du Havre devenait 85 m de
+// fond, et le moteur y calculait une visibilite.
+//
+// vzFetchBathy_ garde le signe et dit ce qu'il a vu :
+//   { depth:   metres sous le zero des cartes (> 0), ou null,
+//     emerged: true si la sonde est au-dessus du zero des cartes }
+// fetchRealDepth reste le point d'entree des consommateurs et rend toujours
+// Promise<number|null> : null hors d'eau ou sonde muette.
+// Cache v4 : les entrees v3 contiennent des altitudes prises pour des
+// profondeurs, elles ne doivent plus etre relues.
+// ------------------------------------------------------------
+function vzFetchBathy_(lat, lon) {
+  var cacheKey = 'vizi_depth_v4_' + lat.toFixed(4) + '_' + lon.toFixed(4);
   try {
     var cached = localStorage.getItem(cacheKey);
     if (cached) {
       var obj = JSON.parse(cached);
-      if (obj && obj.bathy) S._spotBathy = obj.bathy;
-      return Promise.resolve(obj.depth);
+      if (obj && obj.emerged) {
+        S._spotBathy = null;
+        return Promise.resolve({ depth: null, emerged: true });
+      }
+      if (obj && typeof obj.depth === 'number' && obj.depth > 0) {
+        if (obj.bathy) S._spotBathy = obj.bathy;
+        return Promise.resolve({ depth: obj.depth, emerged: false });
+      }
     }
   } catch(e) {}
 
@@ -985,8 +1189,14 @@ function fetchRealDepth(lat, lon) {
   return fetch(url)
     .then(function(r) { return r.json(); })
     .then(function(data) {
-      if (data && typeof data.avg === 'number') {
-        var depth = Math.abs(data.avg);
+      if (data && typeof data.avg === 'number' && isFinite(data.avg)) {
+        if (data.avg > 0) {
+          // Au-dessus du zero des cartes : pas de colonne d'eau a basse mer.
+          S._spotBathy = null;
+          try { localStorage.setItem(cacheKey, JSON.stringify({ emerged: true })); } catch(e) {}
+          return { depth: null, emerged: true };
+        }
+        var depth = -data.avg;
         if (depth > 0 && depth < 1000) {
           var bathy = {
             avg: depth,
@@ -1005,7 +1215,7 @@ function fetchRealDepth(lat, lon) {
           try {
             localStorage.setItem(cacheKey, JSON.stringify({ depth: depth, bathy: bathy }));
           } catch(e) {}
-          return depth;
+          return { depth: depth, emerged: false };
         }
       }
       return fetchDepthFallback(lat, lon);
@@ -1013,23 +1223,31 @@ function fetchRealDepth(lat, lon) {
     .catch(function() { return fetchDepthFallback(lat, lon); });
 }
 
+function fetchRealDepth(lat, lon) {
+  return vzFetchBathy_(lat, lon).then(function(b) {
+    return (b && typeof b.depth === 'number' && b.depth > 0) ? b.depth : null;
+  });
+}
+
 // Fallback hors-Europe ou panne EMODnet REST : ancien endpoint
 // depth/point + correctEmodnetDepth. Ne jamais utiliser hors fallback.
+// Meme contrat que vzFetchBathy_ : { depth, emerged }, signe respecte.
 function fetchDepthFallback(lat, lon) {
   var url = 'https://rest.emodnet-bathymetry.eu/depth/point?geom=POINT(' + lon + ' ' + lat + ')';
   return fetch(url)
     .then(function(r) { return r.json(); })
     .then(function(data) {
-      if (data && typeof data.avg === 'number') {
-        var rawDepth = Math.abs(data.avg);
+      if (data && typeof data.avg === 'number' && isFinite(data.avg)) {
+        S._spotBathy = null;
+        if (data.avg > 0) return { depth: null, emerged: true };
+        var rawDepth = -data.avg;
         if (rawDepth > 0 && rawDepth < 1000) {
-          S._spotBathy = null;
-          return correctEmodnetDepth(rawDepth);
+          return { depth: correctEmodnetDepth(rawDepth), emerged: false };
         }
       }
-      return null;
+      return { depth: null, emerged: false };
     })
-    .catch(function() { return null; });
+    .catch(function() { return { depth: null, emerged: false }; });
 }
 
 function haversineM(lat1, lon1, lat2, lon2) {
@@ -7871,6 +8089,12 @@ function openSpotPopup(latlng, name) {
       if (!_isGenValid()) return Promise.reject({ obsolete: true });
       if (realDepth !== null && realDepth > 0) {
         S._spotDepth = realDepth;
+      } else {
+        // La sonde a repondu et n'a pas trouve d'eau (terre, estran, panne) :
+        // l'estimation provisoire posee a l'ouverture ne lui survit pas. Sans
+        // ca elle repartait vers le tableau Previsions comme une profondeur
+        // mesuree, et le point hors d'eau etait calcule quand meme.
+        S._spotDepth = null;
       }
       // Affiche PROFONDEUR/COEF dès maintenant
       var lat = S.clickLatLng ? S.clickLatLng.lat : latlng.lat;
@@ -11315,7 +11539,11 @@ function vzExplainVisi(hoursBack) {
   var spot = d.spot || {};
   var lat = spot.lat;
   var lon = (spot.lng != null) ? spot.lng : spot.lon;
-  var depthLAT = d.depth || 5;
+  var depthLAT = (d.depth != null && d.depth > 0) ? d.depth : null;
+  if (depthLAT === null) {
+    console.log('vzExplainVisi : pas de fond prouve sur ce point (hors d\'eau ou sonde muette), le moteur ne calcule pas.');
+    return;
+  }
   var sed = d.sediment;
   var sat = d.satellite;
 
@@ -11579,7 +11807,7 @@ function computeVisibilityScore_V4(h, idx, depth, lat, lon, opts) {
 // chasseur. Sans elle, le jour ou le calcul change, on compare des
 // chiffres produits par deux moteurs differents sans le savoir. A
 // incrementer a CHAQUE modification du calcul (pas de l'UI).
-var VZ_ENGINE_VERSION = '2026-10-20';
+var VZ_ENGINE_VERSION = '2026-11-12';
 
 // ============================================================
 // SEDIMENT DE PROPAGATION - UN SEUL CHOIX POUR TOUTES LES VOIES
@@ -19226,6 +19454,50 @@ function vzCondLoader(sources) {
   };
 }
 
+// ============================================================
+// LE POINT ANALYSE DOIT ETRE EN MER
+// ------------------------------------------------------------
+// Le tableau calculait la visibilite la ou on le lui demandait, y compris
+// sur un quai, une mairie ou un estran a sec : "aller sur le spot puis
+// Previsions" visait les coordonnees du port, presque toujours hors d'eau.
+// Regle unique, appliquee avant toute requete du tableau :
+//   - le point vise EST le port (moins de 100 m) : c'est le secteur qu'on
+//     demande, on analyse son point de mer ;
+//   - sonde sous le zero des cartes : on analyse ce point, tel quel ;
+//   - sonde au-dessus (terre, estran) : on analyse le point de mer du
+//     secteur, et l'en-tete le dit ;
+//   - hors d'eau et secteur sans point de mer : le point reste, sans
+//     profondeur. Meteo et maree s'affichent, la visibilite non ;
+//   - sonde muette (panne EMODnet) : le point reste, sans profondeur. On ne
+//     deplace pas un clic en mer parce qu'un service n'a pas repondu, et on
+//     n'invente pas 5 m de fond.
+// Rend toujours un spot { lat, lng, name, depth } ; snapped ou emerged
+// portent la raison quand le point a ete deplace ou reste sans eau.
+// ============================================================
+function vzResolveSeaSpot_(spot) {
+  if (!spot || typeof spot.lat !== 'number' || typeof spot.lng !== 'number') return Promise.resolve(spot);
+  function snapTo(sea) {
+    return { lat: sea.lat, lng: sea.lng, name: sea.portName, depth: sea.depth,
+             snapped: { lat: spot.lat, lng: spot.lng, portId: sea.portId, portName: sea.portName } };
+  }
+  function bare(emerged) {
+    var o = { lat: spot.lat, lng: spot.lng, name: spot.name, depth: null };
+    if (emerged) o.emerged = true;
+    return o;
+  }
+  var sea = (typeof vzSectorSeaPoint_ === 'function') ? vzSectorSeaPoint_(spot.lat, spot.lng) : null;
+  if (sea && sea.portDistanceKm < VZ_ON_PORT_KM) return Promise.resolve(snapTo(sea));
+  if (spot.depth != null && spot.depth > 0) return Promise.resolve(spot);
+  if (typeof vzFetchBathy_ !== 'function') return Promise.resolve(bare(false));
+  return vzFetchBathy_(spot.lat, spot.lng).then(function(b) {
+    if (b && typeof b.depth === 'number' && b.depth > 0) {
+      return { lat: spot.lat, lng: spot.lng, name: spot.name, depth: b.depth };
+    }
+    if (b && b.emerged) return sea ? snapTo(sea) : bare(true);
+    return bare(false);
+  }, function() { return bare(false); });
+}
+
 function loadSheetConditions(spot) {
   // Ordre d'AFFICHAGE = ordre de la doctrine (satellite d'abord, retours
   // ensuite, chaine physique apres). Ordre de COCHAGE = ordre reel des
@@ -19252,32 +19524,49 @@ function loadSheetConditions(spot) {
     return p;
   }
 
-  var meteoPromise = mark(fetchSheetMeteo(spot.lat, spot.lng), 'meteo');
-  var depthPromise = mark((spot.depth != null && spot.depth > 0)
-    ? Promise.resolve(spot.depth)
-    : (typeof fetchRealDepth === 'function'
-        ? fetchRealDepth(spot.lat, spot.lng).catch(function(){ return null; })
-        : Promise.resolve(null)), 'depth');
-  var tidesPromise = mark(fetchSheetTides(spot), 'maree');
-  var satPromise = mark((typeof fetchCmemsZSD === 'function')
-    ? fetchCmemsZSD(spot.lat, spot.lng).catch(function(){ return null; })
-    : Promise.resolve(null), 'sat');
+  // Le point est resolu AVANT toute requete (cf. vzResolveSeaSpot_) : meteo,
+  // maree, satellite, sediment et archive interrogent le point reellement
+  // analyse, pas le quai. `spot` est reaffecte ici, donc paint() et tout ce
+  // qui suit lisent le point resolu sans autre changement.
+  var spotPromise = vzResolveSeaSpot_(spot).then(function(sp) {
+    spot = sp;
+    if (gen === VZ_SHEET._condGen) VZ_SHEET.spot = sp;
+    return sp;
+  });
+
+  var meteoPromise = mark(spotPromise.then(function(sp) {
+    return fetchSheetMeteo(sp.lat, sp.lng);
+  }), 'meteo');
+  // La profondeur sort de la resolution : une seule lecture de sonde, et
+  // null quand le point n'a pas de fond prouve (plus de 5 m par defaut).
+  var depthPromise = mark(spotPromise.then(function(sp) {
+    return (sp.depth != null && sp.depth > 0) ? sp.depth : null;
+  }), 'depth');
+  var tidesPromise = mark(spotPromise.then(function(sp) {
+    return fetchSheetTides(sp);
+  }), 'maree');
+  var satPromise = mark(spotPromise.then(function(sp) {
+    return (typeof fetchCmemsZSD === 'function')
+      ? fetchCmemsZSD(sp.lat, sp.lng).catch(function(){ return null; })
+      : null;
+  }), 'sat');
   // Sédiment : requis pour que la chaîne de resuspension tourne dans le
   // tableau (le tableau ne peuple pas S._spotSediment via le clic drawer).
   // Zone sedimentaire : le moteur sait remplacer un point classe roche par le
   // sable dominant autour (mode B), mais il lit S_spotZoneCache, que seul le
   // pipeline du drawer remplissait. Le tableau la charge donc lui aussi, une
   // fois la profondeur connue, pour voir le fond comme le drawer le voit.
-  var sedimentPromise = mark((typeof fetchSedimentType === 'function')
-    ? fetchSedimentType(spot.lat, spot.lng).catch(function(){ return null; })
+  var sedimentPromise = mark(spotPromise.then(function(sp) {
+    if (typeof fetchSedimentType !== 'function') return null;
+    return fetchSedimentType(sp.lat, sp.lng).catch(function(){ return null; })
         .then(function(sed) {
           if (typeof fetchSedimentZone !== 'function') return sed;
           return depthPromise.then(function(dp) {
             if (!(dp > 0)) return sed;
-            return fetchSedimentZone(spot.lat, spot.lng, dp).then(function(){ return sed; }, function(){ return sed; });
+            return fetchSedimentZone(sp.lat, sp.lng, dp).then(function(){ return sed; }, function(){ return sed; });
           }, function(){ return sed; });
-        })
-    : Promise.resolve(null), 'sed');
+        });
+  }), 'sed');
   // Retours chasseurs : DOCTRINE 1. S_allFeedback n'etait peuple que par le clic
   // sur un PORT (fetchPortCounts_) ; en ouvrant le tableau sur un point en mer,
   // il restait null et vzNearestFeedback renvoyait null — un retour frais (ex.
@@ -19289,9 +19578,11 @@ function loadSheetConditions(spot) {
     : Promise.resolve(null), 'fb');
   // Archive des previsions annoncees (jours passes). Hors du socle : elle ne
   // retarde pas la premiere peinture, elle la complete quand elle arrive.
-  var histPromise = (typeof vzHistFetch_ === 'function')
-    ? vzHistFetch_(vzHistSectorKey_(spot.lat, spot.lng)).catch(function(){ return null; })
-    : Promise.resolve(null);
+  var histPromise = spotPromise.then(function(sp) {
+    return (typeof vzHistFetch_ === 'function')
+      ? vzHistFetch_(vzHistSectorKeyForSpot_(sp)).catch(function(){ return null; })
+      : null;
+  });
 
   // ============================================================
   // RENDU PROGRESSIF - le tableau n'est plus l'otage de la source la plus lente
@@ -19499,6 +19790,15 @@ function vzHistSectorKey_(lat, lon) {
   var np = (typeof findNearestPort === 'function') ? findNearestPort(lat, lon) : null;
   if (np && np.spot && np.spot.id && np.distanceKm <= 20) return 'p:' + np.spot.id;
   return 'c:' + lat.toFixed(2) + '|' + lon.toFixed(2);
+}
+// Cle d'archive du point du tableau. Quand un port a ete recale sur son point
+// de mer, la cle est celle du secteur DEMANDE : le point de mer de Lorient
+// est plus pres de Port-Louis que de Lorient, et sans ca une ouverture
+// humaine ecrirait dans l'archive du voisin.
+function vzHistSectorKeyForSpot_(sp) {
+  if (typeof window !== 'undefined' && window.VZ_HIST_FORCE_SECTOR) return String(window.VZ_HIST_FORCE_SECTOR);
+  if (sp && sp.snapped && sp.snapped.portId) return 'p:' + sp.snapped.portId;
+  return vzHistSectorKey_(sp.lat, sp.lng);
 }
 // Lecture : VZ_HIST_DAYS jours avant aujourd'hui. Ne rejette jamais.
 function vzHistFetch_(sectorKey) {
@@ -20220,7 +20520,10 @@ function vzmBuildPanel(ctx) {
   for (var d = 0; d < days.length; d++) {
     if (d === tIdx) {
       out += '<div data-vzm-today="1"></div>';
-      if (voidCount === slots.length) out += vzmVoidNote();
+      out += vzSeaSpotNote_(ctx.spot, true);
+      // Hors d'eau : la raison du vide est dite par la note ci-dessus, pas
+      // par un ciel couvert.
+      if (voidCount === slots.length && !(ctx.spot && ctx.spot.emerged)) out += vzmVoidNote();
       if (!data.tides || !data.tides.points || !data.tides.points.length) out += vzmTideNone();
     }
     out += vzmDayBlock(days[d]);
@@ -20237,6 +20540,31 @@ function vzmBuildPanel(ctx) {
    sortie. Sans ca, "Données météo indisponibles" s'affichait dans un ecran
    plein sans aucun moyen d'en sortir : le bandeau masque sa propre croix sur
    Previsions, et le panneau qui porte la sienne n'a jamais ete peint. */
+// Mention du point reellement analyse. Le chasseur doit savoir que le chiffre
+// ne vient pas du quai ou il a pose le viseur (cf. vzResolveSeaSpot_).
+// mobile=false : element de la ligne d'identite ; mobile=true : note du panneau.
+function vzSeaSpotNote_(spot, mobile) {
+  var txt = '', strong = '';
+  if (spot && spot.snapped) {
+    strong = 'Point de mer du secteur';
+    txt = 'calcul fait en mer, par ' + String(spot.depth.toFixed(1)).replace('.', ',')
+      + ' m de fond au zéro des cartes';
+  } else if (spot && spot.emerged) {
+    strong = 'Point hors d\'eau';
+    txt = 'pas de visibilité calculée ici, vise un point en mer';
+  } else {
+    return '';
+  }
+  if (mobile) {
+    return '<div class="vzm-note"><span class="nd"></span><p><b>' + strong + '.</b> '
+      + txt.charAt(0).toUpperCase() + txt.slice(1) + '.</p></div>';
+  }
+  return '<span class="vz-cond-ident-item"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"'
+    + ' stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">'
+    + '<path d="M2 12c2-2.5 4-2.5 6 0s4 2.5 6 0 4-2.5 6 0"/><path d="M2 18c2-2.5 4-2.5 6 0s4 2.5 6 0 4-2.5 6 0"/></svg>'
+    + '<span>' + strong + ' : ' + txt + '</span></span>';
+}
+
 function vzCondMessage(txt) {
   var box = '<div class="vz-sheet-loading">' + txt + '</div>';
   var mob = (typeof isMobile === 'function') ? isMobile() : (window.innerWidth <= 768);
@@ -20293,7 +20621,10 @@ function renderSheetTable() {
   var data = VZ_SHEET.data;
   var h = data.meteo;
   var spot = data.spot;
-  var depth = data.depth || 5;
+  // Pas de fond prouve = pas de profondeur. L'ancien `|| 5` faisait tourner
+  // le moteur sur 5 m inventes des que la sonde manquait ; sans fond, la
+  // chaine se declare en repli et la case reste vide.
+  var depth = (data.depth != null && data.depth > 0) ? data.depth : null;
 
   // Filtre créneaux 3h sur 5 jours
   // ----- L'AFFICHAGE reste cale sur aujourd'hui -----
@@ -20385,6 +20716,7 @@ function renderSheetTable() {
       + '<span class="vz-cond-ident-item">' + icPin + '<span>' + secteurTxt + '</span></span>'
       + '<span class="vz-cond-ident-item vz-cond-ident-mono">' + icTarget + '<span>' + vzFormatDDM(spot.lat, idLon) + '</span></span>'
       + '<span class="vz-cond-ident-item vz-cond-ident-mono" id="vzCondSeaTemp" style="display:none;"></span>'
+      + vzSeaSpotNote_(spot, false)
       + '</div>';
   })();
 
@@ -20424,7 +20756,7 @@ html += '<div class="vz-cond-daybar" id="vzCondDaybar">'
     var optsC = { satellite: VZ_SHEET.data.satellite, sediment: VZ_SHEET.data.sediment };
     var optsH = { satellite: VZ_SHEET.data.satellite, sediment: VZ_SHEET.data.sediment, hindcast: true };
     var _histArch = VZ_SHEET.data.hist || null;
-    var _histKey = vzHistSectorKey_(spot.lat, spot.lng);
+    var _histKey = vzHistSectorKeyForSpot_(spot);
     // Maree du tableau injectee AVANT le calcul : sans elle, depthAtTime lit le
     // global TIDES (vide en contexte tableau), la profondeur reste au LAT brut,
     // la houle ne touche jamais le fond et TOUTES les cases sortent au plafond
