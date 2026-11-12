@@ -3,13 +3,16 @@
    VISIMER - ROBOT D'ARCHIVE DES PREVISIONS ANNONCEES
    ------------------------------------------------------------
    Sert le repo en local, ouvre la vraie app dans Chromium headless, et pour
-   chaque port de SPOTS ouvre le tableau Previsions sur le POINT DE
-   REFERENCE du secteur : le port decale de 800 m vers le large, le long de
-   la normale a la cote (getCoastNormal). Le tableau ecrit lui-meme la
-   prevision annoncee dans le GAS (hist_submit, source=robot) : le robot ne
-   calcule rien, il n'invente rien, il fait ce qu'un chasseur ferait.
+   chaque port de SPOTS ouvre le tableau Previsions en visant le PORT, comme
+   un chasseur qui cherche son secteur. C'est l'app qui choisit le point de
+   mer (vzResolveSeaSpot_ + VZ_SEA_POINTS dans vizi-app.js) : le robot n'a
+   plus aucune geometrie a lui, il ne peut plus diverger de ce que voit un
+   humain. L'ancien decalage de 800 m le long de la normale regionale
+   tombait hors d'eau pour 86 ports sur 134 (mesure du 12/11/2026).
+   Le tableau ecrit lui-meme la prevision annoncee dans le GAS (hist_submit,
+   source=robot) : le robot ne calcule rien, il n'invente rien.
 
-   Usage :  node scripts/hist-robot.js [--only courseulles,luc] [--offset 800]
+   Usage :  node scripts/hist-robot.js [--only courseulles,luc]
    Sortie : hist-robot-log.json (un statut par port)
    ============================================================ */
 'use strict';
@@ -23,7 +26,6 @@ const arg = (k, d) => { const i = argv.indexOf('--' + k); return i >= 0 && argv[
 // Tolerant : "only = courseulles", majuscules, espaces ou virgules en separateur.
 const ONLY = String(arg('only', '')).replace(/^\s*only\s*[:=]\s*/i, '')
   .split(/[,\s]+/).map(s => s.trim().toLowerCase()).filter(Boolean);
-const OFFSET_M = parseFloat(arg('offset', '800'));
 const PER_PORT_TIMEOUT = 45000;
 
 const MIME = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.json': 'application/json',
@@ -69,14 +71,8 @@ async function main(opts) {
     log.ports.push(entry);
     errors.length = 0;
     try {
-      // Point de reference : 800 m au large le long de la normale a la cote.
-      const ref = await page.evaluate(({ lat, lon, off }) => {
-        const brg = getCoastNormal(lat, lon) * Math.PI / 180;
-        const dLat = (off * Math.cos(brg)) / 111320;
-        const dLon = (off * Math.sin(brg)) / (111320 * Math.cos(lat * Math.PI / 180));
-        return { lat: lat + dLat, lon: lon + dLon };
-      }, { lat: p.lat, lon: p.lon, off: OFFSET_M });
-      entry.ref = ref;
+      // Le robot vise le port. Le point de mer est celui de l'app.
+      entry.hasSea = await page.evaluate(id => !!(typeof VZ_SEA_POINTS !== 'undefined' && VZ_SEA_POINTS[id]), p.id);
 
       // Une seule promesse : la premiere ecriture hist_submit de CE port.
       const submitted = page.waitForRequest(r => r.url().includes('action=hist_submit') && r.url().includes('sector=p%3A' + encodeURIComponent(p.id)), { timeout: PER_PORT_TIMEOUT });
@@ -86,8 +82,12 @@ async function main(opts) {
         S.clickLatLng = L.latLng(lat, lon);
         S._spotDepth = null;
         openCondDrawer();
-      }, { id: p.id, lat: ref.lat, lon: ref.lon });
+      }, { id: p.id, lat: p.lat, lon: p.lon });
       const req = await submitted;
+      // Point reellement analyse par le tableau (trace, pas un calcul).
+      entry.ref = await page.evaluate(() => (VZ_SHEET && VZ_SHEET.spot)
+        ? { lat: VZ_SHEET.spot.lat, lon: VZ_SHEET.spot.lng, depth: VZ_SHEET.spot.depth, sea: !!VZ_SHEET.spot.snapped }
+        : null);
       const u = new URL(req.url());
       entry.v = u.searchParams.get('v');
       entry.day = u.searchParams.get('day');
