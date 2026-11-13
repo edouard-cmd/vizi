@@ -49,6 +49,7 @@
   var tides = {};           // site -> points de maree
   var slots = null;         // indices horaires des 40 creneaux
   var slotTimes = null;
+  var slotSecs = null;      // les memes creneaux en secondes depuis 1970 (instants, sans fuseau)
   var stats = { meteoCalls: 0, meteoRetries: 0, tideSites: 0, tideEmpty: 0 };
 
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
@@ -94,6 +95,7 @@
     if (!(idx.schema >= 2)) throw new Error('grille de schema ' + idx.schema + ' : il faut le schema 2 (fond au point de l\'app, parts exactes)');
     var L = idx.lattice, n = tiles.reduce(function (s, t) { return s + t.n; }, 0);
     var g = { idx: idx, n: 0, lat: new Float64Array(n), lon: new Float64Array(n), d: new Float64Array(n),
+              gi: new Uint16Array(n), gj: new Uint16Array(n),
               s: new Int16Array(n), ze: new Uint8Array(n), z: new Array(n), tiles: [] };
     tiles.forEach(function (tile) {
       g.tiles.push({ ti: tile.ti, tj: tile.tj, n: tile.n, from: g.n });
@@ -102,6 +104,7 @@
         // memes expressions que latOf / lonOf de grid-lib.js : memes flottants
         g.lat[q] = L.lat0 + (L.slat * tile.i[k] + 0.5) / L.per_deg;
         g.lon[q] = L.lon0 + (L.slon * tile.j[k] + 0.5) / L.per_deg;
+        g.gi[q] = tile.i[k]; g.gj[q] = tile.j[k];
         g.d[q] = probeDepth(tile.d[k]); g.s[q] = tile.s[k]; g.ze[q] = tile.ze[k]; g.z[q] = tile.z[k];
       }
     });
@@ -231,11 +234,11 @@
     var tz = (typeof Intl !== 'undefined') ? Intl.DateTimeFormat().resolvedOptions().timeZone : '';
     if (tz !== 'Europe/Paris') throw new Error('fuseau du navigateur : ' + tz + '. Le robot doit tourner en Europe/Paris, comme le tableau.');
     var h = blocks[0].h, today0 = new Date(); today0.setHours(0, 0, 0, 0);
-    slots = []; slotTimes = [];
+    slots = []; slotTimes = []; slotSecs = [];
     for (var i = 0; i < h.time.length && slots.length < CFG.SLOTS; i++) {
       var dt = new Date(h.time[i]);
       if (dt.getTime() < today0.getTime() || dt.getHours() % 3 !== 0) continue;
-      slots.push(i); slotTimes.push(h.time[i]);
+      slots.push(i); slotTimes.push(h.time[i]); slotSecs.push(Math.round(dt.getTime() / 1000));
     }
     if (slots.length !== CFG.SLOTS) throw new Error(slots.length + ' creneaux sur ' + CFG.SLOTS);
     // tous les blocs partagent le meme axe de temps
@@ -481,19 +484,42 @@
     return { cells: n, slots: S, ms: result.ms, sansChiffre: none, plates: flat, vivantes: alive, moyenne_m: cnt ? Math.round(sum / cnt) / 10 : null };
   }
 
-  // Sortie : un octet par maille et par creneau (decimetres, 255 = pas de
-  // chiffre), mailles dans l'ordre de la grille, en base64 pour le robot.
+  // Sortie (schema 2) : un paquet AUTONOME, que l'app lit sans la grille.
+  //   - valeurs : un octet par maille et par creneau (decimetres, 255 = pas de
+  //     chiffre), maille k, creneau q -> octet k * creneaux + q, en base64.
+  //     En texte et non en binaire : GitHub compresse le texte en le servant
+  //     (2,8 Mo deviennent environ 450 Ko sur le fil), pas le binaire.
+  //   - mailles : leur position sur le treillis, DANS L'ORDRE des valeurs, en
+  //     suites [i, j, longueur] mises bout a bout (une suite = des mailles
+  //     voisines sur une meme ligne). Position et valeur sortent du meme
+  //     passage : elles ne peuvent pas se desaccorder si la grille est
+  //     reconstruite entre deux passages.
+  //   - creneaux : l'heure de Paris (lisible) ET l'instant en secondes, pour
+  //     que l'app n'ait aucun fuseau a deviner.
+  function cellRuns() {
+    var runs = [], n = G.n, k = 0;
+    while (k < n) {
+      var m = k;
+      while (m + 1 < n && G.gi[m + 1] === G.gi[k] && G.gj[m + 1] === G.gj[m] + 1) m++;
+      runs.push(G.gi[k], G.gj[k], m - k + 1);
+      k = m + 1;
+    }
+    return runs;
+  }
   function exportResult() {
-    var v = result.v, bin = '', CH = 0x8000;
+    var v = result.v, bin = '', CH = 0x8000, L = G.idx.lattice;
     for (var a = 0; a < v.length; a += CH) bin += String.fromCharCode.apply(null, v.subarray(a, a + CH));
     return {
-      meta: { schema: 1, built: new Date().toISOString(),
+      meta: { schema: 2, built: new Date().toISOString(),
               engine: (typeof VZ_ENGINE_VERSION !== 'undefined') ? VZ_ENGINE_VERSION : null,
-              grid_built: G.idx.built, cells: G.n, slots: slotTimes, unit: 'dm', none: CFG.NONE,
-              order: 'tuiles de grid/index.json, puis mailles dans la tuile ; maille k, creneau q -> octet k * slots + q',
+              grid_built: G.idx.built, cells: G.n, slots: slotTimes, slots_s: slotSecs, unit: 'dm', none: CFG.NONE,
+              lattice: { lat0: L.lat0, lon0: L.lon0, per_deg: L.per_deg, slat: L.slat, slon: L.slon },
+              files: { cells: 'cells.json', values: 'v.txt' },
+              order: 'cells.json : suites [i, j, longueur] bout a bout, mailles dans l\'ordre des valeurs ; v.txt : base64, maille k, creneau q -> octet k * creneaux + q',
               forcing: { blocks: blocks.length, per_deg: CFG.WAVE_PER_DEG, calls: stats.meteoCalls },
               tides: { sites: stats.tideSites, empty: stats.tideEmpty },
               satellite: { mode: SAT.mode, style: SAT.style, stats: SAT.stats }, summary: summary() },
+      cells: cellRuns(),
       b64: root.btoa(bin)
     };
   }
@@ -558,6 +584,7 @@
     compute: compute, summary: summary, exportResult: exportResult, checkCell: checkCell,
     muteArchive: muteArchive,
     info: function () { return { cells: G ? G.n : 0, blocks: blocks.length, slots: slotTimes, stats: stats, sat: SAT.stats, archiveMuted: archiveMuted, archiveCalls: archiveCalls }; },
+    _runs: cellRuns,
     _cell: function (k) { var o = new Uint8Array(slots.length); enter(); try { computeCell(k, o, 0); } finally { leave(); } return Array.prototype.slice.call(o); }
   };
 })(typeof window !== 'undefined' ? window : globalThis);

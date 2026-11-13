@@ -31,10 +31,15 @@
    La page du robot n'ecrit jamais dans l'archive des previsions.
 
    Sortie (dossier data-out/forecast, publie sur la branche `forecast`) :
-     index.json   moteur, date, creneaux, comptes, bilan du banc
-     v.bin        un octet par maille et par creneau : decimetres de
-                  visibilite, 255 = pas de chiffre. Maille k, creneau q ->
-                  octet k * 40 + q, mailles dans l'ordre de grid/index.json.
+     index.json   moteur, date, creneaux (heure de Paris et instants),
+                  treillis, comptes, bilan du banc
+     cells.json   position des mailles sur le treillis, dans l'ordre des
+                  valeurs : suites [i, j, longueur] mises bout a bout
+     v.txt        un octet par maille et par creneau, en base64 : decimetres
+                  de visibilite, 255 = pas de chiffre. Maille k, creneau q ->
+                  octet k * 40 + q.
+   Le paquet est autonome : l'app le lit sans la grille (trois fichiers,
+   environ 500 Ko sur le fil car GitHub compresse le texte, pas le binaire).
 
    Usage :  node scripts/forecast-build.js [--check 30]
    ============================================================ */
@@ -117,6 +122,12 @@ const CHECK = Math.max(0, parseInt(arg('check', '30'), 10) || 0);
   res.meta.minutes = Math.round((Date.now() - t0) / 60000);
   const bin = Buffer.from(res.b64, 'base64');
   if (bin.length !== res.meta.cells * res.meta.slots.length) throw new Error('taille du fichier : ' + bin.length + ' octets pour ' + res.meta.cells + ' mailles');
+  // Le paquet doit se suffire : autant de positions que de mailles, autant
+  // d'instants que de creneaux.
+  let placed = 0;
+  for (let r = 2; r < res.cells.length; r += 3) placed += res.cells[r];
+  if (res.cells.length % 3 !== 0 || placed !== res.meta.cells) throw new Error('positions : ' + placed + ' mailles placees sur ' + res.meta.cells);
+  if (!res.meta.slots_s || res.meta.slots_s.length !== res.meta.slots.length) throw new Error('instants des creneaux absents ou incomplets');
   // Plus d'une maille sur dix differe a entrees egales : le moteur n'est plus
   // pose comme le tableau, on ne publie pas.
   if (bench.cells > 0 && bench.same_inputs_cells_off / bench.cells > 0.10) {
@@ -126,7 +137,8 @@ const CHECK = Math.max(0, parseInt(arg('check', '30'), 10) || 0);
   if (pageErrors.length) throw new Error('erreurs JavaScript dans la page : ' + pageErrors[0]);
 
   fs.mkdirSync(OUT, { recursive: true });
-  fs.writeFileSync(path.join(OUT, 'v.bin'), bin);
+  fs.writeFileSync(path.join(OUT, 'v.txt'), res.b64);
+  fs.writeFileSync(path.join(OUT, 'cells.json'), JSON.stringify(res.cells));
   fs.writeFileSync(path.join(OUT, 'index.json'), JSON.stringify(res.meta));
   console.log('[prevision] ' + res.meta.cells + ' mailles x ' + res.meta.slots.length + ' creneaux, '
     + (bin.length / 1e6).toFixed(1) + ' Mo, ' + res.meta.minutes + ' min. ' + JSON.stringify(res.meta.summary));
