@@ -25773,6 +25773,20 @@ function vzmInit() {
       else if (input) { input.value = ''; input.blur(); syncClear(); }
       return;
     }
+    // Commande interne. L'app installee sur l'ecran d'accueil n'a pas de barre
+    // d'adresse et, sur iPhone, ne partage pas le stockage de Safari : y ouvrir
+    // ?interne=1 dans le navigateur ne la marque pas. Taper "interne=1" (ou 0)
+    // puis Entree recharge donc l'app sur cette adresse. Le drapeau lui-meme
+    // reste ecrit par le script du <head> d'index.html, et par lui seul.
+    // Tolerant : "?interne=1", "Interne 1" (majuscule automatique du clavier).
+    if (e.key === 'Enter' || e.keyCode === 13) {
+      var _cmd = /^\??\s*interne\s*=?\s*([01])$/i.exec(((input && input.value) || '').trim());
+      if (_cmd) {
+        e.preventDefault();
+        location.assign(location.pathname + '?interne=' + _cmd[1]);
+        return;
+      }
+    }
     if (!_items.length) return;
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault();
