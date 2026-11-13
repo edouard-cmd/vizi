@@ -1,0 +1,68 @@
+# Carte fixe de la grille nationale : profondeur et nature du fond de chaque
+# maille de la bande cotiere (scripts/grid-build.js + scripts/grid-lib.js).
+# La carte fixe ne change pas d'un jour a l'autre : elle est reconstruite quand
+# son propre code change (les trois fichiers ci-dessous), ou a la main.
+# Le resultat est pousse sur la branche `data`, dossier grid/. La branche main
+# et le site ne sont pas touches.
+name: visimer-grid
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/grid-lib.js'
+      - 'scripts/grid-build.js'
+      - '.github/workflows/visimer-grid.yml'
+  workflow_dispatch:
+    inputs:
+      only:
+        description: 'tuiles ti_tj separees par des virgules (vide = France entiere)'
+        required: false
+        default: ''
+permissions:
+  contents: write
+# Deux constructions ne publient pas en meme temps : la plus recente gagne.
+concurrency:
+  group: visimer-grid
+  cancel-in-progress: true
+jobs:
+  grid:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm i --no-save playwright@1.56.0
+      - run: npx playwright install --with-deps chromium
+      # Reprise partielle : on repart de la grille deja publiee, pour garder
+      # les memes cles de sediments.
+      - name: Reprendre la grille publiee
+        if: ${{ github.event.inputs.only != '' }}
+        run: |
+          mkdir -p data-out
+          if git fetch --depth=1 origin data 2>/dev/null; then
+            git archive FETCH_HEAD grid | tar -x -C data-out || true
+          fi
+      - run: node scripts/grid-build.js --shots --only "${{ github.event.inputs.only }}"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: grille
+          path: data-out
+      # Seule une grille complete est publiee (le script sort en erreur sinon).
+      - name: Publier sur la branche data
+        run: |
+          git config user.name "visimer-robot"
+          git config user.email "robot@visimer.fr"
+          if git fetch --depth=1 origin data 2>/dev/null; then
+            git worktree add ../data-branch FETCH_HEAD
+            cd ../data-branch && git checkout -B data
+          else
+            git worktree add --detach ../data-branch
+            cd ../data-branch && git checkout --orphan data && git rm -rfq . && git clean -fdxq
+          fi
+          rm -rf grid && cp -r "$GITHUB_WORKSPACE/data-out/grid" grid
+          git add -A
+          git commit -q -m "Grille nationale : carte fixe du $(date -u +%F)" || echo "rien de nouveau"
+          git push origin data
