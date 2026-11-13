@@ -6060,10 +6060,10 @@ function vzZsdRefreshLegend_() {
       : { min: VZ_ZSD_STATE.min, max: VZ_ZSD_STATE.max, log: VZ_ZSD_STATE.log });
 }
 
-// Barre de degrade et reperes d'une legende de visibilite. Sortis de
-// vzZsdRefreshLegend_ sans changer un seul calcul, pour que la legende de la
-// prevision dessine exactement la meme echelle. sc = { min, max, log } en
-// profondeur de Secchi, ou null : dans ce cas la barre seule, sans repere.
+// Barre de degrade et reperes de la legende satellite. sc = { min, max, log }
+// en profondeur de Secchi, ou null : dans ce cas la barre seule, sans repere.
+// La legende de la prevision n'en depend plus : elle dessine ses classes
+// (vzVfcRefreshLegend_), avec les couleurs de la meme palette.
 function vzVisiScaleDraw_(bar, tk, sc) {
   if (bar) {
     var st = VZ_ZSD_CFG.stops, parts = [];
@@ -6112,8 +6112,12 @@ function vzVisiScaleDraw_(bar, tk, sc) {
 //               255 = le moteur n'a pas de chiffre (maille peinte en gris)
 // La maille (i, j) est centree sur lat0 + (slat*i + 0.5)/per_deg et
 // lon0 + (slon*j + 0.5)/per_deg, et couvre slat x slon pas du treillis.
-// Chaque maille est un aplat, sans lissage : la couleur est le chiffre que
-// le robot a calcule en son centre.
+// Rendu : des bandes de visibilite aux contours lisses (VZ_VFC_CFG.bands).
+// Le chiffre de chaque maille est celui que le robot a calcule en son
+// centre ; entre deux centres la valeur est interpolee, puis rangee dans sa
+// classe. Les donnees ne sont pas lissees, seule leur peinture l'est : la
+// classe dit ce que le moteur sait, pas plus. A l'echelle du pays, ou une
+// maille fait moins d'un pixel, des aplats suffisent (vzVfcPaintFlat_).
 //
 // Le clic n'est pas intercepte : un point en mer ouvre le tableau comme
 // partout ailleurs. Le tableau calcule au point clique, la maille en son
@@ -6129,20 +6133,30 @@ var VZ_VFC_CFG = {
   opacity: 0.7,
   // Maille sans chiffre. Gris neutre, absent de la palette : il ne peut pas
   // etre pris pour une visibilite.
-  noneCss: 'rgb(128,138,152)',
+  none: [128, 138, 152],
+  // Classes de visibilite, bornes en decimetres : moins de 0,5 m, 0,5 a 1,
+  // 1 a 2, 2 a 3, 3 a 5, 5 a 8, plus de 8 m. Une seule liste pour la carte
+  // et pour la legende. bandRep : la valeur dont chaque classe prend la
+  // couleur sur la palette commune avec le satellite (son milieu).
+  bands: [5, 10, 20, 30, 50, 80],
+  bandRep: [3, 7, 14, 25, 39, 63, 110],
+  // A partir de ce zoom une maille depasse 2 px d'ecran : la carte est peinte
+  // en bandes aux contours lisses. En dessous, des aplats.
+  smoothZoom: 9,
   // Au-dela, l'activation relit index.json (quelques centaines d'octets) pour
   // savoir si le robot est repasse.
   ttlMs: 30 * 60 * 1000,
   // Calcul plus vieux que ca : la pastille de la legende passe en alerte.
   oldH: 36,
-  buf: 512,      // tampon de tuile, affiche sur 256 px (net sur ecran dense)
+  buf: 512,      // tampon d'une tuile en aplats, affiche sur 256 px
+  bufSmooth: 256,   // tampon d'une tuile lissee : un calcul par pixel d'ecran
   bucket: 5      // index spatial : paves de 32 x 32 mailles
 };
 
 // Etat de la couche. meta/v/ci/cj/buckets : ecrits par vzVfcIngest_ seul.
-// css : ecrit par vzVfcBuildCss_ seul. tiles : tuiles actuellement en carte.
+// css, rgb, bandCss : ecrits par vzVfcBuildCss_ seul. tiles : tuiles en carte.
 var VZ_VFC_STATE = { pending: null, loadedAt: 0, meta: null, n: 0, slots: 0, v: null, ci: null, cj: null,
-  buckets: null, css: null, scaleKey: null, layer: null, tiles: {}, seq: 0 };
+  buckets: null, css: null, rgb: null, bandCss: null, scaleKey: null, layer: null, tiles: {}, seq: 0 };
 
 function vzVfcGet_(name, asText) {
   return fetch(VZ_VFC_CFG.base + name).then(function(r) {
@@ -6234,10 +6248,13 @@ function vzVfcScale_() {
   return { min: parseFloat(m[1]), max: parseFloat(m[2]), log: /logScale/.test(VZ_ZSD_CFG.style) };
 }
 
-// Table decimetres -> couleur. Meme interpolation que la couche satellite :
-// vzWmtsBuildLut_ recoit une porteuse fictive dont le canal vert vaut
-// l'indice, et rend donc la couleur Visimer de chaque position 0..255 de
-// l'echelle. Renvoie true si la table a change (l'appelant repeint).
+// Table decimetres -> couleur de sa classe. La couleur d'une classe est
+// celle que la palette commune donne a sa valeur representative (bandRep),
+// par la meme interpolation que la couche satellite : vzWmtsBuildLut_ recoit
+// une porteuse fictive dont le canal vert vaut l'indice, et rend donc la
+// couleur Visimer de chaque position 0..255 de l'echelle. Trois formes de la
+// meme table : css (aplats), rgb (peinture au pixel), bandCss (legende).
+// Renvoie true si la table a change (l'appelant repeint).
 function vzVfcBuildCss_() {
   var st = VZ_VFC_STATE, sc = vzVfcScale_();
   var key = sc ? (sc.min + '/' + sc.max + '/' + sc.log) : 'aucune';
@@ -6245,14 +6262,24 @@ function vzVfcBuildCss_() {
   var ident = [];
   for (var g = 0; g < 256; g++) ident.push([0, g, 0]);
   var lut = vzWmtsBuildLut_(ident, VZ_ZSD_CFG.stops);
-  var css = new Array(256);
-  for (var x = 0; x < 255; x++) {
-    var f = sc ? vzZsdPosOn_(x / 10, sc.min, sc.max, sc.log) : null;
+  var th = VZ_VFC_CFG.bands, rep = VZ_VFC_CFG.bandRep, none = VZ_VFC_CFG.none;
+  var band = [], bandCss = [];
+  for (var b = 0; b < rep.length; b++) {
+    var f = sc ? vzZsdPosOn_(rep[b] / 10, sc.min, sc.max, sc.log) : null;
     var o = Math.round((f === null ? 0 : f) * 255) * 3;
-    css[x] = 'rgb(' + lut[o] + ',' + lut[o + 1] + ',' + lut[o + 2] + ')';
+    band.push([lut[o], lut[o + 1], lut[o + 2]]);
+    bandCss.push('rgb(' + lut[o] + ',' + lut[o + 1] + ',' + lut[o + 2] + ')');
   }
-  css[255] = VZ_VFC_CFG.noneCss;
-  st.css = css; st.scaleKey = key;
+  var css = new Array(256), rgb = new Uint8Array(256 * 3);
+  for (var x = 0; x < 255; x++) {
+    var bi = 0;
+    while (bi < th.length && x >= th[bi]) bi++;
+    css[x] = bandCss[bi];
+    rgb[x * 3] = band[bi][0]; rgb[x * 3 + 1] = band[bi][1]; rgb[x * 3 + 2] = band[bi][2];
+  }
+  css[255] = 'rgb(' + none.join(',') + ')';
+  rgb[765] = none[0]; rgb[766] = none[1]; rgb[767] = none[2];
+  st.css = css; st.rgb = rgb; st.bandCss = bandCss; st.scaleKey = key;
   return true;
 }
 
@@ -6268,11 +6295,106 @@ function vzVfcLatOfY_(y) {
 
 // Peint une tuile en place, pour le creneau S.vfcPos. Appelee a la creation
 // de la tuile et a chaque changement de creneau : tout est en memoire, donc
-// pas de reseau et pas de clignotement.
+// pas de reseau et pas de clignotement. Point d'entree unique de la
+// peinture : bandes lissees des que la maille se voit, aplats en dessous.
 function vzVfcPaintTile_(tile) {
+  var st = VZ_VFC_STATE, c = tile._vzc;
+  if (!c) return;
+  if (!st.v || !st.css) { tile.getContext('2d').clearRect(0, 0, tile.width, tile.height); return; }
+  if (c.z >= VZ_VFC_CFG.smoothZoom) vzVfcPaintSmooth_(tile);
+  else vzVfcPaintFlat_(tile);
+}
+
+// Geometrie d'une tuile lissee : pour chaque colonne et chaque ligne de
+// pixels, la maille de gauche (ou du bas) et la part du trajet vers la
+// suivante ; et la fenetre du treillis que la tuile couvre, voisins
+// d'interpolation compris. Calculee une fois par tuile et par calcul du
+// robot, puis gardee sur la tuile : changer de creneau ne refait que les
+// couleurs.
+function vzVfcTileGrid_(tile) {
+  var st = VZ_VFC_STATE, c = tile._vzc, W = tile.width, g = tile._vzg;
+  if (g && g.built === st.meta.built) return g;
+  var L0 = st.meta.lattice, per = L0.per_deg, n2 = Math.pow(2, c.z);
+  var lonW = c.x / n2 * 360 - 180, dLon = 360 / n2 / W;
+  var colJ = new Int32Array(W), colT = new Float32Array(W);
+  var rowI = new Int32Array(W), rowT = new Float32Array(W);
+  var x, y, f, fl;
+  for (x = 0; x < W; x++) {
+    f = ((lonW + (x + 0.5) * dLon - L0.lon0) * per - 0.5) / L0.slon;
+    fl = Math.floor(f); colJ[x] = fl; colT[x] = f - fl;
+  }
+  for (y = 0; y < W; y++) {
+    f = ((vzVfcLatOfY_((c.y + (y + 0.5) / W) / n2) - L0.lat0) * per - 0.5) / L0.slat;
+    fl = Math.floor(f); rowI[y] = fl; rowT[y] = f - fl;
+  }
+  // La ligne 0 est au nord : c'est elle qui porte le plus grand indice.
+  var i0 = rowI[W - 1], i1 = rowI[0] + 1, j0 = colJ[0], j1 = colJ[W - 1] + 1;
+  var nj = j1 - j0 + 1, ix = new Int32Array((i1 - i0 + 1) * nj), any = false, k;
+  for (k = 0; k < ix.length; k++) ix[k] = -1;
+  var B = VZ_VFC_CFG.bucket;
+  for (var bi = Math.max(0, i0) >> B; bi <= (Math.max(0, i1) >> B); bi++) {
+    for (var bj = Math.max(0, j0) >> B; bj <= (Math.max(0, j1) >> B); bj++) {
+      var list = st.buckets[bi * 4096 + bj];
+      if (!list) continue;
+      for (var a = 0; a < list.length; a++) {
+        k = list[a];
+        var i = st.ci[k], j = st.cj[k];
+        if (i < i0 || i > i1 || j < j0 || j > j1) continue;
+        ix[(i - i0) * nj + (j - j0)] = k;
+        any = true;
+      }
+    }
+  }
+  g = { built: st.meta.built, any: any, i0: i0, j0: j0, nj: nj, ix: ix,
+        colJ: colJ, colT: colT, rowI: rowI, rowT: rowT };
+  tile._vzg = g;
+  return g;
+}
+
+// Bandes aux contours lisses. Pour chaque pixel : moyenne des quatre mailles
+// qui l'entourent, ponderee par la distance (interpolation bilineaire), puis
+// couleur de la classe ou tombe cette valeur. Seules les mailles qui existent
+// comptent, et leur poids total donne le bord : au-dela d'une demi-maille du
+// dernier centre la couleur s'efface, sur un fondu court, au lieu de finir en
+// marche d'escalier. La ou les mailles sans chiffre dominent, le gris.
+function vzVfcPaintSmooth_(tile) {
+  var st = VZ_VFC_STATE, W = tile.width, ctx = tile.getContext('2d');
+  var g = vzVfcTileGrid_(tile);
+  if (!g.any) { ctx.clearRect(0, 0, W, W); return; }
+  var img = tile._vzi || (tile._vzi = ctx.createImageData(W, W));
+  var d = img.data, ix = g.ix, nj = g.nj, colJ = g.colJ, colT = g.colT, j0 = g.j0;
+  var ns = st.slots, q = S.vfcPos || 0, v = st.v, rgb = st.rgb;
+  if (q > ns - 1) q = ns - 1;
+  var o = 0, k, val, wg;
+  for (var y = 0; y < W; y++) {
+    var r0 = (g.rowI[y] - g.i0) * nj, r1 = r0 + nj, ti = g.rowT[y], si = 1 - ti;
+    for (var x = 0; x < W; x++, o += 4) {
+      var p = colJ[x] - j0, tj = colT[x], sj = 1 - tj;
+      var acc = 0, ws = 0, gs = 0;
+      k = ix[r0 + p];
+      if (k >= 0) { wg = si * sj; val = v[k * ns + q]; if (val === 255) gs += wg; else { acc += wg * val; ws += wg; } }
+      k = ix[r0 + p + 1];
+      if (k >= 0) { wg = si * tj; val = v[k * ns + q]; if (val === 255) gs += wg; else { acc += wg * val; ws += wg; } }
+      k = ix[r1 + p];
+      if (k >= 0) { wg = ti * sj; val = v[k * ns + q]; if (val === 255) gs += wg; else { acc += wg * val; ws += wg; } }
+      k = ix[r1 + p + 1];
+      if (k >= 0) { wg = ti * tj; val = v[k * ns + q]; if (val === 255) gs += wg; else { acc += wg * val; ws += wg; } }
+      var tot = ws + gs;
+      if (tot < 0.3) { d[o + 3] = 0; continue; }
+      var al = tot >= 0.7 ? 1 : (tot - 0.3) / 0.4;
+      var c3 = (ws >= gs) ? ((acc / ws) | 0) * 3 : 765;
+      d[o] = rgb[c3]; d[o + 1] = rgb[c3 + 1]; d[o + 2] = rgb[c3 + 2];
+      d[o + 3] = 255 * al * al * (3 - 2 * al);
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+// Aplats, une maille = un rectangle de la couleur de sa classe. Sert a
+// l'echelle du pays, ou une maille fait moins d'un pixel.
+function vzVfcPaintFlat_(tile) {
   var st = VZ_VFC_STATE, c = tile._vzc, W = tile.width, ctx = tile.getContext('2d');
   ctx.clearRect(0, 0, W, W);
-  if (!st.v || !st.css || !c) return;
   var L0 = st.meta.lattice, per = L0.per_deg, n2 = Math.pow(2, c.z);
   var lonW = c.x / n2 * 360 - 180, lonE = (c.x + 1) / n2 * 360 - 180;
   var latN = vzVfcLatOfY_(c.y / n2), latS = vzVfcLatOfY_((c.y + 1) / n2);
@@ -6338,8 +6460,9 @@ function vzVfcBuildLayer_() {
   var VzVfcTiles = L.GridLayer.extend({
     createTile: function(coords) {
       var tile = document.createElement('canvas');
-      tile.width = VZ_VFC_CFG.buf;
-      tile.height = VZ_VFC_CFG.buf;
+      var buf = coords.z >= VZ_VFC_CFG.smoothZoom ? VZ_VFC_CFG.bufSmooth : VZ_VFC_CFG.buf;
+      tile.width = buf;
+      tile.height = buf;
       tile._vzc = coords;
       tile._vzk = ++st.seq;
       st.tiles[tile._vzk] = tile;
@@ -6401,9 +6524,10 @@ function vzVfcEnsure_() {
   });
 }
 
-// Legende propre a la couche. Meme gabarit et meme echelle que la legende
-// satellite (vzVisiLegendCss_, vzVisiScaleDraw_) ; le titre dit que c'est
-// une prevision, la pastille dit quand le robot l'a calculee.
+// Legende propre a la couche. Meme gabarit que la legende satellite
+// (vzVisiLegendCss_), mais une echelle en classes, celles de la carte ; le
+// titre dit que c'est une prevision, la pastille dit quand le robot l'a
+// calculee.
 function vzVfcEnsureLegend_() {
   var leg = document.getElementById('vzVfcLegend');
   if (!leg) {
@@ -6413,7 +6537,7 @@ function vzVfcEnsureLegend_() {
     leg.innerHTML =
       '<span class="vzzl-scale">'
     +   '<span class="vzzl-cap vzzl-cap2"><span>Visibilité prévue par Visimer</span>'
-    +     '<span class="vzzl-none"><i style="background:' + VZ_VFC_CFG.noneCss + '"></i>pas de chiffre</span></span>'
+    +     '<span class="vzzl-none"><i style="background:rgb(' + VZ_VFC_CFG.none.join(',') + ')"></i>pas de chiffre</span></span>'
     +   '<span class="vzzl-bar" id="vzVfcBar"></span>'
     +   '<span class="vzzl-ticks" id="vzVfcTicks"></span></span>'
     + '<span class="vzzl-age" id="vzVfcAge"></span>';
@@ -6431,7 +6555,25 @@ function vzVfcRefreshLegend_() {
       + ' ' + d.getHours() + 'h';
     age.classList.toggle('vzzl-old', Date.now() - d.getTime() > VZ_VFC_CFG.oldH * 3600000);
   }
-  vzVisiScaleDraw_(document.getElementById('vzVfcBar'), document.getElementById('vzVfcTicks'), vzVfcScale_());
+  // Echelle en classes : memes couleurs et memes bornes que la carte.
+  var bc = st.bandCss, th = VZ_VFC_CFG.bands;
+  var bar = document.getElementById('vzVfcBar'), tk = document.getElementById('vzVfcTicks');
+  if (!bc) return;
+  if (bar) {
+    var parts = [];
+    for (var b = 0; b < bc.length; b++) {
+      parts.push(bc[b] + ' ' + (b * 100 / bc.length).toFixed(2) + '% ' + ((b + 1) * 100 / bc.length).toFixed(2) + '%');
+    }
+    bar.style.background = 'linear-gradient(to right,' + parts.join(',') + ')';
+  }
+  if (tk) {
+    var html = '';
+    for (var t = 0; t < th.length; t++) {
+      html += '<span style="left:' + ((t + 1) * 100 / bc.length).toFixed(2) + '%">'
+        + String(th[t] / 10).replace('.', ',') + (t === th.length - 1 ? ' m' : '') + '</span>';
+    }
+    tk.innerHTML = html;
+  }
 }
 
 // Retire la couche et rend la main au curseur. Point de sortie unique,
