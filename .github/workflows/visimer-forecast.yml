@@ -1,0 +1,61 @@
+# Prevision de visibilite sur la grille nationale : le moteur de l'app calcule
+# chaque maille pour les 40 creneaux de 3 h des 5 jours
+# (scripts/forecast-build.js + scripts/forecast-lib.js).
+# Le resultat est pousse sur la branche `forecast`, reecrite a chaque passage :
+# un seul commit, l'historique du depot ne grossit pas. La branche main et le
+# site ne sont pas touches.
+#
+# Horaires : GitHub lance les planifications de ce depot avec 6 a 8 heures de
+# retard (mesure sur visimer-archive, octobre-novembre 2026). Deux lancements,
+# le soir et dans la nuit, pour qu'une prevision fraiche soit la au reveil
+# quel que soit le retard du jour.
+name: visimer-forecast
+on:
+  schedule:
+    - cron: '17 19 * * *'
+    - cron: '17 1 * * *'
+  workflow_dispatch:
+    inputs:
+      check:
+        description: 'mailles comparees au vrai tableau (0 = pas de banc)'
+        required: false
+        default: '30'
+permissions:
+  contents: write
+concurrency:
+  group: visimer-forecast
+  cancel-in-progress: false
+jobs:
+  forecast:
+    # Version figee, comme visimer-grid et visimer-archive : Playwright 1.56.0
+    # ne s'installe pas sur ubuntu-latest (26.04).
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm i --no-save playwright@1.56.0
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/forecast-build.js --check "${{ github.event.inputs.check || '30' }}"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: prevision
+          path: data-out
+          if-no-files-found: ignore
+      # Seule une prevision complete et conforme au tableau est publiee (le
+      # script sort en erreur sinon).
+      - name: Publier sur la branche forecast
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rm -rf ../forecast-branch && mkdir ../forecast-branch && cd ../forecast-branch
+          git init -q -b forecast
+          git config user.name "visimer-robot"
+          git config user.email "robot@visimer.fr"
+          cp -r "$GITHUB_WORKSPACE/data-out/forecast" forecast
+          git add -A
+          git commit -q -m "Prevision sur la grille : $(date -u +%FT%H:%MZ)"
+          git push -q --force "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" forecast
