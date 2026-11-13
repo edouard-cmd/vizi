@@ -1977,6 +1977,9 @@ S.basemapSat = L.layerGroup([
   S.map.getPane('vzZsdPane').style.zIndex = 340;   // au-dessus du fond, sous sediment/repères (350)
   S.showZsd = false;
   S.zsdLayer = vzZsdBuildLayer_();
+  // Visibilite prevue : couche a part, meme pane (les deux s'excluent).
+  // Construite a la demande par vzVfcEnsure_, rien n'est charge avant.
+  S.showVfc = false;
 
 initLitto3dLayer();
   S.litto3d.addTo(S.map);
@@ -3453,6 +3456,8 @@ function vzWindShowFrame_(i) {
   // memoire : son "frame" est une echeance envoyee au service dans TIME.
   if (S.timeOwner === 'cur') { vzCurShowFrame_(i); return; }
   if (S.timeOwner === 'wav') { vzWavShowFrame_(i); return; }
+  // La prevision est en memoire : sa frame est un repeinturage des tuiles.
+  if (S.timeOwner === 'vfc') { vzVfcShowFrame_(i); return; }
   // La pluie n'a ni grille ni echeance a demander : sa frame est une tuile
   // deja en cache, on ne fait que basculer l'opacite.
   if (S.timeOwner === 'rain') { vzRainShowFrame(i); return; }
@@ -3671,7 +3676,7 @@ var VZ_CUR_ANIM_MS = 1100;
    en bas d'ecran (collision garantie avec le FAB sonar, et deux jeux de
    reglages a maintenir), on introduit une source active. Les deux couches s'excluent, il n'y a donc jamais d'ambiguite
    sur ce que le curseur pilote.
-   S.timeOwner vaut 'wind', 'cur', 'rain' ou null. Quand il vaut 'wind',
+   S.timeOwner vaut 'wind', 'cur', 'wav', 'rain', 'vfc' ou null. Quand il vaut 'wind',
    toutes les fonctions ci-dessous se comportent exactement comme avant.
    'rain' a rejoint la liste en supprimant #vzRainCtrl : ce second bandeau
    partageait exactement le meme bottom que le FAB sonar et l'attribution
@@ -3683,6 +3688,7 @@ var VZ_CUR_ANIM_MS = 1100;
 function vzTimeFrames_() {
   if (S.timeOwner === 'rain') return S.rainFrames;
   if (S.timeOwner === 'wav') return S.wavFrames;
+  if (S.timeOwner === 'vfc') return S.vfcFrames;
   return (S.timeOwner === 'cur') ? S.curFrames : S.windFrames;
 }
 
@@ -3690,6 +3696,7 @@ function vzTimePos_() {
   var p;
   if (S.timeOwner === 'rain') p = S.rainPos;
   else if (S.timeOwner === 'wav') p = S.wavPos;
+  else if (S.timeOwner === 'vfc') p = S.vfcPos;
   else p = (S.timeOwner === 'cur') ? S.curPos : S.windPos;
   return p || 0;
 }
@@ -5930,17 +5937,81 @@ function vzZsdBuildLayer_() {
 // serveur. Renvoie null tant que les bornes ne sont pas connues : la legende
 // prefere n'afficher aucun repere plutot qu'un repere invente.
 function vzZsdPos_(visiM) {
-  var mn = VZ_ZSD_STATE.min, mx = VZ_ZSD_STATE.max;
+  return vzZsdPosOn_(visiM, VZ_ZSD_STATE.min, VZ_ZSD_STATE.max, VZ_ZSD_STATE.log);
+}
+
+// La formule elle-meme, bornes passees en parametres. Sortie de vzZsdPos_
+// sans changer un seul calcul : la couche Visibilite prevue place ses
+// chiffres sur la meme echelle, avec les bornes de vzVfcScale_.
+function vzZsdPosOn_(visiM, mn, mx, log) {
   if (mn == null || mx == null || mx === mn) return null;
   var zsd = visiM / VZ_ZSD_CFG.visiFactor;
   var f;
-  if (VZ_ZSD_STATE.log) {
+  if (log) {
     if (zsd <= 0 || mn <= 0) return null;
     f = (Math.log(zsd) - Math.log(mn)) / (Math.log(mx) - Math.log(mn));
   } else {
     f = (zsd - mn) / (mx - mn);
   }
   return Math.max(0, Math.min(1, f));
+}
+
+// Style commun aux deux legendes de visibilite : la satellite (#vzZsdLegend,
+// une observation) et la prevue (#vzVfcLegend, une prevision). Sorti de
+// vzZsdEnsureLegend_ pour que chacune puisse le demander ; un seul gabarit,
+// donc les deux ne peuvent pas diverger. Les regles body.vz-wind-band ne
+// visent que la satellite : la prevue coupe le vent, elle n'a personne
+// au-dessus d'elle.
+function vzVisiLegendCss_() {
+  vzInstrEnsureTokens_();
+  if (document.getElementById('vzZsdLegendStyle')) return;
+  var st = document.createElement('style');
+  st.id = 'vzZsdLegendStyle';
+  st.textContent =
+    "#vzZsdLegend,#vzVfcLegend{position:fixed;top:66px;left:50%;transform:translateX(-50%);z-index:1150;display:none;align-items:center;gap:12px;padding:9px 13px;box-sizing:border-box;max-width:calc(100vw - 24px);background:var(--vzi-bg);border:2px solid var(--vzi-line);border-radius:14px;box-shadow:0 10px 28px rgba(8,17,27,0.35);font-family:\'Inter\',sans-serif;pointer-events:none;}"
+  + "#vzZsdLegend.on,#vzVfcLegend.on{display:flex;}"
+  // Propres a la legende de la prevision : le rappel "pas de chiffre" a
+  // droite du titre, et la pastille en alerte quand le calcul est vieux.
+  + ".vzzl-cap2{display:flex;justify-content:space-between;align-items:center;column-gap:10px;row-gap:2px;flex-wrap:wrap;}"
+  + ".vzzl-none{display:inline-flex;align-items:center;gap:5px;font-weight:500;color:var(--vzi-sub);white-space:nowrap;}"
+  + ".vzzl-none i{display:inline-block;width:12px;height:12px;border-radius:3px;border:1px solid rgba(10,21,32,0.3);}"
+  + ".vzzl-age.vzzl-old{border-color:#E89B3C;background:#FFF4E5;}"
+  // Vent en haut : on se place dessous plutot que de le recouvrir.
+  + "body.vz-wind-band #vzZsdLegend{top:132px;}"
+  + ".vzzl-scale{display:flex;flex-direction:column;gap:5px;width:300px;}"
+  // Titre long : Inter en casse normale plutot que le mono capitales du vent,
+  // qui doublerait la largeur pour un libelle de cette taille.
+  + ".vzzl-cap{color:var(--vzi-ink);font-size:12px;font-weight:600;line-height:1.25;}"
+  + ".vzzl-bar{height:16px;border-radius:8px;border:1px solid rgba(10,21,32,0.3);}"
+  + ".vzzl-ticks{position:relative;height:14px;color:var(--vzi-ink);font-family:\'IBM Plex Mono\',monospace;font-size:12px;font-weight:600;line-height:1;}"
+  + ".vzzl-ticks span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap;}"
+  + ".vzzl-ticks span.vzzl-end{right:0;left:auto;transform:none;}"
+  + ".vzzl-ticks span.vzzl-zero{left:0;transform:none;}"
+  // Pastille de date : nowrap obligatoire, elle se cassait en deux lignes.
+  + ".vzzl-age{flex:0 0 auto;box-sizing:border-box;border:2px solid var(--vzi-line);background:var(--vzi-bg);color:var(--vzi-ink);font-family:\'IBM Plex Mono\',monospace;font-size:14px;font-weight:700;padding:0 10px;min-height:40px;display:flex;align-items:center;border-radius:10px;line-height:1;white-space:nowrap;}"
+  + "@media (max-width:768px){"
+  // Meme ligne d'ancrage haute que la legende vent. L'empilement quand les
+  // deux couches sont actives derive de la hauteur MESUREE de la legende
+  // vent (--vzm-windleg), plus d'un 118px recopie a la main qui devenait faux
+  // des que la legende vent changeait de gabarit.
+  // Meme bandeau que la legende vent : sinon, les deux couches actives,
+  // on empile un bandeau pleine largeur et une pastille centree et le defaut
+  // de grille revient un cran plus bas.
+  +   "#vzZsdLegend,#vzVfcLegend{top:calc(var(--vzm-topline, 64px) + 10px);left:12px;right:12px;transform:none;max-width:none;gap:10px;padding:8px 10px;border-radius:14px;}"
+  +   "body.vz-wind-band #vzZsdLegend{top:calc(var(--vzm-topline, 64px) + 10px + var(--vzm-windleg, 50px) + 8px);}"
+  +   ".vzzl-scale{flex:1 1 auto;width:auto;min-width:0;gap:4px;}"
+  +   ".vzzl-cap{font-size:11px;}"
+  +   ".vzzl-bar{height:14px;border-radius:7px;}"
+  +   ".vzzl-ticks{height:13px;font-size:11px;}"
+  +   ".vzzl-age{min-height:38px;font-size:13px;padding:0 8px;border-radius:9px;}"
+  + "}"
+  // Tres petits ecrans : seul le titre se reduit. La largeur de la barre n'a
+  // plus a etre bridee ici - elle est elastique et deja bornee par left/right.
+  // La laisser en dur ecraserait le flex, ce bloc venant apres le bloc 768px.
+  + "@media (max-width:400px){"
+  +   ".vzzl-cap{font-size:10px;}"
+  + "}";
+  (document.head || document.documentElement).appendChild(st);
 }
 
 // Légende de la couche Visibilité satellite. Reprend les tokens instrument du
@@ -5953,50 +6024,7 @@ function vzZsdPos_(visiM) {
 function vzZsdEnsureLegend_() {
   var leg = document.getElementById('vzZsdLegend');
   if (leg) return leg;
-  vzInstrEnsureTokens_();
-  if (!document.getElementById('vzZsdLegendStyle')) {
-    var st = document.createElement('style');
-    st.id = 'vzZsdLegendStyle';
-    st.textContent =
-      "#vzZsdLegend{position:fixed;top:66px;left:50%;transform:translateX(-50%);z-index:1150;display:none;align-items:center;gap:12px;padding:9px 13px;box-sizing:border-box;max-width:calc(100vw - 24px);background:var(--vzi-bg);border:2px solid var(--vzi-line);border-radius:14px;box-shadow:0 10px 28px rgba(8,17,27,0.35);font-family:\'Inter\',sans-serif;pointer-events:none;}"
-    + "#vzZsdLegend.on{display:flex;}"
-    // Vent en haut : on se place dessous plutot que de le recouvrir.
-    + "body.vz-wind-band #vzZsdLegend{top:132px;}"
-    + ".vzzl-scale{display:flex;flex-direction:column;gap:5px;width:300px;}"
-    // Titre long : Inter en casse normale plutot que le mono capitales du vent,
-    // qui doublerait la largeur pour un libelle de cette taille.
-    + ".vzzl-cap{color:var(--vzi-ink);font-size:12px;font-weight:600;line-height:1.25;}"
-    + ".vzzl-bar{height:16px;border-radius:8px;border:1px solid rgba(10,21,32,0.3);}"
-    + ".vzzl-ticks{position:relative;height:14px;color:var(--vzi-ink);font-family:\'IBM Plex Mono\',monospace;font-size:12px;font-weight:600;line-height:1;}"
-    + ".vzzl-ticks span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap;}"
-    + ".vzzl-ticks span.vzzl-end{right:0;left:auto;transform:none;}"
-    + ".vzzl-ticks span.vzzl-zero{left:0;transform:none;}"
-    // Pastille de date : nowrap obligatoire, elle se cassait en deux lignes.
-    + ".vzzl-age{flex:0 0 auto;box-sizing:border-box;border:2px solid var(--vzi-line);background:var(--vzi-bg);color:var(--vzi-ink);font-family:\'IBM Plex Mono\',monospace;font-size:14px;font-weight:700;padding:0 10px;min-height:40px;display:flex;align-items:center;border-radius:10px;line-height:1;white-space:nowrap;}"
-    + "@media (max-width:768px){"
-    // Meme ligne d'ancrage haute que la legende vent. L'empilement quand les
-    // deux couches sont actives derive de la hauteur MESUREE de la legende
-    // vent (--vzm-windleg), plus d'un 118px recopie a la main qui devenait faux
-    // des que la legende vent changeait de gabarit.
-    // Meme bandeau que la legende vent : sinon, les deux couches actives,
-    // on empile un bandeau pleine largeur et une pastille centree et le defaut
-    // de grille revient un cran plus bas.
-    +   "#vzZsdLegend{top:calc(var(--vzm-topline, 64px) + 10px);left:12px;right:12px;transform:none;max-width:none;gap:10px;padding:8px 10px;border-radius:14px;}"
-    +   "body.vz-wind-band #vzZsdLegend{top:calc(var(--vzm-topline, 64px) + 10px + var(--vzm-windleg, 50px) + 8px);}"
-    +   ".vzzl-scale{flex:1 1 auto;width:auto;min-width:0;gap:4px;}"
-    +   ".vzzl-cap{font-size:11px;}"
-    +   ".vzzl-bar{height:14px;border-radius:7px;}"
-    +   ".vzzl-ticks{height:13px;font-size:11px;}"
-    +   ".vzzl-age{min-height:38px;font-size:13px;padding:0 8px;border-radius:9px;}"
-    + "}"
-    // Tres petits ecrans : seul le titre se reduit. La largeur de la barre n'a
-    // plus a etre bridee ici - elle est elastique et deja bornee par left/right.
-    // La laisser en dur ecraserait le flex, ce bloc venant apres le bloc 768px.
-    + "@media (max-width:400px){"
-    +   ".vzzl-cap{font-size:10px;}"
-    + "}";
-    (document.head || document.documentElement).appendChild(st);
-  }
+  vzVisiLegendCss_();
   leg = document.createElement('div');
   leg.id = 'vzZsdLegend';
   leg.innerHTML =
@@ -6026,7 +6054,17 @@ function vzZsdEnsureLegend_() {
 function vzZsdRefreshLegend_() {
   var age = document.getElementById('vzZsdAge');
   if (age) age.textContent = VZ_ZSD_STATE.date || 'J-2';
-  var bar = document.getElementById('vzZsdBar');
+  // Bornes du serveur seulement : tant qu'il n'a pas repondu, aucun repere.
+  vzVisiScaleDraw_(document.getElementById('vzZsdBar'), document.getElementById('vzZsdTicks'),
+    VZ_ZSD_STATE.min == null ? null
+      : { min: VZ_ZSD_STATE.min, max: VZ_ZSD_STATE.max, log: VZ_ZSD_STATE.log });
+}
+
+// Barre de degrade et reperes d'une legende de visibilite. Sortis de
+// vzZsdRefreshLegend_ sans changer un seul calcul, pour que la legende de la
+// prevision dessine exactement la meme echelle. sc = { min, max, log } en
+// profondeur de Secchi, ou null : dans ce cas la barre seule, sans repere.
+function vzVisiScaleDraw_(bar, tk, sc) {
   if (bar) {
     var st = VZ_ZSD_CFG.stops, parts = [];
     for (var i = 0; i < st.length; i++) {
@@ -6035,13 +6073,12 @@ function vzZsdRefreshLegend_() {
     }
     bar.style.background = 'linear-gradient(to right,' + parts.join(',') + ')';
   }
-  var tk = document.getElementById('vzZsdTicks');
   if (!tk) return;
-  if (VZ_ZSD_STATE.min == null) { tk.innerHTML = ''; return; }
-  var hi = VZ_ZSD_STATE.max * VZ_ZSD_CFG.visiFactor;
+  if (!sc || sc.min == null) { tk.innerHTML = ''; return; }
+  var hi = sc.max * VZ_ZSD_CFG.visiFactor;
   var html = '<span class="vzzl-zero">0</span>';
   for (var v = 1; v < hi; v *= 2) {
-    var p = vzZsdPos_(v);
+    var p = vzZsdPosOn_(v, sc.min, sc.max, sc.log);
     if (p === null) break;
     if (p <= 0.06 || p >= 0.90) continue;
     html += '<span style="left:' + (p * 100).toFixed(1) + '%">' + v + '</span>';
@@ -6049,6 +6086,425 @@ function vzZsdRefreshLegend_() {
   html += '<span class="vzzl-end">' + hi.toFixed(0) + 'm+</span>';
   tk.innerHTML = html;
 }
+
+// ============================================================
+// COUCHE VISIBILITE PREVUE - la carte du robot
+// ============================================================
+// Ce que le moteur prevoit sur chaque maille de la bande cotiere, pour les
+// 40 creneaux de 3 h des 5 jours. Rien n'est calcule ici : le robot
+// (scripts/forecast-build.js, deux passages par jour) fait tourner le moteur
+// de CE fichier sur toutes les mailles et publie le resultat sur la branche
+// `forecast`. La couche le lit et le peint.
+//
+// Couche A PART de la visibilite satellite. L'une est une OBSERVATION (ce
+// que le satellite a mesure a sa derniere image), l'autre une PREVISION (ce
+// que le moteur annonce). Deux lignes au menu, deux legendes, deux etats.
+// Elles ne partagent que l'echelle de couleurs (VZ_ZSD_CFG.stops et les
+// bornes de VZ_ZSD_CFG.style) : une meme couleur vaut la meme visibilite sur
+// les deux, par construction. Elles s'excluent, comme tous les fonds colores
+// de l'app : superposees, on ne saurait plus laquelle on lit.
+//
+// Paquet lu (schema 2, trois fichiers texte que GitHub compresse en servant) :
+//   index.json  date du calcul, moteur, treillis, creneaux (instants en s)
+//   cells.json  position des mailles : suites [i, j, longueur] bout a bout,
+//               dans l'ordre des valeurs
+//   v.txt       base64, un octet par maille et par creneau, en decimetres ;
+//               255 = le moteur n'a pas de chiffre (maille peinte en gris)
+// La maille (i, j) est centree sur lat0 + (slat*i + 0.5)/per_deg et
+// lon0 + (slon*j + 0.5)/per_deg, et couvre slat x slon pas du treillis.
+// Chaque maille est un aplat, sans lissage : la couleur est le chiffre que
+// le robot a calcule en son centre.
+//
+// Le clic n'est pas intercepte : un point en mer ouvre le tableau comme
+// partout ailleurs. Le tableau calcule au point clique, la maille en son
+// centre : sur un fond accidente les deux peuvent differer un peu.
+//
+// Phase interne : la ligne du menu n'existe que sur un appareil marque
+// ?interne=1 (vzVfcRowBoot). Ailleurs rien n'est visible ni telecharge.
+var VZ_VFC_CFG = {
+  base: 'https://raw.githubusercontent.com/edouard-cmd/vizi/forecast/forecast/',
+  schema: 2,
+  // Meme opacite que la couche satellite : memes couleurs a l'ecran.
+  opacity: 0.7,
+  // Maille sans chiffre. Gris neutre, absent de la palette : il ne peut pas
+  // etre pris pour une visibilite.
+  noneCss: 'rgb(128,138,152)',
+  // Au-dela, l'activation relit index.json (quelques centaines d'octets) pour
+  // savoir si le robot est repasse.
+  ttlMs: 30 * 60 * 1000,
+  // Calcul plus vieux que ca : la pastille de la legende passe en alerte.
+  oldH: 36,
+  buf: 512,      // tampon de tuile, affiche sur 256 px (net sur ecran dense)
+  bucket: 5      // index spatial : paves de 32 x 32 mailles
+};
+
+// Etat de la couche. meta/v/ci/cj/buckets : ecrits par vzVfcIngest_ seul.
+// css : ecrit par vzVfcBuildCss_ seul. tiles : tuiles actuellement en carte.
+var VZ_VFC_STATE = { pending: null, loadedAt: 0, meta: null, n: 0, slots: 0, v: null, ci: null, cj: null,
+  buckets: null, css: null, scaleKey: null, layer: null, tiles: {}, seq: 0 };
+
+function vzVfcGet_(name, asText) {
+  return fetch(VZ_VFC_CFG.base + name).then(function(r) {
+    if (!r.ok) throw new Error(name + ' HTTP ' + r.status);
+    return asText ? r.text() : r.json();
+  });
+}
+
+// Point d'entree unique des donnees. Memoise ; passe ttlMs, relit index.json
+// et ne retelecharge mailles et valeurs que si la date du calcul a change.
+// Une relecture qui echoue garde ce qui est en memoire (en mer, le reseau
+// tombe) : la legende affiche la date du calcul, donc rien n'est cache.
+function vzVfcLoad_() {
+  var st = VZ_VFC_STATE;
+  if (st.pending && (!st.loadedAt || Date.now() - st.loadedAt < VZ_VFC_CFG.ttlMs)) return st.pending;
+  st.loadedAt = 0;   // relecture en vol : les appels suivants attendent celle-ci
+  var p = vzVfcGet_('index.json').then(function(meta) {
+    if (!meta || meta.schema !== VZ_VFC_CFG.schema || !meta.files || !meta.lattice
+        || !meta.slots_s || !meta.slots_s.length) {
+      throw new Error('paquet de prevision illisible (schema ' + (meta && meta.schema) + ')');
+    }
+    if (st.v && st.meta && st.meta.built === meta.built) { st.loadedAt = Date.now(); return st; }
+    // Inutile de telecharger mailles et valeurs d'une prevision qu'on refusera.
+    if (vzVfcStale_(meta)) throw new Error('prevision perimee : calcul du ' + meta.built);
+    return Promise.all([vzVfcGet_(meta.files.cells), vzVfcGet_(meta.files.values, true)]).then(function(res) {
+      vzVfcIngest_(meta, res[0], res[1]);
+      st.loadedAt = Date.now();
+      return st;
+    });
+  }).catch(function(e) {
+    if (st.v) {
+      console.warn('[prevu] relecture impossible, on garde le calcul du ' + st.meta.built, e);
+      st.loadedAt = Date.now();
+      return st;
+    }
+    if (st.pending === p) st.pending = null;   // un echec ne se memorise pas
+    throw e;
+  });
+  st.pending = p;
+  return p;
+}
+
+// Vrai si le dernier creneau est depasse : le robot n'est pas repasse depuis
+// plus de cinq jours. Mieux vaut pas de carte qu'une prevision d'hier
+// presentee comme celle d'aujourd'hui.
+function vzVfcStale_(meta) {
+  var fr = meta.slots_s;
+  return fr[fr.length - 1] * 1000 + 3 * 3600000 < Date.now();
+}
+
+// Decode le paquet. Refuse tout paquet incoherent plutot que de peindre des
+// mailles au mauvais endroit : autant de positions que de mailles, autant
+// d'octets que mailles x creneaux.
+function vzVfcIngest_(meta, runs, b64) {
+  var st = VZ_VFC_STATE, n = meta.cells, ns = meta.slots_s.length;
+  var bin = atob(String(b64).replace(/\s+/g, ''));
+  if (bin.length !== n * ns) {
+    throw new Error('valeurs : ' + bin.length + ' octets pour ' + n + ' mailles x ' + ns + ' creneaux');
+  }
+  var v = new Uint8Array(bin.length);
+  for (var a = 0; a < bin.length; a++) v[a] = bin.charCodeAt(a);
+  var ci = new Uint16Array(n), cj = new Uint16Array(n), k = 0;
+  if (!runs || runs.length % 3) throw new Error('positions illisibles');
+  for (var r = 0; r < runs.length; r += 3) {
+    for (var m = 0; m < runs[r + 2]; m++) {
+      if (k >= n) throw new Error('positions : plus de mailles placees que les ' + n + ' annoncees');
+      ci[k] = runs[r]; cj[k] = runs[r + 1] + m; k++;
+    }
+  }
+  if (k !== n) throw new Error('positions : ' + k + ' mailles placees sur ' + n);
+  var B = VZ_VFC_CFG.bucket, buckets = {};
+  for (k = 0; k < n; k++) {
+    var key = (ci[k] >> B) * 4096 + (cj[k] >> B);
+    (buckets[key] || (buckets[key] = [])).push(k);
+  }
+  st.meta = meta; st.n = n; st.slots = ns; st.v = v; st.ci = ci; st.cj = cj; st.buckets = buckets;
+}
+
+// Bornes de l'echelle. Celles que Copernicus a confirmees si elles sont
+// arrivees (elles pilotent deja la couche satellite), sinon celles que
+// VZ_ZSD_CFG.style demande. La prevision ne depend pas de Copernicus : elle
+// ne doit pas perdre ses couleurs le jour ou son serveur ne repond pas.
+function vzVfcScale_() {
+  if (VZ_ZSD_STATE.min != null && VZ_ZSD_STATE.max != null) {
+    return { min: VZ_ZSD_STATE.min, max: VZ_ZSD_STATE.max, log: VZ_ZSD_STATE.log };
+  }
+  var m = /range:([0-9.]+)\/([0-9.]+)/.exec(VZ_ZSD_CFG.style);
+  if (!m) return null;
+  return { min: parseFloat(m[1]), max: parseFloat(m[2]), log: /logScale/.test(VZ_ZSD_CFG.style) };
+}
+
+// Table decimetres -> couleur. Meme interpolation que la couche satellite :
+// vzWmtsBuildLut_ recoit une porteuse fictive dont le canal vert vaut
+// l'indice, et rend donc la couleur Visimer de chaque position 0..255 de
+// l'echelle. Renvoie true si la table a change (l'appelant repeint).
+function vzVfcBuildCss_() {
+  var st = VZ_VFC_STATE, sc = vzVfcScale_();
+  var key = sc ? (sc.min + '/' + sc.max + '/' + sc.log) : 'aucune';
+  if (st.css && st.scaleKey === key) return false;
+  var ident = [];
+  for (var g = 0; g < 256; g++) ident.push([0, g, 0]);
+  var lut = vzWmtsBuildLut_(ident, VZ_ZSD_CFG.stops);
+  var css = new Array(256);
+  for (var x = 0; x < 255; x++) {
+    var f = sc ? vzZsdPosOn_(x / 10, sc.min, sc.max, sc.log) : null;
+    var o = Math.round((f === null ? 0 : f) * 255) * 3;
+    css[x] = 'rgb(' + lut[o] + ',' + lut[o + 1] + ',' + lut[o + 2] + ')';
+  }
+  css[255] = VZ_VFC_CFG.noneCss;
+  st.css = css; st.scaleKey = key;
+  return true;
+}
+
+// Web Mercator : ordonnee 0 (nord) a 1 (sud) d'une latitude, et l'inverse.
+function vzVfcMercY_(lat) {
+  var s = Math.sin(lat * Math.PI / 180);
+  return 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI);
+}
+function vzVfcLatOfY_(y) {
+  var t = Math.PI * (1 - 2 * y);
+  return Math.atan((Math.exp(t) - Math.exp(-t)) / 2) * 180 / Math.PI;
+}
+
+// Peint une tuile en place, pour le creneau S.vfcPos. Appelee a la creation
+// de la tuile et a chaque changement de creneau : tout est en memoire, donc
+// pas de reseau et pas de clignotement.
+function vzVfcPaintTile_(tile) {
+  var st = VZ_VFC_STATE, c = tile._vzc, W = tile.width, ctx = tile.getContext('2d');
+  ctx.clearRect(0, 0, W, W);
+  if (!st.v || !st.css || !c) return;
+  var L0 = st.meta.lattice, per = L0.per_deg, n2 = Math.pow(2, c.z);
+  var lonW = c.x / n2 * 360 - 180, lonE = (c.x + 1) / n2 * 360 - 180;
+  var latN = vzVfcLatOfY_(c.y / n2), latS = vzVfcLatOfY_((c.y + 1) / n2);
+  var hy = L0.slat / per / 2, hx = L0.slon / per / 2;
+  var i0 = Math.ceil(((latS - hy - L0.lat0) * per - 0.5) / L0.slat);
+  var i1 = Math.floor(((latN + hy - L0.lat0) * per - 0.5) / L0.slat);
+  var j0 = Math.ceil(((lonW - hx - L0.lon0) * per - 0.5) / L0.slon);
+  var j1 = Math.floor(((lonE + hx - L0.lon0) * per - 0.5) / L0.slon);
+  if (i1 < 0 || j1 < 0 || i0 > 65535 || j0 > 65535) return;
+  if (i0 < 0) i0 = 0;
+  if (j0 < 0) j0 = 0;
+  if (i1 > 65535) i1 = 65535;
+  if (j1 > 65535) j1 = 65535;
+  var B = VZ_VFC_CFG.bucket, ns = st.slots, q = S.vfcPos || 0;
+  if (q > ns - 1) q = ns - 1;
+  var v = st.v, ci = st.ci, cj = st.cj, css = st.css;
+  // A l'echelle du pays une maille fait moins d'un pixel : on lui garantit une
+  // taille minimale, sinon la bande cotiere disparait.
+  var minPx = c.z <= 6 ? 4 : (c.z <= 8 ? 3 : 1);
+  var sx = n2 * W / 360;   // pixels de tampon par degre de longitude
+  // Deux passes, le gris d'abord : une maille chiffree n'est jamais recouverte
+  // par une voisine sans chiffre.
+  for (var pass = 0; pass < 2; pass++) {
+    for (var bi = i0 >> B; bi <= (i1 >> B); bi++) {
+      for (var bj = j0 >> B; bj <= (j1 >> B); bj++) {
+        var list = st.buckets[bi * 4096 + bj];
+        if (!list) continue;
+        for (var a = 0; a < list.length; a++) {
+          var k = list[a], i = ci[k], j = cj[k];
+          if (i < i0 || i > i1 || j < j0 || j > j1) continue;
+          var x = v[k * ns + q];
+          if ((x === 255) !== (pass === 0)) continue;
+          var latC = L0.lat0 + (L0.slat * i + 0.5) / per;
+          var lonC = L0.lon0 + (L0.slon * j + 0.5) / per;
+          // Bords arrondis au pixel : deux mailles voisines partagent
+          // exactement le meme bord, ni trou ni recouvrement.
+          var px = Math.round((lonC - hx - lonW) * sx);
+          var pw = Math.round((lonC + hx - lonW) * sx) - px;
+          var py = Math.round((vzVfcMercY_(latC + hy) * n2 - c.y) * W);
+          var ph = Math.round((vzVfcMercY_(latC - hy) * n2 - c.y) * W) - py;
+          if (pw < minPx) { px -= (minPx - pw) >> 1; pw = minPx; }
+          if (ph < minPx) { py -= (minPx - ph) >> 1; ph = minPx; }
+          ctx.fillStyle = css[x];
+          ctx.fillRect(px, py, pw, ph);
+        }
+      }
+    }
+  }
+}
+
+function vzVfcRepaint_() {
+  var t = VZ_VFC_STATE.tiles;
+  for (var key in t) {
+    if (Object.prototype.hasOwnProperty.call(t, key)) vzVfcPaintTile_(t[key]);
+  }
+}
+
+// Construit la couche. GridLayer sur canvas, dans le pane de la visibilite
+// satellite (meme rang dans la pile, les deux s'excluent). Les tuiles en
+// carte sont tenues dans VZ_VFC_STATE.tiles pour etre repeintes en place.
+function vzVfcBuildLayer_() {
+  var st = VZ_VFC_STATE;
+  var VzVfcTiles = L.GridLayer.extend({
+    createTile: function(coords) {
+      var tile = document.createElement('canvas');
+      tile.width = VZ_VFC_CFG.buf;
+      tile.height = VZ_VFC_CFG.buf;
+      tile._vzc = coords;
+      tile._vzk = ++st.seq;
+      st.tiles[tile._vzk] = tile;
+      vzVfcPaintTile_(tile);
+      return tile;
+    }
+  });
+  var layer = new VzVfcTiles({
+    attribution: 'Prévision Visimer',
+    opacity: VZ_VFC_CFG.opacity, maxZoom: 19, pane: 'vzZsdPane', tileSize: 256
+  });
+  layer.on('tileunload', function(e) {
+    if (e && e.tile && e.tile._vzk) delete st.tiles[e.tile._vzk];
+  });
+  return layer;
+}
+
+// Creneau le plus proche de maintenant. Les frames portent un instant en
+// secondes, la forme que vzWindDate_ lit deja pour la pluie.
+function vzVfcNowIndex_() {
+  var fr = S.vfcFrames || [], now = Date.now() / 1000, best = 0, bd = Infinity;
+  for (var i = 0; i < fr.length; i++) {
+    var d = Math.abs(fr[i].time - now);
+    if (d < bd) { bd = d; best = i; }
+  }
+  return best;
+}
+
+// Applique le creneau d'index i. Appelee par le bandeau temporel partage
+// (vzWindShowFrame_) quand S.timeOwner vaut 'vfc'.
+function vzVfcShowFrame_(i) {
+  if (!S.vfcFrames || !S.vfcFrames.length) return;
+  S.vfcPos = Math.max(0, Math.min(i, S.vfcFrames.length - 1));
+  vzVfcRepaint_();
+}
+
+// Point d'entree unique de la couche : donnees, creneaux, couleurs, tuiles.
+// Rejette si la prevision est perimee (vzVfcStale_), y compris celle qui
+// est restee en memoire dans une session ouverte depuis des jours.
+function vzVfcEnsure_() {
+  return vzVfcLoad_().then(function(st) {
+    var fr = st.meta.slots_s;
+    if (vzVfcStale_(st.meta)) throw new Error('prevision perimee : calcul du ' + st.meta.built);
+    if (S.vfcBuilt !== st.meta.built) {   // premier chargement, ou le robot est repasse
+      S.vfcFrames = fr.map(function(t) { return { time: t }; });
+      S.vfcPos = vzVfcNowIndex_();
+      S.vfcBuilt = st.meta.built;
+    }
+    if (!vzVfcScale_()) throw new Error('echelle de couleurs illisible dans VZ_ZSD_CFG.style');
+    vzVfcBuildCss_();
+    if (!st.layer) st.layer = vzVfcBuildLayer_();
+    else vzVfcRepaint_();
+    // Si Copernicus confirme ensuite d'autres bornes que celles demandees, la
+    // prevision s'aligne sur lui, comme la couche satellite.
+    vzZsdFetchLegend_().then(function() {
+      if (vzVfcBuildCss_()) { vzVfcRepaint_(); vzVfcRefreshLegend_(); }
+    });
+    return st.layer;
+  });
+}
+
+// Legende propre a la couche. Meme gabarit et meme echelle que la legende
+// satellite (vzVisiLegendCss_, vzVisiScaleDraw_) ; le titre dit que c'est
+// une prevision, la pastille dit quand le robot l'a calculee.
+function vzVfcEnsureLegend_() {
+  var leg = document.getElementById('vzVfcLegend');
+  if (!leg) {
+    vzVisiLegendCss_();
+    leg = document.createElement('div');
+    leg.id = 'vzVfcLegend';
+    leg.innerHTML =
+      '<span class="vzzl-scale">'
+    +   '<span class="vzzl-cap vzzl-cap2"><span>Visibilité prévue par Visimer</span>'
+    +     '<span class="vzzl-none"><i style="background:' + VZ_VFC_CFG.noneCss + '"></i>pas de chiffre</span></span>'
+    +   '<span class="vzzl-bar" id="vzVfcBar"></span>'
+    +   '<span class="vzzl-ticks" id="vzVfcTicks"></span></span>'
+    + '<span class="vzzl-age" id="vzVfcAge"></span>';
+    document.body.appendChild(leg);
+  }
+  vzVfcRefreshLegend_();
+  return leg;
+}
+
+function vzVfcRefreshLegend_() {
+  var st = VZ_VFC_STATE, age = document.getElementById('vzVfcAge');
+  if (age && st.meta) {
+    var d = new Date(st.meta.built);
+    age.textContent = 'calcul ' + ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2)
+      + ' ' + d.getHours() + 'h';
+    age.classList.toggle('vzzl-old', Date.now() - d.getTime() > VZ_VFC_CFG.oldH * 3600000);
+  }
+  vzVisiScaleDraw_(document.getElementById('vzVfcBar'), document.getElementById('vzVfcTicks'), vzVfcScale_());
+}
+
+// Retire la couche et rend la main au curseur. Point de sortie unique,
+// appele par le toggle et par l'echec de chargement. Meme fin que
+// vzWavTeardown_ et vzCurTeardown_.
+function vzVfcTeardown_() {
+  var st = VZ_VFC_STATE;
+  if (st.layer && S.map.hasLayer(st.layer)) S.map.removeLayer(st.layer);
+  var leg = document.getElementById('vzVfcLegend');
+  if (leg) leg.classList.remove('on');
+  // Relief rendu tel qu'il etait avant la couche (voir toggleLayer('vfc')).
+  // Reactivation silencieuse : ce n'est pas un clic, il ne compte pas.
+  if (S.vfcReliefHidden) {
+    S.vfcReliefHidden = false;
+    if (!S.showLitto3d) {
+      S.vzSilentToggle = true;
+      try { toggleLayer('litto3d'); } finally { S.vzSilentToggle = false; }
+    }
+  }
+  if (S.timeOwner === 'vfc') {
+    vzWindStop_();
+    S.timeOwner = S.showWindFlow ? 'wind' : (S.showCurrent ? 'cur' : (S.showRain ? 'rain' : (S.showWave ? 'wav' : null)));
+    var ctl = document.getElementById('vzWindCtrl');
+    if (S.timeOwner) {
+      vzWindPlaceTicks_();
+      vzWindSyncCtrl_();
+    } else {
+      if (ctl) ctl.classList.remove('on');
+      document.body.classList.remove('vz-wind-band');
+    }
+  }
+}
+
+// Diagnostic depuis la console : vzVfcDiag(). Dit d'ou vient la carte
+// affichee (date du calcul, moteur, banc du robot) et ce qui est en memoire.
+window.vzVfcDiag = function() {
+  var st = VZ_VFC_STATE, m = st.meta || {};
+  var f = (S.vfcFrames && S.vfcFrames[S.vfcPos || 0]) ? S.vfcFrames[S.vfcPos || 0] : null;
+  return {
+    couche_active: !!S.showVfc,
+    proprietaire_curseur: S.timeOwner,
+    calcul: m.built || null,
+    moteur: m.engine || null,
+    mailles: st.n,
+    creneaux: st.slots,
+    creneau_affiche: f ? new Date(f.time * 1000).toString() : null,
+    tuiles_en_carte: Object.keys(st.tiles).length,
+    echelle: vzVfcScale_(),
+    resume: m.summary || null,
+    banc: m.bench || null
+  };
+};
+
+// Ligne du menu Couches, posee devant celle de la visibilite satellite.
+// Creee ici et non dans index.html tant que la couche est en phase interne :
+// un appareil qui n'est pas marque ?interne=1 n'a ni la ligne ni le moyen
+// d'allumer la couche. Pour l'ouvrir a tous : deplacer la ligne dans
+// index.html et supprimer cette fonction.
+(function vzVfcRowBoot() {
+  if (!window.VZ_INTERNE) return;
+  var ref = document.getElementById('vzRowZsd');
+  if (!ref) { setTimeout(vzVfcRowBoot, 300); return; }
+  if (document.getElementById('vzRowVfc')) return;
+  var row = document.createElement('div');
+  row.className = 'vz-layers-row';
+  row.id = 'vzRowVfc';
+  row.setAttribute('onclick', "toggleLayer('vfc')");
+  row.innerHTML =
+    '<span class="vz-layers-ico"><svg viewBox="0 0 24 24"><path d="M2 12 Q7 5 12 5 Q17 5 22 12 Q17 19 12 19 Q7 19 2 12 Z"></path><path d="M12 9 L12 12.4 L14.4 13.8"></path></svg></span>'
+  + '<span class="vz-layers-label"><span class="vz-layers-name">Visibilité prévue</span><span class="vz-layers-sub">5 jours, toutes les 3 h</span></span>'
+  + '<div class="vz-layers-check"></div>';
+  ref.parentNode.insertBefore(row, ref);
+})();
+
 
 // ============================================================
 // DERNIERE IMAGE SATELLITE PUBLIEE + BARRE D'ALERTE PANNE
@@ -6183,7 +6639,7 @@ function vzSatWarnEnsureStyle_() {
   + ".vz-satwarn-x:active > *{transform:scale(.95);}"
   + ".vz-satwarn-x:focus-visible{outline:2px solid #1A6B5D;outline-offset:-5px;}"
   + "@media (hover:hover) and (pointer:fine){.vz-satwarn-x:hover{background:#EDF1F4;}}"
-  + "#vzWindLegend,#vzCurLegend,#vzWavLegend,#vzZsdLegend{margin-top:var(--vz-satwarn,0px);}"
+  + "#vzWindLegend,#vzCurLegend,#vzWavLegend,#vzZsdLegend,#vzVfcLegend{margin-top:var(--vz-satwarn,0px);}"
   + "@media (max-width:768px){"
   +   "#vzSatWarn{top:calc(var(--vzm-topline, 64px) + 12px);left:12px;right:12px;transform:none;width:auto;max-width:none;animation-name:vzmSatWarnIn;}"
   +   ".vz-satwarn-t{font-size:14px;}"
@@ -6264,6 +6720,7 @@ function vzUpdateLayersBadge() {
   var n = (S.showSed ? 1 : 0) + (S.showIso ? 1 : 0) + (S.showLitto3d ? 1 : 0)
         + (S.showRain ? 1 : 0) + (S.showWindFlow ? 1 : 0) + (S.showZsd ? 1 : 0)
         + (S.showWrecks ? 1 : 0) + (S.showCurrent ? 1 : 0) + (S.showWave ? 1 : 0)
+        + (S.showVfc ? 1 : 0)
         + ((typeof S_webcamsActive !== 'undefined' && S_webcamsActive) ? 1 : 0);
   for (var i = 0; i < els.length; i++) {
     if (n > 0) { els[i].textContent = n; els[i].classList.add('on'); }
@@ -6332,6 +6789,7 @@ function toggleLayer(type) {
       if (S.showWindFlow) toggleLayer('windflow');
       if (S.showCurrent) toggleLayer('current');
       if (S.showWave) toggleLayer('wave');
+      if (S.showVfc) toggleLayer('vfc');
       vzRainEnsureData().then(function(){
         if (!S.showRain) return;   // re-toggle off pendant le fetch
         S.timeOwner = 'rain';
@@ -6372,6 +6830,7 @@ function toggleLayer(type) {
       if (S.showWave) toggleLayer('wave');
       // Meme raison : le bandeau temporel n'a qu'un proprietaire.
       if (S.showRain) toggleLayer('rain');
+      if (S.showVfc) toggleLayer('vfc');
       S.timeOwner = 'wind';
       // Plus d'exclusion mutuelle avec Litto3D : les deux couches peuvent etre
       // actives ensemble, c'est vzWindColorArbitrate_ qui tranche ce qui est
@@ -6426,7 +6885,15 @@ function toggleLayer(type) {
       // Plus d'exclusion mutuelle avec le vent. Voir vzWindColorArbitrate_.
       // Avec les vagues, si : rallumer le relief a la main coupe les vagues,
       // symetrique de l'extinction faite par toggleLayer('wave').
-      if (S.showWave) toggleLayer('wave');
+      // Meme regle pour la visibilite prevue, qui masque aussi le relief.
+      // A la main seulement : un retour programmatique du relief
+      // (S.vzSilentToggle, fin d'une couche qui l'avait masque) ne coupe
+      // personne, sinon la couche qui prend le relais d'une autre se ferait
+      // eteindre par le relief que la premiere lui rend.
+      if (!S.vzSilentToggle) {
+        if (S.showWave) toggleLayer('wave');
+        if (S.showVfc) toggleLayer('vfc');
+      }
       S.litto3d.addTo(S.map);
       // Ordre Z : basemap < Litto3D < sediment/isobathes/markers
       S.litto3d.eachLayer(function(l) { if (l.bringToBack) l.bringToBack(); });
@@ -6456,6 +6923,7 @@ function toggleLayer(type) {
       if (S.showWave) toggleLayer('wave');
       // Le courant prend aussi le bandeau temporel : la pluie doit le lacher.
       if (S.showRain) toggleLayer('rain');
+      if (S.showVfc) toggleLayer('vfc');
       vzCurEnsure_().then(function(layers){
         if (!S.showCurrent) return;   // re-toggle off pendant la resolution
         for (var k = 0; k < layers.length; k++) {
@@ -6500,6 +6968,7 @@ function toggleLayer(type) {
       if (S.showCurrent) toggleLayer('current');
       if (S.showZsd) toggleLayer('zsd');
       if (S.showRain) toggleLayer('rain');
+      if (S.showVfc) toggleLayer('vfc');
       // Relief masque le temps des vagues : pres des cotes, la ou la decision
       // se prend, ses couleurs se melangent a celles de la hauteur et on ne
       // lit plus rien. Memorise pour revenir tel quel a l'extinction
@@ -6537,12 +7006,60 @@ function toggleLayer(type) {
     var _rowZsd = document.getElementById('vzRowZsd');
     if (_rowZsd) _rowZsd.classList.toggle('active', S.showZsd);
     if (S.showZsd) {
+      // Observation et prevision sont deux couches a part, peintes avec la
+      // meme echelle : une seule a la fois, sinon on ne sait plus laquelle
+      // on lit.
+      if (S.showVfc) toggleLayer('vfc');
       if (S.zsdLayer && !S.map.hasLayer(S.zsdLayer)) S.zsdLayer.addTo(S.map);
       vzZsdEnsureLegend_().classList.add('on');
     } else {
       if (S.zsdLayer && S.map.hasLayer(S.zsdLayer)) S.map.removeLayer(S.zsdLayer);
       var _zl = document.getElementById('vzZsdLegend');
       if (_zl) _zl.classList.remove('on');
+    }
+  } else if (type === 'vfc') {
+    S.showVfc = !S.showVfc;
+    var _rowVfc = document.getElementById('vzRowVfc');
+    if (_rowVfc) _rowVfc.classList.toggle('active', S.showVfc);
+    if (S.showVfc) {
+      // Memes exclusions que les vagues : un seul fond colore dynamique a la
+      // fois, un seul proprietaire du bandeau temporel. La visibilite
+      // satellite s'eteint aussi (meme echelle, voir toggleLayer('zsd')).
+      // Chaque extinction repasse par toggleLayer, donc par le chemin normal
+      // de chaque couche.
+      if (S.showWindFlow) toggleLayer('windflow');
+      if (S.showCurrent) toggleLayer('current');
+      if (S.showWave) toggleLayer('wave');
+      if (S.showRain) toggleLayer('rain');
+      if (S.showZsd) toggleLayer('zsd');
+      // Relief masque le temps de la couche, comme pour les vagues : pres de
+      // la cote, la ou se lit la prevision, ses couleurs se melangent a celles
+      // de la palette et un fond turquoise passe pour 5 m de visibilite.
+      // Memorise pour revenir tel quel a l'extinction (vzVfcTeardown_).
+      S.vfcReliefHidden = !!S.showLitto3d;
+      if (S.showLitto3d) toggleLayer('litto3d');
+      vzVfcEnsure_().then(function(layer){
+        if (!S.showVfc) return;   // re-toggle off pendant le chargement
+        if (!S.map.hasLayer(layer)) layer.addTo(S.map);
+        S.timeOwner = 'vfc';
+        vzVfcEnsureLegend_().classList.add('on');
+        vzWindEnsureCtrl_().classList.add('on');
+        document.body.classList.add('vz-wind-band');
+        vzWindPlaceTicks_();
+        vzWindSyncCtrl_();
+      }).catch(function(e){
+        console.warn('[prevu] couche indisponible', e);
+        S.showVfc = false;
+        if (_rowVfc) _rowVfc.classList.remove('active');
+        vzVfcTeardown_();
+        vzUpdateLayersBadge();
+        // On le dit : sans ca la ligne s'allume puis s'eteint sans raison visible.
+        vzNavToast_(/perimee/.test(String(e && e.message))
+          ? 'Prévision périmée : le robot n\u2019est pas repassé.'
+          : 'Visibilité prévue indisponible pour le moment.');
+      });
+    } else {
+      vzVfcTeardown_();
     }
   } else if (type === 'spots') {
     if (!S.spotMode) vzToolsReset_('spots');
@@ -6583,7 +7100,7 @@ function toggleLayer(type) {
   var _vzOn = {
     heatmap: S.showHeatmap, iso: S.showIso, sed: S.showSed, rain: S.showRain,
     windflow: S.showWindFlow, litto3d: S.showLitto3d, current: S.showCurrent, wave: S.showWave,
-    zsd: S.showZsd, spots: S.spotMode, measure: S.measureMode, wrecks: S.showWrecks
+    zsd: S.showZsd, vfc: S.showVfc, spots: S.spotMode, measure: S.measureMode, wrecks: S.showWrecks
   }[type];
   // vzSilentToggle : reactivation programmatique (relief rendu apres les
   // vagues), pas un clic, donc pas une activation mesuree.
@@ -26124,7 +26641,7 @@ var VZ_ACCOUNT = (function () {
     var n = 0;
     // showLitto3d et non showLitto : la cle testee n'existait pas, le Relief du
     // fond n'a donc jamais ete compte dans ce badge.
-    ['showWindFlow','showCurrent','showWave','showRain','showSed','showWrecks','showZsd','showLitto3d','showIso','showHeatmap']
+    ['showWindFlow','showCurrent','showWave','showRain','showSed','showWrecks','showZsd','showVfc','showLitto3d','showIso','showHeatmap']
       .forEach(function(k){ if (S && S[k]) n++; });
     el.textContent = n;
     el.style.display = n ? '' : 'none';
