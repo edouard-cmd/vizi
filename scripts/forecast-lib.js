@@ -35,7 +35,9 @@
     GRID: 'https://raw.githubusercontent.com/edouard-cmd/vizi/data/grid/',
     WAVE_PER_DEG: 12,       // grille de houle d'Open-Meteo : points a k/12 + 1/24
     BATCH: 50,              // points par appel groupe
-    PACE_MS: 16000,         // pause entre deux lots : 150 points par lot, 600 par minute au plus
+    PACE_MS: 24000,         // pause entre deux lots : 150 points par lot, soit 375 par minute. La limite
+                            // gratuite d'Open-Meteo est de 600 ; a 16 s (562 par minute) un passage a ete
+                            // refuse en cours de route le 13/11/2026 depuis une machine GitHub.
     SLOTS: 40,              // 5 jours x 8 creneaux, comme le tableau
     NONE: 255,              // pas de chiffre (roche, vase, entrees insuffisantes)
     RETRIES: 5
@@ -50,7 +52,7 @@
   var slots = null;         // indices horaires des 40 creneaux
   var slotTimes = null;
   var slotSecs = null;      // les memes creneaux en secondes depuis 1970 (instants, sans fuseau)
-  var stats = { meteoCalls: 0, meteoRetries: 0, tideSites: 0, tideEmpty: 0 };
+  var stats = { meteoCalls: 0, meteoRetries: 0, marineMissing: 0, tideSites: 0, tideEmpty: 0 };
 
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
   function breathe() {
@@ -69,6 +71,11 @@
         if (r.status === 429) { var e = new Error('HTTP 429'); e.wait = 61000; throw e; }
         if (!r.ok) throw new Error('HTTP ' + r.status);
         return r.json();
+      }, function (err) {
+        // Pas de reponse lisible du tout ("Failed to fetch"). C'est la forme que
+        // prend, dans un navigateur, un refus pour depassement de quota quand il
+        // arrive sans en-tete CORS : on attend la minute suivante, comme pour un 429.
+        var e = new Error(String(err && err.message || err)); e.wait = 61000; throw e;
       }).catch(function (e) {
         attempt++; stats.meteoRetries++;
         if (attempt > CFG.RETRIES) throw new Error((what || 'lecture') + ' : ' + String(e && e.message || e));
@@ -195,7 +202,7 @@
           }
           // La houle peut manquer sans tout arreter : l'app sait calculer sans elle.
           return one('arome').then(function () { return one('arpege'); })
-            .then(function () { return one('marine').catch(function () { lot.forEach(function (b) { b.raw.marine = null; }); }); })
+            .then(function () { return one('marine').catch(function () { stats.marineMissing += lot.length; lot.forEach(function (b) { b.raw.marine = null; }); }); })
             .then(function () {
               if (progress) progress(li + 1, lots.length);
               var wait = CFG.PACE_MS - (Date.now() - t0);
@@ -516,7 +523,8 @@
               lattice: { lat0: L.lat0, lon0: L.lon0, per_deg: L.per_deg, slat: L.slat, slon: L.slon },
               files: { cells: 'cells.json', values: 'v.txt' },
               order: 'cells.json : suites [i, j, longueur] bout a bout, mailles dans l\'ordre des valeurs ; v.txt : base64, maille k, creneau q -> octet k * creneaux + q',
-              forcing: { blocks: blocks.length, per_deg: CFG.WAVE_PER_DEG, calls: stats.meteoCalls },
+              forcing: { blocks: blocks.length, per_deg: CFG.WAVE_PER_DEG, calls: stats.meteoCalls,
+                         retries: stats.meteoRetries, marine_missing: stats.marineMissing },
               tides: { sites: stats.tideSites, empty: stats.tideEmpty },
               satellite: { mode: SAT.mode, style: SAT.style, stats: SAT.stats }, summary: summary() },
       cells: cellRuns(),
