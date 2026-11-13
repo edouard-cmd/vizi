@@ -78,6 +78,18 @@
   }
 
   // ---------- grille ----------
+  // La sonde de l'app (depth_sample) rend la profondeur comme le plus court
+  // decimal qui designe le flottant simple precision du MNT ("24.975407").
+  // La grille porte ce meme flottant, ecrit en double (24.975406646728516).
+  // On repasse par le decimal de la sonde, parce que le moteur a un seuil
+  // franc, le critere de Shields : pour une maille posee pile sur ce seuil,
+  // un ecart de 1e-8 sur la profondeur deplace le chiffre de 20 cm a 1 m
+  // (mesure du 13/11/2026 devant Hyeres, 30 creneaux sur 40).
+  function probeDepth(d) {
+    var f = Math.fround(d);
+    for (var p = 1; p <= 9; p++) { var x = parseFloat(f.toPrecision(p)); if (Math.fround(x) === f) return x; }
+    return d;
+  }
   function ingest(idx, tiles) {
     if (!(idx.schema >= 2)) throw new Error('grille de schema ' + idx.schema + ' : il faut le schema 2 (fond au point de l\'app, parts exactes)');
     var L = idx.lattice, n = tiles.reduce(function (s, t) { return s + t.n; }, 0);
@@ -90,7 +102,7 @@
         // memes expressions que latOf / lonOf de grid-lib.js : memes flottants
         g.lat[q] = L.lat0 + (L.slat * tile.i[k] + 0.5) / L.per_deg;
         g.lon[q] = L.lon0 + (L.slon * tile.j[k] + 0.5) / L.per_deg;
-        g.d[q] = tile.d[k]; g.s[q] = tile.s[k]; g.ze[q] = tile.ze[k]; g.z[q] = tile.z[k];
+        g.d[q] = probeDepth(tile.d[k]); g.s[q] = tile.s[k]; g.ze[q] = tile.ze[k]; g.z[q] = tile.z[k];
       }
     });
     G = g; blocks = []; blockOf = null; siteOf = null; tides = {}; slots = null; sat = null;
