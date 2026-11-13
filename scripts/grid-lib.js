@@ -10,8 +10,11 @@
    CE QUE CONSTRUIT CE FICHIER (livraison 1) : la carte fixe.
    Pour chaque maille de la bande cotiere, France entiere :
      - sa profondeur sous le zero des cartes ;
-     - la nature du fond au centre de la maille ;
-     - la mosaique de fonds autour (rayon advectif du moteur).
+     - la nature du fond au centre de la maille, par la regle de l'app
+       (vzSedimentAtPoint_) : le polygone qui contient le point, trous
+       compris, au 1/250 000 puis au 1/1 000 000 ;
+     - la mosaique de fonds autour (rayon advectif du moteur), telle que
+       fetchSedimentZone la rend, parts exactes.
    Ces trois donnees ne bougent pas d'un jour a l'autre : elles sont
    calculees une fois, puis relues chaque matin par le calcul de prevision.
 
@@ -300,6 +303,46 @@
     return out;
   }
 
+  // Le point est-il dans le polygone, trous compris ? Regle pair-impair sur
+  // tous les anneaux : c'est le test que le serveur fait pour l'app
+  // (INTERSECTS), la ou _pointInMultiPolygon ne lit que l'anneau exterieur.
+  function inPolyWithHoles(lon, lat, poly) {
+    var c = false;
+    for (var r = 0; r < poly.length; r++) {
+      var ring = poly[r];
+      for (var a = 0, b = ring.length - 1; a < ring.length; b = a++) {
+        var xa = ring[a][0], ya = ring[a][1], xb = ring[b][0], yb = ring[b][1];
+        if ((ya > lat) !== (yb > lat) && lon < (xb - xa) * (lat - ya) / (yb - ya) + xa) c = !c;
+      }
+    }
+    return c;
+  }
+  // Entites triees comme l'app les recoit (sortBy=objectid).
+  function byObjectId(features) {
+    return features.slice().sort(function (a, b) {
+      return (a.props.objectid || 0) - (b.props.objectid || 0);
+    });
+  }
+  // Fond au point sur la carte au 1/250 000 de la tuile. Rend le sediment
+  // (ou null si le polygone est inclassable), ou undefined s'il n'y a aucun
+  // polygone sous le point.
+  function pointSediment(sorted, lon, lat) {
+    var first;
+    for (var k = 0; k < sorted.length; k++) {
+      var f = sorted[k], inside = false;
+      for (var q = 0; q < f.polys.length && !inside; q++) {
+        var b = f.polys[q].b;
+        if (lon < b[0] || lon > b[2] || lat < b[1] || lat > b[3]) continue;
+        if (inPolyWithHoles(lon, lat, f.polys[q].c)) inside = true;
+      }
+      if (!inside) continue;
+      var sed = root.mapFolkToSediment(f.props.folk_5cl_txt, f.props.original_substrate, f.props.folk_16cl_txt);
+      if (sed) return sed;                            // le premier que le moteur sait classer
+      if (first === undefined) first = null;
+    }
+    return first;
+  }
+
   function sedKey(sed) {
     if (!sed) return -1;
     var core = { folk5: sed.folk5, name: sed.name, nameFr: sed.nameFr, D50_mm: sed.D50_mm,
@@ -343,10 +386,12 @@
             if (isLand(g.e[(ii + offs[k][0]) * g.nj + (jj + offs[k][1])])) { coast = offs[k][2]; break; }
           }
           if (coast < 0) continue;
-          cells.push({ i: g.i0 + ii, j: g.j0 + jj, depth: Math.round(-v * 10) / 10, coast: Math.round(coast) });
+          // profondeur telle que la sonde la donne a l'app, sans arrondi : le
+          // moteur doit recevoir le meme nombre qu'apres un clic
+          cells.push({ i: g.i0 + ii, j: g.j0 + jj, depth: -v, coast: Math.round(coast) });
         }
       }
-      var out = { ti: ti, tj: tj, n: cells.length, i: [], j: [], d: [], c: [], s: [], r: [], z: [] };
+      var out = { ti: ti, tj: tj, n: cells.length, i: [], j: [], d: [], c: [], s: [], sl: [], r: [], z: [], ze: [] };
       if (!cells.length || opt.depthOnly) {
         cells.forEach(function (c) { out.i.push(c.i); out.j.push(c.j); out.d.push(c.depth); out.c.push(c.coast); });
         out.ms = Date.now() - t0;
@@ -357,7 +402,7 @@
         .then(function () {
           cells.forEach(function (c) {
             out.i.push(c.i); out.j.push(c.j); out.d.push(c.depth); out.c.push(c.coast);
-            out.s.push(c.sed); out.r.push(c.R); out.z.push(c.zone);
+            out.s.push(c.sed); out.sl.push(c.sedLayer); out.r.push(c.R); out.z.push(c.zone); out.ze.push(c.zoneErr);
           });
           out.ms = Date.now() - t0;
           return out;
@@ -387,35 +432,56 @@
       root.fetch = realFetch;
       if (marine !== undefined) root.S_spotMarineCache = marine;
     }
+    var sorted = byObjectId(features);
     var p = Promise.resolve();
     cells.forEach(function (c, idx) {
       p = p.then(function () {
         var lat = latOf(c.i), lon = lonOf(c.j);
-        // au centre : premiere entite qui contient le point
-        c.sed = -1;
-        var here = pick(features, [lon, lat, lon, lat]);
-        for (var k = 0; k < here.length; k++) {
-          if (root._pointInMultiPolygon([lon, lat], here[k].geometry)) {
-            var pr = here[k].properties;
-            c.sed = sedKey(root.mapFolkToSediment(pr.folk_5cl_txt, pr.original_substrate, pr.folk_16cl_txt));
-            break;
-          }
-        }
-        // autour : la fonction du moteur
+        // au centre : la regle de l'app. sedLayer : 0 = 1/250 000,
+        // 1 = 1/1 000 000, -1 = aucune carte sous le point.
+        var here = pointSediment(sorted, lon, lat);
+        c.sed = here ? sedKey(here) : -1;
+        c.sedLayer = (here === undefined) ? -1 : 0;
+        // autour : la fonction du moteur, parts exactes
         return root.fetchSedimentZone(lat, lon, c.depth).then(function (z) {
           c.R = (z && z.radius_m) ? Math.round(z.radius_m) : 0;
           c.zone = [];
-          ((z && z.classes) || []).forEach(function (cl) {
-            var pct = Math.round(cl.surface_pct * 10) / 10;
-            if (pct > 0) c.zone.push(sedKey(cl.sediment), pct);
-          });
+          ((z && z.classes) || []).forEach(function (cl) { c.zone.push(sedKey(cl.sediment), cl.surface_pct); });
+          c.zoneErr = (z && z.error) ? (z.error === 'no features in bbox' ? 1 : 2) : 0;
           for (var key in root.S_spotZoneCache) delete root.S_spotZoneCache[key];
           // rend la main au navigateur de temps en temps
           return (idx % 200 === 199) ? breathe() : null;
         });
       });
     });
-    return p.then(restore, function (e) { restore(); throw e; });
+    // Mailles sans polygone au 1/250 000 : on demande a l'app elle-meme
+    // (vzSedimentAtPoint_, qui passe au 1/1 000 000), fetch retabli, quatre
+    // demandes de front.
+    return p.then(restore, function (e) { restore(); throw e; }).then(function () {
+      var todo = cells.filter(function (c) { return c.sedLayer === -1; }), cur = 0;
+      if (!todo.length) return null;
+      if (typeof root.vzSedimentAtPoint_ !== 'function') throw new Error('vzSedimentAtPoint_ absent : app anterieure au 13/11/2026');
+      function worker() {
+        if (cur >= todo.length) return null;
+        var c = todo[cur++];
+        return askApp(latOf(c.i), lonOf(c.j), 0).then(function (hit) {
+          if (hit) {
+            var pr = hit.props;
+            c.sed = sedKey(root.mapFolkToSediment(pr.folk_5cl_txt, pr.original_substrate, pr.folk_16cl_txt));
+            c.sedLayer = /_1m$/.test(hit.layer) ? 1 : 0;
+          }
+          return worker();
+        });
+      }
+      return Promise.all([worker(), worker(), worker(), worker()]);
+    });
+  }
+
+  function askApp(lat, lon, attempt) {
+    return root.vzSedimentAtPoint_(lat, lon).catch(function (e) {
+      if (attempt >= CFG.RETRIES) throw new Error('fond au point : ' + String(e && e.message || e));
+      return sleep(1500 * (attempt + 1)).then(function () { return askApp(lat, lon, attempt + 1); });
+    });
   }
 
   // ---------- apercu sur la carte ----------

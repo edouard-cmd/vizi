@@ -13,8 +13,11 @@
                          liste des tuiles et nombre de mailles
      t_<ti>_<tj>.json    une tuile : i, j (indices de maille), d (profondeur
                          en m), c (distance a la terre en m), s (sediment au
-                         centre, cle du dictionnaire, -1 si inconnu),
-                         r (rayon advectif en m), z (mosaique : cle, part en %)
+                         centre, cle du dictionnaire, -1 si aucun), sl (carte
+                         lue : 0 = 1/250 000, 1 = 1/1 000 000, -1 = aucune),
+                         r (rayon advectif en m), z (mosaique : cle, part
+                         exacte en %), ze (0 = mosaique calculee, 1 = aucune
+                         entite autour)
      apercu-*.png        la grille dessinee sur la carte (option --shots)
 
    A lancer quand le treillis, la bande ou le classement des fonds changent,
@@ -111,12 +114,12 @@ const VIEWS = [
   }));
   const list = Object.keys(done).map(k => done[k]).sort((a, b) => a.ti - b.ti || a.tj - b.tj);
   const out = {
-    schema: 1, built: new Date().toISOString(), engine: info.engine, app: APP,
+    schema: 2, built: new Date().toISOString(), engine: info.engine, app: APP,
     lattice: { lat0: info.cfg.LAT0, lon0: info.cfg.LON0, per_deg: info.cfg.DTM_PER_DEG,
                slat: info.cfg.SLAT, slon: info.cfg.SLON, tile_i: info.cfg.TILE_I, tile_j: info.cfg.TILE_J },
     band: { band_m: info.cfg.BAND_M, near_m: info.cfg.NEAR_M, depth_min: info.cfg.DEPTH_MIN, depth_max: info.cfg.DEPTH_MAX },
     sources: { bathymetry: 'EMODnet Bathymetry DTM 2024 (ERDDAP bathymetry_dtm_2024)',
-               substrate: 'EMODnet Geology gtk:seabed_substrate_250k',
+               substrate: 'EMODnet Geology gtk:seabed_substrate_250k, puis gtk:seabed_substrate_1m pour le fond au point',
                france: 'Flanders Marine Institute, Marine Regions eez_land, MRGID ' + info.cfg.FRANCE_MRGID + ' (CC-BY)' },
     sediments: info.sediments,
     cells: list.reduce((s, t) => s + t.n, 0),
