@@ -6119,8 +6119,9 @@ function vzVisiScaleDraw_(bar, tk, sc) {
 // partout ailleurs. Le tableau calcule au point clique, la maille en son
 // centre : sur un fond accidente les deux peuvent differer un peu.
 //
-// Phase interne : la ligne du menu n'existe que sur un appareil marque
-// ?interne=1 (vzVfcRowBoot). Ailleurs rien n'est visible ni telecharge.
+// Ouverte a tous depuis le 13/11/2026 : sa ligne du menu Couches est dans
+// index.html (#vzRowVfc), devant celle de la visibilite satellite. Rien n'est
+// telecharge tant que la couche n'est pas allumee.
 var VZ_VFC_CFG = {
   base: 'https://raw.githubusercontent.com/edouard-cmd/vizi/forecast/forecast/',
   schema: 2,
@@ -6483,27 +6484,6 @@ window.vzVfcDiag = function() {
     banc: m.bench || null
   };
 };
-
-// Ligne du menu Couches, posee devant celle de la visibilite satellite.
-// Creee ici et non dans index.html tant que la couche est en phase interne :
-// un appareil qui n'est pas marque ?interne=1 n'a ni la ligne ni le moyen
-// d'allumer la couche. Pour l'ouvrir a tous : deplacer la ligne dans
-// index.html et supprimer cette fonction.
-(function vzVfcRowBoot() {
-  if (!window.VZ_INTERNE) return;
-  var ref = document.getElementById('vzRowZsd');
-  if (!ref) { setTimeout(vzVfcRowBoot, 300); return; }
-  if (document.getElementById('vzRowVfc')) return;
-  var row = document.createElement('div');
-  row.className = 'vz-layers-row';
-  row.id = 'vzRowVfc';
-  row.setAttribute('onclick', "toggleLayer('vfc')");
-  row.innerHTML =
-    '<span class="vz-layers-ico"><svg viewBox="0 0 24 24"><path d="M2 12 Q7 5 12 5 Q17 5 22 12 Q17 19 12 19 Q7 19 2 12 Z"></path><path d="M12 9 L12 12.4 L14.4 13.8"></path></svg></span>'
-  + '<span class="vz-layers-label"><span class="vz-layers-name">Visibilité prévue</span><span class="vz-layers-sub">5 jours, toutes les 3 h</span></span>'
-  + '<div class="vz-layers-check"></div>';
-  ref.parentNode.insertBefore(row, ref);
-})();
 
 
 // ============================================================
@@ -25772,20 +25752,6 @@ function vzmInit() {
       if (isCollapsed()) setOpen(false);
       else if (input) { input.value = ''; input.blur(); syncClear(); }
       return;
-    }
-    // Commande interne. L'app installee sur l'ecran d'accueil n'a pas de barre
-    // d'adresse et, sur iPhone, ne partage pas le stockage de Safari : y ouvrir
-    // ?interne=1 dans le navigateur ne la marque pas. Taper "interne=1" (ou 0)
-    // puis Entree recharge donc l'app sur cette adresse. Le drapeau lui-meme
-    // reste ecrit par le script du <head> d'index.html, et par lui seul.
-    // Tolerant : "?interne=1", "Interne 1" (majuscule automatique du clavier).
-    if (e.key === 'Enter' || e.keyCode === 13) {
-      var _cmd = /^\??\s*interne\s*=?\s*([01])$/i.exec(((input && input.value) || '').trim());
-      if (_cmd) {
-        e.preventDefault();
-        location.assign(location.pathname + '?interne=' + _cmd[1]);
-        return;
-      }
     }
     if (!_items.length) return;
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
