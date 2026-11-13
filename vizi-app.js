@@ -11807,7 +11807,7 @@ function computeVisibilityScore_V4(h, idx, depth, lat, lon, opts) {
 // chasseur. Sans elle, le jour ou le calcul change, on compare des
 // chiffres produits par deux moteurs differents sans le savoir. A
 // incrementer a CHAQUE modification du calcul (pas de l'UI).
-var VZ_ENGINE_VERSION = '2026-11-12';
+var VZ_ENGINE_VERSION = '2026-11-13';
 
 // ============================================================
 // SEDIMENT DE PROPAGATION - UN SEUL CHOIX POUR TOUTES LES VOIES
@@ -15357,10 +15357,64 @@ function mapFolkToSediment(folk5_txt, original_txt, folk16_txt) {
   };
 }
 // ============================================================
+// vzSedimentAtPoint_ - le polygone de fond qui CONTIENT le point
+// ------------------------------------------------------------
+// Jusqu'au 13/11/2026 le fond au point venait du proxy GAS
+// (action=sediment) : BBOX(geom, point +/- 0,05 deg) + COUNT=1. Or le
+// filtre BBOX de GeoServer compare des rectangles englobants, pas des
+// formes : la reponse etait le premier polygone, dans l'ordre du serveur,
+// dont l'enveloppe touchait une boite de 11 km. Mesure sur 60 points
+// tires au hasard sur toute la cote : le bon fond 15 fois, un autre 45
+// fois (roche pour du sable, sable fin pour de la roche).
+//
+// Ici c'est le serveur qui fait le test geometrique, trous compris :
+// INTERSECTS(geom, POINT). Deux cartes, de la plus fine a la plus large :
+// le 1/250 000, puis le 1/1 000 000 la ou le 250k n'est pas dessine (cote
+// landaise, Gironde, bassin d'Arcachon : 8 % des mailles cotieres).
+// sortBy=objectid : si deux polygones se recouvrent, la reponse est la
+// meme d'un appel a l'autre.
+//
+// Source : EMODnet Geology, Seabed Substrate 1:250 000 et 1:1 000 000
+// (WFS gtk:seabed_substrate_250k / gtk:seabed_substrate_1m), la meme
+// source que la mosaique du moteur (fetchSedimentZone).
+// Rend une Promise<{props, layer}|null>. Rejette sur panne reseau.
+// ============================================================
+var VZ_SED_WFS = 'https://drive.emodnet-geology.eu/geoserver/gtk/wfs';
+var VZ_SED_LAYERS = ['gtk:seabed_substrate_250k', 'gtk:seabed_substrate_1m'];
+function vzSedimentAtPoint_(lat, lon) {
+  function ask(layer) {
+    var url = VZ_SED_WFS + '?service=WFS&version=2.0.0&request=GetFeature'
+      + '&typeNames=' + layer
+      + '&propertyName=original_substrate,folk_5cl_txt,folk_16cl_txt'
+      + '&sortBy=objectid'
+      + '&outputFormat=application/json'
+      + '&cql_filter=' + encodeURIComponent('INTERSECTS(geom,SRID=4326;POINT(' + lon + ' ' + lat + '))');
+    return fetch(url).then(function(r) {
+      if (!r.ok) throw new Error('WFS HTTP ' + r.status);
+      return r.json();
+    }).then(function(json) {
+      var feats = (json && json.features) ? json.features : [];
+      if (!feats.length) return null;
+      // Recouvrement de deux polygones : le premier que le moteur sait classer.
+      for (var k = 0; k < feats.length; k++) {
+        var p = feats[k].properties || {};
+        if (mapFolkToSediment(p.folk_5cl_txt, p.original_substrate, p.folk_16cl_txt)) return { props: p, layer: layer };
+      }
+      return { props: feats[0].properties || {}, layer: layer };
+    });
+  }
+  var chain = Promise.resolve(null);
+  VZ_SED_LAYERS.forEach(function(layer) {
+    chain = chain.then(function(hit) { return hit || ask(layer); });
+  });
+  return chain;
+}
+
+// ============================================================
 // fetchSedimentType - point d'entree unique pour le sediment
 // ------------------------------------------------------------
-// Appelle le proxy GAS qui interroge la couche SHOM/EMODnet
-// (action=sediment). Retourne une Promise<SedimentInfo|null>.
+// Lit le polygone de fond qui contient le point (vzSedimentAtPoint_).
+// Retourne une Promise<SedimentInfo|null>.
 //
 // Effets de bord :
 //   - Stocke le resultat dans S._spotSediment (consomme par
@@ -15381,21 +15435,18 @@ function fetchSedimentType(lat, lon) {
   if (typeEl) typeEl.textContent = '...';
   if (swatchEl) swatchEl.style.background = '#E2E8F0';
 
-  return gasGet('sediment', { lat: lat, lon: lon }).then(function(data) {
-    if (!data || !data.text) {
-      fallbackSediment();
-      S._spotSediment = null;
-      return null;
-    }
+  return vzSedimentAtPoint_(lat, lon).then(function(hit) {
     try {
-      var json = JSON.parse(data.text);
-      if (!json.features || json.features.length === 0) {
+      if (!hit) {
         if (typeEl) typeEl.textContent = 'Hors couverture';
         S._spotSediment = null;
         return null;
       }
-      var props = json.features[0].properties;
+      var props = hit.props;
       var raw = props.original_substrate || props.folk_5cl_txt || '?';
+      // Le 1/1 000 000 porte un code chiffre a la place du libelle : on
+      // affiche alors la classe de Folk, lisible.
+      if (/^\d+$/.test(String(raw)) && props.folk_5cl_txt) raw = props.folk_5cl_txt;
       var lower = raw.toLowerCase();
 
       // Couleur swatch (comportement legacy preserve, defensif)
