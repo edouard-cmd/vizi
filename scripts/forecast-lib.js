@@ -10,7 +10,9 @@
 
    D'OU VIENNENT LES ENTREES
      - profondeur, fond au point, mosaique de fonds : la grille (branche
-       data, dossier grid/, schema 2), construite par grid-lib.js ;
+       data, dossier grid/, schema 2), construite par grid-lib.js. La
+       profondeur est negative sur un fond qui decouvre (estran) : c'est le
+       moteur qui dit, creneau par creneau, si la maree le couvre ;
      - meteo : c'est fetchSheetMeteo, la fonction de l'app, qui fusionne
        AROME, ARPEGE et la houle. On lui sert seulement, a la place de trois
        appels par point, les reponses d'appels groupes : un point de forcage
@@ -40,6 +42,7 @@
                             // refuse en cours de route le 13/11/2026 depuis une machine GitHub.
     SLOTS: 40,              // 5 jours x 8 creneaux, comme le tableau
     NONE: 255,              // pas de chiffre (roche, vase, entrees insuffisantes)
+    DRY: 254,               // a sec a ce creneau : le moteur trouve moins de 0,5 m d'eau (resultat.dry)
     RETRIES: 5
   };
 
@@ -52,7 +55,7 @@
   var slots = null;         // indices horaires des 40 creneaux
   var slotTimes = null;
   var slotSecs = null;      // les memes creneaux en secondes depuis 1970 (instants, sans fuseau)
-  var stats = { meteoCalls: 0, meteoRetries: 0, marineMissing: 0, tideSites: 0, tideEmpty: 0 };
+  var stats = { meteoCalls: 0, meteoRetries: 0, marineMissing: 0, tideSites: 0, tideEmpty: 0, tideRetried: 0 };
 
   function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
   function breathe() {
@@ -275,7 +278,26 @@
         return worker();
       });
     }
-    return Promise.all([worker(), worker(), worker()]).then(function () { return { sites: order.length, empty: stats.tideEmpty }; });
+    return Promise.all([worker(), worker(), worker()]).then(function () {
+      // Un site rendu vide peut l'etre par accident : le 14/11/2026, un site
+      // sur cinq est revenu vide quand trois demandes partaient ensemble, et
+      // a repondu normalement redemande seul. On redemande donc chaque site
+      // vide, seul, deux fois au plus. Sans maree, une maille d'estran n'a
+      // pas de chiffre et une maille de mer est calculee sur sa seule sonde.
+      var p = Promise.resolve();
+      [1, 2].forEach(function () {
+        order.forEach(function (id) {
+          p = p.then(function () {
+            if (tides[id]) return null;
+            var k = first[id];
+            return sleep(1500).then(function () { return root.fetchSheetTides({ lat: G.lat[k], lng: G.lon[k] }); }).then(function (res) {
+              if (res && res.points && res.points.length) { tides[id] = res.points; stats.tideEmpty--; stats.tideRetried++; }
+            }, function () {});
+          });
+        });
+      });
+      return p;
+    }).then(function () { return { sites: order.length, empty: stats.tideEmpty, retried: stats.tideRetried }; });
   }
 
   function fetchFeedback() {
@@ -435,6 +457,9 @@
     h = h || blocks[blockOf[k]].h;
     if (sat === undefined) sat = satFor(k);
     var pts = siteOf[k] !== null ? tides[siteOf[k]] : null;
+    // Fond qui decouvre sans la maree de son site : rien ne dit s'il y a de
+    // l'eau, et la maree restee dans la page est celle d'un autre port.
+    if (!pts && depth <= 0) { for (var q0 = 0; q0 < slots.length; q0++) out[off + q0] = CFG.NONE; return; }
     root.TIDES.data = pts || saved.tides;             // le tableau n'echange la maree que s'il en a une
     _depthAtTimeCache = {};
     for (var key in S_spotZoneCache) delete S_spotZoneCache[key];
@@ -444,9 +469,10 @@
     var opts = { satellite: sat, sediment: sed };
     for (var q = 0; q < slots.length; q++) {
       var o = root.computeVisibilityScore_V4(h, slots[q], depth, lat, lon, opts);
+      if (o && o.dry) { out[off + q] = CFG.DRY; continue; }
       // la regle d'affichage du tableau : un chiffre fini et positif, au decimetre
       var raw = (o && !o.insufficient && typeof o.visi_m === 'number' && isFinite(o.visi_m) && o.visi_m > 0) ? o.visi_m : null;
-      out[off + q] = raw === null ? CFG.NONE : Math.min(CFG.NONE - 1, Math.round(raw * 10));
+      out[off + q] = raw === null ? CFG.NONE : Math.min(CFG.DRY - 1, Math.round(raw * 10));
     }
   }
 
@@ -482,18 +508,28 @@
   }
 
   function summary() {
-    var S = slots.length, n = G.n, v = result.v, none = 0, flat = 0, alive = 0, sum = 0, cnt = 0;
+    var S = slots.length, n = G.n, v = result.v, none = 0, flat = 0, alive = 0, sum = 0, cnt = 0, drying = 0, drySlots = 0;
     for (var k = 0; k < n; k++) {
-      var mn = 255, mx = -1, any = false;
-      for (var q = 0; q < S; q++) { var x = v[k * S + q]; if (x === CFG.NONE) continue; any = true; if (x < mn) mn = x; if (x > mx) mx = x; sum += x; cnt++; }
+      var mn = 255, mx = -1, any = false, dry = 0;
+      for (var q = 0; q < S; q++) { var x = v[k * S + q]; if (x === CFG.DRY) { dry++; continue; } if (x === CFG.NONE) continue; any = true; if (x < mn) mn = x; if (x > mx) mx = x; sum += x; cnt++; }
+      if (dry) { drying++; drySlots += dry; }
       if (!any) none++; else if (mx === mn) flat++; else alive++;
     }
-    return { cells: n, slots: S, ms: result.ms, sansChiffre: none, plates: flat, vivantes: alive, moyenne_m: cnt ? Math.round(sum / cnt) / 10 : null };
+    // decouvrent : mailles a sec sur au moins un creneau ; creneauxASec : leur total.
+    return { cells: n, slots: S, ms: result.ms, sansChiffre: none, plates: flat, vivantes: alive, moyenne_m: cnt ? Math.round(sum / cnt) / 10 : null,
+             decouvrent: drying, creneauxASec: drySlots, estran: estranCount() };
   }
+
+  // Mailles dont le fond est au-dessus du zero des cartes. Le tableau
+  // Previsions les declare encore "hors d'eau" (vzFetchBathy_) et analyse a
+  // leur place le point de mer du secteur : le banc ne peut pas les comparer.
+  function isEstran(k) { return G.d[k] <= 0; }
+  function estranCount() { var c = 0; for (var k = 0; k < G.n; k++) if (G.d[k] <= 0) c++; return c; }
 
   // Sortie (schema 2) : un paquet AUTONOME, que l'app lit sans la grille.
   //   - valeurs : un octet par maille et par creneau (decimetres, 255 = pas de
-  //     chiffre), maille k, creneau q -> octet k * creneaux + q, en base64.
+  //     chiffre, 254 = a sec a ce creneau, annonce par meta.dry), maille k,
+  //     creneau q -> octet k * creneaux + q, en base64.
   //     En texte et non en binaire : GitHub compresse le texte en le servant
   //     (2,8 Mo deviennent environ 450 Ko sur le fil), pas le binaire.
   //   - mailles : leur position sur le treillis, DANS L'ORDRE des valeurs, en
@@ -519,13 +555,13 @@
     return {
       meta: { schema: 2, built: new Date().toISOString(),
               engine: (typeof VZ_ENGINE_VERSION !== 'undefined') ? VZ_ENGINE_VERSION : null,
-              grid_built: G.idx.built, cells: G.n, slots: slotTimes, slots_s: slotSecs, unit: 'dm', none: CFG.NONE,
+              grid_built: G.idx.built, cells: G.n, slots: slotTimes, slots_s: slotSecs, unit: 'dm', none: CFG.NONE, dry: CFG.DRY,
               lattice: { lat0: L.lat0, lon0: L.lon0, per_deg: L.per_deg, slat: L.slat, slon: L.slon },
               files: { cells: 'cells.json', values: 'v.txt' },
               order: 'cells.json : suites [i, j, longueur] bout a bout, mailles dans l\'ordre des valeurs ; v.txt : base64, maille k, creneau q -> octet k * creneaux + q',
               forcing: { blocks: blocks.length, per_deg: CFG.WAVE_PER_DEG, calls: stats.meteoCalls,
                          retries: stats.meteoRetries, marine_missing: stats.marineMissing },
-              tides: { sites: stats.tideSites, empty: stats.tideEmpty },
+              tides: { sites: stats.tideSites, empty: stats.tideEmpty, retried: stats.tideRetried },
               satellite: { mode: SAT.mode, style: SAT.style, stats: SAT.stats }, summary: summary() },
       cells: cellRuns(),
       b64: root.btoa(bin)
@@ -589,7 +625,7 @@
   root.VZ_FC = {
     CFG: CFG, SAT: SAT, loadGrid: loadGrid, useGrid: ingest, fetchForcing: fetchForcing, fetchTides: fetchTides, fetchFeedback: fetchFeedback,
     fetchSatellite: fetchSatellite, satOf: function (k) { return sat ? sat[k] : undefined; },
-    compute: compute, summary: summary, exportResult: exportResult, checkCell: checkCell,
+    compute: compute, summary: summary, exportResult: exportResult, checkCell: checkCell, isEstran: isEstran,
     muteArchive: muteArchive,
     info: function () { return { cells: G ? G.n : 0, blocks: blocks.length, slots: slotTimes, stats: stats, sat: SAT.stats, archiveMuted: archiveMuted, archiveCalls: archiveCalls }; },
     _runs: cellRuns,

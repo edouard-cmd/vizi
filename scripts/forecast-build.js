@@ -36,8 +36,9 @@
      cells.json   position des mailles sur le treillis, dans l'ordre des
                   valeurs : suites [i, j, longueur] mises bout a bout
      v.txt        un octet par maille et par creneau, en base64 : decimetres
-                  de visibilite, 255 = pas de chiffre. Maille k, creneau q ->
-                  octet k * 40 + q.
+                  de visibilite, 255 = pas de chiffre, 254 = a sec a ce
+                  creneau (fond qui decouvre). Maille k, creneau q -> octet
+                  k * 40 + q.
    Le paquet est autonome : l'app le lit sans la grille (trois fichiers,
    environ 500 Ko sur le fil car GitHub compresse le texte, pas le binaire).
 
@@ -92,8 +93,13 @@ const CHECK = Math.max(0, parseInt(arg('check', '30'), 10) || 0);
                   robot_diffs: 0, robot_max_dm: 0, robot_cells_off: 0, errors: 0 };
   let seed = Math.floor(Date.now() / 86400000);
   const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+  // Le banc ne tire que des mailles que le tableau sait analyser : sur un
+  // fond au-dessus du zero des cartes il repond encore "hors d'eau" et
+  // calcule le point de mer du secteur, la comparaison n'aurait pas de sens.
+  let skippedEstran = 0;
   for (let q = 0; q < CHECK; q++) {
-    const k = Math.floor(rnd() * summary.cells);
+    let k = Math.floor(rnd() * summary.cells);
+    for (let tries = 0; tries < 200 && await page.evaluate(i => VZ_FC.isEstran(i), k); tries++) { skippedEstran++; k = Math.floor(rnd() * summary.cells); }
     try {
       const c = await page.evaluate(i => VZ_FC.checkCell(i), k);
       bench.cells++; bench.slots += c.n;
@@ -112,6 +118,7 @@ const CHECK = Math.max(0, parseInt(arg('check', '30'), 10) || 0);
   }
   const info = await page.evaluate(() => VZ_FC.info());
   bench.archive_writes_blocked = info.archiveCalls;
+  bench.estran_skipped = skippedEstran;
   console.log('[prevision] banc : ' + JSON.stringify(bench));
 
   const res = await page.evaluate(() => VZ_FC.exportResult());
