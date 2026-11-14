@@ -6109,7 +6109,11 @@ function vzVisiScaleDraw_(bar, tk, sc) {
 //   cells.json  position des mailles : suites [i, j, longueur] bout a bout,
 //               dans l'ordre des valeurs
 //   v.txt       base64, un octet par maille et par creneau, en decimetres ;
-//               255 = le moteur n'a pas de chiffre (maille peinte en gris)
+//               255 = le moteur n'a pas de chiffre (maille peinte en gris) ;
+//               meta.dry (254) = a sec a ce creneau : moins de 0,5 m d'eau
+//               sur un fond qui decouvre. La maille n'est pas peinte, elle
+//               compte comme absente : le calque recule a basse mer et
+//               remonte a pleine mer
 // La maille (i, j) est centree sur lat0 + (slat*i + 0.5)/per_deg et
 // lon0 + (slon*j + 0.5)/per_deg, et couvre slat x slon pas du treillis.
 // Rendu : un degrade continu. Le chiffre de chaque maille est celui que le
@@ -6154,10 +6158,11 @@ var VZ_VFC_CFG = {
   bucket: 5      // index spatial : paves de 32 x 32 mailles
 };
 
-// Etat de la couche. meta/v/ci/cj/buckets : ecrits par vzVfcIngest_ seul.
+// Etat de la couche. meta/v/ci/cj/buckets/dry : ecrits par vzVfcIngest_ seul.
+// dry : l'octet qui veut dire "a sec" dans ce paquet, -1 s'il n'en a pas.
 // css, rgb : ecrits par vzVfcBuildCss_ seul. tiles : tuiles en carte.
 var VZ_VFC_STATE = { pending: null, loadedAt: 0, meta: null, n: 0, slots: 0, v: null, ci: null, cj: null,
-  buckets: null, css: null, rgb: null, scaleKey: null, layer: null, tiles: {}, seq: 0 };
+  buckets: null, dry: -1, css: null, rgb: null, scaleKey: null, layer: null, tiles: {}, seq: 0 };
 
 function vzVfcGet_(name, asText) {
   return fetch(VZ_VFC_CFG.base + name).then(function(r) {
@@ -6234,6 +6239,7 @@ function vzVfcIngest_(meta, runs, b64) {
     (buckets[key] || (buckets[key] = [])).push(k);
   }
   st.meta = meta; st.n = n; st.slots = ns; st.v = v; st.ci = ci; st.cj = cj; st.buckets = buckets;
+  st.dry = (typeof meta.dry === 'number') ? meta.dry : -1;
 }
 
 // Bornes de l'echelle. Celles que Copernicus a confirmees si elles sont
@@ -6349,7 +6355,8 @@ function vzVfcTileGrid_(tile) {
 // Degrade lisse. Pour chaque pixel : moyenne des quatre mailles qui
 // l'entourent, ponderee par la distance (interpolation bilineaire), puis
 // couleur de cette valeur sur l'echelle. Seules les mailles qui existent
-// comptent, et leur poids total donne le bord : au-dela d'une demi-maille du
+// comptent (une maille a sec a ce creneau ne compte pas), et leur poids
+// total donne le bord : au-dela d'une demi-maille du
 // dernier centre la couleur s'efface, sur un fondu court, au lieu de finir en
 // marche d'escalier. La ou les mailles sans chiffre dominent, le gris.
 function vzVfcPaintSmooth_(tile) {
@@ -6358,7 +6365,7 @@ function vzVfcPaintSmooth_(tile) {
   if (!g.any) { ctx.clearRect(0, 0, W, W); return; }
   var img = tile._vzi || (tile._vzi = ctx.createImageData(W, W));
   var d = img.data, ix = g.ix, nj = g.nj, colJ = g.colJ, colT = g.colT, j0 = g.j0;
-  var ns = st.slots, q = S.vfcPos || 0, v = st.v, rgb = st.rgb;
+  var ns = st.slots, q = S.vfcPos || 0, v = st.v, rgb = st.rgb, dry = st.dry;
   var sub = VZ_VFC_CFG.sub, grey = 255 * sub * 3;
   if (q > ns - 1) q = ns - 1;
   var o = 0, k, val, wg;
@@ -6368,13 +6375,13 @@ function vzVfcPaintSmooth_(tile) {
       var p = colJ[x] - j0, tj = colT[x], sj = 1 - tj;
       var acc = 0, ws = 0, gs = 0;
       k = ix[r0 + p];
-      if (k >= 0) { wg = si * sj; val = v[k * ns + q]; if (val === 255) gs += wg; else { acc += wg * val; ws += wg; } }
+      if (k >= 0 && (val = v[k * ns + q]) !== dry) { wg = si * sj; if (val === 255) gs += wg; else { acc += wg * val; ws += wg; } }
       k = ix[r0 + p + 1];
-      if (k >= 0) { wg = si * tj; val = v[k * ns + q]; if (val === 255) gs += wg; else { acc += wg * val; ws += wg; } }
+      if (k >= 0 && (val = v[k * ns + q]) !== dry) { wg = si * tj; if (val === 255) gs += wg; else { acc += wg * val; ws += wg; } }
       k = ix[r1 + p];
-      if (k >= 0) { wg = ti * sj; val = v[k * ns + q]; if (val === 255) gs += wg; else { acc += wg * val; ws += wg; } }
+      if (k >= 0 && (val = v[k * ns + q]) !== dry) { wg = ti * sj; if (val === 255) gs += wg; else { acc += wg * val; ws += wg; } }
       k = ix[r1 + p + 1];
-      if (k >= 0) { wg = ti * tj; val = v[k * ns + q]; if (val === 255) gs += wg; else { acc += wg * val; ws += wg; } }
+      if (k >= 0 && (val = v[k * ns + q]) !== dry) { wg = ti * tj; if (val === 255) gs += wg; else { acc += wg * val; ws += wg; } }
       var tot = ws + gs;
       if (tot < 0.3) { d[o + 3] = 0; continue; }
       var al = tot >= 0.7 ? 1 : (tot - 0.3) / 0.4;
@@ -6422,6 +6429,7 @@ function vzVfcPaintFlat_(tile) {
           var k = list[a], i = ci[k], j = cj[k];
           if (i < i0 || i > i1 || j < j0 || j > j1) continue;
           var x = v[k * ns + q];
+          if (x === st.dry) continue;                      // a sec a ce creneau : rien
           if ((x === 255) !== (pass === 0)) continue;
           var latC = L0.lat0 + (L0.slat * i + 0.5) / per;
           var lonC = L0.lon0 + (L0.slon * j + 0.5) / per;
@@ -6600,7 +6608,13 @@ window.vzVfcDiag = function() {
     tuiles_en_carte: Object.keys(st.tiles).length,
     echelle: vzVfcScale_(),
     resume: m.summary || null,
-    banc: m.bench || null
+    banc: m.bench || null,
+    a_sec_a_ce_creneau: (function() {
+      if (!st.v || st.dry < 0) return 0;
+      var q = S.vfcPos || 0, c = 0;
+      for (var k = 0; k < st.n; k++) if (st.v[k * st.slots + q] === st.dry) c++;
+      return c;
+    })()
   };
 };
 
@@ -10616,18 +10630,55 @@ function toggleDecantInfo() {
 // de régression vs comportement actuel.
 // ============================================================
 function depthAtTime(depthLAT, timeISO) {
-  if (typeof TIDES === 'undefined' || !TIDES.data || TIDES.data.length === 0) {
-    return depthLAT;
-  }
+  var hgt = vzTideAt_(timeISO);
+  if (hgt === null) return depthLAT;
+  var realDepth = depthLAT + hgt;
+  return Math.max(0.3, realDepth);
+}
+
+// ============================================================
+// Y A-T-IL DE L'EAU ICI A L'INSTANT T ?
+// ------------------------------------------------------------
+// Un fond qui decouvre aux plus basses mers est sous l'eau presque tout le
+// temps. Mesure a Courseulles du 9 au 19/11/2026 (maree de 1,1 a 7,4 m) :
+// un fond a 1 m au-dessus du zero des cartes garde 0,5 m d'eau 98 % du
+// temps, a 2 m 86 %. Ce qui decide, c'est la maree du jour, donc le
+// coefficient : la basse mer descend a 1,1 m en vive-eau et reste a 3,2 m
+// en morte-eau. Un seul endroit le dit :
+//   vzTideAt_(t)       hauteur de maree a l'instant t (m), ou null si la
+//                      maree n'est pas chargee ou ne couvre pas cet instant
+//                      (echantillon le plus proche a plus de 30 min) ;
+//   vzWaterAt_(d, t)   hauteur d'eau = sonde + maree, ou null si l'une des
+//                      deux manque. La sonde d est positive sous le zero des
+//                      cartes et NEGATIVE au-dessus (estran) ;
+//   VZ_WATER_MIN       en dessous, le point est a sec pour le moteur.
+// depthAtTime garde son contrat : plancher a 0,3 m, sonde brute sans maree.
+//
+// vzTideAt_ garde ses reponses tant que TIDES.data est le meme tableau :
+// TIDES.data est toujours remplace, jamais modifie en place. Sans cette
+// memoire, chaque appel relit toute la courbe en convertissant ses dates.
+// ============================================================
+var VZ_WATER_MIN = 0.5;
+var _vzTideMemo = { data: null, at: {} };
+function vzTideAt_(timeISO) {
+  if (typeof TIDES === 'undefined' || !TIDES.data || TIDES.data.length === 0) return null;
+  if (_vzTideMemo.data !== TIDES.data) _vzTideMemo = { data: TIDES.data, at: {} };
+  var memo = _vzTideMemo.at;
+  if (memo[timeISO] !== undefined) return memo[timeISO];
   var targetMs = new Date(timeISO).getTime();
   var nearest = null, bestDelta = Infinity;
   for (var i = 0; i < TIDES.data.length; i++) {
     var delta = Math.abs(new Date(TIDES.data[i].time).getTime() - targetMs);
     if (delta < bestDelta) { bestDelta = delta; nearest = TIDES.data[i]; }
   }
-  if (!nearest || bestDelta > 1800000) return depthLAT;
-  var realDepth = depthLAT + nearest.height;
-  return Math.max(0.3, realDepth);
+  var hgt = (!nearest || bestDelta > 1800000) ? null : nearest.height;
+  memo[timeISO] = hgt;
+  return hgt;
+}
+function vzWaterAt_(depthLAT, timeISO) {
+  if (typeof depthLAT !== 'number' || !isFinite(depthLAT)) return null;
+  var hgt = vzTideAt_(timeISO);
+  return (typeof hgt === 'number' && isFinite(hgt)) ? depthLAT + hgt : null;
 }
 // ============================================================
 // CONSTANTES PHYSIQUES (reutilisees par les briques 1-8)
@@ -12343,6 +12394,9 @@ var VZ_OBS_MIN_WEIGHT = 0.35;
 function computeVisibilityScore_V4(h, idx, depth, lat, lon, opts) {
   var base = _computeVisibilityCore(h, idx, depth, lat, lon, opts);
   if (!base) return base;
+  // A sec a ce creneau : aucun retour terrain, meme voisin et recent, ne met
+  // de l'eau sur un fond decouvert.
+  if (base.dry) return base;
 
   // Si le coeur a deja utilise l'observation comme condition initiale, le
   // melange pondere n'a plus lieu d'etre : il ecraserait une valeur propagee
@@ -12423,7 +12477,7 @@ function computeVisibilityScore_V4(h, idx, depth, lat, lon, opts) {
 // chasseur. Sans elle, le jour ou le calcul change, on compare des
 // chiffres produits par deux moteurs differents sans le savoir. A
 // incrementer a CHAQUE modification du calcul (pas de l'UI).
-var VZ_ENGINE_VERSION = '2026-11-13';
+var VZ_ENGINE_VERSION = '2026-11-14';
 
 // ============================================================
 // SEDIMENT DE PROPAGATION - UN SEUL CHOIX POUR TOUTES LES VOIES
@@ -12521,6 +12575,40 @@ function _computeVisibilityCore(h, idx, depth, lat, lon, opts) {
   if (_chainCache[cacheKey]) return _chainCache[cacheKey];
 
   // ============================================================
+  // EAU A L'INSTANT T (avant toute voie)
+  // ------------------------------------------------------------
+  // Les voies observation, satellite et Coriolis rendaient un chiffre sans
+  // regarder s'il y avait de l'eau : la garde "eau insuffisante" ne venait
+  // qu'apres elles, devant la chaine physique. Sur un fond qui decouvre, la
+  // photo satellite prise a pleine mer aurait donne une visibilite a basse
+  // mer. La regle passe donc devant (vzWaterAt_, seul endroit qui la dit).
+  //   - eau connue et sous VZ_WATER_MIN : a sec. `dry` le dit aux
+  //     consommateurs, ce n'est pas "pas de chiffre" ;
+  //   - fond au-dessus du zero des cartes et maree inconnue a cet instant :
+  //     on ne sait pas s'il y a de l'eau, donc pas de chiffre ;
+  //   - sinon le fond est exploitable (_bottomOk), y compris au-dessus du
+  //     zero des cartes quand la maree le couvre.
+  // Pour une sonde positive sans maree chargee (Mediterranee), rien ne
+  // change : _bottomOk vaut ce que valait "depth > 0".
+  // ============================================================
+  var _water = vzWaterAt_(depth, h.time[idx]);
+  var _depthKnown = (typeof depth === 'number' && isFinite(depth));
+  if (_water !== null && _water < VZ_WATER_MIN) {
+    var rDry = _buildEmpiricalResult(h, idx, depth, lat, lon,
+      'à sec à cet instant (' + Math.max(0, _water).toFixed(1).replace('.', ',') + ' m d\'eau)');
+    rDry.dry = true;
+    _chainCache[cacheKey] = rDry;
+    return rDry;
+  }
+  if (_depthKnown && depth <= 0 && _water === null) {
+    var rTide = _buildEmpiricalResult(h, idx, depth, lat, lon,
+      'fond au-dessus du zéro des cartes, marée inconnue à cet instant');
+    _chainCache[cacheKey] = rTide;
+    return rTide;
+  }
+  var _bottomOk = _depthKnown && (depth > 0 || _water !== null);
+
+  // ============================================================
   // VOIE OBSERVATION PROPAGÉE (ancre terrain, priorité 0)
   // ------------------------------------------------------------
   // Un chasseur qui a vu l'eau est la mesure la plus precise et la plus
@@ -12551,7 +12639,7 @@ function _computeVisibilityCore(h, idx, depth, lat, lon, opts) {
   var _obsAnchor = (typeof vzNearestFeedback === 'function')
     ? vzNearestFeedback(lat, lon, VZ_OBS_MAX_KM) : null;
   if (_obsAnchor && typeof _obsAnchor.real_m === 'number' && isFinite(_obsAnchor.real_m)
-      && _obsAnchor.real_m > 0 && depth && depth > 0) {
+      && _obsAnchor.real_m > 0 && _bottomOk) {
 
     if (_observationV4Cache[cacheKey]) return _observationV4Cache[cacheKey];
 
@@ -13037,7 +13125,7 @@ var sediment = _sediment;
   // La garde stricte (< 0.5m) sera appliquée APRÈS calcul de
   // depthInstant pour rejeter uniquement les créneaux où l'eau
   // est réellement insuffisante au moment T (à BM grand coef).
-  if (!depth || depth <= 0) {
+  if (!_bottomOk) {
     var r5 = _buildEmpiricalResult(h, idx, depth, lat, lon,
       'profondeur LAT non disponible');
     _chainCache[cacheKey] = r5;
