@@ -810,8 +810,9 @@
   /* ------------------------------------------------------------------------
      MESURE LA PLUS PROCHE D'UN SECTEUR SUIVI
      ------------------------------------------------------------------------
-     Rend le retour communautaire le plus RECENT dans un rayon de 12 km et
-     moins de 7 jours, exactement la meme fenetre que le panneau secteur. Deux
+     Rend le retour communautaire le plus RECENT du secteur (port le plus
+     proche, vzSectorObs_) et de moins de 7 jours, exactement la meme regle
+     que le panneau secteur. Deux
      ecrans qui parlent du meme point doivent afficher le meme chiffre, sinon
      le chasseur ne sait plus lequel croire.
 
@@ -820,18 +821,16 @@
      d'interrogation lisible, jamais un etat grise ni une valeur rassurante.
      ------------------------------------------------------------------------ */
   function mesureSecteur(lat, lon) {
-    if (!_obs || !_obs.length || typeof haversineKm !== 'function') return null;
+    if (!_obs || !_obs.length || typeof vzSectorObs_ !== 'function') return null;
     var best = null;
-    var maxAge = 7 * 86400000;
     var now = Date.now();
-    for (var i = 0; i < _obs.length; i++) {
-      var o = _obs[i];
-      if (typeof o.lat !== 'number' || typeof o.lon !== 'number') continue;
-      if (!(o.visibility_m > 0)) continue;
-      if (haversineKm(lat, lon, o.lat, o.lon) > 12) continue;
-      var t = new Date(o.timestamp).getTime();
-      if (isNaN(t) || (now - t) > maxAge) continue;
-      if (!best || t > best.ts) best = { visi: o.visibility_m, ts: t };
+    // Liste triee du plus recent au plus ancien : le premier retour chiffre gagne.
+    var list = vzSectorObs_(_obs, lat, lon, 7);
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].visibility_m > 0) {
+        best = { visi: list[i].visibility_m, ts: new Date(list[i].timestamp).getTime() };
+        break;
+      }
     }
     if (!best) return null;
     var h = Math.round((now - best.ts) / 3600000);
