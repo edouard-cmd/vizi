@@ -2290,7 +2290,8 @@ function fetchPortCounts_() {
     var all = res[0].slice();
     (res[1] || []).forEach(function(o) {
       var n = _normalizeObservation_(o);
-      if (n) all.push(n);
+      // Borne moteur : le GAS rend 7 jours, le moteur n'en lit que 72 h.
+      if (n && n.age_hours <= VZ_OBS_ENGINE_MAX_AGE_H) all.push(n);
     });
     all.forEach(function(f) {
       if (typeof findNearestPort !== 'function') return;
@@ -2320,9 +2321,10 @@ function ensurePortCounts_() {
   return fetchPortCounts_();
 }
 
-// Cache partage des observations communautaires (get_observations, <72h
-// cote GAS). Consomme par la pastille clic-point et le panneau Retours
-// du secteur : un seul appel GAS sert les deux surfaces. TTL 5 min,
+// Cache partage des observations communautaires (get_observations, 7 jours
+// cote GAS depuis le 16/11/2026, 72 h avant). Consomme par la pastille
+// clic-point, le panneau Retours du secteur, l'espace chasseur et le moteur
+// (via fetchPortCounts_, borne a VZ_OBS_ENGINE_MAX_AGE_H) : un seul appel GAS. TTL 5 min,
 // invalide (S_obsCache = null) au depot d'une nouvelle observation
 // pour que le panneau reflete immediatement le depot de l'utilisateur.
 var S_obsCache = null;
@@ -2336,6 +2338,39 @@ function vzEnsureObservations() {
     S_obsCacheAt = Date.now();
     return S_obsCache;
   });
+}
+
+// Fenetre du MOTEUR sur les retours chasseurs. Le GAS rend 7 jours (ce que
+// promet le panneau secteur), mais le moteur n'a jamais vu que 72 h :
+// vzNearestFeedback n'a aucun garde d'age et prend le retour le plus recent
+// du rayon, qui peut devenir l'ancre de la voie observation_propagated.
+// Sans cette borne, un retour de 6 jours ancrerait la prevision.
+var VZ_OBS_ENGINE_MAX_AGE_H = 72;
+
+// APPARTENANCE D'UN RETOUR A UN SECTEUR - regle unique.
+// Un retour appartient au secteur dont le port est le plus proche
+// (findNearestPort) : c'est la regle qui nomme le secteur au depot et dans
+// l'email d'alerte, et celle de fetchPortCounts_ pour le moteur. L'ancien
+// disque de 12 km autour du port la contredisait : un retour nomme
+// "Cherbourg" (Cap Levi, 12,25 km, 13/11/2026) etait absent du panneau
+// Cherbourg. Consomme par le panneau Retours, la sous-ligne du clic-point et
+// l'espace chasseur (mesureSecteur) : trois surfaces, une seule verite.
+// Rend les retours du secteur de (lat, lon) de moins de `days` jours, du
+// plus recent au plus ancien.
+function vzSectorObs_(obs, lat, lon, days) {
+  if (!obs || !obs.length || typeof findNearestPort !== 'function') return [];
+  var home = findNearestPort(lat, lon);
+  if (!home || !home.spot) return [];
+  var maxMs = days * 86400000;
+  var now = Date.now();
+  return obs.filter(function(o) {
+    if (!o || typeof o.lat !== 'number' || typeof o.lon !== 'number') return false;
+    if (!isFinite(o.lat) || !isFinite(o.lon)) return false;
+    var t = new Date(o.timestamp).getTime();
+    if (!isFinite(t) || (now - t) >= maxMs) return false;
+    var np = findNearestPort(o.lat, o.lon);
+    return !!(np && np.spot === home.spot);
+  }).sort(function(a, b) { return new Date(b.timestamp) - new Date(a.timestamp); });
 }
 
 // Retour communautaire le plus proche d'un point, dans maxKm. Parmi les
@@ -2724,18 +2759,14 @@ function vzDesktopPointSelect(latlng) {
       + '<span class="vz-point-sub">' + parts.join(' · ') + '</span></span>' + _ptChevron;
   }
   // Pont communautaire : si des retours existent dans le secteur du
-  // point (12 km / 7 j, memes regles que le panneau Retours du
-  // secteur), la sous-ligne l'affiche. Lecture depuis le cache
+  // point (vzSectorObs_ : port le plus proche / 7 j, meme regle que le
+  // panneau Retours du secteur), la sous-ligne l'affiche. Lecture depuis le cache
   // partage : zero appel GAS supplementaire dans la plupart des cas.
   // Arrivee asynchrone : si le libelle final est deja pose, on le
   // re-rend avec la sous-ligne enrichie (garde _ptGen dans _ptSetLabel).
   if (typeof vzEnsureObservations === 'function') {
     vzEnsureObservations().then(function(obs) {
-      var near = (obs || []).filter(function(o) {
-        return typeof o.lat === 'number' && typeof haversineKm === 'function'
-          && haversineKm(latlng.lat, latlng.lng, o.lat, o.lon) <= 12
-          && (Date.now() - new Date(o.timestamp).getTime()) < 7 * 86400000;
-      });
+      var near = vzSectorObs_(obs, latlng.lat, latlng.lng, 7);
       if (!near.length) return;
       _ptObsSub = '<span class="vz-point-obs">' + near.length + ' retour'
         + (near.length > 1 ? 's' : '') + ' de chasseurs</span>';
@@ -24690,7 +24721,7 @@ function vzmInit() {
   // repeindraient l'app entiere si elles etaient injectees telles quelles.
   //
   // Sources de donnees, toutes deja presentes :
-  //   retours    -> vzEnsureObservations() filtre 12 km / 7 j
+  //   retours    -> vzEnsureObservations() puis vzSectorObs_ (port le plus proche / 7 j)
   //   satellite  -> fetchCmemsZSD() (meme fonction que l'etiquette ancree,
   //                 donc aucune divergence possible entre les deux surfaces)
   //   maree      -> GAS tides_range, fetch isole : on n'ecrit JAMAIS dans
@@ -25481,10 +25512,8 @@ function vzmInit() {
       if (tk !== VZSP.token) return;
       var pane = document.getElementById('vzspPaneFb');
       if (!pane) return;
-      var near = (allObs || []).filter(function (o) {
-        return typeof o.lat === 'number' && haversineKm(c.lat, c.lng, o.lat, o.lon) <= 12
-          && (Date.now() - new Date(o.timestamp).getTime()) < 7 * 86400000;
-      }).sort(function (a, b) { return new Date(b.timestamp) - new Date(a.timestamp); });
+      // Meme regle que le depot : un retour nomme "Cherbourg" est dans Cherbourg.
+      var near = vzSectorObs_(allObs, c.lat, c.lng, 7);
 
       var loadingSat = '<div class="vzsp-sat"><span class="vzsp-sic">' + VZSP_SVG_SAT + '</span>'
         + '<span class="vzsp-slbl"><span class="vzsp-t">Satellite</span><span class="vzsp-s">lecture en cours</span></span>'
